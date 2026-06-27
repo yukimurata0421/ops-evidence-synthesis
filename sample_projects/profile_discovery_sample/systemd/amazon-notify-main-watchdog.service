@@ -1,0 +1,13 @@
+[Unit]
+Description=Sample notification main watchdog
+
+[Service]
+Type=simple
+WorkingDirectory=/home/example/projects/amazon-notify
+EnvironmentFile=/home/example/projects/amazon-notify/.env
+ExecStart=/usr/bin/python3 /home/example/projects/amazon-notify/src/watchdog_restart_main.py --service amazon-notify-main
+Restart=on-failure
+User=appuser
+
+[Install]
+WantedBy=multi-user.target

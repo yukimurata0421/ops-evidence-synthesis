@@ -1,0 +1,600 @@
+{
+  "profile_id": "stream_v3_monitoring",
+  "profile_label": "stream_v3 arena-server monitoring profile",
+  "source_system": "stream_v3_monitoring",
+  "system_profile": {
+    "system_name": "stream_v3",
+    "system_type": "streaming_runtime_monitoring",
+    "environment": "arena_server",
+    "owner_context": "personal_home_lab",
+    "purpose": "Monitor and control the k3s-owned stream_v3 YouTube Live pipeline from arena-server.",
+    "critical_user_outcomes": [
+      "YouTube live stream remains online and watchable.",
+      "RTMPS send path stays active.",
+      "Audio continues.",
+      "Video capture stays fresh.",
+      "Monitoring/exporter surfaces remain fresh enough to judge runtime health."
+    ],
+    "profile_scope": "arena-server monitoring/control layer evidence for stream_v3."
+  },
+  "operational_contract": {
+    "expected_normal": [
+      "stream-v3-runtime Pod is Running and all runtime containers are ready.",
+      "stream-engine FFmpeg exists and RTMPS socket or fresh TCP send sample exists.",
+      "YouTube watchdog reports local_ok, public_ok, api_ok, oauth_ok, ingest_connected, and stream_active.",
+      "Audio evidence is available, Pulse sink/source exist, audio_ok is true, and audio_fault_count is 0.",
+      "ADS-B/rendering evidence is available, messages and positions are moving.",
+      "exporter_up, monitoring_watchdog_all_ok, health snapshots, and objective snapshots are fresh.",
+      "Local adsb-streamnew-youtube-stream.service may be dead when k3s runtime owns streaming."
+    ],
+    "failure_indicators": [
+      "Runtime Pod is not ready, container restarts are rising, or runtime heartbeat is stale.",
+      "runtime_ffmpeg_present is 0, ingest_connected is 0, or network_ffmpeg_socket_connected is 0 without a fresh TCP sample.",
+      "Upload sample is stale, Mbps is low with notsent/unacked/lastsnd pressure, tcp_stall, network_down, or low_upload_pressure appears.",
+      "youtube_watchdog_healthy is 0, fail_count rises, or same_url_live is false with corroborating evidence.",
+      "audio_ok is 0, audio_fault_count is greater than 0, Pulse source is missing, or confirmed audio_energy_low appears.",
+      "ADS-B evidence is missing/stale, messages or positions stop moving, black frame appears, or overlay is unavailable.",
+      "current_fail is 1, notify_active_incidents is greater than 0, or a recovery action is executable."
+    ],
+    "non_critical_noise": [
+      "Chromium crashpad, DBus, or GPU warnings when Chromium, FFmpeg x11grab, runtime heartbeat, and rendering metrics are OK.",
+      "PulseAudio startup/config warnings when stream_v3_sink.monitor exists and audio_ok is true.",
+      "historical_degraded=true with current_fail=0 and current primary evidence OK.",
+      "connection_reset_count, warning_count, or runtime_restart_count equals 0; absence of failure is not positive support evidence.",
+      "Local adsb-streamnew-youtube-stream.service dead state is neutral when k3s runtime positive evidence is healthy."
+    ]
+  },
+  "log_sources": [
+    {
+      "source_name": "prometheus_stream_v3_exporter",
+      "source_type": "prometheus_metrics",
+      "meaning": "Current synthesized health, transport, YouTube, audio, ADS-B, memory, and monitoring state.",
+      "reliability": "high",
+      "collection_command": "curl -fsS http://127.0.0.1:9108/metrics | grep '^stream_v3_'",
+      "typical_fields": ["metric_name", "labels", "value"],
+      "caveats": ["cached_240s", "snapshot_age_must_be_checked"]
+    },
+    {
+      "source_name": "k8s_runtime_status",
+      "source_type": "kubernetes_api",
+      "meaning": "Runtime deployment, pod, container readiness, and restart counts.",
+      "reliability": "high",
+      "collection_command": "kubectl -n stream-v3 get deploy,pod -o wide",
+      "typical_fields": ["pod", "container", "ready", "restartCount", "state"],
+      "caveats": ["pod_ready_is_not_media_plane_proof"]
+    },
+    {
+      "source_name": "remote_runtime_state",
+      "source_type": "json_state",
+      "meaning": "Mirrored runtime heartbeat and FFmpeg identity.",
+      "reliability": "high",
+      "collection_command": "read selected keys from .state/arena-monitor/stream_runtime_state_remote.json",
+      "typical_fields": ["updated_at_utc", "status", "ffmpeg_pid", "restart_count", "last_health_ok"],
+      "caveats": ["stale_mirror_is_inconclusive"]
+    },
+    {
+      "source_name": "fast_recovery_events",
+      "source_type": "jsonl",
+      "meaning": "RTMPS TCP samples, low upload, network_down, tcp_stall, and restart decisions.",
+      "reliability": "high",
+      "collection_command": "tail -n 200 .state/arena-monitor/logs/fast_recovery_events.jsonl",
+      "typical_fields": ["ts_utc", "kind", "trigger", "mbps", "notsent", "unacked", "lastsnd_ms", "bytes_sent_delta"],
+      "caveats": ["failure_counts_zero_are_not_liveness_proof"]
+    },
+    {
+      "source_name": "youtube_watchdog_stats",
+      "source_type": "json_state_and_jsonl",
+      "meaning": "YouTube local/public/API/OAuth/ingest health and same-URL evidence.",
+      "reliability": "high",
+      "collection_command": "read selected non-secret keys from youtube_watchdog_stats.json and logs/youtube_watchdog.jsonl",
+      "typical_fields": ["healthy", "local_ok", "public_ok", "api_ok", "oauth_ok", "ingest_connected", "stream_active", "fail_count"],
+      "caveats": ["API_unknown_or_quota_guard_is_not_automatically_stream_outage"]
+    },
+    {
+      "source_name": "stream_watchdog_state",
+      "source_type": "json_state_and_jsonl",
+      "meaning": "Runtime watchdog, audio, Pulse, rendering, and remote k8s probe summary.",
+      "reliability": "medium",
+      "collection_command": "read stream_watchdog_stats.json and logs/watchdog_state_timeline.jsonl",
+      "typical_fields": ["status", "judgment", "reason", "runtime_snapshot_age_sec", "stream_service_substate"],
+      "caveats": ["local_stream_service_dead_can_be_expected_in_k8s_mode"]
+    },
+    {
+      "source_name": "network_observer",
+      "source_type": "json_state_and_journal",
+      "meaning": "Arena-side route, DNS, TCP, and connectivity classification.",
+      "reliability": "medium",
+      "collection_command": "read network_observer_latest.json; journalctl -u adsb-streamnew-network-observer.service -n 20",
+      "typical_fields": ["classification.status", "cause_layer", "tcp_connect_ipv4.ok", "tcp_connect_ipv6.ok", "ffmpeg_socket"],
+      "caveats": ["arena_host_observer_may_not_see_runtime_socket_directly"]
+    },
+    {
+      "source_name": "systemd_units_and_timers",
+      "source_type": "systemd",
+      "meaning": "Monitoring/control service ownership, timer freshness, and restart policy.",
+      "reliability": "medium",
+      "collection_command": "systemctl show <unit> -p ActiveState -p SubState -p UnitFileState; systemctl cat <unit> | sed '<redact>'",
+      "typical_fields": ["ActiveState", "SubState", "ExecStart", "EnvironmentFile", "Restart", "OnUnitActiveSec"],
+      "caveats": ["do_not_use_raw_status_when_process_args_may_contain_RTMPS_URL"]
+    }
+  ],
+  "runtime_ownership": {
+    "primary_runtime": "kubernetes:stream-v3/stream-v3-runtime",
+    "arena_monitor_host": "arena-server",
+    "legacy_local_stream_unit": "adsb-streamnew-youtube-stream.service",
+    "legacy_local_stream_unit_expected_state_when_k8s_owned": "inactive_or_disabled"
+  },
+  "primary_positive_evidence": {
+    "stream_transport": {
+      "zero_semantics": "zero_is_bad_for_positive_evidence_count",
+      "sources": ["stream_v3_runtime_ffmpeg_present", "stream_v3_network_ffmpeg_socket_connected", "stream_v3_upload_latest_mbps", "fast_recovery_events"]
+    },
+    "youtube_live": {
+      "zero_semantics": "zero_is_bad_for_required_boolean",
+      "sources": ["stream_v3_youtube_local_ok", "stream_v3_youtube_public_ok", "stream_v3_youtube_api_ok", "stream_v3_youtube_oauth_ok", "stream_v3_youtube_ingest_connected"]
+    },
+    "audio_energy": {
+      "zero_semantics": "zero_is_bad_for_positive_evidence_count",
+      "sources": ["stream_v3_audio_evidence_available", "stream_v3_audio_ok", "stream_v3_audio_fault_count", "stream_v3_sink.monitor"]
+    },
+    "capture_freshness": {
+      "zero_semantics": "zero_is_bad_for_positive_evidence_count",
+      "sources": ["stream_v3_runtime_heartbeat_age_seconds", "stream_v3_adsb_rendering_ok", "stream_v3_adsb_evidence_age_seconds"]
+    },
+    "runtime_readiness": {
+      "sources": ["kubectl_runtime_container_ready", "stream_v3_runtime_memory_sample_available", "stream_runtime_state_remote"]
+    }
+  },
+  "failure_absence_evidence": {
+    "monitor_only_if_alone": [
+      "connection_reset_count",
+      "warning_count",
+      "runtime_restart_count",
+      "rtmps_ssl_tls_count",
+      "ffmpeg_restart_incident_clusters"
+    ]
+  },
+  "classification_overrides": [
+    {
+      "id": "arena_local_stream_dead_under_k8s_runtime",
+      "when": {
+        "stream_service_substate": "dead",
+        "watchdog_ok": true,
+        "runtime_owner": "kubernetes",
+        "required_positive_evidence": ["runtime_pod_ready", "runtime_ffmpeg_present", "youtube_ingest_connected"]
+      },
+      "classify_as": "non_critical_noise",
+      "note": "Local arena systemd stream unit is not the runtime owner."
+    },
+    {
+      "id": "historical_degraded_with_current_ok",
+      "when": {
+        "current_fail": 0,
+        "historical_degraded": 1,
+        "required_positive_evidence": ["youtube_live_ok", "rtmps_send_path_ok", "audio_ok"]
+      },
+      "classify_as": "historical_event"
+    }
+  ],
+  "support_evidence_requirements": {
+    "required_fields": ["evidence_id", "source_name", "collected_at_utc", "observed_value"],
+    "rule": "Profile context may guide classification but must never be emitted as support evidence."
+  },
+  "operational_evidence_specs": [
+    {
+      "evidence_id": "OPS-001",
+      "request_id": "ffmpeg_process_state_query",
+      "profile_request_id": "ffmpeg_process_state_query",
+      "request_type": "process_state",
+      "need": "process_state",
+      "subsystem": "rtmps_ffmpeg",
+      "summary": "FFmpeg runtime process presence and exit/restart evidence.",
+      "terms": ["ffmpeg", "stream-engine", "stream_v3_runtime_ffmpeg_present", "stream_v3_stream_watchdog_ffmpeg_count"],
+      "metric_names": ["stream_v3_runtime_ffmpeg_present", "stream_v3_stream_watchdog_ffmpeg_count", "stream_v3_youtube_ffmpeg_uptime_seconds"]
+    },
+    {
+      "evidence_id": "OPS-002",
+      "request_id": "rtmps_send_path_query",
+      "profile_request_id": "rtmps_send_path_query",
+      "request_type": "throughput_signal",
+      "need": "throughput_signal",
+      "subsystem": "rtmps_ffmpeg",
+      "summary": "RTMPS send-path, TCP send sample, and upload-progress evidence.",
+      "terms": ["rtmps", "tcp_send_sample", "tcp send", "notsent", "unacked", "lastsnd", "upload"],
+      "metric_names": ["stream_v3_network_ffmpeg_socket_connected", "stream_v3_upload_latest_mbps", "stream_v3_upload_p95_mbps", "stream_v3_upload_within_5mbps_ratio_pct", "stream_v3_rtmps_ssl_tls_count"]
+    },
+    {
+      "evidence_id": "OPS-003",
+      "request_id": "youtube_ingest_status_query",
+      "profile_request_id": "youtube_ingest_status_query",
+      "request_type": "external_dependency_status",
+      "need": "external_dependency_status",
+      "subsystem": "youtube_health",
+      "summary": "YouTube local/public/API/OAuth/ingest and active-stream evidence.",
+      "terms": ["youtube", "local_ok", "public_ok", "api_ok", "oauth_ok", "ingest_connected", "stream_active"],
+      "metric_names": ["stream_v3_youtube_watchdog_healthy", "stream_v3_youtube_local_ok", "stream_v3_youtube_public_ok", "stream_v3_youtube_api_ok", "stream_v3_youtube_oauth_ok", "stream_v3_youtube_ingest_connected", "stream_v3_youtube_stream_active", "stream_v3_youtube_fail_count", "stream_v3_same_url_live"]
+    },
+    {
+      "evidence_id": "OPS-004",
+      "request_id": "watchdog_state_query",
+      "profile_request_id": "watchdog_state_query",
+      "request_type": "state_transition",
+      "need": "state_transition",
+      "subsystem": "runtime_recovery",
+      "summary": "Watchdog judgment, runtime ownership, and local stream unit substate evidence.",
+      "terms": ["watchdog", "watchdog_ok", "stream_service_substate", "current_fail", "monitoring_watchdog"],
+      "metric_names": ["stream_v3_stream_watchdog_ok", "stream_v3_current_fail", "stream_v3_monitoring_watchdog_all_ok", "stream_v3_monitoring_watchdog_check_ok", "stream_v3_monitoring_watchdog_check_fail_count", "stream_v3_historical_degraded"]
+    },
+    {
+      "evidence_id": "OPS-005",
+      "request_id": "capture_freshness_query",
+      "profile_request_id": "capture_freshness_query",
+      "request_type": "freshness_signal",
+      "need": "freshness_signal",
+      "subsystem": "chromium_capture",
+      "summary": "Capture/rendering freshness, runtime heartbeat, and ADS-B rendering evidence.",
+      "terms": ["capture", "freshness", "adsb", "rendering", "overlay", "heartbeat", "chromium", "x11grab"],
+      "metric_names": ["stream_v3_runtime_heartbeat_age_seconds", "stream_v3_stream_watchdog_runtime_snapshot_age_seconds", "stream_v3_adsb_rendering_ok", "stream_v3_adsb_evidence_available", "stream_v3_adsb_evidence_age_seconds", "stream_v3_video_frame_unhealthy"]
+    },
+    {
+      "evidence_id": "OPS-006",
+      "request_id": "audio_energy_gap_query",
+      "profile_request_id": "audio_energy_gap_query",
+      "request_type": "user_impact_signal",
+      "need": "user_impact_signal",
+      "subsystem": "audio_energy",
+      "summary": "Audio route, Pulse source/sink, audio_ok, and audio fault evidence.",
+      "terms": ["audio", "pulse", "pulseaudio", "sink.monitor", "audio_ok", "audio_fault", "audio_energy"],
+      "metric_names": ["stream_v3_audio_evidence_available", "stream_v3_audio_ok", "stream_v3_audio_fault_count", "stream_v3_pulse_source_present"]
+    },
+    {
+      "evidence_id": "OPS-007",
+      "request_id": "deployment_correlation_query",
+      "profile_request_id": "deployment_correlation_query",
+      "request_type": "deployment_correlation",
+      "need": "deployment_correlation",
+      "subsystem": "runtime_recovery",
+      "summary": "Kubernetes runtime rollout, pod readiness, restart, and recovery evidence.",
+      "terms": ["k8s", "kubernetes", "pod", "deployment", "rollout", "restart", "fast_recovery", "remote_runtime_state"],
+      "metric_names": ["stream_v3_fast_recovery_restart_count", "stream_v3_ffmpeg_restart_incident_clusters", "stream_v3_runtime_memory_sample_available"]
+    },
+    {
+      "evidence_id": "OPS-008",
+      "request_id": "resource_pressure_query",
+      "profile_request_id": "resource_pressure_query",
+      "request_type": "resource_pressure",
+      "need": "resource_pressure",
+      "subsystem": "resource_pressure",
+      "summary": "Runtime and monitor host memory/resource-pressure evidence.",
+      "terms": ["memory", "resource", "psi", "pgmajfault", "swap", "pressure", "usage_ratio"],
+      "metric_names": ["stream_v3_runtime_memory_current_ok", "stream_v3_monitor_host_memory_current_ok", "stream_v3_memory_current_ok", "stream_v3_runtime_memory_usage_ratio", "stream_v3_memory_warn_count", "stream_v3_memory_critical_count"]
+    },
+    {
+      "evidence_id": "OPS-009",
+      "request_id": "timer_history_query",
+      "profile_request_id": "timer_history_query",
+      "request_type": "scheduler_history",
+      "need": "scheduler_history",
+      "subsystem": "observability_contract",
+      "summary": "Monitoring/exporter freshness, timer cadence, and evidence-surface health.",
+      "terms": ["timer", "exporter", "snapshot", "monitoring_watchdog", "health_snapshot", "objective_snapshot"],
+      "metric_names": ["stream_v3_exporter_up", "stream_v3_health_snapshot_available", "stream_v3_health_snapshot_age_seconds", "stream_v3_objective_snapshot_available", "stream_v3_objective_snapshot_age_seconds", "stream_v3_monitoring_watchdog_age_seconds"]
+    },
+    {
+      "evidence_id": "OPS-010",
+      "request_id": "systemd_unit_definition_query",
+      "profile_request_id": "systemd_unit_definition_query",
+      "request_type": "job_definition",
+      "need": "job_definition",
+      "subsystem": "observability_contract",
+      "summary": "Arena-server systemd monitoring/control unit and timer evidence.",
+      "terms": ["systemd", ".service", ".timer", "execstart", "unit", "deactivated successfully"],
+      "metric_names": []
+    }
+  ],
+  "component_map": {
+    "youtube_health": "YouTube ingest, watchdog, public/API/OAuth health, same URL, and active stream observations.",
+    "rtmps_ffmpeg": "FFmpeg process, RTMPS socket, TCP send samples, Mbps, notsent, unacked, lastsnd, and send-path progress.",
+    "chromium_capture": "Browser capture, x11grab, ADS-B rendering, overlay, and capture freshness.",
+    "audio_energy": "Audio route, Pulse sink/source, audio_ok, audio_fault_count, and audio energy evidence.",
+    "runtime_recovery": "k3s deployment/pod readiness, remote recovery timer, systemd monitor loop, watchdog, restarts, and historical recovery.",
+    "network_transport": "Arena-side route/DNS/TCP/connectivity and FFmpeg socket observer evidence.",
+    "resource_pressure": "Runtime and host memory, PSI, major faults, swap, and resource guardrail evidence.",
+    "observability_contract": "Exporter freshness, health/objective snapshots, watchdog all-ok surface, and evidence completeness."
+  },
+  "known_benign_noise": [
+    "Local adsb-streamnew-youtube-stream.service inactive/dead when k3s runtime is healthy.",
+    "Chromium crashpad, DBus, or GPU warnings without capture freshness or rendering impact.",
+    "PulseAudio startup/config warnings when stream_v3_sink.monitor exists and audio_ok is true.",
+    "historical_degraded=true with current_fail=0 and current primary evidence OK.",
+    "connection_reset_count, warning_count, runtime_restart_count, rtmps_ssl_tls_count, or ffmpeg_restart_incident_clusters equals 0 by itself."
+  ],
+  "action_constraints": [
+    "Do not infer actual YouTube viewer continuity unless YouTube public/API/OAuth/ingest evidence is present.",
+    "Do not cite profile context as support evidence.",
+    "Do not treat local adsb-streamnew-youtube-stream.service dead state as runtime failure when k3s runtime positive evidence is healthy.",
+    "Split YouTube, RTMPS/FFmpeg, Chromium/rendering, audio, network, resource, runtime recovery, and observability hypotheses by subsystem.",
+    "Treat failure absence counts as monitor_only unless paired with positive liveness evidence."
+  ],
+  "review_policy": {
+    "context_is_not_evidence": true,
+    "require_evidence_id_for_support": true,
+    "zero_is_bad_metrics": [
+      "stream_transport_count",
+      "audio_energy_count",
+      "capture_freshness_count",
+      "runtime_ffmpeg_present",
+      "network_ffmpeg_socket_connected",
+      "youtube_ingest_connected",
+      "audio_evidence_available",
+      "adsb_evidence_available"
+    ],
+    "zero_is_good_metrics": [
+      "connection_reset_count",
+      "warning_count",
+      "runtime_restart_count",
+      "rtmps_ssl_tls_count",
+      "ffmpeg_restart_incident_clusters",
+      "audio_fault_count",
+      "notify_active_incidents"
+    ],
+    "zero_is_neutral_metrics": [
+      "stream_service_substate_dead_on_arena",
+      "fast_mode_active",
+      "api_cost_burn_rate_active",
+      "historical_degraded"
+    ]
+  },
+  "metrics": {
+    "stream_transport_count": {
+      "semantic_type": "throughput",
+      "zero_behavior": "suspicious",
+      "subsystem": "rtmps_ffmpeg",
+      "core_target_type": "throughput_disappearance",
+      "domain_label": "Stream transport evidence disappeared"
+    },
+    "audio_energy_count": {
+      "semantic_type": "user_impact_signal",
+      "zero_behavior": "suspicious",
+      "subsystem": "audio_energy",
+      "core_target_type": "user_impact_signal_gap",
+      "domain_label": "Audio energy evidence gap needs validation"
+    },
+    "capture_freshness_count": {
+      "semantic_type": "freshness_signal",
+      "zero_behavior": "suspicious",
+      "subsystem": "chromium_capture",
+      "core_target_type": "freshness_signal_gap",
+      "domain_label": "Capture freshness evidence gap needs validation"
+    },
+    "runtime_ffmpeg_present": {
+      "semantic_type": "process_state",
+      "zero_behavior": "suspicious",
+      "subsystem": "rtmps_ffmpeg",
+      "core_target_type": "runtime_instability",
+      "domain_label": "Runtime FFmpeg presence needs validation"
+    },
+    "network_ffmpeg_socket_connected": {
+      "semantic_type": "network_socket",
+      "zero_behavior": "suspicious",
+      "subsystem": "rtmps_ffmpeg",
+      "core_target_type": "throughput_disappearance",
+      "domain_label": "FFmpeg RTMPS socket disconnected"
+    },
+    "youtube_ingest_connected": {
+      "semantic_type": "external_dependency_status",
+      "zero_behavior": "suspicious",
+      "subsystem": "youtube_health",
+      "core_target_type": "external_dependency_failure",
+      "domain_label": "YouTube ingest connection needs validation"
+    },
+    "audio_evidence_available": {
+      "semantic_type": "user_impact_signal",
+      "zero_behavior": "suspicious",
+      "subsystem": "audio_energy",
+      "core_target_type": "user_impact_signal_gap",
+      "domain_label": "Audio evidence unavailable"
+    },
+    "adsb_evidence_available": {
+      "semantic_type": "freshness_signal",
+      "zero_behavior": "suspicious",
+      "subsystem": "chromium_capture",
+      "core_target_type": "freshness_signal_gap",
+      "domain_label": "ADS-B rendering evidence unavailable"
+    },
+    "connection_reset_count": {
+      "semantic_type": "network_error",
+      "zero_behavior": "healthy",
+      "subsystem": "network_transport",
+      "core_target_type": "network_error_signal"
+    },
+    "warning_count": {
+      "semantic_type": "warning",
+      "zero_behavior": "healthy",
+      "subsystem": "observability_contract",
+      "core_target_type": "warning_spike"
+    },
+    "runtime_restart_count": {
+      "semantic_type": "restart",
+      "zero_behavior": "healthy",
+      "subsystem": "runtime_recovery",
+      "core_target_type": "restart_loop"
+    },
+    "rtmps_ssl_tls_count": {
+      "semantic_type": "network_error",
+      "zero_behavior": "healthy",
+      "subsystem": "network_transport",
+      "core_target_type": "network_error_signal"
+    },
+    "ffmpeg_restart_incident_clusters": {
+      "semantic_type": "restart",
+      "zero_behavior": "healthy",
+      "subsystem": "runtime_recovery",
+      "core_target_type": "restart_loop"
+    },
+    "audio_fault_count": {
+      "semantic_type": "user_impact_signal",
+      "zero_behavior": "healthy",
+      "subsystem": "audio_energy",
+      "core_target_type": "user_impact_signal_gap"
+    },
+    "notify_active_incidents": {
+      "semantic_type": "incident_state",
+      "zero_behavior": "healthy",
+      "subsystem": "observability_contract",
+      "core_target_type": "observability_signal_gap"
+    }
+  },
+  "target_types": {
+    "throughput_disappearance": {
+      "title": "RTMPS send path needs validation",
+      "domain_label": "RTMPS send path needs validation",
+      "primary_incident": true,
+      "incident_score_floor": 0.80,
+      "validation_incident_score_floor": 0.84,
+      "zero_bad_incident_score_floor": 0.90,
+      "validation_score_cap": 0.84,
+      "text_terms": ["rtmps", "send path", "send-path", "tcp_send_sample", "stream_transport", "network_ffmpeg_socket_connected", "upload_latest", "notsent", "unacked", "lastsnd"],
+      "evidence_requests": ["rtmps_send_path_query", "ffmpeg_process_state_query", "youtube_ingest_status_query", "capture_freshness_query", "audio_energy_gap_query"]
+    },
+    "external_dependency_failure": {
+      "title": "YouTube ingest status needs validation",
+      "domain_label": "YouTube ingest status needs validation",
+      "text_terms": ["youtube", "watchdog", "local_ok", "public_ok", "api_ok", "oauth_ok", "ingest_connected", "stream_active", "fail_count"],
+      "evidence_requests": ["youtube_ingest_status_query", "rtmps_send_path_query", "watchdog_state_query"]
+    },
+    "network_error_signal": {
+      "title": "Network transport signal needs validation",
+      "domain_label": "Network transport signal needs validation",
+      "validation_score_cap": 0.60,
+      "text_terms": ["connection reset", "network", "tcp", "notsent", "unacked", "lastsnd", "network_down", "tcp_stall"],
+      "evidence_requests": ["rtmps_send_path_query", "resource_pressure_query", "instrumentation_consistency_query"]
+    },
+    "freshness_signal_gap": {
+      "title": "Capture/rendering freshness needs validation",
+      "domain_label": "Capture/rendering freshness needs validation",
+      "validation_score_cap": 0.56,
+      "text_terms": ["capture", "rendering", "adsb", "overlay", "runtime_heartbeat", "black frame", "chromium", "x11grab"],
+      "evidence_requests": ["capture_freshness_query", "ffmpeg_process_state_query", "resource_pressure_query"]
+    },
+    "user_impact_signal_gap": {
+      "title": "Audio route or energy needs validation",
+      "domain_label": "Audio route or energy needs validation",
+      "validation_score_cap": 0.56,
+      "text_terms": ["audio", "pulse", "pulseaudio", "audio_ok", "audio_fault_count", "stream_v3_sink.monitor", "audio_energy"],
+      "evidence_requests": ["audio_energy_gap_query", "ffmpeg_process_state_query"]
+    },
+    "runtime_instability": {
+      "title": "Runtime ownership or recovery state needs review",
+      "domain_label": "Runtime ownership or recovery state needs review",
+      "text_terms": ["runtime", "k8s", "kubernetes", "pod", "deployment", "restart", "remote recovery", "ffmpeg_pid", "stream-engine"],
+      "evidence_requests": ["ffmpeg_process_state_query", "deployment_correlation_query", "watchdog_state_query"]
+    },
+    "state_mismatch": {
+      "title": "Health signal and runtime ownership mismatch needs validation",
+      "domain_label": "Health signal and runtime ownership mismatch needs validation",
+      "validation_score_cap": 0.66,
+      "text_terms": ["watchdog_ok", "stream_service_substate", "dead", "local stream service", "legacy local stream unit", "k3s runtime"],
+      "evidence_requests": ["watchdog_state_query", "ffmpeg_process_state_query", "rtmps_send_path_query", "youtube_ingest_status_query"]
+    },
+    "observability_signal_gap": {
+      "title": "Monitoring surface freshness needs validation",
+      "domain_label": "Monitoring surface freshness needs validation",
+      "text_terms": ["exporter_up", "monitoring_watchdog_all_ok", "snapshot_age", "health_snapshot", "objective_snapshot", "evidence_available"],
+      "evidence_requests": ["timer_history_query", "resource_pressure_query"]
+    },
+    "instrumentation_mismatch": {
+      "title": "Instrumentation mismatch needs validation",
+      "domain_label": "Metric/log consistency needs validation",
+      "validation_score_cap": 0.62,
+      "text_terms": ["metric/log conflict", "metric reports 0", "rtmps_reconnect_count", "instrumentation mismatch"],
+      "evidence_requests": ["instrumentation_consistency_query", "rtmps_send_path_query", "timer_history_query"]
+    },
+    "resource_pressure": {
+      "title": "Resource pressure needs validation",
+      "domain_label": "Resource pressure needs validation",
+      "text_terms": ["memory", "resource", "psi", "pgmajfault", "swap", "usage_ratio", "pressure"],
+      "evidence_requests": ["resource_pressure_query", "deployment_correlation_query"]
+    }
+  },
+  "evidence_requests": {
+    "ffmpeg_process_state_query": {
+      "profile_request_id": "ffmpeg_process_state_query",
+      "target_component": "k3s_runtime_ffmpeg",
+      "description": "Prove stream FFmpeg is present in the runtime owner, not merely systemd.",
+      "preferred_sources": ["k8s_runtime_status", "remote_runtime_state", "prometheus_stream_v3_exporter"],
+      "search_terms": ["ffmpeg_pid", "runtime_ffmpeg_present", "stream_engine"]
+    },
+    "rtmps_send_path_query": {
+      "profile_request_id": "rtmps_send_path_query",
+      "target_component": "rtmps_transport",
+      "description": "Prove RTMPS send path is connected and making progress.",
+      "preferred_sources": ["fast_recovery_events", "prometheus_stream_v3_exporter"],
+      "search_terms": ["tcp_send_sample", "low_upload_pressure", "tcp_stall", "network_down", "notsent", "unacked", "lastsnd"]
+    },
+    "youtube_ingest_status_query": {
+      "profile_request_id": "youtube_ingest_status_query",
+      "target_component": "youtube_ingest",
+      "description": "Correlate local ingest, public watch, API, OAuth, and active stream.",
+      "preferred_sources": ["youtube_watchdog_stats", "prometheus_stream_v3_exporter"],
+      "search_terms": ["local_ok", "public_ok", "api_ok", "oauth_ok", "ingest_connected", "fail_count"]
+    },
+    "watchdog_state_query": {
+      "profile_request_id": "watchdog_state_query",
+      "target_component": "stream_watchdog",
+      "description": "Separate remote k8s watchdog OK from local legacy service state.",
+      "preferred_sources": ["stream_watchdog_state", "remote_runtime_state"],
+      "search_terms": ["watchdog_ok", "remote k8s runtime ok", "stream_service_substate"]
+    },
+    "capture_freshness_query": {
+      "profile_request_id": "capture_freshness_query",
+      "target_component": "browser_capture",
+      "description": "Prove the visual pipeline is fresh, not just the process alive.",
+      "preferred_sources": ["prometheus_stream_v3_exporter", "remote_runtime_state", "capture_files"],
+      "search_terms": ["runtime_snapshot_fresh", "adsb_rendering_ok", "video_frame_unhealthy", "overlay_unavailable"]
+    },
+    "audio_energy_gap_query": {
+      "profile_request_id": "audio_energy_gap_query",
+      "target_component": "audio_energy",
+      "description": "Prove audio route and energy are healthy.",
+      "preferred_sources": ["prometheus_stream_v3_exporter", "stream_watchdog_state", "runtime_pulse"],
+      "search_terms": ["audio_energy_low", "pulse_source_missing", "stream_v3_sink.monitor"]
+    },
+    "systemd_unit_definition_query": {
+      "profile_request_id": "systemd_unit_definition_query",
+      "target_component": "arena_monitoring_units",
+      "description": "Capture unit ownership without leaking process args.",
+      "preferred_sources": ["systemd_units_and_timers"],
+      "search_terms": ["ExecStart", "EnvironmentFile", "Restart", "OnUnitActiveSec"]
+    },
+    "timer_history_query": {
+      "profile_request_id": "timer_history_query",
+      "target_component": "arena_monitoring_timers",
+      "description": "Verify monitoring/report cadence and stale timer failures.",
+      "preferred_sources": ["systemd_units_and_timers", "health_summary_snapshot"],
+      "search_terms": ["LastTriggerUSec", "Deactivated successfully", "stale"]
+    },
+    "deployment_correlation_query": {
+      "profile_request_id": "deployment_correlation_query",
+      "target_component": "stream_v3_runtime_deployment",
+      "description": "Correlate runtime restarts, rollouts, and health changes.",
+      "preferred_sources": ["k8s_runtime_status", "fast_recovery_events", "journal"],
+      "search_terms": ["restartCount", "startedAt", "rollout", "low_upload_pressure", "network_down"]
+    },
+    "resource_pressure_query": {
+      "profile_request_id": "resource_pressure_query",
+      "target_component": "runtime_resource_pressure",
+      "description": "Check whether resource pressure explains media symptoms.",
+      "preferred_sources": ["prometheus_stream_v3_exporter", "resource_memory_json"],
+      "search_terms": ["memory_current_ok", "usage_ratio", "PSI", "pgmajfault", "swap"]
+    },
+    "instrumentation_consistency_query": {
+      "profile_request_id": "rtmps_metric_log_consistency_query",
+      "target_component": "rtmps_transport_observability",
+      "description": "Compare RTMPS operational rows with exported RTMPS metrics for the same incident window.",
+      "preferred_sources": ["fast_recovery_events", "prometheus_stream_v3_exporter", "monitoring_exporter_logs"],
+      "search_terms": ["rtmps", "reconnect", "metric", "count", "exporter", "collector", "stream_transport"]
+    }
+  },
+  "context_note": "stream_v3_monitoring profile context explains arena-server monitoring ownership and metric semantics. It is not evidence."
+}

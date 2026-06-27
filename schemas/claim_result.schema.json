@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ops Evidence Synthesis claim result",
+  "type": "object",
+  "required": ["schema_version", "summary", "claims"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "string" },
+    "agent_role": { "type": "string" },
+    "summary": { "type": "string" },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_type", "claim_text", "evidence_refs"],
+        "additionalProperties": true,
+        "properties": {
+          "claim_type": {
+            "type": "string",
+            "enum": ["support", "counter_evidence", "caveat", "validation_target", "next_data_needed"]
+          },
+          "claim_text": { "type": "string", "minLength": 1 },
+          "subsystem": {
+            "type": "string",
+            "enum": [
+              "youtube_health",
+              "rtmps_ffmpeg",
+              "chromium_capture",
+              "audio_energy",
+              "runtime_recovery",
+              "network_transport",
+              "resource_pressure",
+              "observability_contract",
+              "general"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "counter_evidence_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "caveats": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "missing_evidence": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "temporary_action": { "type": "string" },
+          "permanent_action": { "type": "string" },
+          "required_authority": { "type": "string" }
+        }
+      }
+    },
+    "propositions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["question"],
+        "properties": {
+          "question": { "type": "string", "minLength": 1 },
+          "subsystem": { "type": "string" },
+          "linked_claim_hints": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

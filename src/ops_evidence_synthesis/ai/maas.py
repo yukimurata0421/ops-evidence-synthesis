@@ -1,0 +1,281 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import time
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
+from typing import Any
+
+from ops_evidence_synthesis.ai.base import ModelResponse
+from ops_evidence_synthesis.ai.prompts import alternative_hypothesis_prompt
+
+
+DEFAULT_GPT_OSS_MODEL = "gpt-oss-20b-maas"
+DEFAULT_GPT_OSS_LOCATION = "us-central1"
+DEFAULT_GPT_OSS_MAX_OUTPUT_TOKENS = 8192
+DEFAULT_MISTRAL_MODEL = "mistral-small-2503"
+DEFAULT_MISTRAL_LOCATION = "us-central1"
+DEFAULT_VERTEX_API_VERSION = "v1"
+
+
+@dataclass(frozen=True, slots=True)
+class VertexOpenAICompatProvider:
+    provider: str = "openai-gpt-oss-on-vertex"
+    model_name: str = DEFAULT_GPT_OSS_MODEL
+    prompt_name: str = "alternative-hypothesis"
+    project_id: str = ""
+    location: str = DEFAULT_GPT_OSS_LOCATION
+    temperature: float = 0.0
+    max_output_tokens: int = DEFAULT_GPT_OSS_MAX_OUTPUT_TOKENS
+    timeout_seconds: int = 240
+    api_version: str = DEFAULT_VERTEX_API_VERSION
+
+    @classmethod
+    def from_env(cls) -> "VertexOpenAICompatProvider":
+        return cls(
+            model_name=os.environ.get("OES_GPT_OSS_MODEL", DEFAULT_GPT_OSS_MODEL),
+            project_id=(
+                os.environ.get("OES_GPT_OSS_PROJECT")
+                or os.environ.get("OES_VERTEX_PROJECT")
+                or os.environ.get("GOOGLE_CLOUD_PROJECT")
+                or os.environ.get("GCP_PROJECT")
+                or ""
+            ),
+            location=os.environ.get("OES_GPT_OSS_LOCATION", DEFAULT_GPT_OSS_LOCATION),
+            temperature=float(os.environ.get("OES_GPT_OSS_TEMPERATURE", "0")),
+            max_output_tokens=int(os.environ.get("OES_GPT_OSS_MAX_OUTPUT_TOKENS", str(DEFAULT_GPT_OSS_MAX_OUTPUT_TOKENS))),
+            timeout_seconds=int(os.environ.get("OES_GPT_OSS_TIMEOUT_SECONDS", "240")),
+        )
+
+    def run(self, bundle: dict[str, Any]) -> ModelResponse:
+        if not self.project_id:
+            raise RuntimeError("OES_GPT_OSS_PROJECT, OES_VERTEX_PROJECT, or GOOGLE_CLOUD_PROJECT is required")
+
+        started = time.perf_counter()
+        prompt = alternative_hypothesis_prompt(bundle)
+        body = {
+            "model": self._request_model_name(),
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": self.max_output_tokens,
+            "temperature": self.temperature,
+            "stream": False,
+        }
+        response_payload = _post_json(self._chat_completions_url(), body, timeout_seconds=self.timeout_seconds)
+        try:
+            raw_text = _extract_chat_completion_text(response_payload, model_label="Vertex OpenAI-compatible")
+        except RuntimeError as exc:
+            if "response content was empty" not in str(exc) or self.max_output_tokens >= 8192:
+                raise
+            body["max_tokens"] = 8192
+            response_payload = _post_json(self._chat_completions_url(), body, timeout_seconds=self.timeout_seconds)
+            raw_text = _extract_chat_completion_text(response_payload, model_label="Vertex OpenAI-compatible")
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        usage = response_payload.get("usage") or {}
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=raw_text,
+            latency_ms=max(1, elapsed_ms),
+            input_tokens=int(usage.get("prompt_tokens") or max(1, len(prompt) // 4)),
+            output_tokens=int(usage.get("completion_tokens") or max(1, len(raw_text) // 4)),
+        )
+
+    def _chat_completions_url(self) -> str:
+        location = self.location.strip()
+        endpoint = _endpoint_for_location(location)
+        return (
+            f"https://{endpoint}/{self.api_version}/projects/{self.project_id}/"
+            f"locations/{location}/endpoints/openapi/chat/completions"
+        )
+
+    def _request_model_name(self) -> str:
+        if "/" in self.model_name:
+            return self.model_name
+        if self.model_name.startswith("gpt-oss-"):
+            return f"openai/{self.model_name}"
+        return self.model_name
+
+
+@dataclass(frozen=True, slots=True)
+class VertexMistralProvider:
+    provider: str = "mistral-agent-platform"
+    model_name: str = DEFAULT_MISTRAL_MODEL
+    prompt_name: str = "alternative-hypothesis"
+    project_id: str = ""
+    location: str = DEFAULT_MISTRAL_LOCATION
+    temperature: float = 0.0
+    max_output_tokens: int = 4096
+    timeout_seconds: int = 90
+    api_version: str = DEFAULT_VERTEX_API_VERSION
+
+    @classmethod
+    def from_env(cls) -> "VertexMistralProvider":
+        return cls(
+            model_name=os.environ.get("OES_MISTRAL_MODEL", DEFAULT_MISTRAL_MODEL),
+            project_id=(
+                os.environ.get("OES_MISTRAL_PROJECT")
+                or os.environ.get("OES_VERTEX_PROJECT")
+                or os.environ.get("GOOGLE_CLOUD_PROJECT")
+                or os.environ.get("GCP_PROJECT")
+                or ""
+            ),
+            location=os.environ.get("OES_MISTRAL_LOCATION", DEFAULT_MISTRAL_LOCATION),
+            temperature=float(os.environ.get("OES_MISTRAL_TEMPERATURE", "0")),
+            max_output_tokens=int(os.environ.get("OES_MISTRAL_MAX_OUTPUT_TOKENS", "4096")),
+            timeout_seconds=int(os.environ.get("OES_MISTRAL_TIMEOUT_SECONDS", "90")),
+        )
+
+    def run(self, bundle: dict[str, Any]) -> ModelResponse:
+        if not self.project_id:
+            raise RuntimeError("OES_MISTRAL_PROJECT, OES_VERTEX_PROJECT, or GOOGLE_CLOUD_PROJECT is required")
+
+        started = time.perf_counter()
+        prompt = alternative_hypothesis_prompt(bundle)
+        body = {
+            "model": self.model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": self.max_output_tokens,
+            "temperature": self.temperature,
+            "stream": False,
+        }
+        response_payload = _post_json(self._raw_predict_url(), body, timeout_seconds=self.timeout_seconds)
+        raw_text = _extract_chat_completion_text(response_payload, model_label="Vertex Mistral")
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        usage = response_payload.get("usage") or {}
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=raw_text,
+            latency_ms=max(1, elapsed_ms),
+            input_tokens=int(usage.get("prompt_tokens") or max(1, len(prompt) // 4)),
+            output_tokens=int(usage.get("completion_tokens") or max(1, len(raw_text) // 4)),
+        )
+
+    def _raw_predict_url(self) -> str:
+        location = self.location.strip()
+        endpoint = _endpoint_for_location(location)
+        model = (
+            f"projects/{self.project_id}/locations/{location}/"
+            f"publishers/mistralai/models/{self.model_name}"
+        )
+        return f"https://{endpoint}/{self.api_version}/{model}:rawPredict"
+
+
+def _post_json(url: str, body: dict[str, Any], *, timeout_seconds: int) -> dict[str, Any]:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {_access_token()}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            return dict(json.loads(response.read().decode("utf-8")))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Vertex MaaS returned HTTP {exc.code}: {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Vertex MaaS request failed: {exc}") from exc
+
+
+def _extract_chat_completion_text(payload: dict[str, Any], *, model_label: str) -> str:
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise RuntimeError(f"{model_label} response did not include choices")
+    choice = choices[0]
+    if not isinstance(choice, dict):
+        raise RuntimeError(f"{model_label} response choice was invalid")
+    message = choice.get("message") or {}
+    text = ""
+    if isinstance(message, dict):
+        content = message.get("content")
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            text = "".join(
+                str(part.get("text") or "")
+                for part in content
+                if isinstance(part, dict)
+            )
+    if not text and isinstance(choice.get("text"), str):
+        text = str(choice["text"])
+    text = _extract_jsonish_text(text)
+    if not text:
+        raise RuntimeError(f"{model_label} response content was empty")
+    return text
+
+
+def _extract_jsonish_text(text: str) -> str:
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.strip("`").strip()
+        if text.startswith("json"):
+            text = text[4:].strip()
+    if not text.startswith("{"):
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            text = text[start : end + 1].strip()
+    return text
+
+
+def _access_token() -> str:
+    token = os.environ.get("GOOGLE_OAUTH_ACCESS_TOKEN")
+    if token:
+        return token
+
+    metadata_token = _metadata_access_token()
+    if metadata_token:
+        return metadata_token
+
+    gcloud_token = _gcloud_access_token()
+    if gcloud_token:
+        return gcloud_token
+
+    raise RuntimeError("Unable to obtain Google Cloud access token")
+
+
+def _metadata_access_token() -> str:
+    request = urllib.request.Request(
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+        headers={"Metadata-Flavor": "Google"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception:
+        return ""
+    return str(payload.get("access_token") or "")
+
+
+def _gcloud_access_token() -> str:
+    try:
+        completed = subprocess.run(
+            ["gcloud", "auth", "print-access-token"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception:
+        return ""
+    return completed.stdout.strip()
+
+
+def _endpoint_for_location(location: str) -> str:
+    if location == "global":
+        return "aiplatform.googleapis.com"
+    if location in {"us", "eu"}:
+        return f"aiplatform.{location}.rep.googleapis.com"
+    return f"{location}-aiplatform.googleapis.com"

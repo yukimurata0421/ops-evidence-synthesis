@@ -1,0 +1,395 @@
+{
+  "profile_id": "generic",
+  "profile_label": "Generic logs",
+  "source_system": "generic",
+  "system_profile": {
+    "system_type": "generic_operational_system",
+    "purpose": "Interpret arbitrary sanitized operational logs without assuming a stream-specific domain.",
+    "critical_user_outcomes": [
+      "Expected scheduled or supervised jobs run successfully.",
+      "Critical throughput, heartbeat, and freshness signals continue during the incident window.",
+      "Evidence gaps are separated from actual normal behavior."
+    ],
+    "profile_scope": "Default context for systems without a specialized profile."
+  },
+  "operational_contract": {
+    "expected_normal": [
+      "Configured commands and supervisor targets exist on the deployed host or image.",
+      "Zero values are interpreted through metric-specific semantics instead of assumed good or bad.",
+      "A More data request must be resolved with concrete evidence rows or marked unavailable."
+    ],
+    "failure_indicators": [
+      "Supervisor or scheduler references a missing executable, script, artifact, or package path.",
+      "A critical throughput, heartbeat, freshness, or process-state signal disappears in the incident window.",
+      "Health or liveness signals contradict observed process, scheduler, or dependency state."
+    ],
+    "non_critical_noise": [
+      "Stable zero error counters are monitor-only unless paired with missing critical output.",
+      "Benign warnings without user-impact, state, or throughput evidence should not enter the review queue."
+    ]
+  },
+  "log_sources": [
+    {
+      "source_id": "application_logs",
+      "description": "Sanitized application, worker, scheduler, or service logs ingested as JSONL."
+    },
+    {
+      "source_id": "supervisor_logs",
+      "description": "systemd, process manager, container runtime, or scheduler history logs when present."
+    },
+    {
+      "source_id": "deployment_logs",
+      "description": "Deployment, release, package, or configuration changes when present."
+    }
+  ],
+  "component_map": {
+    "generic_runtime": "Application process, worker, or runtime host.",
+    "job_configuration": "Scheduler or supervisor definitions and the command paths they reference.",
+    "service_liveness": "Heartbeat, health, ready, or watchdog observations.",
+    "traffic": "Throughput, request, output, or business-event counters.",
+    "network_transport": "Network path, dependency connection, reconnect, or reset observations.",
+    "observability_contract": "Log completeness, metric freshness, and evidence availability."
+  },
+  "known_benign_noise": [
+    "No immediate action required",
+    "stable at 0",
+    "decreased to 0 without counter-evidence"
+  ],
+  "action_constraints": [
+    "System profile, operational contract, metric semantics, and component map are context only, not evidence.",
+    "Support and counter-evidence must cite evidence_ids from evidence_refs, logs, patterns, metrics, or more-data analysis.",
+    "A proposal with no support evidence must not be treated as a high-confidence incident candidate."
+  ],
+  "review_policy": {
+    "context_is_not_evidence": true,
+    "require_evidence_id_for_support": true,
+    "more_data_updates_child_bundle": true,
+    "observability_volume_only_metrics": ["active_hour_count", "active_service_count", "total_log_count"]
+  },
+  "context_note": "Use profile fields to interpret logs, but never cite profile fields as support or counter-evidence.",
+  "metrics": {
+    "error_count": {
+      "semantic_type": "error",
+      "zero_behavior": "healthy",
+      "subsystem": "generic_runtime",
+      "core_target_type": "error_spike"
+    },
+    "warn_count": {
+      "semantic_type": "warning",
+      "zero_behavior": "healthy",
+      "subsystem": "generic_runtime",
+      "core_target_type": "warning_spike"
+    },
+    "warning_count": {
+      "semantic_type": "warning",
+      "zero_behavior": "healthy",
+      "subsystem": "generic_runtime",
+      "core_target_type": "warning_spike"
+    },
+    "runtime_restart_count": {
+      "semantic_type": "restart",
+      "zero_behavior": "healthy",
+      "subsystem": "runtime_recovery",
+      "core_target_type": "restart_loop"
+    },
+    "connection_reset_count": {
+      "semantic_type": "network_error",
+      "zero_behavior": "healthy",
+      "subsystem": "network_transport",
+      "core_target_type": "network_error_signal"
+    },
+    "heartbeat_count": {
+      "semantic_type": "heartbeat",
+      "zero_behavior": "suspicious",
+      "subsystem": "service_liveness",
+      "core_target_type": "heartbeat_missing"
+    },
+    "throughput_count": {
+      "semantic_type": "throughput",
+      "zero_behavior": "suspicious",
+      "subsystem": "traffic",
+      "core_target_type": "throughput_disappearance"
+    },
+    "request_count": {
+      "semantic_type": "throughput",
+      "zero_behavior": "suspicious",
+      "subsystem": "traffic",
+      "core_target_type": "throughput_disappearance"
+    },
+    "latency_p95": {
+      "semantic_type": "latency",
+      "zero_behavior": "neutral",
+      "increase_behavior": "suspicious",
+      "subsystem": "user_experience",
+      "core_target_type": "latency_regression"
+    },
+    "resource_pressure_count": {
+      "semantic_type": "resource",
+      "zero_behavior": "healthy",
+      "subsystem": "resource_pressure",
+      "core_target_type": "resource_saturation"
+    },
+    "job_configuration_mismatch_count": {
+      "semantic_type": "configuration_contract",
+      "zero_behavior": "healthy",
+      "subsystem": "job_configuration",
+      "core_target_type": "job_configuration_mismatch"
+    },
+    "service_start_failure_count": {
+      "semantic_type": "supervisor_state",
+      "zero_behavior": "healthy",
+      "subsystem": "runtime_recovery",
+      "core_target_type": "service_start_failure"
+    }
+  },
+  "target_types": {
+    "throughput_disappearance": {
+      "title": "Critical throughput signal disappeared",
+      "domain_label": "Critical throughput signal disappeared",
+      "primary_incident": true,
+      "incident_score_floor": 0.80,
+      "validation_incident_score_floor": 0.84,
+      "zero_bad_incident_score_floor": 0.90,
+      "validation_score_cap": 0.84,
+      "text_terms": ["throughput dropped to zero", "traffic dropped to zero", "request count dropped to zero"],
+      "evidence_requests": [
+        "process_state_query",
+        "throughput_signal_query",
+        "external_dependency_status_query",
+        "user_impact_signal_query",
+        "freshness_signal_query"
+      ]
+    },
+    "heartbeat_missing": {
+      "title": "Heartbeat signal missing",
+      "domain_label": "Heartbeat signal missing",
+      "primary_incident": true,
+      "incident_score_floor": 0.78,
+      "validation_incident_score_floor": 0.82,
+      "zero_bad_incident_score_floor": 0.88,
+      "validation_score_cap": 0.82,
+      "text_terms": ["heartbeat missing", "heartbeat dropped to zero", "liveness missing"],
+      "evidence_requests": ["state_transition_query", "process_state_query", "log_completeness_query"]
+    },
+    "error_spike": {
+      "title": "Error spike needs review",
+      "domain_label": "Error spike needs review",
+      "text_terms": ["error spike", "errors increased", "5xx"],
+      "evidence_requests": ["error_sample_query", "deployment_correlation_query", "external_dependency_status_query"]
+    },
+    "warning_spike": {
+      "title": "Warning spike needs review",
+      "domain_label": "Warning spike needs review",
+      "text_terms": ["warning spike", "warnings increased"],
+      "evidence_requests": ["error_sample_query", "deployment_correlation_query"]
+    },
+    "restart_loop": {
+      "title": "Restart loop needs review",
+      "domain_label": "Restart loop needs review",
+      "text_terms": ["restart loop", "runtime restart", "crashloop"],
+      "evidence_requests": ["process_state_query", "state_transition_query", "deployment_correlation_query"]
+    },
+    "state_mismatch": {
+      "title": "State mismatch needs validation",
+      "domain_label": "State mismatch needs validation",
+      "validation_score_cap": 0.66,
+      "text_terms": ["state mismatch", "healthy but dead", "contradicts"],
+      "evidence_requests": ["state_transition_query", "log_completeness_query", "external_dependency_status_query"]
+    },
+    "external_dependency_failure": {
+      "title": "External dependency status needs validation",
+      "domain_label": "External dependency status needs validation",
+      "text_terms": ["external dependency", "dependency failure", "dependency timeout"],
+      "evidence_requests": ["external_dependency_status_query", "error_sample_query"]
+    },
+    "network_error_signal": {
+      "title": "Network error signal needs validation",
+      "domain_label": "Network error signal needs validation",
+      "validation_score_cap": 0.60,
+      "text_terms": ["connection reset", "packet loss", "reconnect"],
+      "evidence_requests": ["network_path_query", "external_dependency_status_query", "throughput_signal_query"]
+    },
+    "freshness_signal_gap": {
+      "title": "Freshness signal gap needs validation",
+      "domain_label": "Freshness signal gap needs validation",
+      "validation_score_cap": 0.56,
+      "text_terms": ["freshness gap", "stale data", "timestamp drift"],
+      "evidence_requests": ["freshness_signal_query", "log_completeness_query"]
+    },
+    "user_impact_signal_gap": {
+      "title": "User-impact signal gap needs validation",
+      "domain_label": "User-impact signal gap needs validation",
+      "validation_score_cap": 0.56,
+      "text_terms": ["user impact", "success rate", "experience signal"],
+      "evidence_requests": ["user_impact_signal_query", "freshness_signal_query"]
+    },
+    "resource_saturation": {
+      "title": "Resource saturation needs review",
+      "domain_label": "Resource saturation needs review",
+      "text_terms": ["resource saturation", "cpu pressure", "memory pressure", "oom"],
+      "evidence_requests": ["resource_state_query", "deployment_correlation_query"]
+    },
+    "deployment_correlation": {
+      "title": "Deployment correlation needs validation",
+      "domain_label": "Deployment correlation needs validation",
+      "text_terms": ["deployment", "deploy", "release", "rollout"],
+      "evidence_requests": ["deployment_correlation_query", "error_sample_query"]
+    },
+    "monitoring_gap": {
+      "title": "Monitoring gap needs validation",
+      "domain_label": "Monitoring gap needs validation",
+      "text_terms": ["missing evidence", "observability gap", "log gap", "metric gap"],
+      "evidence_requests": ["log_completeness_query", "freshness_signal_query", "instrumentation_consistency_query"]
+    },
+    "instrumentation_mismatch": {
+      "title": "Instrumentation mismatch needs validation",
+      "domain_label": "Instrumentation mismatch needs validation",
+      "validation_score_cap": 0.62,
+      "text_terms": ["instrumentation mismatch", "metric/log conflict", "metric conflict", "metric reports 0"],
+      "evidence_requests": ["instrumentation_consistency_query", "log_completeness_query", "throughput_signal_query"]
+    },
+    "observability_contract_mismatch": {
+      "title": "Observability contract mismatch needs validation",
+      "domain_label": "Observability contract mismatch needs validation",
+      "text_terms": ["observability contract", "health signal mismatch"],
+      "evidence_requests": ["state_transition_query", "log_completeness_query"]
+    },
+    "job_configuration_mismatch": {
+      "title": "Configured job command is missing",
+      "domain_label": "Configured job command is missing",
+      "primary_incident": true,
+      "incident_score_floor": 0.82,
+      "validation_incident_score_floor": 0.86,
+      "text_terms": [
+        "can't open file",
+        "no such file or directory",
+        "configured command missing",
+        "configured job command",
+        "supervisor script is missing",
+        "execstart target missing",
+        "job configuration mismatch"
+      ],
+      "evidence_requests": [
+        "job_definition_query",
+        "installed_artifact_query",
+        "scheduler_history_query",
+        "deployment_correlation_query",
+        "process_state_query"
+      ]
+    },
+    "service_start_failure": {
+      "title": "Service start failure needs review",
+      "domain_label": "Service start failure needs review",
+      "validation_score_cap": 0.70,
+      "text_terms": ["failed to start", "main process exited", "service start failure"],
+      "evidence_requests": ["process_state_query", "state_transition_query", "deployment_correlation_query"]
+    }
+  },
+  "evidence_requests": {
+    "process_state_query": {
+      "request_type": "process_state",
+      "need": "process_state",
+      "description": "Verify process or runtime state during the incident window.",
+      "preferred_sources": ["process_logs", "supervisor", "runtime_metrics"],
+      "search_terms": ["main process exited", "failed with result", "failed to start", "exit-code", "exited", "restart", "stopped"]
+    },
+    "job_definition_query": {
+      "request_type": "job_definition",
+      "need": "job_definition",
+      "description": "Inspect the supervisor or scheduler definition and verify the configured command target exists.",
+      "preferred_sources": ["systemd_unit", "scheduler_config", "supervisor_config"],
+      "search_terms": ["execstart", "can't open file", "cannot open file", "no such file", "configured command", "failed to start", "main process exited"]
+    },
+    "installed_artifact_query": {
+      "request_type": "installed_artifact",
+      "need": "installed_artifact",
+      "description": "Compare installed artifacts or package contents with the configured command paths.",
+      "preferred_sources": ["filesystem_manifest", "package_manifest", "deployment_logs"],
+      "search_terms": ["file exists", "artifact", "package", "install", "path", "no such file"]
+    },
+    "scheduler_history_query": {
+      "request_type": "scheduler_history",
+      "need": "scheduler_history",
+      "description": "Check scheduler or timer history and the last successful execution timestamp.",
+      "preferred_sources": ["systemd_journal", "scheduler_logs", "run_history"],
+      "search_terms": ["timer", "schedule", "last success", "triggered", "run_once", "run_result", "history"]
+    },
+    "throughput_signal_query": {
+      "request_type": "throughput_signal",
+      "need": "throughput_signal",
+      "description": "Check throughput, traffic, or output counters around the drop.",
+      "preferred_sources": ["traffic_metrics", "output_logs", "business_metrics"],
+      "search_terms": ["throughput", "traffic", "request", "output", "send", "ingest"]
+    },
+    "external_dependency_status_query": {
+      "request_type": "external_dependency_status",
+      "need": "external_dependency_status",
+      "description": "Verify external dependency health and status during the incident window.",
+      "preferred_sources": ["dependency_status", "api_logs", "network_logs"],
+      "search_terms": ["dependency", "external", "upstream", "downstream", "status", "timeout"]
+    },
+    "user_impact_signal_query": {
+      "request_type": "user_impact_signal",
+      "need": "user_impact_signal",
+      "description": "Check user-impact proxy signals such as success rate, output quality, or user-visible gaps.",
+      "preferred_sources": ["success_metrics", "user_experience_metrics", "quality_metrics"],
+      "search_terms": ["success", "failure", "user", "impact", "quality", "experience"]
+    },
+    "freshness_signal_query": {
+      "request_type": "freshness_signal",
+      "need": "freshness_signal",
+      "description": "Check freshness, timestamp drift, or stale data indicators.",
+      "preferred_sources": ["freshness_metrics", "timestamp_logs", "collector_logs"],
+      "search_terms": ["freshness", "stale", "timestamp", "drift", "collector"]
+    },
+    "state_transition_query": {
+      "request_type": "state_transition",
+      "need": "state_transition",
+      "description": "Compare state transitions with health or liveness signals.",
+      "preferred_sources": ["state_logs", "health_snapshots", "supervisor"],
+      "search_terms": ["state", "transition", "healthy", "unhealthy", "dead", "ready"]
+    },
+    "log_completeness_query": {
+      "request_type": "log_completeness",
+      "need": "log_completeness",
+      "description": "Verify log and metric completeness before treating missing evidence as normal behavior.",
+      "preferred_sources": ["log_index", "collector_logs", "metric_exports"],
+      "search_terms": ["log", "missing", "gap", "completeness", "freshness"]
+    },
+    "network_path_query": {
+      "request_type": "network_path",
+      "need": "network_path",
+      "description": "Break down network resets, reconnects, or packet loss by destination.",
+      "preferred_sources": ["network_logs", "tcp_metrics", "load_balancer_logs"],
+      "search_terms": ["connection reset", "network", "tcp", "packet", "reconnect", "loss"]
+    },
+    "deployment_correlation_query": {
+      "request_type": "deployment_correlation",
+      "need": "deployment_correlation",
+      "description": "Compare deploy, configuration, and rollout changes with the incident window.",
+      "preferred_sources": ["deployment_logs", "config_history", "release_events"],
+      "search_terms": ["deploy", "deployment", "config", "release", "rollout", "version"]
+    },
+    "error_sample_query": {
+      "request_type": "error_sample",
+      "need": "error_sample",
+      "description": "Collect representative error or warning samples for the incident window.",
+      "preferred_sources": ["application_logs", "error_tracking", "trace_samples"],
+      "search_terms": ["error", "exception", "warning", "failed", "timeout"]
+    },
+    "resource_state_query": {
+      "request_type": "resource_state",
+      "need": "resource_state",
+      "description": "Check CPU, memory, disk, and resource saturation indicators.",
+      "preferred_sources": ["resource_metrics", "host_logs", "container_metrics"],
+      "search_terms": ["cpu", "memory", "oom", "disk", "resource", "pressure"]
+    },
+    "instrumentation_consistency_query": {
+      "request_type": "instrumentation_consistency",
+      "need": "instrumentation_consistency",
+      "description": "Compare operational log rows with exported metrics for the same signal family and time window.",
+      "preferred_sources": ["metric_exports", "operational_logs", "collector_logs"],
+      "search_terms": ["metric", "count", "exporter", "collector", "log", "consistency", "conflict"]
+    }
+  }
+}

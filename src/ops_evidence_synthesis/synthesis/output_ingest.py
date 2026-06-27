@@ -1,0 +1,648 @@
+from __future__ import annotations
+
+import json
+import re
+from collections import Counter
+from dataclasses import dataclass
+from typing import Any
+
+from ops_evidence_synthesis.canonical import sha256_json, sha256_text
+from ops_evidence_synthesis.timeutils import utc_now
+
+
+_CODE_FENCE_RE = re.compile(r"```(?:json|JSON)?\s*(.*?)\s*```", re.DOTALL)
+_NONE_LITERAL_RE = re.compile(r"(?P<prefix>[:\[,]\s*)None(?P<suffix>\s*[,}\]])")
+_TRUE_LITERAL_RE = re.compile(r"(?P<prefix>[:\[,]\s*)True(?P<suffix>\s*[,}\]])")
+_FALSE_LITERAL_RE = re.compile(r"(?P<prefix>[:\[,]\s*)False(?P<suffix>\s*[,}\]])")
+_KEY_VALUE_DOUBLE_WRAPPED_RE = re.compile(
+    r'^(?P<prefix>\s*"[^"\n\r]+"\s*:\s*)""(?P<body>.*)""(?P<suffix>\s*(?:[,}\]])?\s*)$'
+)
+_STRING_TOKEN_INNER_QUOTE_RE = re.compile(
+    r'^(?P<indent>\s*)"(?P<prefix>[^"\n\r]*)"(?P<body>[^"\n\r]+)""(?P<trail>\s*,?\s*)$'
+)
+_DOUBLED_QUOTE_TOKEN_RE = re.compile(r'^(?P<indent>\s*)""(?P<body>.*)""(?P<trail>\s*,?\s*)$')
+_HALF_DOUBLED_QUOTE_TOKEN_RE = re.compile(r'^(?P<indent>\s*)""(?P<body>.*)"(?P<trail>\s*,?\s*)$')
+_KEY_VALUE_SNIPPET_RE = re.compile(r'^[A-Za-z0-9_.-]+":\s')
+
+
+@dataclass(frozen=True, slots=True)
+class RepairResult:
+    text: str
+    applied_rules: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelOutputParse:
+    parsed: dict[str, Any] | None
+    parse_status: str
+    parse_errors: tuple[str, ...]
+    original_parse_errors: tuple[str, ...]
+    repaired_output: str
+    repaired_output_sha256: str
+    repair_applied: bool
+    repair_rules: tuple[str, ...]
+
+
+def repair_json_text(text: str) -> RepairResult:
+    """Apply only syntax-level repair rules and keep the source text unchanged."""
+    working = text
+    applied: list[str] = []
+
+    repaired, changed = _strip_code_fence_wrapper(working)
+    if changed:
+        working = repaired
+        applied.append("strip_code_fence_wrapper:1")
+
+    repaired, changed = _extract_json_window(working)
+    if changed:
+        working = repaired
+        applied.append("extract_json_window:1")
+
+    repaired, changed = _replace_python_literals(working)
+    if changed:
+        working = repaired
+        applied.append(f"python_literal_to_json_literal:{changed}")
+
+    repaired, changed = _repair_key_value_double_wrapped_values(working)
+    if changed:
+        working = repaired
+        applied.append(f"double_wrapped_key_value_string:{changed}")
+
+    repaired, changed = _repair_string_tokens_with_inner_quote(working)
+    if changed:
+        working = repaired
+        applied.append(f"string_token_inner_quote_escape:{changed}")
+
+    repaired, changed = _repair_doubled_quote_tokens(working)
+    if changed:
+        working = repaired
+        applied.append(f"doubled_quote_string_tokens:{changed}")
+
+    return RepairResult(text=working, applied_rules=tuple(applied))
+
+
+def parse_model_output(raw_output: str) -> ModelOutputParse:
+    from ops_evidence_synthesis.synthesis.validation import parse_model_json
+
+    parsed, parse_errors = parse_model_json(raw_output)
+    if parsed is not None:
+        return ModelOutputParse(
+            parsed=parsed,
+            parse_status="parsed_original",
+            parse_errors=(),
+            original_parse_errors=(),
+            repaired_output=raw_output,
+            repaired_output_sha256=sha256_text(raw_output),
+            repair_applied=False,
+            repair_rules=(),
+        )
+
+    repair = repair_json_text(raw_output)
+    if not repair.applied_rules:
+        return ModelOutputParse(
+            parsed=None,
+            parse_status="invalid_json",
+            parse_errors=parse_errors,
+            original_parse_errors=parse_errors,
+            repaired_output=raw_output,
+            repaired_output_sha256=sha256_text(raw_output),
+            repair_applied=False,
+            repair_rules=(),
+        )
+
+    repaired_parsed, repaired_errors = parse_model_json(repair.text)
+    if repaired_parsed is not None:
+        return ModelOutputParse(
+            parsed=repaired_parsed,
+            parse_status="parsed_repaired",
+            parse_errors=(),
+            original_parse_errors=parse_errors,
+            repaired_output=repair.text,
+            repaired_output_sha256=sha256_text(repair.text),
+            repair_applied=True,
+            repair_rules=repair.applied_rules,
+        )
+
+    return ModelOutputParse(
+        parsed=None,
+        parse_status="invalid_after_repair",
+        parse_errors=tuple([*parse_errors, *repaired_errors]),
+        original_parse_errors=parse_errors,
+        repaired_output=repair.text,
+        repaired_output_sha256=sha256_text(repair.text),
+        repair_applied=True,
+        repair_rules=repair.applied_rules,
+    )
+
+
+def model_output_artifact(
+    *,
+    run_id: str,
+    evidence_sha256: str,
+    provider: str,
+    model_name: str,
+    raw_output_sha256: str,
+    parse_result: ModelOutputParse,
+    parsed_json_sha256: str,
+    schema_valid: bool,
+    schema_errors: tuple[str, ...] | list[str],
+    status: str,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    artifact = {
+        "schema_version": "ai_output_artifact.v1",
+        "run_id": str(run_id),
+        "evidence_sha256": str(evidence_sha256),
+        "provider": str(provider),
+        "model_name": str(model_name),
+        "raw_output_sha256": str(raw_output_sha256),
+        "repaired_output_sha256": str(parse_result.repaired_output_sha256),
+        "parsed_json_sha256": str(parsed_json_sha256),
+        "parse_status": str(parse_result.parse_status),
+        "parse_errors": list(parse_result.parse_errors),
+        "original_parse_errors": list(parse_result.original_parse_errors),
+        "repair_applied": bool(parse_result.repair_applied),
+        "repair_rules": list(parse_result.repair_rules),
+        "schema_valid": bool(schema_valid),
+        "schema_errors": [str(error) for error in schema_errors],
+        "provider_status": str(status),
+        "original_preserved": True,
+        "created_at": str(created_at or utc_now()),
+    }
+    artifact["artifact_id"] = "aio-" + sha256_json(
+        {
+            "run_id": artifact["run_id"],
+            "raw_output_sha256": artifact["raw_output_sha256"],
+            "repaired_output_sha256": artifact["repaired_output_sha256"],
+            "parse_status": artifact["parse_status"],
+        }
+    )[:20]
+    return artifact
+
+
+def merge_candidate_observations(
+    candidates: list[dict[str, Any]],
+    *,
+    evidence_sha256: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    passthrough: list[dict[str, Any]] = []
+    for candidate in candidates:
+        if str(candidate.get("original_class") or "") == "context":
+            passthrough.append(candidate)
+            continue
+        key = canonical_observation_key(candidate, evidence_sha256=evidence_sha256)
+        grouped.setdefault(key["canonical_group_key"], []).append({**candidate, **key})
+
+    merged: list[dict[str, Any]] = []
+    groups: list[dict[str, Any]] = []
+    for key, rows in sorted(grouped.items()):
+        merged_candidate, group = _merge_observation_group(key, rows, evidence_sha256=evidence_sha256)
+        merged.append(merged_candidate)
+        groups.append(group)
+    merged.extend(passthrough)
+    return merged, groups
+
+
+def canonical_observation_key(candidate: dict[str, Any], *, evidence_sha256: str) -> dict[str, str]:
+    text = _candidate_text(candidate)
+    target_type = _canonical_target_type(candidate, text)
+    subject = _canonical_subject(candidate, text)
+    review_unit = _canonical_review_unit(candidate, subject)
+    key_payload = {
+        "evidence_sha256": str(evidence_sha256 or candidate.get("evidence_sha256") or ""),
+        "canonical_review_unit": review_unit,
+    }
+    return {
+        "canonical_group_key": sha256_json(key_payload)[:24],
+        "canonical_target_type": target_type,
+        "canonical_subject": subject,
+        "canonical_review_unit": review_unit,
+    }
+
+
+def observation_groups_from_graph(graph: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(graph, dict):
+        return []
+    evidence_sha256 = str(graph.get("evidence_sha256") or "")
+    groups: list[dict[str, Any]] = []
+    targets = [
+        row
+        for row in [
+            *(graph.get("primary_targets") or []),
+            *(graph.get("validation_targets") or []),
+            *(graph.get("monitor_only") or []),
+            *(graph.get("auto_archived") or []),
+        ]
+        if isinstance(row, dict)
+    ]
+    for target in targets:
+        group_key = str(target.get("canonical_group_key") or "")
+        if not group_key:
+            key = canonical_observation_key(target, evidence_sha256=evidence_sha256)
+            group_key = key["canonical_group_key"]
+        drawer = target.get("drawer") if isinstance(target.get("drawer"), dict) else {}
+        rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
+        group = {
+            "schema_version": "canonical_observation_group.v1",
+            "group_id": str(target.get("canonical_observation_group_id") or target.get("target_id") or group_key),
+            "evidence_sha256": evidence_sha256,
+            "canonical_group_key": group_key,
+            "canonical_target_type": str(target.get("canonical_target_type") or target.get("core_target_type") or ""),
+            "canonical_subject": str(target.get("canonical_subject") or target.get("subsystem") or "general"),
+            "canonical_review_unit": str(target.get("canonical_review_unit") or target.get("component") or target.get("subsystem") or "general"),
+            "subsystem": str(target.get("subsystem") or "general"),
+            "component": str(target.get("component") or ""),
+            "class": str(target.get("class") or ""),
+            "state": str(target.get("state") or ""),
+            "source_target_ids": _unique_str(target.get("source_target_ids") or [target.get("source_target_id") or target.get("target_id")]),
+            "source_candidate_count": int(target.get("source_candidate_count") or rollup.get("source_candidate_count") or 1),
+            "providers": _unique_str(target.get("providers") or []),
+            "provider_count": int(target.get("provider_count") or 0),
+            "evidence_refs": _unique_str(target.get("evidence_refs") or []),
+            "missing_evidence": _unique_str(target.get("missing_evidence") or drawer.get("missing_evidence") or []),
+            "caveats": _unique_str(target.get("caveats") or drawer.get("caveats") or []),
+            "support_evidence": drawer.get("support_evidence") or [],
+            "counter_evidence": drawer.get("counter_evidence") or [],
+            "rollup": rollup,
+            "convergence_score": float(target.get("convergence_score") or rollup.get("convergence_score") or 0.0),
+            "baseline_support_score": float(target.get("baseline_support_score") or rollup.get("baseline_support_score") or 0.0),
+            "review_priority_score": float(target.get("review_priority_score") or 0.0),
+            "consensus_class": _consensus_class(target),
+            "group_json": target,
+        }
+        groups.append(group)
+    return groups
+
+
+def _strip_code_fence_wrapper(text: str) -> tuple[str, int]:
+    matches = _CODE_FENCE_RE.findall(text)
+    if not matches:
+        return text, 0
+    best = max(matches, key=len)
+    return (best.strip(), 1) if best.strip() else (text, 0)
+
+
+def _extract_json_window(text: str) -> tuple[str, int]:
+    starts = [idx for idx in (text.find("{"), text.find("[")) if idx >= 0]
+    if not starts:
+        return text, 0
+    start = min(starts)
+    end = max(text.rfind("}"), text.rfind("]"))
+    if end <= start:
+        return text, 0
+    candidate = text[start : end + 1]
+    if candidate == text or not candidate.strip():
+        return text, 0
+    return candidate, 1
+
+
+def _replace_python_literals(text: str) -> tuple[str, int]:
+    total = 0
+    working = text
+    working, count = _NONE_LITERAL_RE.subn(r"\g<prefix>null\g<suffix>", working)
+    total += count
+    working, count = _TRUE_LITERAL_RE.subn(r"\g<prefix>true\g<suffix>", working)
+    total += count
+    working, count = _FALSE_LITERAL_RE.subn(r"\g<prefix>false\g<suffix>", working)
+    total += count
+    return working, total
+
+
+def _repair_key_value_double_wrapped_values(text: str) -> tuple[str, int]:
+    changed = 0
+    lines: list[str] = []
+    for line, newline in _split_lines(text):
+        match = _KEY_VALUE_DOUBLE_WRAPPED_RE.match(line)
+        if match is None:
+            lines.append(line + newline)
+            continue
+        body = match.group("body")
+        body = body.replace('"\\r\\n"', "\r\n").replace('"\\n"', "\n").replace('"\\t"', "\t")
+        lines.append(f"{match.group('prefix')}{json.dumps(body, ensure_ascii=False)}{match.group('suffix')}{newline}")
+        changed += 1
+    return "".join(lines), changed
+
+
+def _repair_string_tokens_with_inner_quote(text: str) -> tuple[str, int]:
+    changed = 0
+    lines: list[str] = []
+    for line, newline in _split_lines(text):
+        match = _STRING_TOKEN_INNER_QUOTE_RE.match(line)
+        if match is None:
+            lines.append(line + newline)
+            continue
+        prefix = match.group("prefix")
+        body = match.group("body")
+        if not prefix.strip() or not body.strip() or "\\" in prefix or "\\" in body:
+            lines.append(line + newline)
+            continue
+        lines.append(f'{match.group("indent")}"{prefix}\\"{body}\\""{match.group("trail")}{newline}')
+        changed += 1
+    return "".join(lines), changed
+
+
+def _repair_doubled_quote_tokens(text: str) -> tuple[str, int]:
+    changed = 0
+    lines: list[str] = []
+    for line, newline in _split_lines(text):
+        match = _DOUBLED_QUOTE_TOKEN_RE.match(line) or _HALF_DOUBLED_QUOTE_TOKEN_RE.match(line)
+        if match is None:
+            lines.append(line + newline)
+            continue
+        body = match.group("body")
+        if _KEY_VALUE_SNIPPET_RE.match(body):
+            if not body.startswith('"'):
+                body = f'"{body}'
+            if ': "' in body and not body.endswith('"'):
+                body = f'{body}"'
+        lines.append(f"{match.group('indent')}{json.dumps(body, ensure_ascii=False)}{match.group('trail')}{newline}")
+        changed += 1
+    return "".join(lines), changed
+
+
+def _split_lines(text: str) -> list[tuple[str, str]]:
+    output: list[tuple[str, str]] = []
+    for line in text.splitlines(keepends=True):
+        if line.endswith("\r\n"):
+            output.append((line[:-2], "\r\n"))
+        elif line.endswith("\n"):
+            output.append((line[:-1], "\n"))
+        else:
+            output.append((line, ""))
+    if not output and text == "":
+        return [("", "")]
+    return output
+
+
+def _candidate_text(candidate: dict[str, Any]) -> str:
+    raw = candidate.get("raw") if isinstance(candidate.get("raw"), dict) else {}
+    parts = [
+        candidate.get("title"),
+        candidate.get("impact_summary"),
+        candidate.get("core_target_type"),
+        candidate.get("subsystem"),
+        candidate.get("component"),
+        " ".join(str(item) for item in candidate.get("missing_evidence") or []),
+        " ".join(str(item) for item in candidate.get("caveats") or []),
+        raw.get("title"),
+        raw.get("core_claim"),
+        raw.get("support_summary"),
+    ]
+    return " ".join(str(part) for part in parts if str(part or "").strip()).casefold()
+
+
+def _canonical_target_type(candidate: dict[str, Any], text: str) -> str:
+    explicit = str(candidate.get("core_target_type") or candidate.get("review_target_type") or "").strip()
+    if explicit and explicit not in {"general", "general_review", "validation_target"}:
+        normalized = _normalize_token(explicit)
+        if normalized in {"restart_loop", "process_restart", "process_restart_loop"}:
+            return "process_restart_loop"
+        if normalized in {"transport_failure", "transport_path_failure", "throughput_disappearance"}:
+            return "transport_path_failure"
+        if normalized in {"freshness_signal_gap", "capture_freshness", "capture_freshness_gap"}:
+            return "capture_freshness_gap"
+        if normalized in {"external_dependency_failure", "external_dependency_health"}:
+            return "external_dependency_health"
+        return normalized
+    if any(token in text for token in ("restart", "restarted", "crash", "crashed", "exit code", "process state", "loop")):
+        return "process_restart_loop"
+    if any(token in text for token in ("transport", "connection reset", "io error", "i/o error", "throughput", "send-path", "send path", "rtmps", "packet loss")):
+        return "transport_path_failure"
+    if any(token in text for token in ("youtube", "external dependency", "watch url", "ingest health")):
+        return "external_dependency_health"
+    if any(token in text for token in ("freshness", "capture", "chromium", "timestamp drift")):
+        return "capture_freshness_gap"
+    if any(token in text for token in ("audio", "viewer", "watch", "user impact", "user-impact", "customer impact")):
+        return "user_impact_signal_gap"
+    if any(token in text for token in ("observability", "contract", "instrumentation")):
+        return "observability_contract_mismatch"
+    return explicit or "general_review"
+
+
+def _canonical_subject(candidate: dict[str, Any], text: str) -> str:
+    if any(token in text for token in ("rtmps", "ffmpeg", "send-path", "send path", "transport")):
+        return "transport_sender"
+    if any(token in text for token in ("youtube", "watch url", "external ingest", "ingest status")):
+        return "external_ingest"
+    if any(token in text for token in ("chromium", "capture", "freshness")):
+        return "capture_pipeline"
+    if "audio" in text:
+        return "media_output"
+    if any(token in text for token in ("watchdog", "service health", "substate", "process state")):
+        return "service_health"
+    subsystem = str(candidate.get("subsystem") or "").strip()
+    component = str(candidate.get("component") or "").strip()
+    return _normalize_token(component or subsystem or "general")
+
+
+def _canonical_review_unit(candidate: dict[str, Any], subject: str) -> str:
+    normalized_subject = _normalize_token(subject or "general")
+    if normalized_subject == "transport_sender":
+        return normalized_subject
+    component = _normalize_token(str(candidate.get("component") or ""))
+    if component and component not in {"general", "unknown", "none", "null"}:
+        return component
+    subsystem = _normalize_token(str(candidate.get("subsystem") or ""))
+    if subsystem and subsystem not in {"general", "unknown", "none", "null"}:
+        return subsystem
+    return normalized_subject
+
+
+def _merge_observation_group(
+    canonical_group_key: str,
+    rows: list[dict[str, Any]],
+    *,
+    evidence_sha256: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    top = sorted(
+        rows,
+        key=lambda row: (
+            -float(row.get("score_before") or 0.0),
+            0 if str(row.get("original_class") or "") == "primary_candidate" else 1,
+            str(row.get("target_id") or ""),
+        ),
+    )[0]
+    source_target_ids = _unique_str(row.get("target_id") for row in rows)
+    providers = _unique_str(provider for row in rows for provider in row.get("providers") or [])
+    evidence_refs = _unique_str(ref for row in rows for ref in row.get("evidence_refs") or [])
+    support_evidence = _merge_jsonish(row.get("support_evidence") for row in rows)
+    counter_evidence = _merge_jsonish(row.get("counter_evidence") for row in rows)
+    missing = _unique_str(item for row in rows for item in row.get("missing_evidence") or [])
+    caveats = _unique_str(item for row in rows for item in row.get("caveats") or [])
+    rollup = _rollup_profile(rows, evidence_refs=evidence_refs)
+    group_id = "cog-" + sha256_json(
+        {
+            "evidence_sha256": evidence_sha256,
+            "canonical_group_key": canonical_group_key,
+            "source_target_ids": source_target_ids,
+        }
+    )[:20]
+    original_classes = {str(row.get("original_class") or "") for row in rows}
+    original_class = "primary_candidate" if "primary_candidate" in original_classes else str(top.get("original_class") or "validation_target")
+    merged = {
+        **top,
+        "target_id": group_id,
+        "source": "canonical_observation_group",
+        "original_class": original_class,
+        "providers": providers,
+        "provider_count": max(len(providers), max((int(row.get("provider_count") or 0) for row in rows), default=0)),
+        "evidence_refs": evidence_refs,
+        "support_evidence": support_evidence,
+        "counter_evidence": counter_evidence,
+        "missing_evidence": missing,
+        "caveats": caveats,
+        "score_before": max(float(row.get("score_before") or 0.0) for row in rows),
+        "group_id": group_id,
+        "canonical_group_key": canonical_group_key,
+        "canonical_target_type": str(top.get("canonical_target_type") or ""),
+        "canonical_subject": str(top.get("canonical_subject") or ""),
+        "canonical_review_unit": str(top.get("canonical_review_unit") or ""),
+        "source_target_ids": source_target_ids,
+        "source_candidate_count": len(rows),
+        "rollup": rollup,
+        "convergence_score": rollup["convergence_score"],
+        "baseline_support_score": rollup["baseline_support_score"],
+        "raw": {
+            "source": "canonical_observation_group",
+            "source_candidates": [row.get("raw") if isinstance(row.get("raw"), dict) else row for row in rows],
+            "source_target_ids": source_target_ids,
+        },
+    }
+    group = {
+        "schema_version": "canonical_observation_group.v1",
+        "group_id": group_id,
+        "evidence_sha256": str(evidence_sha256),
+        "canonical_group_key": canonical_group_key,
+        "canonical_target_type": str(merged.get("canonical_target_type") or merged.get("core_target_type") or ""),
+        "canonical_subject": str(merged.get("canonical_subject") or ""),
+        "canonical_review_unit": str(merged.get("canonical_review_unit") or ""),
+        "subsystem": str(merged.get("subsystem") or "general"),
+        "component": str(merged.get("component") or ""),
+        "source_target_ids": source_target_ids,
+        "source_candidate_count": len(rows),
+        "providers": providers,
+        "provider_count": int(merged["provider_count"]),
+        "evidence_refs": evidence_refs,
+        "missing_evidence": missing,
+        "caveats": caveats,
+        "support_evidence": support_evidence,
+        "counter_evidence": counter_evidence,
+        "rollup": rollup,
+        "convergence_score": rollup["convergence_score"],
+        "baseline_support_score": rollup["baseline_support_score"],
+        "review_priority_score": float(merged.get("score_before") or 0.0),
+        "consensus_class": _consensus_class(merged),
+        "group_json": merged,
+    }
+    return merged, group
+
+
+def _merge_jsonish(values: Any) -> list[Any]:
+    seen: set[str] = set()
+    output: list[Any] = []
+    for value in values:
+        items = value if isinstance(value, list) else []
+        for item in items:
+            key = sha256_json(item) if isinstance(item, (dict, list)) else str(item)
+            if key in seen:
+                continue
+            seen.add(key)
+            output.append(item)
+    return output
+
+
+def _consensus_class(target: dict[str, Any]) -> str:
+    provider_count = int(target.get("provider_count") or 0)
+    if provider_count >= 2:
+        return "multi_provider"
+    if provider_count == 1:
+        return "single_provider"
+    if str(target.get("source") or "").startswith("context"):
+        return "context_only"
+    return "non_model"
+
+
+def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> dict[str, Any]:
+    provider_votes: list[str] = []
+    for row in rows:
+        providers = _unique_str(row.get("providers") or [])
+        if providers:
+            provider_votes.extend(providers)
+    provider_vote_counts = Counter(provider_votes)
+    target_type_votes = Counter(
+        _normalize_token(str(row.get("canonical_target_type") or row.get("core_target_type") or "general_review"))
+        for row in rows
+    )
+    family_counts = Counter(_evidence_family(ref) for ref in evidence_refs)
+    family_counts.pop("", None)
+    source_candidate_count = len(rows)
+    independent_provider_count = len(provider_vote_counts)
+    repeated_provider_votes = sum(max(0, count - 1) for count in provider_vote_counts.values())
+    provider_bonus = 0.0
+    if independent_provider_count >= 3:
+        provider_bonus = 0.10
+    elif independent_provider_count == 2:
+        provider_bonus = 0.06
+    evidence_bonus = min(0.06, max(0, len(family_counts) - 1) * 0.03 + max(0, len(evidence_refs) - 1) * 0.005)
+    type_bonus = min(0.03, max(0, len(target_type_votes) - 1) * 0.015)
+    repeated_independent_bonus = min(0.04, max(0, source_candidate_count - 1) * 0.01)
+    same_provider_duplicate_bonus = min(0.02, repeated_provider_votes * 0.005)
+    priority_bonus = min(
+        0.18,
+        provider_bonus + evidence_bonus + type_bonus + repeated_independent_bonus + same_provider_duplicate_bonus,
+    )
+    baseline_support_score = min(
+        1.0,
+        0.25
+        + min(independent_provider_count, 3) * 0.15
+        + min(len(family_counts), 3) * 0.10
+        + min(source_candidate_count, 4) * 0.05
+        + min(len(evidence_refs), 6) * 0.025,
+    )
+    return {
+        "source_candidate_count": source_candidate_count,
+        "independent_provider_count": independent_provider_count,
+        "provider_vote_counts": dict(sorted(provider_vote_counts.items())),
+        "same_provider_duplicate_count": repeated_provider_votes,
+        "evidence_ref_count": len(evidence_refs),
+        "evidence_family_count": len(family_counts),
+        "evidence_family_counts": dict(sorted(family_counts.items())),
+        "target_type_votes": dict(sorted(target_type_votes.items())),
+        "distinct_target_type_count": len(target_type_votes),
+        "provider_convergence_bonus": round(provider_bonus, 4),
+        "evidence_diversity_bonus": round(evidence_bonus, 4),
+        "target_type_convergence_bonus": round(type_bonus, 4),
+        "repeated_independent_claim_bonus": round(repeated_independent_bonus, 4),
+        "same_provider_duplicate_bonus": round(same_provider_duplicate_bonus, 4),
+        "priority_bonus": round(priority_bonus, 4),
+        "convergence_score": round(min(1.0, priority_bonus / 0.18 if priority_bonus else 0.0), 4),
+        "baseline_support_score": round(baseline_support_score, 4),
+    }
+
+
+def _evidence_family(ref: str) -> str:
+    value = str(ref or "").strip().upper()
+    if not value:
+        return ""
+    if "-" in value:
+        return value.split("-", 1)[0]
+    match = re.match(r"[A-Z]+", value)
+    return match.group(0) if match else value
+
+
+def _normalize_token(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")
+    return normalized or "general"
+
+
+def _unique_str(values: Any) -> list[str]:
+    seen: set[str] = set()
+    output: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        output.append(text)
+    return output

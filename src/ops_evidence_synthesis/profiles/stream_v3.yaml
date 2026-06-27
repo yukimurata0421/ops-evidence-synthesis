@@ -1,0 +1,398 @@
+{
+  "profile_id": "stream_v3",
+  "profile_label": "stream_v3 demonstration profile",
+  "source_system": "stream_v3",
+  "system_profile": {
+    "system_type": "livestream_pipeline",
+    "purpose": "Keep browser capture, audio, ffmpeg, RTMPS transport, and YouTube ingest aligned for continuous streaming.",
+    "critical_user_outcomes": [
+      "YouTube ingest remains live and watchable.",
+      "ffmpeg/RTMPS send path remains active.",
+      "Capture freshness and audio energy do not silently disappear.",
+      "Health contracts do not mark the service healthy while the supervised stream state is dead."
+    ],
+    "profile_scope": "stream_v3 log interpretation and evidence request routing."
+  },
+  "operational_contract": {
+    "expected_normal": [
+      "watchdog_ok should not coexist with stream_service_substate=dead without an explicit recovery transition.",
+      "stream_transport_count and active_stream_count dropping to zero are suspicious, not healthy.",
+      "youtube_health_count, connection_reset_count, warning_count, and runtime_restart_count dropping to zero are usually monitor-only unless paired with missing output or state evidence."
+    ],
+    "failure_indicators": [
+      "RTMPS/ffmpeg process or send-path evidence disappears during an incident window.",
+      "YouTube watchdog or ingest status contradicts systemd stream service substate.",
+      "Chromium capture freshness or audio energy gaps coincide with transport disappearance.",
+      "Recovery loops repeatedly restart or mask service state."
+    ],
+    "non_critical_noise": [
+      "PulseAudio D-Bus warnings without audio_energy gap evidence.",
+      "Chromium warnings without capture freshness or output impact.",
+      "Stable zero connection resets, warnings, or YouTube health failures."
+    ]
+  },
+  "log_sources": [
+    {
+      "source_id": "systemd",
+      "description": "stream service state, restart, and substate logs."
+    },
+    {
+      "source_id": "ffmpeg_stderr",
+      "description": "ffmpeg process, encoder, RTMPS reconnect, and send-path logs."
+    },
+    {
+      "source_id": "youtube_watchdog",
+      "description": "YouTube ingest/watch URL health and watchdog decision logs."
+    },
+    {
+      "source_id": "capture_audio_metrics",
+      "description": "capture freshness, Chromium, PulseAudio, and audio energy observations."
+    }
+  ],
+  "component_map": {
+    "youtube_health": "YouTube ingest, watchdog, and watch URL observations.",
+    "rtmps_ffmpeg": "ffmpeg process and RTMPS transport send path.",
+    "chromium_capture": "Browser capture process and freshness signal.",
+    "audio_energy": "Audio energy sampler and PulseAudio environment.",
+    "runtime_recovery": "systemd restart, watchdog, and recovery-loop behavior.",
+    "network_transport": "TCP reset, reconnect, and network path observations.",
+    "resource_pressure": "CPU, memory, disk, or host pressure around streaming.",
+    "observability_contract": "Health, freshness, and completeness contract for stream evidence."
+  },
+  "known_benign_noise": [
+    "connection_reset_count remained stable at 0",
+    "warning_count decreased to 0",
+    "No immediate action required for stable zero health counters"
+  ],
+  "action_constraints": [
+    "Do not infer actual YouTube viewer continuity unless watch URL or ingest status evidence is present.",
+    "Do not cite stream_v3 profile context as support evidence.",
+    "Split mixed YouTube, ffmpeg, Chromium, audio, and network hypotheses by subsystem."
+  ],
+  "review_policy": {
+    "context_is_not_evidence": true,
+    "require_evidence_id_for_support": true,
+    "zero_is_bad_metrics": ["stream_transport_count", "audio_energy_count", "capture_freshness_count", "active_stream_count"],
+    "zero_is_good_metrics": ["youtube_health_count", "connection_reset_count", "runtime_restart_count", "warning_count", "warn_count"]
+  },
+  "operational_evidence_specs": [
+    {
+      "evidence_id": "OPS-001",
+      "request_id": "process_state_query",
+      "profile_request_id": "ffmpeg_state_query",
+      "request_type": "process_state",
+      "need": "process_state",
+      "subsystem": "rtmps_ffmpeg",
+      "summary": "FFmpeg process, stream-engine state, and encoder lifecycle evidence.",
+      "terms": ["ffmpeg", "stream-engine", "encoder", "exit code", "rc=", "track finished", "process"],
+      "metric_names": ["stream_v3_runtime_ffmpeg_present", "stream_v3_stream_watchdog_ffmpeg_count", "stream_v3_youtube_ffmpeg_uptime_seconds"]
+    },
+    {
+      "evidence_id": "OPS-002",
+      "request_id": "throughput_signal_query",
+      "profile_request_id": "rtmps_reconnect_query",
+      "request_type": "throughput_signal",
+      "need": "throughput_signal",
+      "subsystem": "rtmps_ffmpeg",
+      "summary": "RTMPS connection, reconnect, send-path, and transport evidence.",
+      "terms": ["rtmps", "reconnect", "stream_transport", "stream transport", "tcp send", "send-path", "ingest", "notsent", "unacked", "lastsnd"],
+      "metric_names": ["stream_v3_network_ffmpeg_socket_connected", "stream_v3_upload_latest_mbps", "stream_v3_upload_p95_mbps", "stream_v3_rtmps_ssl_tls_count"]
+    },
+    {
+      "evidence_id": "OPS-003",
+      "request_id": "external_dependency_status_query",
+      "profile_request_id": "youtube_ingest_status_query",
+      "request_type": "external_dependency_status",
+      "need": "external_dependency_status",
+      "subsystem": "youtube_health",
+      "summary": "YouTube ingest, watchdog, watch URL, and live-health evidence.",
+      "terms": ["youtube", "watchdog", "watch url", "watch_url", "ingest", "live health", "youtube_health", "local_ok", "public_ok", "api_ok", "oauth_ok", "stream_active"],
+      "metric_names": ["stream_v3_youtube_watchdog_healthy", "stream_v3_youtube_local_ok", "stream_v3_youtube_public_ok", "stream_v3_youtube_api_ok", "stream_v3_youtube_oauth_ok", "stream_v3_youtube_ingest_connected", "stream_v3_youtube_stream_active", "stream_v3_youtube_fail_count"]
+    },
+    {
+      "evidence_id": "OPS-004",
+      "request_id": "state_transition_query",
+      "profile_request_id": "stream_service_substate_query",
+      "request_type": "state_transition",
+      "need": "state_transition",
+      "subsystem": "runtime_recovery",
+      "summary": "Watchdog, service substate, and runtime state-transition evidence.",
+      "terms": ["stream_service_substate", "substate", "watchdog_ok", "dead", "systemd", "service state", "current_fail", "historical_degraded"],
+      "metric_names": ["stream_v3_stream_watchdog_ok", "stream_v3_current_fail", "stream_v3_historical_degraded"]
+    },
+    {
+      "evidence_id": "OPS-005",
+      "request_id": "freshness_signal_query",
+      "profile_request_id": "capture_freshness_query",
+      "request_type": "freshness_signal",
+      "need": "freshness_signal",
+      "subsystem": "chromium_capture",
+      "summary": "Capture freshness, Chromium, rendering, and timestamp drift evidence.",
+      "terms": ["capture", "capture_freshness", "capture freshness", "chromium", "renderer", "crashpad", "browser", "x11grab", "rendering"],
+      "metric_names": ["stream_v3_runtime_heartbeat_age_seconds", "stream_v3_stream_watchdog_runtime_snapshot_age_seconds", "stream_v3_adsb_rendering_ok", "stream_v3_adsb_evidence_available", "stream_v3_adsb_evidence_age_seconds", "stream_v3_video_frame_unhealthy"]
+    },
+    {
+      "evidence_id": "OPS-006",
+      "request_id": "user_impact_signal_query",
+      "profile_request_id": "audio_energy_gap_query",
+      "request_type": "user_impact_signal",
+      "need": "user_impact_signal",
+      "subsystem": "audio_energy",
+      "summary": "Audio energy, PulseAudio, silence, and audio route evidence.",
+      "terms": ["audio", "audio_energy", "audio energy", "pulseaudio", "pulse", "silence", "energy", "dbus", "d-bus"],
+      "metric_names": ["stream_v3_audio_evidence_available", "stream_v3_audio_ok", "stream_v3_audio_fault_count", "stream_v3_pulse_source_present"]
+    },
+    {
+      "evidence_id": "OPS-007",
+      "request_id": "network_path_query",
+      "profile_request_id": "network_reset_by_destination_query",
+      "request_type": "network_path",
+      "need": "network_path",
+      "subsystem": "network_transport",
+      "summary": "TCP reset, reconnect, packet loss, and network path evidence.",
+      "terms": ["connection reset", "network", "tcp", "peer", "notsent", "unacked", "packet", "loss", "retransmit"],
+      "metric_names": ["connection_reset_count", "stream_v3_rtmps_ssl_tls_count"]
+    },
+    {
+      "evidence_id": "OPS-008",
+      "request_id": "log_completeness_query",
+      "profile_request_id": "log_completeness_query",
+      "request_type": "log_completeness",
+      "need": "log_completeness",
+      "subsystem": "observability_contract",
+      "summary": "Log completeness, metric freshness, and evidence-surface gap evidence.",
+      "terms": ["log", "missing", "gap", "completeness", "freshness", "timestamp drift", "metric freshness"],
+      "metric_names": ["stream_v3_exporter_up", "stream_v3_health_snapshot_available", "stream_v3_health_snapshot_age_seconds", "stream_v3_objective_snapshot_available", "stream_v3_objective_snapshot_age_seconds"]
+    }
+  ],
+  "context_note": "stream_v3 profile context explains metric semantics and subsystem routing. It is not evidence.",
+  "metrics": {
+    "stream_transport_count": {
+      "semantic_type": "throughput",
+      "zero_behavior": "suspicious",
+      "subsystem": "rtmps_ffmpeg",
+      "core_target_type": "throughput_disappearance",
+      "domain_label": "Stream transport disappeared"
+    },
+    "active_stream_count": {
+      "semantic_type": "throughput",
+      "zero_behavior": "suspicious",
+      "subsystem": "rtmps_ffmpeg",
+      "core_target_type": "throughput_disappearance",
+      "domain_label": "Active stream signal disappeared"
+    },
+    "audio_energy_count": {
+      "semantic_type": "user_impact_signal",
+      "zero_behavior": "suspicious",
+      "subsystem": "audio_energy",
+      "core_target_type": "user_impact_signal_gap",
+      "domain_label": "Audio energy gap needs validation"
+    },
+    "capture_freshness_count": {
+      "semantic_type": "freshness_signal",
+      "zero_behavior": "suspicious",
+      "subsystem": "chromium_capture",
+      "core_target_type": "freshness_signal_gap",
+      "domain_label": "Capture freshness gap needs validation"
+    },
+    "error_count": {
+      "semantic_type": "error",
+      "zero_behavior": "healthy",
+      "subsystem": "generic_runtime",
+      "core_target_type": "error_spike"
+    },
+    "warn_count": {
+      "semantic_type": "warning",
+      "zero_behavior": "healthy",
+      "subsystem": "generic_runtime",
+      "core_target_type": "warning_spike"
+    },
+    "warning_count": {
+      "semantic_type": "warning",
+      "zero_behavior": "healthy",
+      "subsystem": "generic_runtime",
+      "core_target_type": "warning_spike"
+    },
+    "connection_reset_count": {
+      "semantic_type": "network_error",
+      "zero_behavior": "healthy",
+      "subsystem": "network_transport",
+      "core_target_type": "network_error_signal",
+      "domain_label": "Network reset counter-evidence needs validation"
+    },
+    "runtime_restart_count": {
+      "semantic_type": "restart",
+      "zero_behavior": "healthy",
+      "subsystem": "runtime_recovery",
+      "core_target_type": "restart_loop"
+    },
+    "service_health_failure_count": {
+      "semantic_type": "state",
+      "zero_behavior": "healthy",
+      "subsystem": "runtime_recovery",
+      "core_target_type": "state_mismatch"
+    },
+    "youtube_health_count": {
+      "semantic_type": "external_dependency_status",
+      "zero_behavior": "healthy",
+      "subsystem": "youtube_health",
+      "core_target_type": "external_dependency_failure",
+      "domain_label": "YouTube ingest status needs validation"
+    },
+    "ffmpeg_process_state_count": {
+      "semantic_type": "process_state",
+      "zero_behavior": "neutral",
+      "subsystem": "rtmps_ffmpeg",
+      "core_target_type": "runtime_instability"
+    },
+    "rtmps_reconnect_count": {
+      "semantic_type": "throughput",
+      "zero_behavior": "neutral",
+      "subsystem": "rtmps_ffmpeg",
+      "core_target_type": "throughput_disappearance"
+    },
+    "youtube_ingest_count": {
+      "semantic_type": "external_dependency_status",
+      "zero_behavior": "neutral",
+      "subsystem": "youtube_health",
+      "core_target_type": "external_dependency_failure"
+    }
+  },
+  "target_types": {
+    "throughput_disappearance": {
+      "title": "Critical throughput signal disappeared",
+      "domain_label": "Stream transport disappeared",
+      "primary_incident": true,
+      "incident_score_floor": 0.80,
+      "validation_incident_score_floor": 0.84,
+      "zero_bad_incident_score_floor": 0.90,
+      "validation_score_cap": 0.84,
+      "text_terms": ["stream_transport_count", "rtmps", "send-path", "stream transport"],
+      "evidence_requests": [
+        "process_state_query",
+        "throughput_signal_query",
+        "external_dependency_status_query",
+        "user_impact_signal_query",
+        "freshness_signal_query"
+      ]
+    },
+    "external_dependency_failure": {
+      "title": "External dependency status needs validation",
+      "domain_label": "YouTube ingest status needs validation",
+      "text_terms": ["youtube", "watchdog", "watch url", "youtube_health"],
+      "evidence_requests": [
+        "external_dependency_status_query",
+        "state_transition_query",
+        "throughput_signal_query",
+        "user_impact_signal_query",
+        "freshness_signal_query"
+      ]
+    },
+    "network_error_signal": {
+      "title": "Network error signal needs validation",
+      "domain_label": "Network reset counter-evidence needs validation",
+      "validation_score_cap": 0.60,
+      "text_terms": ["connection reset", "notsent", "unacked", "packet loss"],
+      "evidence_requests": ["network_path_query", "throughput_signal_query", "external_dependency_status_query", "instrumentation_consistency_query"]
+    },
+    "freshness_signal_gap": {
+      "title": "Freshness signal gap needs validation",
+      "domain_label": "Capture freshness gap needs validation",
+      "validation_score_cap": 0.56,
+      "text_terms": ["capture_freshness", "capture freshness", "chromium", "renderer", "crashpad"],
+      "evidence_requests": ["freshness_signal_query", "user_impact_signal_query", "log_completeness_query"]
+    },
+    "user_impact_signal_gap": {
+      "title": "User-impact signal gap needs validation",
+      "domain_label": "Audio energy gap needs validation",
+      "validation_score_cap": 0.56,
+      "text_terms": ["audio_energy", "audio energy", "silence", "pulseaudio"],
+      "evidence_requests": ["user_impact_signal_query", "freshness_signal_query", "process_state_query"]
+    },
+    "runtime_instability": {
+      "title": "Runtime component instability needs review",
+      "domain_label": "RTMPS or ffmpeg instability needs review",
+      "text_terms": ["ffmpeg", "stream-engine", "encoder"],
+      "evidence_requests": ["process_state_query", "throughput_signal_query", "deployment_correlation_query"]
+    },
+    "state_mismatch": {
+      "title": "State mismatch needs validation",
+      "domain_label": "Health signal contradicts service state",
+      "validation_score_cap": 0.66,
+      "text_terms": ["watchdog_ok", "stream_service_substate", "dead", "substate"],
+      "evidence_requests": ["state_transition_query", "external_dependency_status_query", "throughput_signal_query"]
+    },
+    "instrumentation_mismatch": {
+      "title": "Instrumentation mismatch needs validation",
+      "domain_label": "RTMPS metric/log consistency needs validation",
+      "validation_score_cap": 0.62,
+      "text_terms": ["metric/log conflict", "rtmps_reconnect_count", "metric reports 0", "instrumentation mismatch"],
+      "evidence_requests": ["instrumentation_consistency_query", "throughput_signal_query", "log_completeness_query"]
+    }
+  },
+  "evidence_requests": {
+    "process_state_query": {
+      "profile_request_id": "ffmpeg_state_query",
+      "target_component": "media_encoder",
+      "description": "Verify ffmpeg process state and exit code during the incident window.",
+      "preferred_sources": ["systemd", "ffmpeg stderr", "stream-engine logs"],
+      "search_terms": ["ffmpeg", "stream-engine", "systemd", "exit", "exit code", "rc=", "track finished", "process"]
+    },
+    "throughput_signal_query": {
+      "profile_request_id": "rtmps_reconnect_query",
+      "target_component": "rtmps_transport",
+      "description": "Check RTMPS connection, reconnect, and send-path timestamps around the drop.",
+      "preferred_sources": ["RTMPS reconnect logs", "tcp send samples", "stream transport metrics"],
+      "search_terms": ["rtmps", "reconnect", "stream_transport", "stream transport", "tcp send", "send-path", "ingest"]
+    },
+    "external_dependency_status_query": {
+      "profile_request_id": "youtube_ingest_status_query",
+      "target_component": "youtube_ingest",
+      "description": "Verify YouTube ingest health and watch URL availability.",
+      "preferred_sources": ["YouTube ingest status", "watchdog logs", "watch URL probes"],
+      "search_terms": ["youtube", "watchdog", "watch url", "watch_url", "ingest", "live health", "youtube_health"]
+    },
+    "user_impact_signal_query": {
+      "profile_request_id": "audio_energy_gap_query",
+      "target_component": "audio_energy",
+      "description": "Check whether audio_energy also disappeared during the same window.",
+      "preferred_sources": ["audio energy sampler", "PulseAudio logs"],
+      "search_terms": ["audio", "audio_energy", "audio energy", "pulseaudio", "silence", "energy", "dbus", "d-bus"]
+    },
+    "freshness_signal_query": {
+      "profile_request_id": "capture_freshness_query",
+      "target_component": "browser_capture",
+      "description": "Check capture freshness timestamp drift and Chromium capture state.",
+      "preferred_sources": ["capture freshness exporter", "Chromium stderr", "crashpad samples"],
+      "search_terms": ["capture", "capture_freshness", "capture freshness", "chromium", "renderer", "crashpad", "browser"]
+    },
+    "state_transition_query": {
+      "profile_request_id": "stream_service_substate_query",
+      "target_component": "stream_service",
+      "description": "Compare stream_service_substate transitions with watchdog inputs.",
+      "preferred_sources": ["watchdog decision logs", "systemd service state"],
+      "search_terms": ["stream_service_substate", "substate", "watchdog_ok", "dead", "systemd", "service state"]
+    },
+    "network_path_query": {
+      "profile_request_id": "network_reset_by_destination_query",
+      "target_component": "network_path",
+      "description": "Break down connection reset counts by destination and interface.",
+      "preferred_sources": ["tcp metrics", "network logs"],
+      "search_terms": ["connection reset", "network", "tcp", "peer", "notsent", "unacked", "packet", "loss", "retransmit"]
+    },
+    "log_completeness_query": {
+      "profile_request_id": "log_completeness_query",
+      "target_component": "log_pipeline",
+      "description": "Verify log completeness before treating missing evidence as stability.",
+      "preferred_sources": ["collector logs", "metric freshness exports"],
+      "search_terms": ["log", "missing", "gap", "completeness", "freshness", "timestamp drift"]
+    },
+    "instrumentation_consistency_query": {
+      "profile_request_id": "rtmps_metric_log_consistency_query",
+      "target_component": "rtmps_transport_observability",
+      "description": "Compare RTMPS reconnect/send-path log rows with exported RTMPS metrics for the same incident window.",
+      "preferred_sources": ["RTMPS reconnect logs", "stream transport metrics", "metric exporter samples"],
+      "search_terms": ["rtmps", "reconnect", "metric", "count", "exporter", "collector", "stream_transport"]
+    }
+  }
+}

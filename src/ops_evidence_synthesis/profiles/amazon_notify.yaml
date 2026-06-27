@@ -1,0 +1,174 @@
+{
+  "profile_id": "amazon_notify",
+  "profile_label": "amazon-notify notification workflow",
+  "source_system": "amazon-notify",
+  "system_profile": {
+    "system_type": "notification_workflow",
+    "purpose": "Gmail / Amazon notification events are monitored and forwarded to Discord.",
+    "critical_outcomes": [
+      "Pub/Sub listener stays active.",
+      "watchdog timer runs successfully.",
+      "Gmail watch renewal remains valid."
+    ],
+    "critical_user_outcomes": [
+      "Amazon notification watch and scheduled checks continue to run.",
+      "Configured systemd or scheduler commands point to installed artifacts.",
+      "Notification forwarding failures are distinguishable from benign empty-check intervals.",
+      "Manual host checks can be converted into auditable More data evidence."
+    ],
+    "profile_scope": "amazon-notify job, systemd, artifact, and scheduler evidence interpretation."
+  },
+  "operational_contract": {
+    "expected_normal": [
+      "amazon-notify service or timer definitions reference installed scripts or package entry points.",
+      "Watch-renew and notification polling jobs have recent successful scheduler history.",
+      "No-message intervals are not incidents unless process, scheduler, credential, or artifact evidence indicates failure."
+    ],
+    "failure_indicators": [
+      "systemd ExecStart or scheduler command references a missing file.",
+      "Installed artifact evidence disagrees with the configured job definition.",
+      "Timer or scheduler history stops before or during the incident window.",
+      "Service process state shows repeated failed starts, exits, or restart loops."
+    ],
+    "non_critical_noise": [
+      "No new Amazon notifications by itself.",
+      "Credential renewal warnings outside the watch-renew window without process failure evidence.",
+      "One-off informational systemd lines that do not affect timer, service, or artifact state."
+    ]
+  },
+  "log_sources": [
+    {
+      "source_id": "systemd_journal",
+      "description": "systemd service, timer, unit, ExecStart, and process-state evidence."
+    },
+    {
+      "source_id": "installed_artifacts",
+      "description": "Filesystem, package, or deployment manifest rows showing expected scripts and entry points."
+    },
+    {
+      "source_id": "scheduler_history",
+      "description": "Timer, cron, or application scheduler runs and last-success timestamps."
+    },
+    {
+      "source_id": "deployment_history",
+      "description": "Deploy, release, package install, or configuration changes around the incident."
+    },
+    {
+      "source_id": "application_logs",
+      "description": "amazon-notify application logs and sanitized exception messages."
+    }
+  ],
+  "component_map": {
+    "job_configuration": "systemd unit, timer, scheduler definition, and configured command path.",
+    "runtime_recovery": "systemd process state, starts, exits, restarts, and failed units.",
+    "service_liveness": "watch-renew, polling, or notification worker liveness observations.",
+    "downstream_dependency": "Gmail, Amazon, Discord, or other external API behavior when present.",
+    "observability_contract": "Whether log, scheduler, and artifact evidence is complete enough to validate the claim."
+  },
+  "known_benign_noise": [
+    "No Amazon notifications found",
+    "No immediate action required",
+    "empty inbox polling result without job failure evidence"
+  ],
+  "action_constraints": [
+    "Do not treat this profile as evidence; cite only evidence_ids from logs, metrics, patterns, or More data analysis.",
+    "Do not recommend manual credential or Gmail watch renewal unless supported by scheduler/process evidence and operator approval.",
+    "For configured-command failures, verify both job_definition_query and installed_artifact_query before marking known_issue."
+  ],
+  "review_policy": {
+    "context_is_not_evidence": true,
+    "require_evidence_id_for_support": true,
+    "more_data_request_order": [
+      "job_definition_query",
+      "installed_artifact_query",
+      "scheduler_history_query",
+      "deployment_correlation_query",
+      "process_state_query"
+    ]
+  },
+  "resolution_status": {
+    "status": "resolved_verified",
+    "fix": "systemd unit now calls the amazon-notify CLI instead of a missing script path.",
+    "verification": [
+      "pytest 62 passed",
+      "systemd-analyze verify passed",
+      "amazon-notify --status ok",
+      "no failed amazon-notify units"
+    ]
+  },
+  "target_types": {
+    "job_configuration_mismatch": {
+      "title": "Configured job command is missing",
+      "domain_label": "Configured job command is missing",
+      "text_terms": [
+        "can't open file",
+        "no such file or directory",
+        "configured command missing",
+        "configured job command",
+        "supervisor script is missing",
+        "execstart target missing",
+        "job configuration mismatch"
+      ],
+      "evidence_requests": [
+        "job_definition_query",
+        "installed_artifact_query",
+        "scheduler_history_query",
+        "deployment_correlation_query",
+        "process_state_query"
+      ]
+    },
+    "service_start_failure": {
+      "title": "Service start failure needs verification",
+      "domain_label": "Service start failure needs verification",
+      "text_terms": ["failed to start", "main process exited", "service start failure"],
+      "evidence_requests": ["process_state_query", "state_transition_query", "deployment_correlation_query"]
+    }
+  },
+  "evidence_requests": {
+    "job_definition_query": {
+      "description": "Inspect the supervisor or scheduler definition and verify that the configured command target exists."
+    },
+    "installed_artifact_query": {
+      "description": "Compare installed artifacts or package contents with the configured command paths."
+    },
+    "scheduler_history_query": {
+      "description": "Check scheduler or timer history and the last successful execution timestamp."
+    },
+    "deployment_correlation_query": {
+      "description": "Compare deploy, configuration, and rollout changes with the incident window."
+    },
+    "process_state_query": {
+      "description": "Verify process or runtime state during the incident window."
+    },
+    "state_transition_query": {
+      "description": "Compare state transitions with health or liveness signals."
+    }
+  },
+  "metrics": {
+    "job_configuration_mismatch_count": {
+      "semantic_type": "configuration_contract",
+      "zero_behavior": "healthy",
+      "subsystem": "job_configuration",
+      "core_target_type": "job_configuration_mismatch"
+    },
+    "service_start_failure_count": {
+      "semantic_type": "supervisor_state",
+      "zero_behavior": "healthy",
+      "subsystem": "runtime_recovery",
+      "core_target_type": "service_start_failure"
+    },
+    "watch_renew_success_count": {
+      "semantic_type": "heartbeat",
+      "zero_behavior": "suspicious",
+      "subsystem": "service_liveness",
+      "core_target_type": "heartbeat_missing"
+    },
+    "notification_forward_count": {
+      "semantic_type": "throughput",
+      "zero_behavior": "neutral",
+      "subsystem": "traffic",
+      "core_target_type": "throughput_disappearance"
+    }
+  },
+  "context_note": "amazon_notify profile is operational context for interpreting systemd, scheduler, and artifact evidence. It is never support evidence by itself."
+}
