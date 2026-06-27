@@ -1,0 +1,203 @@
+resource "google_service_account" "api" {
+  account_id   = "${var.service_name}-sa"
+  display_name = "Ops Evidence API runtime"
+}
+
+locals {
+  base_env = {
+    OES_STORE             = "bigquery"
+    OES_GCP_PROJECT       = var.project_id
+    OES_BIGQUERY_LOCATION = var.bigquery_location
+  }
+  cloud_run_env = merge(local.base_env, var.runtime_env)
+}
+
+resource "google_bigquery_dataset" "raw" {
+  dataset_id                      = "ops_evidence_raw"
+  location                        = var.bigquery_location
+  delete_contents_on_destroy      = false
+  default_partition_expiration_ms = var.bigquery_partition_expiration_ms
+  default_table_expiration_ms     = var.bigquery_partition_expiration_ms
+}
+
+resource "google_bigquery_dataset" "core" {
+  dataset_id                      = "ops_evidence_core"
+  location                        = var.bigquery_location
+  delete_contents_on_destroy      = false
+  default_partition_expiration_ms = var.bigquery_partition_expiration_ms
+  default_table_expiration_ms     = var.bigquery_partition_expiration_ms
+}
+
+resource "google_bigquery_dataset" "synthesis" {
+  dataset_id                      = "ops_synthesis"
+  location                        = var.bigquery_location
+  delete_contents_on_destroy      = false
+  default_partition_expiration_ms = var.bigquery_partition_expiration_ms
+  default_table_expiration_ms     = var.bigquery_partition_expiration_ms
+}
+
+resource "google_project_iam_member" "api_bigquery_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "api_raw_editor" {
+  dataset_id = google_bigquery_dataset.raw.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "api_core_editor" {
+  dataset_id = google_bigquery_dataset.core.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "api_synthesis_editor" {
+  dataset_id = google_bigquery_dataset.synthesis.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_project_iam_member" "api_vertex_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "api_write_token_accessor" {
+  count     = var.api_write_token_secret == "" ? 0 : 1
+  project   = var.project_id
+  secret_id = var.api_write_token_secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_cloud_run_v2_service" "api" {
+  name     = var.service_name
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
+
+  template {
+    service_account                  = google_service_account.api.email
+    timeout                          = "${var.timeout_seconds}s"
+    max_instance_request_concurrency = var.container_concurrency
+
+    scaling {
+      min_instance_count = var.min_instances
+      max_instance_count = var.max_instances
+    }
+
+    containers {
+      image = var.container_image
+
+      ports {
+        container_port = 8080
+        name           = "http1"
+      }
+
+      dynamic "env" {
+        for_each = local.cloud_run_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.api_write_token_secret == "" ? [] : [var.api_write_token_secret]
+        content {
+          name = "OES_API_WRITE_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      resources {
+        limits = {
+          cpu    = var.cpu_limit
+          memory = var.memory_limit
+        }
+        cpu_idle          = false
+        startup_cpu_boost = true
+      }
+
+      startup_probe {
+        failure_threshold     = 1
+        period_seconds        = 240
+        timeout_seconds       = 240
+        initial_delay_seconds = 0
+
+        tcp_socket {
+          port = 8080
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      client,
+      client_version,
+    ]
+  }
+}
+
+resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
+  count    = var.enable_public_invoker ? 1 : 0
+  name     = google_cloud_run_v2_service.api.name
+  location = google_cloud_run_v2_service.api.location
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_monitoring_alert_policy" "cloud_run_5xx" {
+  display_name = "${var.service_name} 5xx response rate"
+  combiner     = "OR"
+  enabled      = true
+
+  conditions {
+    display_name = "5xx responses"
+    condition_threshold {
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${var.service_name}\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"5xx\""
+      duration        = "300s"
+      comparison      = "COMPARISON_GT"
+      threshold_value = 5
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_RATE"
+      }
+    }
+  }
+
+  notification_channels = var.notification_channel_ids
+}
+
+resource "google_monitoring_alert_policy" "cloud_run_latency" {
+  display_name = "${var.service_name} p95 latency"
+  combiner     = "OR"
+  enabled      = true
+
+  conditions {
+    display_name = "p95 request latency over 30s"
+    condition_threshold {
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${var.service_name}\" AND metric.type=\"run.googleapis.com/request_latencies\""
+      duration        = "300s"
+      comparison      = "COMPARISON_GT"
+      threshold_value = 30000
+      aggregations {
+        alignment_period     = "300s"
+        per_series_aligner   = "ALIGN_PERCENTILE_95"
+        cross_series_reducer = "REDUCE_MEAN"
+        group_by_fields      = ["resource.labels.service_name"]
+      }
+    }
+  }
+
+  notification_channels = var.notification_channel_ids
+}

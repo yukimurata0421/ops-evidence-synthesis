@@ -1,0 +1,263 @@
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - api_base: ${args.api_base}
+          - skip_alternatives: ${default(map.get(args, "skip_alternatives"), false)}
+          - skip_compare: ${default(map.get(args, "skip_compare"), false)}
+          - bundle_timeout_seconds: ${default(map.get(args, "bundle_timeout_seconds"), 60)}
+          - gemini_timeout_seconds: ${default(map.get(args, "gemini_timeout_seconds"), 180)}
+          - alternatives_timeout_seconds: ${default(map.get(args, "alternatives_timeout_seconds"), 240)}
+          - stage_timeout_seconds: ${default(map.get(args, "stage_timeout_seconds"), 120)}
+          - compare_timeout_seconds: ${default(map.get(args, "compare_timeout_seconds"), 120)}
+          - provider_max_retries: ${default(map.get(args, "provider_max_retries"), 2)}
+          - retry_initial_delay_seconds: ${default(map.get(args, "retry_initial_delay_seconds"), 5)}
+          - retry_max_delay_seconds: ${default(map.get(args, "retry_max_delay_seconds"), 60)}
+          - provider_status:
+              gemini:
+                required: true
+                status: "pending"
+              alternatives:
+                required: false
+                status: "pending"
+              compare:
+                required: false
+                status: "pending"
+          - incident:
+              service: ${args.service}
+              environment: ${args.environment}
+              incident_start: ${args.incident_start}
+              incident_end: ${args.incident_end}
+              lookback_minutes: ${default(map.get(args, "lookback_minutes"), 60)}
+    - load_provider_policy:
+        try:
+          call: http.get
+          args:
+            url: ${api_base + "/workflow/provider-policy"}
+            auth:
+              type: OIDC
+            timeout: ${stage_timeout_seconds}
+          result: provider_policy_response
+        except:
+          as: e
+          steps:
+            - set_provider_policy_fallback:
+                assign:
+                  - provider_policy_response:
+                      body:
+                        schema_version: "workflow_provider_policy.v1"
+                        policy_warning: ${json.encode_to_string(e)}
+                        alternatives:
+                          skip: ${skip_alternatives}
+                        compare:
+                          skip: ${skip_compare}
+    - apply_provider_policy:
+        assign:
+          - provider_policy: ${default(map.get(provider_policy_response, "body"), {})}
+          - alternative_policy: ${default(map.get(provider_policy, "alternatives"), {})}
+          - compare_policy: ${default(map.get(provider_policy, "compare"), {})}
+          - cost_policy: ${default(map.get(provider_policy, "cost_policy"), {})}
+          - skip_alternatives: ${skip_alternatives or default(map.get(alternative_policy, "skip"), false)}
+          - skip_compare: ${skip_compare or default(map.get(compare_policy, "skip"), false)}
+          - provider_status.alternatives.policy: ${alternative_policy}
+          - provider_status.compare.policy: ${compare_policy}
+          - provider_status.cost_policy: ${cost_policy}
+    - create_bundle:
+        call: http.post
+        args:
+          url: ${api_base + "/bundle/create"}
+          auth:
+            type: OIDC
+          timeout: ${bundle_timeout_seconds}
+          body: ${incident}
+        result: bundle_response
+    - run_gemini:
+        try:
+          call: http.post
+          args:
+            url: ${api_base + "/run/gemini"}
+            auth:
+              type: OIDC
+            timeout: ${gemini_timeout_seconds}
+            body:
+              evidence_sha256: ${bundle_response.body.evidence_sha256}
+          result: gemini_response
+        retry:
+          predicate: ${http.default_retry_predicate}
+          max_retries: ${provider_max_retries}
+          backoff:
+            initial_delay: ${retry_initial_delay_seconds}
+            max_delay: ${retry_max_delay_seconds}
+            multiplier: 2
+        except:
+          as: e
+          steps:
+            - set_gemini_error:
+                assign:
+                  - provider_status.gemini.status: "error"
+                  - provider_status.gemini.error: ${json.encode_to_string(e)}
+            - fail_required_gemini:
+                raise: ${e}
+    - mark_gemini_ok:
+        assign:
+          - provider_status.gemini.status: "ok"
+          - provider_status.gemini.parsed_result_count: ${default(map.get(gemini_response.body, "parsed_result_count"), 0)}
+    - maybe_skip_alternatives:
+        switch:
+          - condition: ${skip_alternatives}
+            steps:
+              - set_alternatives_skipped:
+                  assign:
+                    - alternatives_response:
+                        body:
+                          parsed_result_count: 0
+                          schema_valid_count: 0
+                          skipped: true
+                    - provider_status.alternatives.status: "skipped"
+            next: validate_json
+        next: run_alternatives
+    - run_alternatives:
+        try:
+          call: http.post
+          args:
+            url: ${api_base + "/run/alternatives"}
+            auth:
+              type: OIDC
+            timeout: ${alternatives_timeout_seconds}
+            body:
+              evidence_sha256: ${bundle_response.body.evidence_sha256}
+          result: alternatives_response
+        retry:
+          predicate: ${http.default_retry_predicate}
+          max_retries: ${provider_max_retries}
+          backoff:
+            initial_delay: ${retry_initial_delay_seconds}
+            max_delay: ${retry_max_delay_seconds}
+            multiplier: 2
+        except:
+          as: e
+          steps:
+            - set_alternatives_error:
+                assign:
+                  - alternatives_response:
+                      body:
+                        parsed_result_count: 0
+                        schema_valid_count: 0
+                        skipped: true
+                        error: ${json.encode_to_string(e)}
+                  - provider_status.alternatives.status: "error"
+                  - provider_status.alternatives.error: ${json.encode_to_string(e)}
+    - mark_alternatives_ok:
+        switch:
+          - condition: ${provider_status.alternatives.status == "pending"}
+            steps:
+              - set_alternatives_ok:
+                  assign:
+                    - provider_status.alternatives.status: "ok"
+                    - provider_status.alternatives.parsed_result_count: ${default(map.get(alternatives_response.body, "parsed_result_count"), 0)}
+    - validate_json:
+        call: http.post
+        args:
+          url: ${api_base + "/validate"}
+          auth:
+            type: OIDC
+          timeout: ${stage_timeout_seconds}
+          body:
+            evidence_sha256: ${bundle_response.body.evidence_sha256}
+        result: validation_response
+    - route_claims:
+        call: http.post
+        args:
+          url: ${api_base + "/route"}
+          auth:
+            type: OIDC
+          timeout: ${stage_timeout_seconds}
+          body:
+            evidence_sha256: ${bundle_response.body.evidence_sha256}
+        result: route_response
+    - score:
+        call: http.post
+        args:
+          url: ${api_base + "/score"}
+          auth:
+            type: OIDC
+          timeout: ${stage_timeout_seconds}
+          body:
+            evidence_sha256: ${bundle_response.body.evidence_sha256}
+        result: score_response
+    - maybe_skip_compare:
+        switch:
+          - condition: ${skip_compare or skip_alternatives or provider_status.alternatives.status == "error"}
+            steps:
+              - set_compare_skipped:
+                  assign:
+                    - compare_response:
+                        body:
+                          comparison_count: 0
+                          skipped: true
+                    - provider_status.compare.status: "skipped"
+            next: done
+        next: compare_models
+    - compare_models:
+        try:
+          call: http.post
+          args:
+            url: ${api_base + "/compare"}
+            auth:
+              type: OIDC
+            timeout: ${compare_timeout_seconds}
+            body:
+              evidence_sha256: ${bundle_response.body.evidence_sha256}
+              baseline_provider: gemini-enterprise-agent-platform
+              candidate_providers:
+                - openai-gpt-oss-on-vertex
+                - mistral-agent-platform
+          result: compare_response
+        retry:
+          predicate: ${http.default_retry_predicate}
+          max_retries: ${provider_max_retries}
+          backoff:
+            initial_delay: ${retry_initial_delay_seconds}
+            max_delay: ${retry_max_delay_seconds}
+            multiplier: 2
+        except:
+          as: e
+          steps:
+            - set_compare_error:
+                assign:
+                  - compare_response:
+                      body:
+                        comparison_count: 0
+                        skipped: true
+                        error: ${json.encode_to_string(e)}
+                  - provider_status.compare.status: "error"
+                  - provider_status.compare.error: ${json.encode_to_string(e)}
+    - mark_compare_ok:
+        switch:
+          - condition: ${provider_status.compare.status == "pending"}
+            steps:
+              - set_compare_ok:
+                  assign:
+                    - provider_status.compare.status: "ok"
+                    - provider_status.compare.comparison_count: ${default(map.get(compare_response.body, "comparison_count"), 0)}
+    - done:
+        return:
+          evidence_sha256: ${bundle_response.body.evidence_sha256}
+          gemini_parsed_result_count: ${gemini_response.body.parsed_result_count}
+          alternative_parsed_result_count: ${alternatives_response.body.parsed_result_count}
+          alternative_schema_valid_count: ${alternatives_response.body.schema_valid_count}
+          schema_valid_count: ${validation_response.body.schema_valid_count}
+          claim_count: ${route_response.body.claim_count}
+          proposition_count: ${route_response.body.proposition_count}
+          score_count: ${score_response.body.score_count}
+          cluster_count: ${score_response.body.cluster_count}
+          review_target_count: ${score_response.body.review_target_count}
+          primary_review_target_count: ${score_response.body.primary_review_target_count}
+          validation_target_count: ${score_response.body.validation_target_count}
+          monitor_only_count: ${score_response.body.monitor_only_count}
+          auto_archived_count: ${score_response.body.auto_archived_count}
+          comparison_count: ${compare_response.body.comparison_count}
+          review_queue_count: ${score_response.body.review_queue_count}
+          provider_status: ${provider_status}
+          provider_policy: ${provider_policy}

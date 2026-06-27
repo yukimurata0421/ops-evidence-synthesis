@@ -1,0 +1,9 @@
+[allowlist]
+description = "Allow intentional sanitizer fixtures and pattern tests."
+paths = [
+  '''^sample_logs/secret_heavy\.jsonl$''',
+  '''^data/sample_logs\.jsonl$''',
+  '''^tests/test_local_first\.py$''',
+  '''^tests/test_sanitizer\.py$''',
+  '''^src/ops_evidence_synthesis/local_first\.py$''',
+]
