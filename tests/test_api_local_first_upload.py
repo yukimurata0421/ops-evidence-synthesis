@@ -18,9 +18,9 @@ from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sani
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _secret_heavy_bundle(tmp_path: Path) -> dict[str, object]:
+def _redaction_fixture_bundle(tmp_path: Path) -> dict[str, object]:
     out = tmp_path / "local_first"
-    sanitize_input(ROOT / "sample_logs" / "secret_heavy.jsonl", out)
+    sanitize_input(ROOT / "sample_logs" / "redaction_fixture.jsonl", out)
     return build_bundle_from_sanitized(
         out / "sanitized_events.jsonl",
         service="unknown-sample",
@@ -254,7 +254,7 @@ def test_upload_local_first_bundle_validates_persists_and_renders_summary(
 ) -> None:
     monkeypatch.setenv("OES_STORE", "sqlite")
     monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
-    bundle = _secret_heavy_bundle(tmp_path)
+    bundle = _redaction_fixture_bundle(tmp_path)
 
     with TestClient(app) as client:
         uploaded = client.post("/bundles/upload", json={"bundle": bundle})
@@ -348,7 +348,7 @@ def test_upload_rejects_raw_or_tampered_bundle_without_echoing_secret(
 ) -> None:
     monkeypatch.setenv("OES_STORE", "sqlite")
     monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
-    bundle = _secret_heavy_bundle(tmp_path)
+    bundle = _redaction_fixture_bundle(tmp_path)
     leaked_secret = "leaked-token-1234567890"
 
     with TestClient(app) as client:
@@ -382,7 +382,7 @@ def test_upload_child_bundle_accepts_and_renders_lineage(
     monkeypatch.setenv("OES_STORE", "sqlite")
     monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
     out = tmp_path / "local_first"
-    sanitize_input(ROOT / "sample_logs" / "secret_heavy.jsonl", out)
+    sanitize_input(ROOT / "sample_logs" / "redaction_fixture.jsonl", out)
     parent = build_bundle_from_sanitized(
         out / "sanitized_events.jsonl",
         service="unknown-sample",

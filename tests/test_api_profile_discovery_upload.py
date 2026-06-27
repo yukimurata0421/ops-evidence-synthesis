@@ -22,7 +22,7 @@ PROJECT_ROOT = ROOT / "sample_projects" / "profile_discovery_sample"
 
 def _discovery_bundle(tmp_path: Path) -> dict[str, object]:
     out = tmp_path / "local_first"
-    sanitize_input(ROOT / "sample_logs" / "secret_heavy.jsonl", out)
+    sanitize_input(ROOT / "sample_logs" / "redaction_fixture.jsonl", out)
     evidence = build_bundle_from_sanitized(
         out / "sanitized_events.jsonl",
         service="unknown-sample",

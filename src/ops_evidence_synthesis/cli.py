@@ -82,7 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Raw logs are not uploaded in the local-first path. "
             "Send only the sanitized evidence_bundle.json to GCP, BigQuery, Gemini, or review tooling. "
-            "analyze-jsonl remains a legacy/dev convenience path."
+            "analyze-jsonl remains a compatibility/dev convenience path."
         ),
     )
     parser.add_argument("--db", default=str(DEFAULT_DB_PATH), help="SQLite DB path for local execution")
@@ -133,7 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
         "discover-profile",
         help="Build a sanitized Profile Discovery Bundle. Recommended path: sanitize-source -> analyze-source -> discover-profile",
     )
-    discover.add_argument("--project-root", default="", help="Legacy project root to inspect locally")
+    discover.add_argument("--project-root", default="", help="Optional project root to inspect locally")
     discover.add_argument("--source-context", default="", help="source_context_bundle.json from sanitize-source")
     discover.add_argument("--source-analysis", default="", help="source_analysis_bundle.json from analyze-source")
     discover.add_argument("--evidence-bundle", default="", help="Sanitized evidence_bundle.json to seed log-driven retrieval")

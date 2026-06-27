@@ -210,7 +210,7 @@ def _canonical_graph() -> dict[str, object]:
 
 def _real_bundle_and_profile(tmp_path: Path) -> tuple[Path, Path]:
     out = tmp_path / "local_first"
-    sanitize_input(ROOT / "sample_logs" / "secret_heavy.jsonl", out)
+    sanitize_input(ROOT / "sample_logs" / "redaction_fixture.jsonl", out)
     build_bundle_from_sanitized(
         out / "sanitized_events.jsonl",
         service="unknown-sample",

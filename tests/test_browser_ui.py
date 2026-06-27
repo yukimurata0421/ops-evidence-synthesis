@@ -19,9 +19,9 @@ from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sani
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _secret_heavy_bundle(tmp_path: Path) -> dict[str, object]:
+def _redaction_fixture_bundle(tmp_path: Path) -> dict[str, object]:
     out = tmp_path / "browser_local_first"
-    sanitize_input(ROOT / "sample_logs" / "secret_heavy.jsonl", out)
+    sanitize_input(ROOT / "sample_logs" / "redaction_fixture.jsonl", out)
     return build_bundle_from_sanitized(
         out / "sanitized_events.jsonl",
         service="unknown-sample",
@@ -175,7 +175,7 @@ def test_generate_refined_plan_requires_inline_write_token_before_request(
 ) -> None:
     monkeypatch.setenv("OES_STORE", "sqlite")
     monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "browser-planner-token.sqlite3"))
-    bundle = _secret_heavy_bundle(tmp_path)
+    bundle = _redaction_fixture_bundle(tmp_path)
     client = TestClient(app)
     uploaded = client.post("/bundles/upload", json={"bundle": bundle})
     assert uploaded.status_code == 200, uploaded.text
@@ -243,7 +243,7 @@ def test_generate_refined_plan_requires_inline_write_token_before_request(
 def test_planner_panel_stays_left_of_sticky_drawer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OES_STORE", "sqlite")
     monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "browser-layout.sqlite3"))
-    bundle = _secret_heavy_bundle(tmp_path)
+    bundle = _redaction_fixture_bundle(tmp_path)
     client = TestClient(app)
     uploaded = client.post("/bundles/upload", json={"bundle": bundle})
     assert uploaded.status_code == 200, uploaded.text

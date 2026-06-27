@@ -14,6 +14,7 @@ disagreement into human-reviewable targets.
 
 ## Key Points
 
+- The working product is a guarded review loop, not a free-form chat summary.
 - Initial UI is precomputed and read-only.
 - Multi-provider positions are visible per review target.
 - Convergence score is defined as claimed successful providers divided by all successful providers.
@@ -27,6 +28,20 @@ Real operational analysis is local-first: raw logs and live provider credentials
 stay in the operator environment. Cloud Run serves SHA-fixed read-only review
 caches. The public repository includes a deterministic fixture that regenerates
 the same precomputed review format without network access or secrets.
+
+## Build Scope
+
+Evaluate the submission through the live UI, `make demo`, `make ci`, and
+`make smoke-public`. Those commands exercise the public product path: sanitized
+fixtures, deterministic providers, review arbitration, precomputed review JSON,
+and the read-only UI.
+
+The repository also contains reusable foundation code for local sanitization,
+provider adapters, Evidence Bundles, storage, review planning, and deployment.
+Those modules are kept because they are used by the product path or its tests.
+Operator-specific scripts that require private logs, cloud credentials, or
+real-provider access are auxiliary and are not required for the five-minute
+evaluation path.
 
 ## Reviewer Reading Path
 

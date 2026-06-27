@@ -20,6 +20,14 @@ operator history or raw incident material.
 | `Makefile` | Reviewer commands for deterministic demo regeneration and verification. | Keep |
 | `.github/workflows/ci.yml` | Public CI gate for fixture fidelity and tests. | Keep |
 | `data/precomputed_review_summaries/*.json` | Read-only UI cache fixtures generated from sanitized evidence. | Keep |
+| `sample_logs/redaction_fixture.jsonl` | Synthetic redaction fixture with fake token-shaped values. | Keep |
+
+## Reviewer Command Surface
+
+The primary commands are `make demo`, `make verify-precomputed`, `make ci`, and
+`make smoke-public`. Other scripts are auxiliary operator tools and should not
+be treated as the required hackathon demo path unless a reviewer deliberately
+wants to inspect cloud deployment or private-log ingestion extensions.
 
 ## Intentionally Not Published
 

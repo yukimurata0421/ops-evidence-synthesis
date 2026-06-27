@@ -18,7 +18,7 @@ from ops_evidence_synthesis.timeutils import parse_timestamp
 
 DEFAULT_START = "2026-06-02T00:00:00Z"
 DEFAULT_END = "2026-06-16T00:00:00Z"
-DEFAULT_SOURCE_ROOT = "/home/yuki/projects/stream_v3/.state"
+DEFAULT_SOURCE_ROOT = "workspace/private/stream_v3/.state"
 
 
 def build_parser() -> argparse.ArgumentParser:

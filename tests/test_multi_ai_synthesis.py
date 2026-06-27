@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _bundle_and_profile(tmp_path: Path) -> tuple[dict[str, object], dict[str, object]]:
     sanitized_dir = tmp_path / "sanitized"
-    sanitize_input(ROOT / "sample_logs" / "secret_heavy.jsonl", sanitized_dir)
+    sanitize_input(ROOT / "sample_logs" / "redaction_fixture.jsonl", sanitized_dir)
     bundle = build_bundle_from_sanitized(
         sanitized_dir / "sanitized_events.jsonl",
         service="demo-payment",

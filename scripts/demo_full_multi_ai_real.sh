@@ -20,7 +20,7 @@ cd "$ROOT"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-"${CLI[@]}" sanitize sample_logs/secret_heavy.jsonl --out "$SANITIZED" >/dev/null
+"${CLI[@]}" sanitize sample_logs/redaction_fixture.jsonl --out "$SANITIZED" >/dev/null
 echo "sanitize: OK"
 
 "${CLI[@]}" verify-sanitized "$SANITIZED" >/dev/null

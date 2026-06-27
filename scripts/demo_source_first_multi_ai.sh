@@ -20,7 +20,7 @@ echo "analyze-source: OK"
 
 "${CLI[@]}" verify-sanitized "$OUT/source_analysis" >/tmp/ops_demo_source_first_verify_source_analysis.txt
 
-"${CLI[@]}" sanitize sample_logs/secret_heavy.jsonl   --out "$OUT/evidence" >/tmp/ops_demo_source_first_sanitize_logs.json
+"${CLI[@]}" sanitize sample_logs/redaction_fixture.jsonl   --out "$OUT/evidence" >/tmp/ops_demo_source_first_sanitize_logs.json
 
 "${CLI[@]}" build-bundle "$OUT/evidence/sanitized_events.jsonl"   --service unknown-sample   --environment prod   --start 2026-06-16T00:00:00Z   --end 2026-06-16T18:00:00Z   --profile generic   --out "$OUT/evidence/evidence_bundle.json" >"$OUT/evidence/evidence_sha256.txt"
 echo "build evidence bundle: OK"

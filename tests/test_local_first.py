@@ -32,7 +32,7 @@ def _write_log(path: Path) -> None:
                         "severity": "ERROR",
                         "component": "worker",
                         "message": (
-                            "can't open file /home/yuki/project/foo.py: No such file or directory "
+                            "can't open file /home/example/project/foo.py: No such file or directory "
                             "Authorization: Bearer raw-secret-token-1234567890 "
                             "api_key=sk-test-rawsecret1234567890 user_id=u-12345 "
                             "email=alice@example.com client_ip=203.0.113.10"
@@ -313,8 +313,8 @@ def test_profile_context_is_redacted_before_bundle_verify(tmp_path: Path) -> Non
     assert verification["passed"], verification
 
 
-def test_secret_heavy_fixture_sanitizes_verifies_and_hashes_stably(tmp_path: Path) -> None:
-    raw = ROOT / "sample_logs" / "secret_heavy.jsonl"
+def test_redaction_fixture_sanitizes_verifies_and_hashes_stably(tmp_path: Path) -> None:
+    raw = ROOT / "sample_logs" / "redaction_fixture.jsonl"
     first_out = tmp_path / "first"
     second_out = tmp_path / "second"
 
@@ -380,7 +380,7 @@ def test_secret_heavy_fixture_sanitizes_verifies_and_hashes_stably(tmp_path: Pat
 
 
 def test_verify_sanitized_cli_passes_and_fails_without_printing_secret(tmp_path: Path) -> None:
-    raw = ROOT / "sample_logs" / "secret_heavy.jsonl"
+    raw = ROOT / "sample_logs" / "redaction_fixture.jsonl"
     output = tmp_path / "out"
     sanitize_input(raw, output)
     _build_bundle(output)

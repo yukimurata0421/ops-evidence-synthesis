@@ -160,7 +160,7 @@ def test_stream_v3_aggregate_defines_operational_evidence_requests() -> None:
 def test_stream_v3_aggregate_labels_do_not_expose_local_source_paths() -> None:
     labels = _compact_labels(
         {
-            "source_path": "/home/yuki/projects/stream_v3/.state/wan-observer/logs/example.jsonl",
+            "source_path": "/home/example/projects/stream_v3/.state/wan-observer/logs/example.jsonl",
             "source_line": 42,
             "kind": "tcp_send_sample",
         }

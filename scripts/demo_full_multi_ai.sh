@@ -15,7 +15,7 @@ cd "$ROOT"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-"${CLI[@]}" sanitize sample_logs/secret_heavy.jsonl --out "$SANITIZED" >/tmp/ops_demo_multi_ai_sanitize.json
+"${CLI[@]}" sanitize sample_logs/redaction_fixture.jsonl --out "$SANITIZED" >/tmp/ops_demo_multi_ai_sanitize.json
 echo "sanitize: OK"
 
 "${CLI[@]}" verify-sanitized "$SANITIZED" >/tmp/ops_demo_multi_ai_verify.txt

@@ -18,7 +18,7 @@ class FakeExecutor:
         del timeout_seconds
         command = " ".join(argv)
         if argv[:2] == ["systemctl", "cat"]:
-            return CommandResult(tuple(argv), 0, "[Service]\nExecStart=/usr/bin/python3 /home/yuki/app/job.py\n", "")
+            return CommandResult(tuple(argv), 0, "[Service]\nExecStart=/usr/bin/python3 /home/example/app/job.py\n", "")
         if argv[:2] == ["systemctl", "show"]:
             return CommandResult(tuple(argv), 0, "Id=amazon-notify.service\nActiveState=failed\nSubState=failed\n", "")
         if argv[:2] == ["systemctl", "status"]:
@@ -26,9 +26,9 @@ class FakeExecutor:
         if argv[:2] == ["journalctl", "-u"]:
             return CommandResult(tuple(argv), 0, "2026-06-16T00:00:00Z amazon-notify.service failed\n", "")
         if argv[:2] == ["stat", "-c"]:
-            return CommandResult(tuple(argv), 0, "/home/yuki/app/job.py\tregular file\t12\t755\tyuki\tyuki\t1780000000\n", "")
+            return CommandResult(tuple(argv), 0, "/home/example/app/job.py\tregular file\t12\t755\tapp\tapp\t1780000000\n", "")
         if argv[0] == "sha256sum":
-            return CommandResult(tuple(argv), 0, "abc123  /home/yuki/app/job.py\n", "")
+            return CommandResult(tuple(argv), 0, "abc123  /home/example/app/job.py\n", "")
         raise AssertionError(f"unexpected command: {command}")
 
 
@@ -43,7 +43,7 @@ def test_remote_collector_collects_systemd_and_artifact_events(tmp_path: Path) -
     events = collect_remote_evidence(
         config,
         units=["amazon-notify.service"],
-        paths=["/home/yuki/app/job.py"],
+        paths=["/home/example/app/job.py"],
         executor=FakeExecutor(),
     )
     kinds = [event["kind"] for event in events]
@@ -57,8 +57,8 @@ def test_remote_collector_collects_systemd_and_artifact_events(tmp_path: Path) -
         "artifact_sha256",
     ]
     assert events[0]["labels"]["request_id"] == "job_definition_query"
-    assert "ExecStart=/usr/bin/python3 /home/yuki/app/job.py" in events[0]["message"]
-    assert events[4]["labels"]["path"] == "/home/yuki/app/job.py"
+    assert "ExecStart=/usr/bin/python3 /home/example/app/job.py" in events[0]["message"]
+    assert events[4]["labels"]["path"] == "/home/example/app/job.py"
 
     output = write_jsonl_events(events, tmp_path / "collector.jsonl")
     store = SQLiteStore(tmp_path / "oes.sqlite3")
@@ -76,13 +76,13 @@ def test_collector_targets_are_inferred_from_more_data_analysis() -> None:
                 "request_id": "job_definition_query",
                 "request_type": "job_definition",
                 "units": ["amazon-notify.service"],
-                "paths": ["/home/yuki/app/job.py"],
+                "paths": ["/home/example/app/job.py"],
             },
             {
                 "request_id": "installed_artifact_query",
                 "request_type": "installed_artifact",
-                "missing_paths": ["/home/yuki/app/job.py"],
-                "paths": ["/home/yuki/app/.venv/bin/python", "/home/yuki/app/job.py"],
+                "missing_paths": ["/home/example/app/job.py"],
+                "paths": ["/home/example/app/.venv/bin/python", "/home/example/app/job.py"],
             },
         ],
     }
@@ -90,5 +90,5 @@ def test_collector_targets_are_inferred_from_more_data_analysis() -> None:
     targets = collector_targets_from_more_data(query)
     installed_only = collector_targets_from_more_data(query, request_ids=["installed_artifact_query"])
 
-    assert targets == {"units": ["amazon-notify.service"], "paths": ["/home/yuki/app/job.py"]}
-    assert installed_only == {"units": [], "paths": ["/home/yuki/app/job.py"]}
+    assert targets == {"units": ["amazon-notify.service"], "paths": ["/home/example/app/job.py"]}
+    assert installed_only == {"units": [], "paths": ["/home/example/app/job.py"]}

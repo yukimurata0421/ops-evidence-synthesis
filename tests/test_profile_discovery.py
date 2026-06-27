@@ -21,9 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = ROOT / "sample_projects" / "profile_discovery_sample"
 
 
-def _secret_heavy_bundle(tmp_path: Path) -> dict[str, object]:
+def _redaction_fixture_bundle(tmp_path: Path) -> dict[str, object]:
     out = tmp_path / "local_first"
-    sanitize_input(ROOT / "sample_logs" / "secret_heavy.jsonl", out)
+    sanitize_input(ROOT / "sample_logs" / "redaction_fixture.jsonl", out)
     return build_bundle_from_sanitized(
         out / "sanitized_events.jsonl",
         service="unknown-sample",
@@ -36,7 +36,7 @@ def _secret_heavy_bundle(tmp_path: Path) -> dict[str, object]:
 
 
 def _bundle_with_script_and_metric(tmp_path: Path) -> dict[str, object]:
-    bundle = copy.deepcopy(_secret_heavy_bundle(tmp_path))
+    bundle = copy.deepcopy(_redaction_fixture_bundle(tmp_path))
     item = bundle["evidence_items"][0]
     item["example_sanitized"] = (
         f"{item['example_sanitized']} <USER_HOME>/projects/amazon-notify/src/watchdog_restart_main.py "
@@ -185,7 +185,7 @@ def test_verify_sanitized_fails_for_secret_in_profile_discovery_output(tmp_path:
 
 
 def test_discover_and_draft_profile_cli(tmp_path: Path) -> None:
-    evidence = _secret_heavy_bundle(tmp_path)
+    evidence = _redaction_fixture_bundle(tmp_path)
     evidence_path = tmp_path / "evidence_bundle.json"
     evidence_path.write_text(json.dumps(evidence, sort_keys=True), encoding="utf-8")
     discovery_out = tmp_path / "cli_discovery"
@@ -233,7 +233,7 @@ def test_approve_profile_draft_writes_explicit_profile_and_build_bundle_uses_it(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    evidence = _secret_heavy_bundle(tmp_path)
+    evidence = _redaction_fixture_bundle(tmp_path)
     evidence_path = tmp_path / "evidence_bundle.json"
     evidence_path.write_text(json.dumps(evidence, sort_keys=True), encoding="utf-8")
     discovery_out = tmp_path / "discovery"

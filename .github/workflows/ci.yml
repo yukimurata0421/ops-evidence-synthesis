@@ -14,7 +14,5 @@ jobs:
           python-version: "3.11"
       - name: Install package
         run: python -m pip install -e ".[test,api]"
-      - name: Verify precomputed review fixture
-        run: make verify-precomputed
-      - name: Run tests
-        run: make test
+      - name: Run local CI gate
+        run: make ci

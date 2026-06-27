@@ -17,6 +17,17 @@ Live demo:
 - Summary: https://ops-evidence-api-vn3uyu4gia-an.a.run.app/?evidence_sha256=5d0b5a918de1f99852498da2c8558d14993fe33b2259d23ac0ece59a900b48d9
 - Detail: https://ops-evidence-api-vn3uyu4gia-an.a.run.app/ui/full-review-page?evidence_sha256=5d0b5a918de1f99852498da2c8558d14993fe33b2259d23ac0ece59a900b48d9
 
+## What Runs Now
+
+- The public Cloud Run URL serves a precomputed summary/detail review without
+  starting model work on the initial GET.
+- `make demo` regenerates the local review cache from
+  `data/sample_logs.jsonl` using deterministic local providers.
+- `python -m uvicorn ...` serves the same read-only UI locally.
+- `make ci` verifies fixture fidelity and runs the full test suite.
+- `make smoke-public` checks that the deployed summary/detail pages load within
+  the 10 second review budget and contain the expected review signals.
+
 ## What Problem This Solves
 
 In AIOps and Observability AI, the hard problem is not producing another
@@ -119,18 +130,22 @@ make verify-precomputed
 make test
 ```
 
-Run the same manual gate used before release:
+Run the combined local gate:
 
 ```bash
-PYTHON_BIN=python3 scripts/manual_ci.sh
+make ci
+```
+
+Run the same manual gate used before release if you prefer the shell wrapper:
+
+```bash
+PYTHON_BIN=.venv/bin/python scripts/manual_ci.sh
 ```
 
 Smoke the public Cloud Run demo:
 
 ```bash
-python scripts/check_precomputed_review_url.py \
-  --base-url https://ops-evidence-api-vn3uyu4gia-an.a.run.app \
-  --evidence-sha 5d0b5a918de1f99852498da2c8558d14993fe33b2259d23ac0ece59a900b48d9
+make smoke-public
 ```
 
 CI also runs `make verify-precomputed` and `make test` on GitHub Actions.
@@ -150,6 +165,23 @@ Generated or local-only assets:
 - `workspace/`, `.venv/`, `.pytest_cache/`, and `__pycache__/` are local generated outputs and are not committed.
 - Real operational logs and raw source trees are not part of the public repository.
 - Real-provider execution may require local credentials and is intentionally separate from the public deterministic demo.
+
+## Hackathon Scope and Asset Boundary
+
+The submission path to evaluate is the live read-only UI, the deterministic
+local demo, the precomputed review generator, and the tests that prove the
+committed review cache is reproducible.
+
+Reusable foundation code is kept in the repository because it is part of the
+working product surface: local sanitization, Evidence Bundle creation, provider
+adapters, review arbitration, evidence request planning, storage adapters, and
+the FastAPI UI. Optional operator scripts under `scripts/` are not required for
+the five-minute review path unless the README names them directly.
+
+Committed logs are synthetic fixtures. `sample_logs/redaction_fixture.jsonl`
+contains intentionally fake tokens and example paths so the sanitizer and
+secret-leak checks can be tested. Generated databases, logs, caches, workspaces,
+Terraform state, and credential files are ignored by default.
 
 The live Cloud Run page is a read-only delivery surface. Heavy analysis and real
 provider runs are local-first by design; the public repository demonstrates

@@ -43,7 +43,7 @@ def _source_context_and_analysis(tmp_path: Path) -> tuple[dict[str, object], dic
 
 def _evidence_bundle(tmp_path: Path) -> dict[str, object]:
     out = tmp_path / "local_first"
-    sanitize_input(ROOT / "sample_logs" / "secret_heavy.jsonl", out)
+    sanitize_input(ROOT / "sample_logs" / "redaction_fixture.jsonl", out)
     return build_bundle_from_sanitized(
         out / "sanitized_events.jsonl",
         service="unknown-sample",
