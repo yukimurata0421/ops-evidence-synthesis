@@ -1,0 +1,247 @@
+Ops Evidence Synthesis Architecture
+==================================
+
+Ops Evidence Synthesis is a local-first incident evidence workflow. It turns raw operational material into sanitized bundles, runs profile-aware analysis, arbitrates review targets, and records derived review snapshots for auditability.
+
+High-level flow
+---------------
+
+Raw logs (local only)
+  -> sanitize
+  -> verify-sanitized
+  -> Evidence Bundle
+  -> Multi-AI Runs
+  -> Multi-AI Synthesis
+  -> Review Target Arbitration
+  -> Canonical Review Graph
+  -> Planner / UI / Child Bundle Loop
+
+Raw source/config/env metadata (local only)
+  -> sanitize-source
+  -> Source Context Bundle
+  -> analyze-source
+  -> Source Analysis Bundle
+  -> Profile Discovery
+  -> Draft Profile
+  -> Human Approval
+  -> Explicit Profile
+
+1. Safety boundary
+------------------
+
+The system keeps raw operational data inside the local operator boundary.
+
+- Raw logs are not uploaded.
+- Raw source files are not uploaded.
+- Raw env values are not uploaded.
+- Raw grep output is not uploaded.
+- Credential values, private key bodies, Authorization headers, Cookie values, token values, and password values are not stored or sent to providers.
+- AI/GCP providers receive only sanitized bundles.
+- Source context, profile context, and human answers are context, not incident evidence.
+- Runtime claims require Evidence Items with evidence_id.
+- Score is review priority, not truth probability.
+- Agreement is not majority-vote truth.
+- Disagreement becomes validation target.
+- Planner does not execute commands.
+
+2. Source-first pipeline
+------------------------
+
+Raw source/config/env metadata stays local and is sanitized before any profile or model workflow uses it.
+
+raw source / config / unit / env metadata
+  -> ops-evidence sanitize-source
+  -> source_context_bundle.v1
+  -> ops-evidence analyze-source
+  -> source_analysis_bundle.v1
+  -> ops-evidence discover-profile
+  -> ops-evidence draft-profile
+  -> human review
+  -> ops-evidence approve-profile
+  -> explicit profile
+
+The Source Context Bundle contains file tree summaries, entrypoint candidates, unit summaries, dependency manifests, env key summaries without raw values, and version anchoring. The Source Analysis Bundle contains component, metric, logger, instrumentation, and collector mapping candidates. Both bundles are context only.
+
+3. Evidence pipeline
+--------------------
+
+Raw logs remain local until sanitized and verified.
+
+raw logs (local only)
+  -> ops-evidence sanitize
+  -> ops-evidence verify-sanitized
+  -> evidence_bundle.v1
+  -> server-side validation
+  -> BigQuery bundles / events / model tables
+
+Evidence Bundles are the runtime evidence source. Code/config context can help interpret metrics or mappings, but it cannot prove runtime occurrence or user impact by itself.
+
+4. Multi-AI pipeline
+--------------------
+
+The multi-AI path receives sanitized Evidence Bundles plus approved profile/source context as context.
+
+evidence_bundle.v1
+  -> provider runs
+  -> model_run.v1
+  -> multi_ai_synthesis.v1
+  -> disagreement_themes
+  -> no majority-vote truth
+
+Model outputs are model_interpretation. They can propose hypotheses and validation targets. They do not become primary incident candidates without Review Target Arbitration.
+
+5. Review Target Arbitration
+----------------------------
+
+Review Target Arbitration is the single decision layer for display, planner input, and score treatment.
+
+model claims
+rule-based signals
+profile context
+source context / source analysis
+human context
+legacy targets
+  -> support_role classification
+  -> agreement_dimensions
+  -> primary promotion gate
+  -> score caps
+  -> promotion_decisions
+  -> canonical_review_graph.v1
+
+Support roles:
+
+- runtime_evidence: logs/metrics with evidence_id; may support runtime incident claims.
+- source_context: code/config context; may support profile mapping, metric semantics, logger mapping, collector mapping, and instrumentation interpretation.
+- profile_context: approved operational context; not incident evidence by itself.
+- human_context: operator answers; context only.
+- model_interpretation: AI hypothesis; context only.
+
+Primary promotion requires runtime evidence, evidence_id-backed support, user-impact or critical-outcome relevance, no blocking caveat, sufficient agreement or deterministic support, and no core missing evidence. Score caps limit review priority when evidence is single-metric, severity-only, context-only, missing evidence_id, user-impact-unverified, or caveat-blocked.
+
+6. Canonical Review Graph persistence
+-------------------------------------
+
+canonical_review_graph.v1 is a derived arbitration snapshot, not source of truth.
+
+Source of truth remains:
+
+- evidence_bundle
+- model_runs
+- multi_ai_synthesis
+- approved profile
+- source_context / source_analysis
+- planner answers when present
+- arbitration_version
+
+Snapshots are stored for auditability, reproducibility, review history, and child bundle re-analysis comparison.
+
+canonical_review_graph.v1
+  -> input_fingerprint
+  -> input_fingerprint_sha256
+  -> canonical_graph_sha256
+  -> canonical_review_graphs snapshot table
+  -> status: persisted | computed_on_request | stale | not_found
+
+The input_fingerprint excludes timestamps and request IDs. It includes evidence_sha256, sorted model run IDs/output hashes, profile hash, source context hash, source analysis hash, planner answers hash, multi-AI synthesis hash, arbitration_version, and canonical_schema_version.
+
+If current inputs match the latest snapshot fingerprint, UI/API can use the persisted snapshot. If inputs changed, the prior snapshot is stale and the UI shows a recomputed graph for current inputs. Stale snapshots are never silently treated as current truth.
+
+BigQuery table: canonical_review_graphs
+SQLite fallback table: canonical_review_graphs
+
+7. Planner
+----------
+
+The Evidence Request Planner consumes the Canonical Review Graph whenever available.
+
+canonical_review_graph
+  -> planner_inputs
+  -> manual read-only collection plan
+  -> human answers are context, not evidence
+  -> sanitize / verify-sanitized
+  -> child Evidence Bundle
+
+Planner input priority:
+
+1. canonical_review_graph supplied in the request or CLI.
+2. persisted current canonical graph snapshot.
+3. request-time arbitration.
+4. legacy fallback with warning.
+
+Planner generated_from records whether the graph was api_payload, persisted, computed_on_request, or legacy_fallback, and includes canonical_graph_sha256 and input_fingerprint_sha256 when available.
+
+8. Child bundle loop
+--------------------
+
+Parent evidence bundle
+  -> plan
+  -> manual local collection
+  -> sanitize
+  -> verify-sanitized
+  -> child evidence bundle
+  -> re-analysis
+  -> re-arbitration
+  -> strengthened / weakened / still_unknown / resolved
+
+The UI and planner do not execute collectors. Operators collect data locally, sanitize it, verify it, and upload only child Evidence Bundles.
+
+9. UI
+-----
+
+The UI uses canonical_review_graph as the primary display decision source.
+
+local-first safety panel
+multi-AI runs
+agreement dimensions
+canonical graph status
+promotion decisions
+planner
+lineage
+
+The UI shows:
+
+- Canonical Review Graph status: persisted, computed on request, stale, or not found.
+- Arbitration version.
+- Canonical graph SHA.
+- Input fingerprint match/changed state.
+- Snapshot created at when available.
+- Provider detection overlap separated from baseline agreement.
+- Promotion decisions explaining why a target became primary, validation, monitor-only, or archive.
+
+10. Data stores
+---------------
+
+BigQuery tables include sanitized evidence bundles, evidence events, model runs, parsed model results, review target state, profile/source artifacts, and canonical_review_graphs snapshots.
+
+SQLite local fallback supports the same canonical_review_graphs snapshot lifecycle for local demos and pytest.
+
+canonical_review_graphs stores:
+
+- evidence_sha256
+- canonical_graph_sha256
+- schema_version
+- arbitration_version
+- input_fingerprint_sha256
+- input_fingerprint_json
+- finding_title
+- finding_impact
+- primary_count
+- validation_count
+- monitor_only_count
+- auto_archived_count
+- promotion_decision_count
+- created_at
+- created_by
+- snapshot_status
+- canonical_review_graph_json
+
+11. Non-goals
+-------------
+
+- No auto remediation.
+- No raw collector execution by UI.
+- No raw grep upload.
+- No raw source upload.
+- No raw env upload.
+- No majority-vote diagnosis.
+- No silent use of stale canonical graph snapshots as current truth.

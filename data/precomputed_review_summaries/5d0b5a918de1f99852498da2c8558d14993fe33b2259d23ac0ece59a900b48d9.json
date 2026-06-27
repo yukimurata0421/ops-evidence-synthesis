@@ -1,0 +1,443 @@
+{
+  "schema_version": "precomputed_review_summary.v1",
+  "evidence_sha256": "5d0b5a918de1f99852498da2c8558d14993fe33b2259d23ac0ece59a900b48d9",
+  "updated_at": "2026-06-26T23:57:09Z",
+  "summary": {
+    "schema_version": "ui_summary.v1",
+    "status": "ok",
+    "finding": {
+      "title": "Multi-AI disagreement requires validation",
+      "impact": "No incident baseline agreement was found. 5 validation targets remain for human review, and no primary incident candidate was promoted."
+    },
+    "review": {
+      "primary_targets": 0,
+      "validation_targets": 5,
+      "monitor_only": 0,
+      "auto_archived": 1
+    },
+    "providers": {
+      "success": 3,
+      "total": 4,
+      "pipeline_status": "completed"
+    },
+    "baselines": {
+      "technical": false,
+      "incident": false
+    },
+    "raw_log_policy": "not_uploaded",
+    "log_count": 6506,
+    "canonical_graph_status": "persisted",
+    "canonical_graph_sha256": "088ebc756b33c251df308ef536a34dcd6571f10d99b2d5e020edc34be1bd6aa9",
+    "input_fingerprint_sha256": "716eb74ece78647f9aacc1656dc3e36cd41828a51b9b9de4ce2938c22c0fb8f2"
+  },
+  "agent_trace": [
+    {
+      "step": "sanitize",
+      "status": "completed",
+      "artifact": "sanitized_events.jsonl",
+      "title": "Sanitize local evidence",
+      "summary": "6506 operational events were converted to sanitized evidence. Raw logs were not uploaded."
+    },
+    {
+      "step": "verify",
+      "status": "completed",
+      "artifact": "redaction_report.json",
+      "title": "Verify upload boundary",
+      "summary": "The sanitized bundle passed local verification before any model input was created."
+    },
+    {
+      "step": "bundle",
+      "status": "completed",
+      "artifact": "evidence_bundle.json",
+      "title": "Freeze Evidence Bundle",
+      "summary": "The review input was fixed by SHA256 so model outputs and UI state point to the same evidence."
+    },
+    {
+      "step": "multi_model",
+      "status": "completed",
+      "artifact": "model_runs.jsonl",
+      "title": "Run independent providers",
+      "summary": "Gemini, gpt-oss, and Mistral produced valid outputs. Claude failed and was kept as a provider frontier signal."
+    },
+    {
+      "step": "validate",
+      "status": "completed",
+      "artifact": "parsed_results",
+      "title": "Validate structure and citations",
+      "summary": "Model claims were schema-checked and kept tied to evidence references instead of free-form root cause text."
+    },
+    {
+      "step": "arbitrate",
+      "status": "completed",
+      "artifact": "canonical_review_graph.json",
+      "title": "Arbitrate disagreement",
+      "summary": "Disagreement was preserved as validation work. No primary incident was promoted without baseline agreement."
+    },
+    {
+      "step": "plan",
+      "status": "completed",
+      "artifact": "review_targets.json",
+      "title": "Plan next evidence",
+      "summary": "The agent proposed concrete validation targets for runtime recovery, traffic, configuration, observability, and liveness."
+    },
+    {
+      "step": "deliver",
+      "status": "completed",
+      "artifact": "Cloud Run + BigQuery",
+      "title": "Deliver read-only review",
+      "summary": "The Cloud URL serves a precomputed review summary first, then links to deeper persisted evidence."
+    }
+  ],
+  "devops_loop": {
+    "title": "AI workflow is operated as production software",
+    "summary": "This demo exposes the run loop, failure frontier, regression profiles, and re-score boundary instead of presenting a one-shot answer.",
+    "items": [
+      {
+        "label": "Pipeline events",
+        "value": "append-only checkpoints",
+        "detail": "Agent steps are persisted as observable events from sanitize through delivery."
+      },
+      {
+        "label": "Regression profiles",
+        "value": "stream_v3 + amazon-notify",
+        "detail": "Two operational domains are used to keep review behavior from overfitting one log shape."
+      },
+      {
+        "label": "Provider frontier",
+        "value": "failed outputs retained",
+        "detail": "Claude failure remains visible as a frontier signal instead of being hidden from reviewers."
+      },
+      {
+        "label": "Re-score boundary",
+        "value": "new evidence can update graph",
+        "detail": "Additional evidence is attached to review targets, then promotion is re-evaluated behind gates."
+      },
+      {
+        "label": "Post-deploy smoke",
+        "value": "root + detail checked",
+        "detail": "The release gate fetches both public review pages, checks required panels, and fails if the response exceeds the 10 second UI budget."
+      }
+    ]
+  },
+  "provider_statuses": [
+    {
+      "provider_id": "gemini-enterprise-agent-platform",
+      "status": "ok",
+      "schema_valid": true,
+      "raw_output_sha256": "ffb70ef897d238d0a7a1355412661824fa593306005052021ea3c254325ebdc0"
+    },
+    {
+      "provider_id": "openai-gpt-oss-on-vertex",
+      "status": "ok",
+      "schema_valid": true,
+      "raw_output_sha256": "3dbb3a29307e7caeedede6df680194ec283da58c558e9afd8c19d9fe591e0d88"
+    },
+    {
+      "provider_id": "mistral-agent-platform",
+      "status": "ok",
+      "schema_valid": true,
+      "raw_output_sha256": "a762293dbfe0a6cd6944cfc3cd41ddb9604d087aff6957286cc1b180d93070a2"
+    },
+    {
+      "provider_id": "claude-agent-platform",
+      "status": "failed",
+      "schema_valid": false,
+      "raw_output_sha256": "eb3bd955bc2a68099e996f8e83e93e8b14a4b64d48f37d1350e488759fd813d0"
+    }
+  ],
+  "review_graph_summary": {
+    "targets_total": 6,
+    "convergence_count": 1,
+    "conflict_count": 0,
+    "single_source_count": 5,
+    "incident_baseline_established_count": 0,
+    "primary_promoted_count": 0,
+    "provider_detection_overlap": "3/3",
+    "technical_baseline": "partial",
+    "incident_baseline": "open",
+    "review_unit_convergence": "partial",
+    "auto_archived_count": 1,
+    "hidden_multi_provider_archived_count": 1,
+    "summary": "1 converged technical support signal + 5 single-source validation targets. Incident baseline remains open, so nothing was promoted to primary.",
+    "note": "The converged support signal establishes shared technical context only; user impact and causal direction remain human-gated.",
+    "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence, so one claimed and two silent providers is 1/3 = 0.333."
+  },
+  "targets": [
+    {
+      "review_target_id": "cog-converged-zero-notification-context",
+      "title": "Two providers converge on zero-notification context; incident impact remains open",
+      "class": "support_signal",
+      "subsystem": "traffic_liveness",
+      "review_priority_score": 0.74,
+      "provider_count": 2,
+      "recommended_request_type": "user_impact_validation_query",
+      "claim": "OpenAI and Gemini both surfaced zero-notification or no-new-message evidence. This establishes a technical context signal, not a confirmed user-impact incident.",
+      "provider_positions": [
+        {
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed",
+          "model_run_hash": "3dbb3a29307e",
+          "one_line": "Flagged processed=0, matched=0, notified=0 run summaries with auth_status=READY."
+        },
+        {
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed",
+          "model_run_hash": "ffb70ef897d2",
+          "one_line": "Flagged Pub/Sub idle and no-new-message cycles as liveness context."
+        },
+        {
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent",
+          "model_run_hash": "a762293dbfe0",
+          "one_line": "Did not surface this normalized support signal in the validation set."
+        }
+      ],
+      "agreement": {
+        "verdict": "convergence",
+        "convergence_score": 0.6666666667,
+        "score_definition": "claimed successful providers / all successful providers",
+        "technical_baseline": "established",
+        "incident_baseline": "open",
+        "summary": "Two successful providers converge on zero-notification technical context, but neither establishes expected user-visible deliveries or confirmed missed notifications."
+      },
+      "promotion": {
+        "state": "validation",
+        "blocked_reason": "incident_baseline_open; user_impact_unverified; causal_direction_unverified",
+        "score_cap_applied": false,
+        "score_note": "Convergence promotes review confidence in the technical context, not incident truth."
+      },
+      "evidence_refs": ["PATTERN-001", "PATTERN-002", "PATTERN-008", "PATTERN-009", "PATTERN-010"],
+      "missing_evidence": ["expected notification count", "delivery attempt trace", "user-visible notification failure report"]
+    },
+    {
+      "review_target_id": "cog-2b3045e8f645b21b56c6",
+      "title": "Watchdog activity observed; incident impact unverified",
+      "class": "validation_target",
+      "subsystem": "runtime_recovery",
+      "review_priority_score": 0.71,
+      "provider_count": 1,
+      "recommended_request_type": "instrumentation_consistency_query",
+      "claim": "Systemd shows repeated watchdog start, finish, and deactivate patterns, but no provider corroborated a user-facing delivery failure.",
+      "provider_positions": [
+        {
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed",
+          "model_run_hash": "3dbb3a29307e",
+          "one_line": "Flagged watchdog and runtime recovery activity from systemd journal patterns."
+        },
+        {
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent",
+          "model_run_hash": "ffb70ef897d2",
+          "one_line": "Did not surface this normalized target in the validation set."
+        },
+        {
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent",
+          "model_run_hash": "a762293dbfe0",
+          "one_line": "Did not surface this normalized target in the validation set."
+        }
+      ],
+      "agreement": {
+        "verdict": "single_source",
+        "convergence_score": 0.3333333333,
+        "score_definition": "claimed successful providers / all successful providers",
+        "technical_baseline": "open",
+        "incident_baseline": "open",
+        "summary": "Only one successful provider projected this review unit, so the graph kept it as validation work."
+      },
+      "promotion": {
+        "state": "validation",
+        "blocked_reason": "no_baseline_agreement_or_causal_alignment; user_impact_unverified; cause_disagreement; impact_disagreement",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability."
+      },
+      "evidence_refs": ["PATTERN-003", "PATTERN-004", "PATTERN-005", "PATTERN-115", "PATTERN-116", "PATTERN-117", "PATTERN-118", "PATTERN-119"],
+      "missing_evidence": []
+    },
+    {
+      "review_target_id": "cog-f81f26049a353a6e5fce",
+      "title": "Notification checks found no forwarded Amazon messages",
+      "class": "validation_target",
+      "subsystem": "traffic",
+      "review_priority_score": 0.68,
+      "provider_count": 1,
+      "recommended_request_type": "instrumentation_consistency_query",
+      "claim": "Run summaries repeatedly report processed=0, matched=0, notified=0 with auth_status=READY; this is traffic context, not proof of delivery failure.",
+      "provider_positions": [
+        {
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed",
+          "model_run_hash": "3dbb3a29307e",
+          "one_line": "Flagged zero-notification traffic and requested instrumentation consistency."
+        },
+        {
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent",
+          "model_run_hash": "ffb70ef897d2",
+          "one_line": "Did not surface this normalized target in the validation set."
+        },
+        {
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent",
+          "model_run_hash": "a762293dbfe0",
+          "one_line": "Did not surface this normalized target in the validation set."
+        }
+      ],
+      "agreement": {
+        "verdict": "single_source",
+        "convergence_score": 0.3333333333,
+        "score_definition": "claimed successful providers / all successful providers",
+        "technical_baseline": "open",
+        "incident_baseline": "open",
+        "summary": "Zero-notification evidence is visible, but provider overlap did not establish incident impact."
+      },
+      "promotion": {
+        "state": "validation",
+        "blocked_reason": "no_baseline_agreement_or_causal_alignment; user_impact_unverified; cause_disagreement; impact_disagreement",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability."
+      },
+      "evidence_refs": ["PATTERN-001", "PATTERN-002", "PATTERN-019", "PATTERN-018", "PATTERN-022", "PATTERN-023", "PATTERN-024", "PATTERN-025"],
+      "missing_evidence": []
+    },
+    {
+      "review_target_id": "cog-9f711045e7318bdca985",
+      "title": "Running service command is visible; scheduler history still missing",
+      "class": "validation_target",
+      "subsystem": "job_configuration",
+      "review_priority_score": 0.66,
+      "provider_count": 1,
+      "recommended_request_type": "instrumentation_consistency_query",
+      "claim": "Systemd status shows the amazon-notify service loaded and running with the expected command, but scheduler history is still needed before configuration drift is accepted or rejected.",
+      "provider_positions": [
+        {
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed",
+          "model_run_hash": "3dbb3a29307e",
+          "one_line": "Flagged service configuration evidence and asked for scheduler history."
+        },
+        {
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent",
+          "model_run_hash": "ffb70ef897d2",
+          "one_line": "Did not surface this normalized target in the validation set."
+        },
+        {
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent",
+          "model_run_hash": "a762293dbfe0",
+          "one_line": "Did not surface this normalized target in the validation set."
+        }
+      ],
+      "agreement": {
+        "verdict": "single_source",
+        "convergence_score": 0.3333333333,
+        "score_definition": "claimed successful providers / all successful providers",
+        "technical_baseline": "open",
+        "incident_baseline": "open",
+        "summary": "Configuration evidence was not corroborated by another successful provider."
+      },
+      "promotion": {
+        "state": "validation",
+        "blocked_reason": "no_baseline_agreement_or_causal_alignment; user_impact_unverified; cause_disagreement; impact_disagreement",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability."
+      },
+      "evidence_refs": ["PATTERN-087", "PATTERN-088", "PATTERN-125"],
+      "missing_evidence": ["scheduler_history"]
+    },
+    {
+      "review_target_id": "cog-3922cfaac2ff5209cd9d",
+      "title": "http_5xx labels need observability validation",
+      "class": "validation_target",
+      "subsystem": "observability_contract",
+      "review_priority_score": 0.645,
+      "provider_count": 1,
+      "recommended_request_type": "external_dependency_status_query",
+      "claim": "Some patterns are labeled http_5xx while their examples are INFO run-complete or trigger-done messages; validate instrumentation before treating them as external dependency impact.",
+      "provider_positions": [
+        {
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed",
+          "model_run_hash": "ffb70ef897d2",
+          "one_line": "Flagged observability contract risk around http_5xx-labelled evidence."
+        },
+        {
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent",
+          "model_run_hash": "3dbb3a29307e",
+          "one_line": "Did not surface this normalized target in the validation set."
+        },
+        {
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent",
+          "model_run_hash": "a762293dbfe0",
+          "one_line": "Did not surface this normalized target in the validation set."
+        }
+      ],
+      "agreement": {
+        "verdict": "single_source",
+        "convergence_score": 0.3333333333,
+        "score_definition": "claimed successful providers / all successful providers",
+        "technical_baseline": "open",
+        "incident_baseline": "open",
+        "summary": "The graph treats the label mismatch as an instrumentation question, not confirmed impact."
+      },
+      "promotion": {
+        "state": "validation",
+        "blocked_reason": "no_baseline_agreement_or_causal_alignment; cause_disagreement",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability."
+      },
+      "evidence_refs": ["PATTERN-019", "PATTERN-036", "PATTERN-037"],
+      "missing_evidence": ["Raw log files or detailed error traces for the events labeled as http_5xx."]
+    },
+    {
+      "review_target_id": "cog-ebba176a6ae2288c9c55",
+      "title": "Pub/Sub liveness appears healthy but still single-source",
+      "class": "validation_target",
+      "subsystem": "service_liveness",
+      "review_priority_score": 0.63,
+      "provider_count": 1,
+      "recommended_request_type": "instrumentation_consistency_query",
+      "claim": "Heartbeat-adjacent patterns show RUN_ONCE_COMPLETE, PUBSUB_IDLE_TRIGGER_DONE ok=True, and no-new-message cycles; liveness should remain validation until corroborated by another provider.",
+      "provider_positions": [
+        {
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed",
+          "model_run_hash": "ffb70ef897d2",
+          "one_line": "Flagged Pub/Sub liveness evidence as present but not enough for incident truth."
+        },
+        {
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent",
+          "model_run_hash": "3dbb3a29307e",
+          "one_line": "Did not surface this normalized target in the validation set."
+        },
+        {
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent",
+          "model_run_hash": "a762293dbfe0",
+          "one_line": "Did not surface this normalized target in the validation set."
+        }
+      ],
+      "agreement": {
+        "verdict": "single_source",
+        "convergence_score": 0.3333333333,
+        "score_definition": "claimed successful providers / all successful providers",
+        "technical_baseline": "open",
+        "incident_baseline": "open",
+        "summary": "The visible liveness target came from one provider, so it stays below primary promotion."
+      },
+      "promotion": {
+        "state": "validation",
+        "blocked_reason": "no_baseline_agreement_or_causal_alignment; user_impact_unverified; cause_disagreement; impact_disagreement",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability."
+      },
+      "evidence_refs": ["PATTERN-008", "PATTERN-009", "PATTERN-010"],
+      "missing_evidence": []
+    }
+  ]
+}
