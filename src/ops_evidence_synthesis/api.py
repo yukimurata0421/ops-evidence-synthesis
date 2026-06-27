@@ -127,6 +127,15 @@ def _precomputed_only_ui_enabled() -> bool:
     return os.environ.get("OES_UI_PRECOMPUTED_ONLY", "0").casefold() in {"1", "true", "yes", "on"}
 
 
+def _require_precomputed_review_for_public_read(evidence_sha256: str | None) -> dict[str, Any] | None:
+    if not evidence_sha256 or not _precomputed_only_ui_enabled():
+        return None
+    precomputed = _precomputed_review_payload(evidence_sha256)
+    if not precomputed:
+        raise HTTPException(status_code=404, detail="precomputed review not found")
+    return precomputed
+
+
 def _ui_detail_timeout_ms() -> int:
     return int(os.environ.get("OES_UI_DETAIL_TIMEOUT_MS", "9500"))
 
@@ -258,10 +267,8 @@ def index_head() -> Response:
 
 @app.get("/", response_class=HTMLResponse)
 def index(evidence_sha256: str | None = None, full: bool = False) -> str:
-    if evidence_sha256 and _precomputed_only_ui_enabled():
-        precomputed = _precomputed_review_payload(evidence_sha256)
-        if not precomputed:
-            raise HTTPException(status_code=404, detail="precomputed review not found")
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
+    if evidence_sha256 and precomputed is not None:
         if full:
             return _render_precomputed_review_detail_page(evidence_sha256, precomputed)
         if _fast_initial_ui_enabled():
@@ -274,10 +281,8 @@ def index(evidence_sha256: str | None = None, full: bool = False) -> str:
 
 @app.get("/ui/full-review-page", response_class=HTMLResponse)
 def full_review_page(evidence_sha256: str | None = None, full: bool = False) -> str:
-    if evidence_sha256 and _precomputed_only_ui_enabled():
-        precomputed = _precomputed_review_payload(evidence_sha256)
-        if not precomputed:
-            raise HTTPException(status_code=404, detail="precomputed review not found")
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
+    if evidence_sha256 and precomputed is not None:
         return _render_precomputed_review_detail_page(evidence_sha256, precomputed)
     if evidence_sha256 and _fast_initial_ui_enabled() and not full:
         precomputed = _precomputed_review_payload(evidence_sha256)
@@ -289,8 +294,7 @@ def full_review_page(evidence_sha256: str | None = None, full: bool = False) -> 
 def ui_summary(evidence_sha256: str) -> dict[str, Any]:
     if not evidence_sha256:
         raise HTTPException(status_code=400, detail="evidence_sha256 is required")
-    if _precomputed_only_ui_enabled() and not _precomputed_review_payload(evidence_sha256):
-        raise HTTPException(status_code=404, detail="precomputed review not found")
+    _require_precomputed_review_for_public_read(evidence_sha256)
     return _review_summary_for_ui(evidence_sha256)
 
 
@@ -354,6 +358,106 @@ def _precomputed_summary(payload: dict[str, Any] | None, evidence_sha256: str) -
         "canonical_graph_sha256": str(summary.get("canonical_graph_sha256") or ""),
         "input_fingerprint_sha256": str(summary.get("input_fingerprint_sha256") or ""),
         "updated_at": str(payload.get("updated_at") or summary.get("updated_at") or ""),
+    }
+
+
+def _precomputed_review_target_set(
+    payload: dict[str, Any],
+    *,
+    evidence_sha256: str,
+    limit: int = 5,
+    pending_only: bool = True,
+) -> dict[str, Any]:
+    raw_targets = [row for row in payload.get("targets") or [] if isinstance(row, dict)]
+    targets: list[dict[str, Any]] = []
+    for row in raw_targets:
+        target = deepcopy(row)
+        target["evidence_sha256"] = evidence_sha256
+        target.setdefault("status", "pending")
+        target.setdefault("review_target_id", target.get("target_id") or "")
+        if pending_only and str(target.get("status") or "pending") not in {"pending", "needs_more_data"}:
+            continue
+        targets.append(target)
+    requested_limit = max(0, int(limit or 0))
+    visible_targets = targets[:requested_limit] if requested_limit else targets
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    review = summary.get("review") if isinstance(summary.get("review"), dict) else {}
+    return {
+        "summary": {
+            "review_targets": int(review.get("primary_targets") or 0) + int(review.get("validation_targets") or 0),
+            "primary_review_targets": int(review.get("primary_targets") or 0),
+            "validation_targets": int(review.get("validation_targets") or len(targets)),
+            "monitor_only": int(review.get("monitor_only") or 0),
+            "auto_archived": int(review.get("auto_archived") or 0),
+            "returned_targets": len(visible_targets),
+            "source": "precomputed_review_summary",
+        },
+        "targets": visible_targets,
+    }
+
+
+def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha256: str) -> dict[str, Any]:
+    summary = _precomputed_summary(payload, evidence_sha256) or {}
+    review = summary.get("review") if isinstance(summary.get("review"), dict) else {}
+    finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
+    baselines = summary.get("baselines") if isinstance(summary.get("baselines"), dict) else {}
+    graph_summary = payload.get("review_graph_summary") if isinstance(payload.get("review_graph_summary"), dict) else {}
+    target_set = _precomputed_review_target_set(payload, evidence_sha256=evidence_sha256, limit=0, pending_only=False)
+    targets = list(target_set.get("targets") or [])
+    primary_targets = [row for row in targets if str(row.get("class") or "") == "primary_candidate"]
+    validation_targets = [row for row in targets if str(row.get("class") or "") != "primary_candidate"]
+    updated_at = str(payload.get("updated_at") or summary.get("updated_at") or "")
+    graph = {
+        "schema_version": "precomputed_review_graph_projection.v1",
+        "evidence_sha256": evidence_sha256,
+        "snapshot_status": "precomputed",
+        "canonical_graph_status": str(summary.get("canonical_graph_status") or "precomputed"),
+        "canonical_graph_sha256": str(summary.get("canonical_graph_sha256") or ""),
+        "input_fingerprint_sha256": str(summary.get("input_fingerprint_sha256") or ""),
+        "score_note": "Priority is review urgency, not truth probability.",
+        "summary": {
+            "primary_count": int(review.get("primary_targets") or len(primary_targets)),
+            "validation_count": int(review.get("validation_targets") or len(validation_targets)),
+            "monitor_only_count": int(review.get("monitor_only") or 0),
+            "auto_archived_count": int(review.get("auto_archived") or 0),
+        },
+        "finding": finding,
+        "agreement_dimensions": {
+            "provider_detection_overlap": {"value": str(graph_summary.get("provider_detection_overlap") or "")},
+            "technical_baseline_agreement": {"established": bool(baselines.get("technical"))},
+            "incident_baseline_agreement": {"established": bool(baselines.get("incident"))},
+            "review_unit_convergence": {
+                "value": str(graph_summary.get("review_unit_convergence") or ""),
+                "converged_unit_count": int(graph_summary.get("convergence_count") or 0),
+            },
+        },
+        "review_graph_summary": graph_summary,
+        "primary_targets": primary_targets,
+        "validation_targets": validation_targets,
+        "review_targets": targets,
+        "display_summary": {
+            "title": str(finding.get("title") or ""),
+            "impact": str(finding.get("impact") or ""),
+            "provider_detection_overlap": str(graph_summary.get("provider_detection_overlap") or ""),
+            "technical_baseline_agreement": str(graph_summary.get("technical_baseline") or ""),
+            "incident_baseline_agreement": str(graph_summary.get("incident_baseline") or ""),
+            "score_note": "Priority is review urgency, not truth probability.",
+        },
+    }
+    return {
+        "canonical_graph_status": "precomputed",
+        "canonical_graph_sha256": str(summary.get("canonical_graph_sha256") or ""),
+        "input_fingerprint_sha256": str(summary.get("input_fingerprint_sha256") or ""),
+        "canonical_review_graph": graph,
+        "snapshot": {
+            "evidence_sha256": evidence_sha256,
+            "canonical_graph_sha256": str(summary.get("canonical_graph_sha256") or ""),
+            "input_fingerprint_sha256": str(summary.get("input_fingerprint_sha256") or ""),
+            "created_at": updated_at,
+            "created_by": "precomputed_review_summary",
+            "snapshot_status": "precomputed",
+        },
+        "snapshot_created_at": updated_at,
     }
 
 
@@ -3950,6 +4054,9 @@ def plan_evidence_requests_api(payload: dict[str, Any]) -> dict[str, Any]:
 
 @app.get("/review/graph")
 def get_review_graph_api(evidence_sha256: str, recompute: bool = False) -> dict[str, Any]:
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
+    if precomputed is not None:
+        return _precomputed_review_graph_response(precomputed, evidence_sha256=evidence_sha256)
     store = _store()
     if not recompute:
         snapshot_response = _latest_canonical_graph_response(store, evidence_sha256)
@@ -4402,6 +4509,14 @@ def list_review_targets(
     evidence_sha256: str | None = None,
     include_reviewed: bool = False,
 ) -> dict[str, Any]:
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
+    if precomputed is not None and evidence_sha256:
+        return _precomputed_review_target_set(
+            precomputed,
+            evidence_sha256=evidence_sha256,
+            limit=limit,
+            pending_only=not include_reviewed,
+        )
     return _list_review_targets_cached(
         limit=limit,
         evidence_sha256=evidence_sha256,

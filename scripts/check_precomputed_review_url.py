@@ -23,6 +23,18 @@ DETAIL_NEEDLES = [
     "Convergence score: 0.667",
 ]
 
+REVIEW_TARGET_NEEDLES = [
+    "precomputed_review_summary",
+    "claimed",
+    "silent",
+]
+
+REVIEW_GRAPH_NEEDLES = [
+    "precomputed",
+    "review_graph_summary",
+    "technical_baseline",
+]
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check a deployed precomputed review page without mutations.")
@@ -46,6 +58,16 @@ def main(argv: list[str] | None = None) -> int:
             f"{base_url}/ui/full-review-page?evidence_sha256={evidence_sha}&_={stamp}",
             DETAIL_NEEDLES,
         ),
+        (
+            "review-targets",
+            f"{base_url}/review-targets?evidence_sha256={evidence_sha}&_={stamp}",
+            REVIEW_TARGET_NEEDLES,
+        ),
+        (
+            "review-graph",
+            f"{base_url}/review/graph?evidence_sha256={evidence_sha}&_={stamp}",
+            REVIEW_GRAPH_NEEDLES,
+        ),
     ]
     try:
         for name, url, needles in checks:
@@ -67,6 +89,21 @@ def main(argv: list[str] | None = None) -> int:
             _check_missing(
                 "retired-detail",
                 f"{base_url}/ui/full-review-page?evidence_sha256={missing_sha}&_={stamp}",
+                timeout_seconds=args.timeout_seconds,
+            )
+            _check_missing(
+                "retired-summary",
+                f"{base_url}/ui/summary?evidence_sha256={missing_sha}&_={stamp}",
+                timeout_seconds=args.timeout_seconds,
+            )
+            _check_missing(
+                "retired-review-targets",
+                f"{base_url}/review-targets?evidence_sha256={missing_sha}&_={stamp}",
+                timeout_seconds=args.timeout_seconds,
+            )
+            _check_missing(
+                "retired-review-graph",
+                f"{base_url}/review/graph?evidence_sha256={missing_sha}&_={stamp}",
                 timeout_seconds=args.timeout_seconds,
             )
     except (HTTPError, URLError, TimeoutError, ValueError) as exc:
@@ -93,6 +130,7 @@ def _check_missing(name: str, url: str, *, timeout_seconds: float) -> None:
     _require("Multi-AI disagreement requires validation" not in body, f"{name} returned stale review content")
     _require("Provider positions were not projected" not in body, f"{name} returned stale detail content")
     _require("claimed 1" not in body, f"{name} returned stale provider stance")
+    _require("canonical_review_graph" not in body, f"{name} returned stale review graph")
     print(f"{name}: http={status} elapsed={elapsed:.3f}s stale_text=absent")
 
 

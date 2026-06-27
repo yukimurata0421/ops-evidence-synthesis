@@ -62,6 +62,7 @@ def test_fast_review_shell_embeds_precomputed_summary(
     summary_dir = tmp_path / "summaries"
     summary_dir.mkdir()
     monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", str(summary_dir))
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
     evidence_sha = "a" * 64
     (summary_dir / f"{evidence_sha}.json").write_text(
         json.dumps(
@@ -155,6 +156,8 @@ def test_fast_review_shell_embeds_precomputed_summary(
     with TestClient(app) as client:
         page = client.get(f"/?evidence_sha256={evidence_sha}")
         detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}")
+        review_targets = client.get(f"/review-targets?evidence_sha256={evidence_sha}")
+        review_graph = client.get(f"/review/graph?evidence_sha256={evidence_sha}")
 
     assert page.status_code == 200
     assert "Saved finding" in page.text
@@ -185,6 +188,12 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert "Why not promoted" in detail.text
     assert "user_impact_unverified" in detail.text
     assert "Definition: claimed successful providers / all successful providers" in detail.text
+    assert review_targets.status_code == 200
+    assert review_targets.json()["summary"]["source"] == "precomputed_review_summary"
+    assert review_targets.json()["targets"][0]["evidence_sha256"] == evidence_sha
+    assert review_graph.status_code == 200
+    assert review_graph.json()["canonical_graph_status"] == "precomputed"
+    assert review_graph.json()["canonical_review_graph"]["review_graph_summary"]["targets_total"] == 1
 
 
 def test_precomputed_only_ui_returns_404_for_missing_review(
@@ -203,12 +212,16 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
         detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}")
         full_detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}&full=1")
         summary = client.get(f"/ui/summary?evidence_sha256={evidence_sha}")
+        review_targets = client.get(f"/review-targets?evidence_sha256={evidence_sha}")
+        review_graph = client.get(f"/review/graph?evidence_sha256={evidence_sha}")
 
     assert page.status_code == 404
     assert full_page.status_code == 404
     assert detail.status_code == 404
     assert full_detail.status_code == 404
     assert summary.status_code == 404
+    assert review_targets.status_code == 404
+    assert review_graph.status_code == 404
     assert "precomputed review not found" in page.text
     assert "No persisted finding yet" not in page.text
     assert "Provider positions were not projected" not in detail.text
