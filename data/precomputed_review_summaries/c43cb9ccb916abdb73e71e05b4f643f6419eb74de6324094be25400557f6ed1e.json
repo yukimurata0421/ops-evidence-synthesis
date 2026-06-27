@@ -1,0 +1,207 @@
+{
+  "agent_trace": [
+    {
+      "artifact": "sanitized_events.jsonl",
+      "status": "completed",
+      "step": "sanitize",
+      "summary": "25 sanitized evidence item(s) were prepared locally. Raw logs were not uploaded.",
+      "title": "Sanitize local evidence"
+    },
+    {
+      "artifact": "evidence_bundle.json",
+      "status": "completed",
+      "step": "bundle",
+      "summary": "The review input was fixed by SHA256 before model output was projected.",
+      "title": "Freeze Evidence Bundle"
+    },
+    {
+      "artifact": "model_runs",
+      "status": "completed",
+      "step": "multi_model",
+      "summary": "3/4 provider outputs were schema-valid; failed providers remain visible.",
+      "title": "Run deterministic providers"
+    },
+    {
+      "artifact": "review_targets",
+      "status": "completed",
+      "step": "arbitrate",
+      "summary": "1 target(s) were projected with provider stance and human-gated promotion.",
+      "title": "Arbitrate review targets"
+    },
+    {
+      "artifact": "precomputed_review_summary",
+      "status": "completed",
+      "step": "deliver",
+      "summary": "The UI serves this generated payload without starting model runs on initial GET.",
+      "title": "Deliver read-only cache"
+    }
+  ],
+  "devops_loop": {
+    "items": [
+      {
+        "detail": "The public demo uses local providers that require no keys or network access.",
+        "label": "Deterministic replay",
+        "value": "local providers"
+      },
+      {
+        "detail": "CI regenerates the public fixture and compares it with the committed cache.",
+        "label": "Fixture fidelity",
+        "value": "byte comparison"
+      },
+      {
+        "detail": "A simulated provider failure remains visible in provider status.",
+        "label": "Provider frontier",
+        "value": "failed outputs retained"
+      },
+      {
+        "detail": "The release smoke script checks the public review pages and the UI time budget.",
+        "label": "Post-deploy smoke",
+        "value": "root + detail checked"
+      }
+    ],
+    "summary": "The public repository verifies that the fast UI cache can be regenerated from a deterministic local pipeline.",
+    "title": "AI workflow is operated as production software"
+  },
+  "evidence_sha256": "c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e",
+  "generation": {
+    "generator": "ops_evidence_synthesis.precomputed_review",
+    "payload_sha256": "7786bbaf8366bb8a993cc19e46db037026f9de33cb1bd3fe33d6644c3cf0ac2f",
+    "provider_mode": "deterministic_local",
+    "raw_log_policy": "not_uploaded",
+    "schema_version": "precomputed_review_generation.v1",
+    "score_definition": "claimed successful providers / all successful providers",
+    "source_note": "generated from committed public-safe amazon-notify fixture with deterministic local providers"
+  },
+  "provider_statuses": [
+    {
+      "provider_id": "local-fail",
+      "raw_output_sha256": "54eac2ad836c7d3be13ba6ef67f437e500143bd25dcc3b5231b3b8b26da193e4",
+      "schema_valid": false,
+      "status": "failed"
+    },
+    {
+      "provider_id": "local-gemini",
+      "raw_output_sha256": "902f2395e162deee5d3ee0ab7c89a84ae022ce9c66d7dfb89b4b6faa04403bf6",
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "provider_id": "local-gpt-oss",
+      "raw_output_sha256": "902f2395e162deee5d3ee0ab7c89a84ae022ce9c66d7dfb89b4b6faa04403bf6",
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "provider_id": "local-mistral",
+      "raw_output_sha256": "091c87678609cff79dbd2dfe2746e86c83286a245376c488f52a887b367c26b9",
+      "schema_valid": true,
+      "status": "ok"
+    }
+  ],
+  "review_graph_summary": {
+    "auto_archived_count": 0,
+    "conflict_count": 0,
+    "convergence_count": 1,
+    "hidden_multi_provider_archived_count": 0,
+    "incident_baseline": "open",
+    "incident_baseline_established_count": 0,
+    "note": "Provider convergence is treated as technical support only; causal judgement remains human-gated.",
+    "primary_promoted_count": 0,
+    "provider_detection_overlap": "2/3",
+    "review_unit_convergence": "partial",
+    "rule_or_context_count": 0,
+    "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
+    "single_source_count": 0,
+    "summary": "1 converged target(s), 0 single-source target(s), and 0 rule/context target(s). Incident baseline remains human-gated.",
+    "targets_total": 1,
+    "technical_baseline": "partial"
+  },
+  "schema_version": "precomputed_review_summary.v1",
+  "summary": {
+    "baselines": {
+      "incident": false,
+      "technical": true
+    },
+    "canonical_graph_sha256": "4f5add8eda725bf776719ce1ee3ef86b70a5a1ac33cd98383267e89c8348017f",
+    "canonical_graph_status": "pipeline_generated",
+    "finding": {
+      "impact": "1 target(s) show provider convergence, and 1 validation target(s) remain human-gated.",
+      "title": "Multi-AI disagreement requires validation"
+    },
+    "input_fingerprint_sha256": "99d2382db4cbfbb51d7e5f6e054dac17fe1e7601bffa2dc526cf0f5760391c73",
+    "log_count": 6506,
+    "providers": {
+      "pipeline_status": "completed",
+      "success": 3,
+      "total": 4
+    },
+    "raw_log_policy": "not_uploaded",
+    "review": {
+      "auto_archived": 0,
+      "monitor_only": 0,
+      "primary_targets": 0,
+      "validation_targets": 1
+    },
+    "schema_version": "ui_summary.v1",
+    "status": "ok"
+  },
+  "targets": [
+    {
+      "agreement": {
+        "convergence_score": 0.6666666667,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "2/3 successful providers projected this review unit; incident baseline remains open.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "claim": "The leading hypothesis is runtime restart loop. amazon-notify in prod from 2026-06-26T22:30:00Z to 2026-06-26T23:32:21Z",
+      "class": "validation_target",
+      "evidence_refs": [
+        "PATTERN-001",
+        "PATTERN-002",
+        "PATTERN-003",
+        "PATTERN-004"
+      ],
+      "missing_evidence": [
+        "Dependency-specific latency and error budget burn.",
+        "Verify process or runtime state during the incident window.",
+        "Compare state transitions with health or liveness signals.",
+        "Compare deploy, configuration, and rollout changes with the incident window."
+      ],
+      "promotion": {
+        "blocked_reason": "incident_baseline_open; user_impact_unverified; causal_direction_unverified",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 2,
+      "provider_positions": [
+        {
+          "model_run_hash": "902f2395e162",
+          "one_line": "Projected Service start failure needs verification as evidence-backed review work.",
+          "provider_id": "local-gemini",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "902f2395e162",
+          "one_line": "Projected Service start failure needs verification as evidence-backed review work.",
+          "provider_id": "local-gpt-oss",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "091c87678609",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "local-mistral",
+          "stance": "silent"
+        }
+      ],
+      "recommended_request_type": "process_state",
+      "review_priority_score": 0.8175,
+      "review_target_id": "prt-a442947b33bff021735a",
+      "subsystem": "runtime_recovery",
+      "title": "Service start failure needs verification"
+    }
+  ],
+  "updated_at": "2026-06-26T23:32:21Z"
+}

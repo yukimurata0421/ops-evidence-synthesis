@@ -31,6 +31,12 @@ def main() -> int:
     parser.add_argument("--provider", action="append", default=[], help="Provider names. Defaults to the public deterministic set.")
     parser.add_argument("--updated-at", default="2026-06-12T10:20:00Z")
     parser.add_argument("--output-dir", default="data/precomputed_review_summaries")
+    parser.add_argument("--target-limit", type=int, default=5)
+    parser.add_argument("--source-note", default="generated from public sample fixture with deterministic local providers")
+    parser.add_argument("--expected-evidence-sha", default="")
+    parser.add_argument("--expected-log-count", type=int, default=0)
+    parser.add_argument("--require-convergence", action="store_true")
+    parser.add_argument("--expected-convergence-score", type=float, default=0.0)
     parser.add_argument("--check", action="store_true", help="Compare generated JSON with the committed output file.")
     args = parser.parse_args()
 
@@ -58,7 +64,15 @@ def main() -> int:
         store,
         result.evidence_sha256,
         updated_at=args.updated_at,
-        source_note="generated from public sample fixture with deterministic local providers",
+        target_limit=args.target_limit,
+        source_note=args.source_note,
+    )
+    _validate_payload(
+        payload,
+        expected_evidence_sha=args.expected_evidence_sha,
+        expected_log_count=args.expected_log_count,
+        require_convergence=args.require_convergence,
+        expected_convergence_score=args.expected_convergence_score,
     )
     output_path = Path(args.output_dir) / f"{result.evidence_sha256}.json"
     generated = stable_precomputed_review_json(payload)
@@ -74,6 +88,42 @@ def main() -> int:
     print(f"evidence_sha256={result.evidence_sha256}")
     print(f"output={path}")
     return 0
+
+
+def _validate_payload(
+    payload: dict,
+    *,
+    expected_evidence_sha: str,
+    expected_log_count: int,
+    require_convergence: bool,
+    expected_convergence_score: float,
+) -> None:
+    if expected_evidence_sha and str(payload.get("evidence_sha256") or "") != expected_evidence_sha:
+        raise SystemExit(f"expected evidence_sha256={expected_evidence_sha}, got {payload.get('evidence_sha256')}")
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    if expected_log_count and int(summary.get("log_count") or 0) != expected_log_count:
+        raise SystemExit(f"expected log_count={expected_log_count}, got {summary.get('log_count')}")
+    targets = [target for target in payload.get("targets") or [] if isinstance(target, dict)]
+    converged = [
+        target
+        for target in targets
+        if (target.get("agreement") or {}).get("verdict") == "convergence"
+        and float((target.get("agreement") or {}).get("convergence_score") or 0.0) > 0.0
+    ]
+    if require_convergence and not converged:
+        raise SystemExit("expected at least one converged review target")
+    if expected_convergence_score:
+        tolerance = 0.0001
+        if not any(
+            abs(float((target.get("agreement") or {}).get("convergence_score") or 0.0) - expected_convergence_score)
+            <= tolerance
+            for target in converged
+        ):
+            scores = [
+                float((target.get("agreement") or {}).get("convergence_score") or 0.0)
+                for target in converged
+            ]
+            raise SystemExit(f"expected convergence_score={expected_convergence_score}, got {scores}")
 
 
 if __name__ == "__main__":

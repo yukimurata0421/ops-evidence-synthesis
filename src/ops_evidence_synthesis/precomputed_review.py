@@ -241,20 +241,19 @@ def _provider_positions(
 
 def _claimed_providers(target: dict[str, Any], drawer: dict[str, Any]) -> set[str]:
     providers: set[str] = set()
-    raw_providers = target.get("providers")
-    if isinstance(raw_providers, list):
-        providers.update(str(provider) for provider in raw_providers if str(provider).strip())
-    synthesis = drawer.get("synthesis") if isinstance(drawer.get("synthesis"), dict) else {}
-    for reason in synthesis.get("why_unified") or []:
-        text = str(reason)
-        if text.startswith("providers="):
-            providers.update(provider.strip() for provider in text.split("=", 1)[1].split(",") if provider.strip())
-    for claim in drawer.get("claims") or []:
+    claim_rows = [claim for claim in drawer.get("claims") or [] if isinstance(claim, dict)]
+    for claim in claim_rows:
         if not isinstance(claim, dict):
             continue
         provider = str(claim.get("provider") or "").strip()
-        if provider and provider != "rule-engine":
+        claim_type = str(claim.get("claim_type") or "").casefold()
+        if provider and provider != "rule-engine" and claim_type not in {"caveat", "counter_evidence", "context"}:
             providers.add(provider)
+    if providers or claim_rows:
+        return providers
+    raw_providers = target.get("providers")
+    if isinstance(raw_providers, list):
+        providers.update(str(provider) for provider in raw_providers if str(provider).strip())
     return providers
 
 

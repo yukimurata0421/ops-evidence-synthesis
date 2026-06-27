@@ -11,10 +11,9 @@ from urllib.request import Request, urlopen
 
 ROOT_NEEDLES = [
     "Review Graph Arbitration",
-    "1 converged technical support signal",
+    "1 converged target(s)",
     "DevOps Improvement Loop",
     "claimed 2 / silent 1",
-    "claimed 1 / silent 2",
 ]
 
 DETAIL_NEEDLES = [
@@ -22,7 +21,6 @@ DETAIL_NEEDLES = [
     "Agreement and baselines",
     "Why not promoted",
     "Convergence score: 0.667",
-    "Convergence score: 0.333",
 ]
 
 

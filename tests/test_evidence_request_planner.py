@@ -193,7 +193,7 @@ def _canonical_graph() -> dict[str, object]:
                 "review_priority_score": 0.82,
                 "promotion_score": 0.72,
                 "baseline_support_score": 0.9,
-                "convergence_score": 0.8,
+                "rollup_provider_ratio": 0.8,
                 "recommended_request_type": "user_impact_signal_query",
                 "promotion_blocked_reasons": ["user_impact_unverified"],
                 "evidence_refs": ["PATTERN-001"],

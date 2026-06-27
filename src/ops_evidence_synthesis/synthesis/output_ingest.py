@@ -265,7 +265,9 @@ def observation_groups_from_graph(graph: dict[str, Any]) -> list[dict[str, Any]]
             "support_evidence": drawer.get("support_evidence") or [],
             "counter_evidence": drawer.get("counter_evidence") or [],
             "rollup": rollup,
-            "convergence_score": float(target.get("convergence_score") or rollup.get("convergence_score") or 0.0),
+            "rollup_provider_ratio": float(
+                target.get("rollup_provider_ratio") or rollup.get("rollup_provider_ratio") or 0.0
+            ),
             "baseline_support_score": float(target.get("baseline_support_score") or rollup.get("baseline_support_score") or 0.0),
             "review_priority_score": float(target.get("review_priority_score") or 0.0),
             "consensus_class": _consensus_class(target),
@@ -501,7 +503,7 @@ def _merge_observation_group(
         "source_target_ids": source_target_ids,
         "source_candidate_count": len(rows),
         "rollup": rollup,
-        "convergence_score": rollup["convergence_score"],
+        "rollup_provider_ratio": rollup["rollup_provider_ratio"],
         "baseline_support_score": rollup["baseline_support_score"],
         "raw": {
             "source": "canonical_observation_group",
@@ -529,7 +531,7 @@ def _merge_observation_group(
         "support_evidence": support_evidence,
         "counter_evidence": counter_evidence,
         "rollup": rollup,
-        "convergence_score": rollup["convergence_score"],
+        "rollup_provider_ratio": rollup["rollup_provider_ratio"],
         "baseline_support_score": rollup["baseline_support_score"],
         "review_priority_score": float(merged.get("score_before") or 0.0),
         "consensus_class": _consensus_class(merged),
@@ -600,9 +602,9 @@ def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> 
         + min(source_candidate_count, 4) * 0.05
         + min(len(evidence_refs), 6) * 0.025,
     )
-    convergence_score = 0.0
+    rollup_provider_ratio = 0.0
     if independent_provider_count >= 2 and source_candidate_count >= 2:
-        convergence_score = min(
+        rollup_provider_ratio = min(
             1.0,
             independent_provider_count / max(source_candidate_count, independent_provider_count, 1),
         )
@@ -622,8 +624,8 @@ def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> 
         "repeated_independent_claim_bonus": round(repeated_independent_bonus, 4),
         "same_provider_duplicate_bonus": round(same_provider_duplicate_bonus, 4),
         "priority_bonus": round(priority_bonus, 4),
-        "convergence_score": round(convergence_score, 4),
-        "convergence_score_definition": "independent providers / source candidates; single-source targets are 0.0",
+        "rollup_provider_ratio": round(rollup_provider_ratio, 4),
+        "rollup_provider_ratio_definition": "independent providers / source candidates; single-source targets are 0.0",
         "baseline_support_score": round(baseline_support_score, 4),
     }
 

@@ -758,7 +758,7 @@ def _review_unit_convergence_row(target: dict[str, Any]) -> dict[str, Any]:
         "independent_provider_count": int(rollup.get("independent_provider_count") or target.get("provider_count") or 0),
         "evidence_ref_count": int(rollup.get("evidence_ref_count") or len(target.get("evidence_refs") or [])),
         "baseline_support_score": float(rollup.get("baseline_support_score") or 0.0),
-        "convergence_score": float(rollup.get("convergence_score") or 0.0),
+        "rollup_provider_ratio": float(rollup.get("rollup_provider_ratio") or 0.0),
         "review_priority_score": float(target.get("review_priority_score") or 0.0),
     }
 
@@ -1034,7 +1034,7 @@ def _arbitrate_candidate(
         "raw_review_priority_score": round(score_before, 4),
         "promotion_score": round(promotion_score, 4),
         "score_with_convergence": round(score_with_convergence, 4),
-        "convergence_score": float(rollup.get("convergence_score") or 0.0),
+        "rollup_provider_ratio": float(rollup.get("rollup_provider_ratio") or 0.0),
         "baseline_support_score": float(rollup.get("baseline_support_score") or 0.0),
         "rollup": rollup,
         "score_breakdown": {
@@ -1103,7 +1103,7 @@ def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
             "repeated_independent_claim_bonus": float(raw.get("repeated_independent_claim_bonus") or 0.0),
             "same_provider_duplicate_bonus": float(raw.get("same_provider_duplicate_bonus") or 0.0),
             "priority_bonus": float(raw.get("priority_bonus") or 0.0),
-            "convergence_score": float(raw.get("convergence_score") or 0.0),
+            "rollup_provider_ratio": float(raw.get("rollup_provider_ratio") or 0.0),
             "baseline_support_score": float(raw.get("baseline_support_score") or 0.0),
         }
     providers = _unique(candidate.get("providers") or [])
@@ -1124,7 +1124,7 @@ def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
         "repeated_independent_claim_bonus": 0.0,
         "same_provider_duplicate_bonus": 0.0,
         "priority_bonus": 0.0,
-        "convergence_score": float(candidate.get("convergence_score") or 0.0),
+        "rollup_provider_ratio": float(candidate.get("rollup_provider_ratio") or 0.0),
         "baseline_support_score": float(candidate.get("baseline_support_score") or 0.0),
     }
 
@@ -1277,7 +1277,7 @@ def _planner_inputs(
                 "canonical_review_unit": str(target.get("canonical_review_unit") or ""),
                 "review_priority_score": float(target.get("review_priority_score") or 0.0),
                 "promotion_score": float(target.get("promotion_score") or target.get("review_priority_score") or 0.0),
-                "convergence_score": float(target.get("convergence_score") or 0.0),
+                "rollup_provider_ratio": float(target.get("rollup_provider_ratio") or 0.0),
                 "baseline_support_score": float(target.get("baseline_support_score") or 0.0),
                 "source_candidate_count": int(target.get("source_candidate_count") or 1),
                 "recommended_request_type": str(target.get("recommended_request_type") or ""),

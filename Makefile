@@ -1,14 +1,28 @@
 PYTHON ?= python3
 PUBLIC_BASE_URL ?= https://ops-evidence-api-vn3uyu4gia-an.a.run.app
-PUBLIC_EVIDENCE_SHA ?= 5d0b5a918de1f99852498da2c8558d14993fe33b2259d23ac0ece59a900b48d9
+PUBLIC_EVIDENCE_SHA ?= c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
+SAMPLE_EVIDENCE_SHA ?= 1be4a21441fec7d2a4eafa95508badbe4a892bd61f3d9e08541893fba97c6731
+FLAGSHIP_INPUT ?= data/amazon_notify_flagship_logs.jsonl
+FLAGSHIP_START ?= 2026-06-26T22:30:00Z
+FLAGSHIP_END ?= 2026-06-26T23:32:21Z
 
-.PHONY: demo verify-precomputed test ci smoke-public
+.PHONY: demo demo-flagship demo-sample verify-precomputed verify-flagship verify-sample test ci smoke-public
 
-demo:
-	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py
+demo: demo-flagship
 
-verify-precomputed:
-	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --check
+demo-flagship:
+	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --input $(FLAGSHIP_INPUT) --db workspace/public_demo/amazon_notify_flagship.sqlite3 --service amazon-notify --environment prod --start $(FLAGSHIP_START) --end $(FLAGSHIP_END) --lookback-minutes 1440 --updated-at $(FLAGSHIP_END) --target-limit 6 --source-note "generated from committed public-safe amazon-notify fixture with deterministic local providers" --expected-evidence-sha $(PUBLIC_EVIDENCE_SHA) --expected-log-count 6506 --require-convergence --expected-convergence-score 0.6666666667
+
+demo-sample:
+	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --expected-evidence-sha $(SAMPLE_EVIDENCE_SHA)
+
+verify-precomputed: verify-sample verify-flagship
+
+verify-sample:
+	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --expected-evidence-sha $(SAMPLE_EVIDENCE_SHA) --check
+
+verify-flagship:
+	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --input $(FLAGSHIP_INPUT) --db workspace/public_demo/amazon_notify_flagship.sqlite3 --service amazon-notify --environment prod --start $(FLAGSHIP_START) --end $(FLAGSHIP_END) --lookback-minutes 1440 --updated-at $(FLAGSHIP_END) --target-limit 6 --source-note "generated from committed public-safe amazon-notify fixture with deterministic local providers" --expected-evidence-sha $(PUBLIC_EVIDENCE_SHA) --expected-log-count 6506 --require-convergence --expected-convergence-score 0.6666666667 --check
 
 test:
 	$(PYTHON) -m pytest

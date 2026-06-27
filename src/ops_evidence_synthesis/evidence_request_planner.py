@@ -692,7 +692,7 @@ def _requirement_target_context(target: dict[str, Any]) -> dict[str, Any]:
         "review_priority_score": float(target.get("review_priority_score") or 0.0),
         "promotion_score": float(target.get("promotion_score") or target.get("review_priority_score") or 0.0),
         "baseline_support_score": float(target.get("baseline_support_score") or 0.0),
-        "convergence_score": float(target.get("convergence_score") or 0.0),
+        "rollup_provider_ratio": float(target.get("rollup_provider_ratio") or 0.0),
         "recommended_request_type": str(target.get("recommended_request_type") or ""),
         "promotion_blocked_reasons": [
             str(reason)
