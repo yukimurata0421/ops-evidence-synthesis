@@ -39,6 +39,18 @@ python -m pip install -e ".[test,api]"
 python -m pytest
 ```
 
+## Reproducible Demo Fixture
+
+```bash
+make demo
+make verify-precomputed
+```
+
+`make demo` runs the deterministic local providers against the public sample
+logs and writes a precomputed review payload. `make verify-precomputed`
+regenerates that payload and compares it with the committed fixture, so the
+fast UI cache is backed by code instead of a hand-edited artifact.
+
 ## Public URL Smoke
 
 ```bash

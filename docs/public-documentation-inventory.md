@@ -17,6 +17,9 @@ operator history or raw incident material.
 | `architecture.txt` | Plain-text architecture reference for tools or readers that prefer text output. | Keep |
 | `infra/terraform/README.md` | Cloud baseline summary and Terraform wrapper usage. | Keep |
 | `sample_projects/profile_discovery_sample/README.md` | Minimal fixture note for profile discovery tests. | Keep |
+| `Makefile` | Reviewer commands for deterministic demo regeneration and verification. | Keep |
+| `.github/workflows/ci.yml` | Public CI gate for fixture fidelity and tests. | Keep |
+| `data/precomputed_review_summaries/*.json` | Read-only UI cache fixtures generated from sanitized evidence. | Keep |
 
 ## Intentionally Not Published
 
