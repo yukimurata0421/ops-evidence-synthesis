@@ -600,6 +600,12 @@ def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> 
         + min(source_candidate_count, 4) * 0.05
         + min(len(evidence_refs), 6) * 0.025,
     )
+    convergence_score = 0.0
+    if independent_provider_count >= 2 and source_candidate_count >= 2:
+        convergence_score = min(
+            1.0,
+            independent_provider_count / max(source_candidate_count, independent_provider_count, 1),
+        )
     return {
         "source_candidate_count": source_candidate_count,
         "independent_provider_count": independent_provider_count,
@@ -616,7 +622,8 @@ def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> 
         "repeated_independent_claim_bonus": round(repeated_independent_bonus, 4),
         "same_provider_duplicate_bonus": round(same_provider_duplicate_bonus, 4),
         "priority_bonus": round(priority_bonus, 4),
-        "convergence_score": round(min(1.0, priority_bonus / 0.18 if priority_bonus else 0.0), 4),
+        "convergence_score": round(convergence_score, 4),
+        "convergence_score_definition": "independent providers / source candidates; single-source targets are 0.0",
         "baseline_support_score": round(baseline_support_score, 4),
     }
 

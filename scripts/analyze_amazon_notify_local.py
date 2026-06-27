@@ -5,9 +5,13 @@ from dataclasses import asdict
 from datetime import timedelta
 from pathlib import Path
 
-from ops_evidence_synthesis.ai.providers import build_provider_list
+from ops_evidence_synthesis.ai.provider_registry import build_multi_ai_providers
 from ops_evidence_synthesis.ingest import ingest_log_files
 from ops_evidence_synthesis.models import IncidentWindow
+from ops_evidence_synthesis.precomputed_review import (
+    build_precomputed_review_summary,
+    write_precomputed_review_summary,
+)
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.synthesis.pipeline import run_pipeline
 from ops_evidence_synthesis.timeutils import format_timestamp, parse_timestamp
@@ -23,8 +27,15 @@ def main() -> int:
     parser.add_argument("--end", default="", help="Incident end. Defaults to latest log timestamp.")
     parser.add_argument("--incident-minutes", type=int, default=30)
     parser.add_argument("--lookback-minutes", type=int, default=20160)
-    parser.add_argument("--provider", action="append", default=[], help="Default is local. Use --provider gemini for Vertex.")
+    parser.add_argument(
+        "--provider",
+        action="append",
+        default=[],
+        help="Default is deterministic local. Use real provider names only in local trusted environments.",
+    )
     parser.add_argument("--targets", type=int, default=10)
+    parser.add_argument("--precompute-output-dir", default="", help="Optional directory for generated precomputed review JSON.")
+    parser.add_argument("--updated-at", default="", help="Optional stable updated_at for generated precomputed JSON.")
     args = parser.parse_args()
 
     store = SQLiteStore(args.db)
@@ -47,7 +58,10 @@ def main() -> int:
             incident_end=end,
             lookback_minutes=args.lookback_minutes,
         ),
-        providers=build_provider_list(args.provider),
+        providers=build_multi_ai_providers(
+            args.provider or ["local-gemini", "local-gpt-oss", "local-mistral", "local-fail"],
+            mode="local",
+        ),
     )
     print(f"db={args.db}")
     print(f"ingested_logs={ingested}")
@@ -56,6 +70,16 @@ def main() -> int:
     print(f"incident_end={end}")
     for key, value in asdict(result).items():
         print(f"{key}={value}")
+    if args.precompute_output_dir:
+        payload = build_precomputed_review_summary(
+            store,
+            result.evidence_sha256,
+            updated_at=args.updated_at or end,
+            target_limit=args.targets,
+            source_note="generated from local sanitized amazon-notify evidence",
+        )
+        path = write_precomputed_review_summary(payload, args.precompute_output_dir)
+        print(f"precomputed_review={path}")
     target_set = store.list_review_targets(limit=args.targets, pending_only=False)
     print("review_targets:")
     for target in target_set.get("targets") or []:
