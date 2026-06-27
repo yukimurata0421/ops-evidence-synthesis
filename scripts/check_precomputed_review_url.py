@@ -16,6 +16,11 @@ ROOT_NEEDLES = [
     "claimed 2 / silent 1",
 ]
 
+PUBLIC_INDEX_NEEDLES = [
+    "read-only precomputed reviews",
+    "Raw bundles and write APIs are not exposed",
+]
+
 DETAIL_NEEDLES = [
     "Provider positions",
     "Agreement and baselines",
@@ -35,6 +40,19 @@ REVIEW_GRAPH_NEEDLES = [
     "technical_baseline",
 ]
 
+BLOCKED_PUBLIC_READ_PATHS = [
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+    "/reviews",
+    "/proposals",
+    "/comparisons",
+    "/clusters",
+    "/providers",
+    "/workflow/provider-policy",
+    "/review-targets",
+]
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check a deployed precomputed review page without mutations.")
@@ -48,6 +66,11 @@ def main(argv: list[str] | None = None) -> int:
     evidence_sha = quote(str(args.evidence_sha), safe="")
     stamp = str(int(time.time()))
     checks = [
+        (
+            "public-index",
+            f"{base_url}/?_={stamp}",
+            PUBLIC_INDEX_NEEDLES,
+        ),
         (
             "root",
             f"{base_url}/?evidence_sha256={evidence_sha}&_={stamp}",
@@ -78,7 +101,22 @@ def main(argv: list[str] | None = None) -> int:
             _require(not missing, f"{name} missing required text: {', '.join(missing)}")
             _require("Loading saved result" not in body, f"{name} contains loading placeholder")
             _require("Detailed review state is loading" not in body, f"{name} contains detailed loading placeholder")
+            _require("Upload Sanitized Evidence Bundle" not in body, f"{name} exposed upload UI")
+            _require("Write token" not in body, f"{name} exposed write-token UI")
             print(f"{name}: http={status} elapsed={elapsed:.3f}s required_text=present")
+        health_status, health_elapsed, health_body = _get(
+            f"{base_url}/health?_={stamp}",
+            timeout_seconds=args.timeout_seconds,
+        )
+        _require(health_status == 200, f"health returned HTTP {health_status}")
+        _require("precomputed_public" in health_body, "health did not report precomputed_public mode")
+        print(f"health: http={health_status} elapsed={health_elapsed:.3f}s mode=precomputed_public")
+        for path in BLOCKED_PUBLIC_READ_PATHS:
+            _check_missing(
+                f"blocked-{path.strip('/').replace('/', '-') or 'root'}",
+                f"{base_url}{path}?_={stamp}",
+                timeout_seconds=args.timeout_seconds,
+            )
         if args.missing_evidence_sha:
             missing_sha = quote(str(args.missing_evidence_sha), safe="")
             _check_missing(

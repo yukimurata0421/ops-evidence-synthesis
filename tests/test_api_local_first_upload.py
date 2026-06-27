@@ -154,11 +154,16 @@ def test_fast_review_shell_embeds_precomputed_summary(
     )
 
     with TestClient(app) as client:
+        landing = client.get("/")
         page = client.get(f"/?evidence_sha256={evidence_sha}")
         detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}")
         review_targets = client.get(f"/review-targets?evidence_sha256={evidence_sha}")
         review_graph = client.get(f"/review/graph?evidence_sha256={evidence_sha}")
 
+    assert landing.status_code == 200
+    assert "Saved finding" in landing.text
+    assert "Upload Sanitized Evidence Bundle" not in landing.text
+    assert "Write token" not in landing.text
     assert page.status_code == 200
     assert "Saved finding" in page.text
     assert "Saved impact" in page.text
@@ -207,6 +212,9 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
     evidence_sha = "b" * 64
 
     with TestClient(app) as client:
+        landing = client.get("/")
+        detail_without_sha = client.get("/ui/full-review-page")
+        targets_without_sha = client.get("/review-targets")
         page = client.get(f"/?evidence_sha256={evidence_sha}")
         full_page = client.get(f"/?evidence_sha256={evidence_sha}&full=1")
         detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}")
@@ -214,7 +222,28 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
         summary = client.get(f"/ui/summary?evidence_sha256={evidence_sha}")
         review_targets = client.get(f"/review-targets?evidence_sha256={evidence_sha}")
         review_graph = client.get(f"/review/graph?evidence_sha256={evidence_sha}")
+        blocked = {
+            path: client.get(path).status_code
+            for path in [
+                "/docs",
+                "/redoc",
+                "/openapi.json",
+                "/reviews",
+                "/proposals",
+                "/comparisons",
+                "/clusters",
+                "/providers",
+                "/workflow/provider-policy",
+                f"/bundles/{evidence_sha}",
+                f"/pipeline-status?evidence_sha256={evidence_sha}",
+            ]
+        }
 
+    assert landing.status_code == 200
+    assert "Upload Sanitized Evidence Bundle" not in landing.text
+    assert "Write token" not in landing.text
+    assert detail_without_sha.status_code == 404
+    assert targets_without_sha.status_code == 404
     assert page.status_code == 404
     assert full_page.status_code == 404
     assert detail.status_code == 404
@@ -222,6 +251,7 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
     assert summary.status_code == 404
     assert review_targets.status_code == 404
     assert review_graph.status_code == 404
+    assert blocked == {path: 404 for path in blocked}
     assert "precomputed review not found" in page.text
     assert "No persisted finding yet" not in page.text
     assert "Provider positions were not projected" not in detail.text

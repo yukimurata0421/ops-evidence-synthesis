@@ -190,7 +190,8 @@ Reusable foundation code is kept in the repository because it is part of the
 working product surface: local sanitization, Evidence Bundle creation, provider
 adapters, review arbitration, evidence request planning, storage adapters, and
 the FastAPI UI. Optional operator scripts under `scripts/` are not required for
-the five-minute review path unless the README names them directly.
+the five-minute review path unless the README names them directly. See
+[scripts/README.md](scripts/README.md) for the script inventory.
 
 Committed logs are synthetic fixtures. `sample_logs/redaction_fixture.jsonl`
 contains intentionally fake tokens and example paths so the sanitizer and

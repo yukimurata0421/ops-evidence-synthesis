@@ -127,13 +127,44 @@ def _precomputed_only_ui_enabled() -> bool:
     return os.environ.get("OES_UI_PRECOMPUTED_ONLY", "0").casefold() in {"1", "true", "yes", "on"}
 
 
-def _require_precomputed_review_for_public_read(evidence_sha256: str | None) -> dict[str, Any] | None:
+def _require_precomputed_review_for_public_read(
+    evidence_sha256: str | None,
+    *,
+    require_evidence_sha: bool = False,
+) -> dict[str, Any] | None:
+    if require_evidence_sha and _precomputed_only_ui_enabled() and not evidence_sha256:
+        raise HTTPException(status_code=404, detail="precomputed evidence_sha256 is required")
     if not evidence_sha256 or not _precomputed_only_ui_enabled():
         return None
     precomputed = _precomputed_review_payload(evidence_sha256)
     if not precomputed:
         raise HTTPException(status_code=404, detail="precomputed review not found")
     return precomputed
+
+
+PUBLIC_PRECOMPUTED_READ_PATHS = {
+    "/",
+    "/health",
+    "/ui/full-review-page",
+    "/ui/summary",
+    "/review-targets",
+    "/review/graph",
+}
+
+
+def _public_precomputed_read_guard(request: Request, request_id: str) -> JSONResponse | None:
+    if not _precomputed_only_ui_enabled():
+        return None
+    if request.method.upper() not in {"GET", "HEAD"}:
+        return None
+    path = request.url.path.rstrip("/") or "/"
+    if path in PUBLIC_PRECOMPUTED_READ_PATHS:
+        return None
+    return JSONResponse(
+        status_code=404,
+        content={"detail": "public demo exposes only precomputed review endpoints"},
+        headers={"X-Request-ID": request_id},
+    )
 
 
 def _ui_detail_timeout_ms() -> int:
@@ -242,6 +273,9 @@ async def _request_observability(request: Request, call_next):
     blocked_response = await _write_guard_response(request, request_id)
     if blocked_response is not None:
         return blocked_response
+    public_read_response = _public_precomputed_read_guard(request, request_id)
+    if public_read_response is not None:
+        return public_read_response
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     if request.url.path == "/" or str(response.headers.get("content-type") or "").startswith("text/html"):
@@ -265,8 +299,18 @@ def index_head() -> Response:
     return Response(status_code=200)
 
 
+@app.get("/health")
+def health() -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "mode": "precomputed_public" if _precomputed_only_ui_enabled() else "api",
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(evidence_sha256: str | None = None, full: bool = False) -> str:
+    if _precomputed_only_ui_enabled() and not evidence_sha256:
+        return _public_precomputed_landing_page()
     precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
     if evidence_sha256 and precomputed is not None:
         if full:
@@ -281,7 +325,7 @@ def index(evidence_sha256: str | None = None, full: bool = False) -> str:
 
 @app.get("/ui/full-review-page", response_class=HTMLResponse)
 def full_review_page(evidence_sha256: str | None = None, full: bool = False) -> str:
-    precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
     if evidence_sha256 and precomputed is not None:
         return _render_precomputed_review_detail_page(evidence_sha256, precomputed)
     if evidence_sha256 and _fast_initial_ui_enabled() and not full:
@@ -359,6 +403,75 @@ def _precomputed_summary(payload: dict[str, Any] | None, evidence_sha256: str) -
         "input_fingerprint_sha256": str(summary.get("input_fingerprint_sha256") or ""),
         "updated_at": str(payload.get("updated_at") or summary.get("updated_at") or ""),
     }
+
+
+def _public_precomputed_landing_page() -> str:
+    rows: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for directory in _precomputed_review_dirs():
+        try:
+            paths = sorted(directory.glob("*.json"))
+        except Exception:
+            continue
+        for path in paths:
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            evidence_sha = str(payload.get("evidence_sha256") or path.stem)
+            if not evidence_sha or evidence_sha in seen:
+                continue
+            seen.add(evidence_sha)
+            summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+            finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
+            rows.append(
+                (
+                    evidence_sha,
+                    str(finding.get("title") or "Precomputed review"),
+                    str(payload.get("updated_at") or summary.get("updated_at") or ""),
+                )
+            )
+    links = "\n".join(
+        (
+            "<li>"
+            f"<a href='/?evidence_sha256={quote(evidence_sha)}'>{_html(title)}</a>"
+            f"<span>{_html(evidence_sha[:12])}</span>"
+            f"<small>{_html(updated_at)}</small>"
+            "</li>"
+        )
+        for evidence_sha, title, updated_at in rows
+    )
+    if not links:
+        links = "<li><span>No precomputed review is available.</span></li>"
+    return f"""
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Ops Evidence Synthesis</title>
+        <style>
+          body {{ font-family: Inter, system-ui, sans-serif; margin: 0; color: #17202a; background: #f6f8fb; }}
+          main {{ max-width: 760px; margin: 0 auto; padding: 48px 20px; }}
+          h1 {{ font-size: 30px; margin: 0 0 12px; }}
+          p {{ color: #4a5565; line-height: 1.6; }}
+          ul {{ list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 10px; }}
+          li {{ display: grid; gap: 4px; padding: 14px 16px; border: 1px solid #d9e2ec; border-radius: 8px; background: #fff; }}
+          a {{ color: #0b5cad; font-weight: 700; text-decoration: none; }}
+          span, small {{ color: #627083; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
+        </style>
+      </head>
+      <body>
+        <main>
+          <h1>Ops Evidence Synthesis</h1>
+          <p>This public surface serves read-only precomputed reviews. Raw bundles and write APIs are not exposed here.</p>
+          <ul>{links}</ul>
+        </main>
+      </body>
+    </html>
+    """
 
 
 def _precomputed_review_target_set(
@@ -4509,7 +4622,7 @@ def list_review_targets(
     evidence_sha256: str | None = None,
     include_reviewed: bool = False,
 ) -> dict[str, Any]:
-    precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
     if precomputed is not None and evidence_sha256:
         return _precomputed_review_target_set(
             precomputed,
