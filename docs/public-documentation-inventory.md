@@ -18,16 +18,19 @@ operator history or raw incident material.
 | `infra/terraform/README.md` | Cloud baseline summary and Terraform wrapper usage. | Keep |
 | `sample_projects/profile_discovery_sample/README.md` | Minimal fixture note for profile discovery tests. | Keep |
 | `Makefile` | Reviewer commands for deterministic demo regeneration and verification. | Keep |
+| `scripts/deploy_public_demo.sh` | Release command that runs local gates, deploys Cloud Run, and smokes the live URL. | Keep |
 | `.github/workflows/ci.yml` | Public CI gate for fixture fidelity and tests. | Keep |
 | `data/precomputed_review_summaries/*.json` | Read-only UI cache fixtures generated from sanitized evidence. | Keep |
 | `sample_logs/redaction_fixture.jsonl` | Synthetic redaction fixture with fake token-shaped values. | Keep |
 
 ## Reviewer Command Surface
 
-The primary commands are `make demo`, `make verify-precomputed`, `make ci`, and
-`make smoke-public`. Other scripts are auxiliary operator tools and should not
-be treated as the required hackathon demo path unless a reviewer deliberately
-wants to inspect cloud deployment or private-log ingestion extensions.
+The primary commands are `make demo`, `make verify-precomputed`, `make ci`,
+`make smoke-public`, and `make archive-public`. Release verification is
+captured by `scripts/deploy_public_demo.sh`. Other scripts are auxiliary
+operator tools and should not be treated as the required hackathon demo path
+unless a reviewer deliberately wants to inspect cloud deployment or private-log
+ingestion extensions.
 
 ## Intentionally Not Published
 

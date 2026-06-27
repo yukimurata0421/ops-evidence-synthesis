@@ -6,8 +6,9 @@ SAMPLE_EVIDENCE_SHA ?= 1be4a21441fec7d2a4eafa95508badbe4a892bd61f3d9e08541893fba
 FLAGSHIP_INPUT ?= data/amazon_notify_flagship_logs.jsonl
 FLAGSHIP_START ?= 2026-06-26T22:30:00Z
 FLAGSHIP_END ?= 2026-06-26T23:32:21Z
+PUBLIC_ARCHIVE ?= /tmp/ops-evidence-synthesis-public.zip
 
-.PHONY: demo demo-flagship demo-sample verify-precomputed verify-flagship verify-sample test ci smoke-public
+.PHONY: demo demo-flagship demo-sample verify-precomputed verify-flagship verify-sample test ci smoke-public deploy-public archive-public
 
 demo: demo-flagship
 
@@ -32,3 +33,10 @@ ci: verify-precomputed test
 
 smoke-public:
 	$(PYTHON) scripts/check_precomputed_review_url.py --base-url $(PUBLIC_BASE_URL) --evidence-sha $(PUBLIC_EVIDENCE_SHA) --missing-evidence-sha $(RETIRED_EVIDENCE_SHA)
+
+deploy-public:
+	scripts/deploy_public_demo.sh
+
+archive-public:
+	git archive --format=zip --output $(PUBLIC_ARCHIVE) HEAD
+	ls -lh $(PUBLIC_ARCHIVE)

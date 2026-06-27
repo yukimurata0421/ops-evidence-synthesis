@@ -25,8 +25,9 @@ Live demo:
   `data/amazon_notify_flagship_logs.jsonl` using deterministic local providers.
 - `python -m uvicorn ...` serves the same read-only UI locally.
 - `make ci` verifies fixture fidelity and runs the full test suite.
-- `make smoke-public` checks that the deployed summary/detail pages load within
-  the 10 second review budget and contain the expected review signals.
+- `make smoke-public` checks that the deployed summary/detail pages and
+  read-only review APIs load within the 10 second review budget and contain the
+  expected review signals.
 
 ## What Problem This Solves
 
@@ -148,6 +149,18 @@ Smoke the public Cloud Run demo:
 make smoke-public
 ```
 
+Deploy and immediately verify the public demo:
+
+```bash
+scripts/deploy_public_demo.sh
+```
+
+Create a clean public archive from tracked files only:
+
+```bash
+make archive-public
+```
+
 CI also runs `make verify-precomputed` and `make test` on GitHub Actions.
 
 ## Assets, Samples, and Generated Outputs
@@ -205,7 +218,7 @@ The repository includes a production-oriented Google Cloud baseline:
 - BigQuery schemas for evidence and synthesis artifacts
 - Cloud Workflows entry point
 - Terraform resources under `infra/terraform/`
-- Public smoke check for root and detail review pages
+- Public smoke check for root/detail review pages and read-only review APIs
 
 See [infra/terraform/README.md](infra/terraform/README.md) and
 [cloudbuild.yaml](cloudbuild.yaml) for deployment details.
