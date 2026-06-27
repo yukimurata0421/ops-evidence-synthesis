@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import time
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -119,10 +119,15 @@ class SlowProvider:
     model_name: str
     prompt_name: str = "root-cause"
     temperature: float = 0.0
-    delay_seconds: float = 0.2
+    barrier: threading.Barrier | None = None
+    events: list[tuple[str, str]] | None = None
+    lock: Any | None = None
 
     def run(self, bundle: dict[str, Any]) -> ModelResponse:
-        time.sleep(self.delay_seconds)
+        self._record("entered")
+        if self.barrier is not None:
+            self.barrier.wait(timeout=1.0)
+        self._record("released")
         return ModelResponse(
             provider=self.provider,
             model_name=self.model_name,
@@ -138,10 +143,19 @@ class SlowProvider:
                     "propositions": [],
                 }
             ),
-            latency_ms=int(self.delay_seconds * 1000),
+            latency_ms=1,
             input_tokens=1,
             output_tokens=1,
         )
+
+    def _record(self, action: str) -> None:
+        if self.events is None:
+            return
+        if self.lock is None:
+            self.events.append((self.provider, action))
+            return
+        with self.lock:
+            self.events.append((self.provider, action))
 
 
 def test_model_stage_runs_providers_in_parallel_and_writes_sequentially(tmp_path: Path) -> None:
@@ -151,19 +165,28 @@ def test_model_stage_runs_providers_in_parallel_and_writes_sequentially(tmp_path
         "evidence_sha256": "e" * 64,
         "evidence_refs": {},
     }
+    barrier = threading.Barrier(2)
+    events: list[tuple[str, str]] = []
+    lock = threading.Lock()
     providers = [
-        SlowProvider("slow-a", "model-a"),
-        SlowProvider("slow-b", "model-b"),
+        SlowProvider("slow-a", "model-a", barrier=barrier, events=events, lock=lock),
+        SlowProvider("slow-b", "model-b", barrier=barrier, events=events, lock=lock),
     ]
 
-    started = time.perf_counter()
     parsed = run_model_stage(store, bundle, providers)
-    elapsed = time.perf_counter() - started
 
-    assert elapsed < 0.35
+    actions = [action for _, action in events]
+    assert actions.count("entered") == 2
+    assert actions.count("released") == 2
+    assert max(index for index, action in enumerate(actions) if action == "entered") < min(
+        index for index, action in enumerate(actions) if action == "released"
+    )
     assert [result.provider for result in parsed] == ["slow-a", "slow-b"]
-    assert store.count_table("model_runs") == 2
-    assert store.count_table("parsed_results") == 2
+    model_runs = store.fetch_model_runs(bundle["evidence_sha256"])
+    parsed_rows = store.fetch_parsed_results(bundle["evidence_sha256"])
+    assert sorted(run.provider for run in model_runs) == ["slow-a", "slow-b"]
+    assert {run.provider: run.status for run in model_runs} == {"slow-a": "ok", "slow-b": "ok"}
+    assert sorted(result.provider for result in parsed_rows) == ["slow-a", "slow-b"]
 
 
 @dataclass(frozen=True, slots=True)
