@@ -121,6 +121,7 @@ variable "runtime_env" {
     OES_SERVER_PATH_INGEST_ENABLED       = "0"
     OES_REMOTE_COLLECTOR_ENABLED         = "0"
     OES_UI_FAST_INITIAL                  = "1"
+    OES_UI_PRECOMPUTED_ONLY              = "1"
     OES_UI_DETAIL_TIMEOUT_MS             = "9500"
     OES_WORKFLOW_MAX_ESTIMATED_COST_USD  = "0"
   }

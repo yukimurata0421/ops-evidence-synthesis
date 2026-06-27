@@ -123,6 +123,10 @@ def _fast_initial_ui_enabled() -> bool:
     return os.environ.get("OES_UI_FAST_INITIAL", "1").casefold() not in {"0", "false", "no", "off"}
 
 
+def _precomputed_only_ui_enabled() -> bool:
+    return os.environ.get("OES_UI_PRECOMPUTED_ONLY", "0").casefold() in {"1", "true", "yes", "on"}
+
+
 def _ui_detail_timeout_ms() -> int:
     return int(os.environ.get("OES_UI_DETAIL_TIMEOUT_MS", "9500"))
 
@@ -254,15 +258,30 @@ def index_head() -> Response:
 
 @app.get("/", response_class=HTMLResponse)
 def index(evidence_sha256: str | None = None, full: bool = False) -> str:
+    if evidence_sha256 and _precomputed_only_ui_enabled():
+        precomputed = _precomputed_review_payload(evidence_sha256)
+        if not precomputed:
+            raise HTTPException(status_code=404, detail="precomputed review not found")
+        if full:
+            return _render_precomputed_review_detail_page(evidence_sha256, precomputed)
+        if _fast_initial_ui_enabled():
+            return _fast_review_shell(evidence_sha256, precomputed=precomputed)
     if evidence_sha256 and _fast_initial_ui_enabled() and not full:
-        return _fast_review_shell(evidence_sha256)
+        precomputed = _precomputed_review_payload(evidence_sha256)
+        return _fast_review_shell(evidence_sha256, precomputed=precomputed)
     return _render_full_review_page(evidence_sha256)
 
 
 @app.get("/ui/full-review-page", response_class=HTMLResponse)
 def full_review_page(evidence_sha256: str | None = None, full: bool = False) -> str:
+    if evidence_sha256 and _precomputed_only_ui_enabled():
+        precomputed = _precomputed_review_payload(evidence_sha256)
+        if not precomputed:
+            raise HTTPException(status_code=404, detail="precomputed review not found")
+        return _render_precomputed_review_detail_page(evidence_sha256, precomputed)
     if evidence_sha256 and _fast_initial_ui_enabled() and not full:
-        return _render_fast_review_detail_page(evidence_sha256)
+        precomputed = _precomputed_review_payload(evidence_sha256)
+        return _render_fast_review_detail_page(evidence_sha256, precomputed=precomputed)
     return _render_full_review_page(evidence_sha256)
 
 
@@ -270,6 +289,8 @@ def full_review_page(evidence_sha256: str | None = None, full: bool = False) -> 
 def ui_summary(evidence_sha256: str) -> dict[str, Any]:
     if not evidence_sha256:
         raise HTTPException(status_code=400, detail="evidence_sha256 is required")
+    if _precomputed_only_ui_enabled() and not _precomputed_review_payload(evidence_sha256):
+        raise HTTPException(status_code=404, detail="precomputed review not found")
     return _review_summary_for_ui(evidence_sha256)
 
 
@@ -347,8 +368,8 @@ def _render_full_review_page(evidence_sha256: str | None = None) -> str:
     return _review_targets_page(target_set, evidence_sha256=selected_evidence_sha256, bundle=bundle)
 
 
-def _render_fast_review_detail_page(evidence_sha256: str) -> str:
-    precomputed = _precomputed_review_payload(evidence_sha256)
+def _render_fast_review_detail_page(evidence_sha256: str, *, precomputed: dict[str, Any] | None = None) -> str:
+    precomputed = precomputed if precomputed is not None else _precomputed_review_payload(evidence_sha256)
     if precomputed:
         return _render_precomputed_review_detail_page(evidence_sha256, precomputed)
     store = _store()
@@ -1075,8 +1096,8 @@ def _js_string(value: object) -> str:
     return encoded[1:-1]
 
 
-def _fast_review_shell(evidence_sha256: str) -> str:
-    precomputed = _precomputed_review_payload(evidence_sha256)
+def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | None = None) -> str:
+    precomputed = precomputed if precomputed is not None else _precomputed_review_payload(evidence_sha256)
     summary = _precomputed_summary(precomputed, evidence_sha256) if precomputed else None
     finding = summary.get("finding") if isinstance(summary, dict) and isinstance(summary.get("finding"), dict) else {}
     review = summary.get("review") if isinstance(summary, dict) and isinstance(summary.get("review"), dict) else {}

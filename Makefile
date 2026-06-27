@@ -1,6 +1,7 @@
 PYTHON ?= python3
 PUBLIC_BASE_URL ?= https://ops-evidence-api-vn3uyu4gia-an.a.run.app
 PUBLIC_EVIDENCE_SHA ?= c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
+RETIRED_EVIDENCE_SHA ?= 5d0b5a918de1f99852498da2c8558d14993fe33b2259d23ac0ece59a900b48d9
 SAMPLE_EVIDENCE_SHA ?= 1be4a21441fec7d2a4eafa95508badbe4a892bd61f3d9e08541893fba97c6731
 FLAGSHIP_INPUT ?= data/amazon_notify_flagship_logs.jsonl
 FLAGSHIP_START ?= 2026-06-26T22:30:00Z
@@ -30,4 +31,4 @@ test:
 ci: verify-precomputed test
 
 smoke-public:
-	$(PYTHON) scripts/check_precomputed_review_url.py --base-url $(PUBLIC_BASE_URL) --evidence-sha $(PUBLIC_EVIDENCE_SHA)
+	$(PYTHON) scripts/check_precomputed_review_url.py --base-url $(PUBLIC_BASE_URL) --evidence-sha $(PUBLIC_EVIDENCE_SHA) --missing-evidence-sha $(RETIRED_EVIDENCE_SHA)

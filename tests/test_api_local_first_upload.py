@@ -187,6 +187,33 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert "Definition: claimed successful providers / all successful providers" in detail.text
 
 
+def test_precomputed_only_ui_returns_404_for_missing_review(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", str(tmp_path / "summaries"))
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+    evidence_sha = "b" * 64
+
+    with TestClient(app) as client:
+        page = client.get(f"/?evidence_sha256={evidence_sha}")
+        full_page = client.get(f"/?evidence_sha256={evidence_sha}&full=1")
+        detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}")
+        full_detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}&full=1")
+        summary = client.get(f"/ui/summary?evidence_sha256={evidence_sha}")
+
+    assert page.status_code == 404
+    assert full_page.status_code == 404
+    assert detail.status_code == 404
+    assert full_detail.status_code == 404
+    assert summary.status_code == 404
+    assert "precomputed review not found" in page.text
+    assert "No persisted finding yet" not in page.text
+    assert "Provider positions were not projected" not in detail.text
+
+
 def test_pipeline_progress_panel_renders_canonical_states_and_reason_codes() -> None:
     html = _pipeline_progress_panel(
         {
