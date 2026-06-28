@@ -17,11 +17,20 @@ history, private URLs, project-specific incident data, or local operator paths.
 - Conservative model-output ingest that preserves raw output hashes and records
   parse/repair/schema status without semantic repair.
 - Review Target Arbitration through `canonical_review_graph.v1`.
+- Deterministic synthesis pipeline and GCP Workflow refresh and persist a
+  Canonical Review Graph after scoring/model comparison.
+- `/review-targets`, summary, and detail UI prefer the persisted Canonical
+  Review Graph when one exists, with legacy target generation only as fallback.
+- `run-case` and `arbitrate-review` can consume approved profile, sanitized
+  source context, and sanitized source analysis artifacts without accepting raw
+  source or raw environment values.
 - Separation of technical baseline agreement from incident baseline agreement.
 - Evidence Request Planner with human-question answers, write-token guarded
   generation, progress state, and explicit "no text changes" output state.
 - Review queue UI with bundle provenance, review target cards, evidence drawer,
   review decisions, and More data flow.
+- Thin FastAPI app bootstrap with route handlers and web rendering split into
+  dedicated modules.
 - Write-token guard for mutation routes.
 - Structured JSON logging for API requests.
 - Docker-based Terraform wrapper and baseline Terraform resources.
@@ -43,6 +52,16 @@ still need hardening before operating it as a general hosted product:
 - Optional read-side authentication for private review pages.
 - More calibration data across different incident domains.
 - A user-facing profile editor and profile validation UI.
+
+## Intentional Manual Boundaries
+
+- Raw source/config/env metadata is summarized locally by `sanitize-source` and
+  `analyze-source`; cloud workflows do not collect or upload raw source trees.
+- Profile drafts require human approval before they become an explicit profile.
+- The Evidence Request Planner generates read-only collection instructions. It
+  does not execute shell commands or collectors from the UI.
+- Child bundle re-analysis is explicit: operators collect locally, sanitize,
+  verify, upload the child Evidence Bundle, then re-run analysis/arbitration.
 
 ## Public Documentation Policy
 

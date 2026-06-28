@@ -59,7 +59,7 @@ def main() -> int:
             lookback_minutes=args.lookback_minutes,
         ),
         providers=build_multi_ai_providers(
-            args.provider or ["local-gemini", "local-gpt-oss", "local-mistral", "local-fail"],
+            args.provider or ["local-gemini", "local-gpt-oss", "local-mistral"],
             mode="local",
         ),
     )

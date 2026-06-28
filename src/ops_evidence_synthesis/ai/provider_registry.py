@@ -8,7 +8,7 @@ from typing import Any, Callable, Iterable
 from ops_evidence_synthesis.ai.base import ModelProvider, ModelResponse
 from ops_evidence_synthesis.ai.claude import VertexClaudeProvider
 from ops_evidence_synthesis.ai.heuristic import HeuristicProvider
-from ops_evidence_synthesis.ai.maas import VertexMistralProvider, VertexOpenAICompatProvider
+from ops_evidence_synthesis.ai.maas import VertexMistralProvider, VertexOpenAICompatProvider, VertexOpenModelProvider
 from ops_evidence_synthesis.ai.vertex import VertexGeminiProvider
 
 
@@ -196,6 +196,30 @@ def provider_registry() -> list[ProviderSpec]:
             configured=_mistral_configured,
         ),
         ProviderSpec(
+            provider_id="qwen-agent-platform",
+            display_name="Qwen on Vertex MaaS",
+            aliases=("qwen", "qwen3-coder", "vertex-qwen", "qwen-agent-platform"),
+            model_name=os.environ.get("OES_QWEN_MODEL", "qwen/qwen3-coder-480b-a35b-instruct-maas"),
+            requires_network=True,
+            requires_api_key=False,
+            supports_json_schema=True,
+            default_timeout_seconds=int(os.environ.get("OES_QWEN_TIMEOUT_SECONDS", "240")),
+            factory=VertexOpenModelProvider.from_qwen_env,
+            configured=_qwen_configured,
+        ),
+        ProviderSpec(
+            provider_id="glm-agent-platform",
+            display_name="GLM on Vertex MaaS",
+            aliases=("glm", "glm-5", "vertex-glm", "glm-agent-platform"),
+            model_name=os.environ.get("OES_GLM_MODEL", "zai-org/glm-5-maas"),
+            requires_network=True,
+            requires_api_key=False,
+            supports_json_schema=True,
+            default_timeout_seconds=int(os.environ.get("OES_GLM_TIMEOUT_SECONDS", "240")),
+            factory=VertexOpenModelProvider.from_glm_env,
+            configured=_glm_configured,
+        ),
+        ProviderSpec(
             provider_id="claude-agent-platform",
             display_name="Claude on Vertex",
             aliases=("claude", "vertex-claude", "claude-agent-platform"),
@@ -287,6 +311,14 @@ def _gpt_oss_configured() -> bool:
 
 def _mistral_configured() -> bool:
     return bool(os.environ.get("OES_MISTRAL_PROJECT") or _vertex_project_present())
+
+
+def _qwen_configured() -> bool:
+    return bool(os.environ.get("OES_QWEN_PROJECT") or _vertex_project_present())
+
+
+def _glm_configured() -> bool:
+    return bool(os.environ.get("OES_GLM_PROJECT") or _vertex_project_present())
 
 
 def _claude_configured() -> bool:

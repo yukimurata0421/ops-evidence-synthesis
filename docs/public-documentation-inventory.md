@@ -14,7 +14,10 @@ operator history or raw incident material.
 | `docs/architecture.md` | Main architecture overview for the local-first evidence pipeline. | Keep |
 | `docs/evidence_bundle.md` | Sanitized Evidence Bundle contract and evidence/context boundary. | Keep |
 | `docs/current-vs-architecture-gap.md` | Public implementation status and product hardening roadmap. | Keep |
+| `docs/real-api-qwen-glm-run.md` | Source-aware real API run record for the amazon-notify public payload. | Keep |
+| `docs/stream-v3-real-api-runs.md` | Source-aware real API run record for Dell runtime and arena-server stream_v3 payloads. | Keep |
 | `architecture.txt` | Plain-text architecture reference for tools or readers that prefer text output. | Keep |
+| `src/ops_evidence_synthesis/routes/` and `src/ops_evidence_synthesis/web/` | Implementation split for API routing and reviewer-facing page rendering. | Keep |
 | `infra/terraform/README.md` | Cloud baseline summary and Terraform wrapper usage. | Keep |
 | `sample_projects/profile_discovery_sample/README.md` | Minimal fixture note for profile discovery tests. | Keep |
 | `Makefile` | Reviewer commands for deterministic demo regeneration and verification. | Keep |
@@ -30,8 +33,8 @@ The primary commands are `make demo`, `make verify-precomputed`, `make ci`,
 `make smoke-public`, and `make archive-public`. Release verification is
 captured by `scripts/deploy_public_demo.sh`. Other scripts are auxiliary
 operator tools and should not be treated as the required hackathon demo path
-unless a reviewer deliberately wants to inspect cloud deployment or private-log
-ingestion extensions.
+unless a reviewer deliberately wants to inspect cloud deployment or optional
+private-log ingestion extensions.
 
 ## Intentionally Not Published
 

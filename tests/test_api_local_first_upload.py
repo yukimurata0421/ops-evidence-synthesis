@@ -157,6 +157,8 @@ def test_fast_review_shell_embeds_precomputed_summary(
         landing = client.get("/")
         page = client.get(f"/?evidence_sha256={evidence_sha}")
         detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}")
+        api_view = client.get(f"/ui/api?evidence_sha256={evidence_sha}")
+        graph_view = client.get(f"/ui/review-graph?evidence_sha256={evidence_sha}")
         review_targets = client.get(f"/review-targets?evidence_sha256={evidence_sha}")
         review_graph = client.get(f"/review/graph?evidence_sha256={evidence_sha}")
 
@@ -193,11 +195,22 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert "Why not promoted" in detail.text
     assert "user_impact_unverified" in detail.text
     assert "Definition: claimed successful providers / all successful providers" in detail.text
+    assert api_view.status_code == 200
+    assert "Read-only API View" in api_view.text
+    assert "Summary JSON" in api_view.text
+    assert "Review Graph JSON" in api_view.text
+    assert graph_view.status_code == 200
+    assert "Review Graph" in graph_view.text
+    assert "Nodes and edges" in graph_view.text
     assert review_targets.status_code == 200
     assert review_targets.json()["summary"]["source"] == "precomputed_review_summary"
     assert review_targets.json()["targets"][0]["evidence_sha256"] == evidence_sha
     assert review_graph.status_code == 200
     assert review_graph.json()["canonical_graph_status"] == "precomputed"
+    assert review_graph.json()["graph"]["node_count"] >= 4
+    assert review_graph.json()["graph"]["edge_count"] >= 1
+    assert review_graph.json()["canonical_review_graph"]["nodes"]
+    assert review_graph.json()["canonical_review_graph"]["edges"]
     assert review_graph.json()["canonical_review_graph"]["review_graph_summary"]["targets_total"] == 1
 
 
@@ -219,6 +232,8 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
         full_page = client.get(f"/?evidence_sha256={evidence_sha}&full=1")
         detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}")
         full_detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}&full=1")
+        api_view = client.get(f"/ui/api?evidence_sha256={evidence_sha}")
+        graph_view = client.get(f"/ui/review-graph?evidence_sha256={evidence_sha}")
         summary = client.get(f"/ui/summary?evidence_sha256={evidence_sha}")
         review_targets = client.get(f"/review-targets?evidence_sha256={evidence_sha}")
         review_graph = client.get(f"/review/graph?evidence_sha256={evidence_sha}")
@@ -248,6 +263,8 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
     assert full_page.status_code == 404
     assert detail.status_code == 404
     assert full_detail.status_code == 404
+    assert api_view.status_code == 404
+    assert graph_view.status_code == 404
     assert summary.status_code == 404
     assert review_targets.status_code == 404
     assert review_graph.status_code == 404

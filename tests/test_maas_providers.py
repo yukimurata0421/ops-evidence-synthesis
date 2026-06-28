@@ -4,6 +4,7 @@ from ops_evidence_synthesis.ai import maas
 from ops_evidence_synthesis.ai.maas import (
     VertexMistralProvider,
     VertexOpenAICompatProvider,
+    VertexOpenModelProvider,
     _extract_chat_completion_text,
 )
 
@@ -101,6 +102,89 @@ def test_mistral_raw_predict_url_uses_mistralai_publisher() -> None:
         "https://us-central1-aiplatform.googleapis.com/v1/projects/ops-evidence-synthesis/"
         "locations/us-central1/publishers/mistralai/models/mistral-small-2503:rawPredict"
     )
+
+
+def test_qwen_chat_completions_uses_global_openapi_endpoint() -> None:
+    provider = VertexOpenModelProvider(
+        provider="qwen-agent-platform",
+        model_name="qwen/qwen3-coder-480b-a35b-instruct-maas",
+        default_publisher="qwen",
+        project_id="ops-evidence-synthesis",
+        location="global",
+    )
+
+    assert provider._chat_completions_url() == (
+        "https://aiplatform.googleapis.com/v1/projects/ops-evidence-synthesis/"
+        "locations/global/endpoints/openapi/chat/completions"
+    )
+    assert provider._request_model_name() == "qwen/qwen3-coder-480b-a35b-instruct-maas"
+
+
+def test_open_model_request_name_adds_publisher_when_missing() -> None:
+    qwen_provider = VertexOpenModelProvider(
+        provider="qwen-agent-platform",
+        model_name="qwen3-coder-480b-a35b-instruct-maas",
+        default_publisher="qwen",
+        project_id="ops-evidence-synthesis",
+    )
+    glm_provider = VertexOpenModelProvider(
+        provider="glm-agent-platform",
+        model_name="glm-5-maas",
+        default_publisher="zai-org",
+        project_id="ops-evidence-synthesis",
+    )
+
+    assert qwen_provider._request_model_name() == "qwen/qwen3-coder-480b-a35b-instruct-maas"
+    assert glm_provider._request_model_name() == "zai-org/glm-5-maas"
+
+
+def test_open_model_retries_empty_content_with_larger_output_budget(monkeypatch) -> None:
+    calls: list[int] = []
+
+    def fake_post_json(url: str, body: dict[str, object], *, timeout_seconds: int) -> dict[str, object]:
+        del url, timeout_seconds
+        calls.append(int(body["max_tokens"]))
+        if len(calls) == 1:
+            return {"choices": [{"message": {"content": None, "reasoning_content": "thinking"}}], "usage": {}}
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"schema_version":"claim-result/v1","agent_role":"alternative_hypothesis_generator",'
+                            '"finding_status":"no_finding","summary":"ok","claims":[],"propositions":[]}'
+                        )
+                    }
+                }
+            ],
+            "usage": {},
+        }
+
+    monkeypatch.setattr(maas, "_post_json", fake_post_json)
+    provider = VertexOpenModelProvider(
+        provider="glm-agent-platform",
+        model_name="zai-org/glm-5-maas",
+        default_publisher="zai-org",
+        project_id="ops-evidence-synthesis",
+        max_output_tokens=512,
+    )
+
+    response = provider.run(
+        {
+            "schema_version": "ops-evidence-bundle/v1",
+            "evidence_sha256": "e" * 64,
+            "service": "svc",
+            "environment": "prod",
+            "profile": {"profile_id": "generic"},
+            "metric_windows": [],
+            "log_patterns": [],
+            "operational_evidence": [],
+            "evidence_refs": {},
+        }
+    )
+
+    assert calls == [512, 8192]
+    assert '"schema_version":"claim-result/v1"' in response.raw_output
 
 
 def test_extract_chat_completion_text_from_message() -> None:

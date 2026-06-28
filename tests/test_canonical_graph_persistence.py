@@ -266,6 +266,7 @@ def test_review_arbitrate_api_persists_snapshot(tmp_path, monkeypatch) -> None:
         detail = client.get(f"/ui/full-review-page?evidence_sha256={_bundle()['evidence_sha256']}")
         assert detail.status_code == 200, detail.text
         assert "Ops Evidence Review" in detail.text
+        assert "Pipeline Progress" in detail.text
         assert "Review Targets" in detail.text
         assert "Error spike needs review" in detail.text
 
@@ -332,8 +333,36 @@ def test_review_graph_refresh_post_persists_snapshot_and_projection(tmp_path, mo
         detail = client.get(f"/ui/full-review-page?evidence_sha256={_bundle()['evidence_sha256']}")
         assert detail.status_code == 200, detail.text
         assert "Ops Evidence Review" in detail.text
+        assert "Pipeline Progress" in detail.text
         assert "Review Targets" in detail.text
         assert "Back to summary" in detail.text
+
+
+def test_review_targets_api_prefers_persisted_canonical_graph(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
+    from ops_evidence_synthesis.api import app
+    from ops_evidence_synthesis.routes import api_routes
+
+    store = SQLiteStore(tmp_path / "api.sqlite3")
+    store.insert_bundle(_bundle())
+    graph = _graph()
+    store.save_canonical_review_graph_snapshot(build_canonical_review_graph_snapshot(graph, created_by="pytest"))
+
+    def fail_legacy_target_path(**_kwargs):
+        raise AssertionError("legacy review target path should not run when canonical graph is persisted")
+
+    monkeypatch.setattr(api_routes, "_list_review_targets_cached", fail_legacy_target_path)
+
+    with TestClient(app) as client:
+        targets = client.get(f"/review-targets?evidence_sha256={_bundle()['evidence_sha256']}&limit=20")
+        assert targets.status_code == 200, targets.text
+        payload = targets.json()
+        assert payload["source"] == "canonical_review_graph"
+        assert payload["canonical_graph_status"] == "persisted"
+        assert payload["canonical_graph_sha256"] == graph["canonical_graph_sha256"]
+        assert payload["summary"]["review_targets"] == len(graph["review_targets"])
+        assert len(payload["targets"]) == len(graph["review_targets"])
 
 
 def test_multi_run_api_and_ui_include_graph_status(tmp_path, monkeypatch) -> None:

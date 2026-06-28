@@ -3,9 +3,13 @@
 Use the Makefile first for the review path. These scripts are grouped by role
 so auxiliary operator tools do not look like required demo steps.
 
-## Primary Review And Release
+## Primary Review and Release
 
 - `generate_precomputed_review.py` regenerates the committed review caches.
+- `generate_precomputed_review_from_multi_run.py` regenerates a public cache
+  from a recorded real-provider `/ai/multi-run` response and matching Evidence
+  Bundle. Use `--log-observation` to add corpus-specific context without
+  changing the stored provider response.
 - `check_precomputed_review_url.py` smokes the live read-only public URL.
 - `deploy_public_demo.sh` runs local gates, deploys Cloud Run, and smokes live.
 - `manual_ci.sh` runs the local verification gate used before release.

@@ -44,6 +44,12 @@ def test_pipeline_runs_end_to_end(tmp_path: Path) -> None:
     assert store.count_table("claims") == result.claim_count
     assert store.count_table("scores") == result.score_count
     assert store.count_table("proposition_clusters") == result.cluster_count
+    assert store.count_table("canonical_review_graphs") == 1
+    assert result.canonical_graph_status == "persisted"
+    assert result.canonical_graph_sha256
+    assert result.input_fingerprint_sha256
+    assert result.primary_review_target_count >= 0
+    assert result.validation_target_count >= 0
 
     queue = store.list_review_queue()
     assert queue
@@ -69,6 +75,7 @@ def test_pipeline_runs_end_to_end(tmp_path: Path) -> None:
 
     assert empty_result.proposition_count == 0
     assert empty_result.review_queue_count == 0
+    assert empty_result.canonical_graph_status == "persisted"
     assert store.list_review_queue(evidence_sha256=empty_result.evidence_sha256) == []
 
 

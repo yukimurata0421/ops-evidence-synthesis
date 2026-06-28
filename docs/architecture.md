@@ -17,7 +17,9 @@ raw logs / local artifacts
   -> validate model output
   -> ingest and normalize provider output
   -> build canonical review graph
-  -> review queue and Evidence Request Planner
+  -> persist canonical graph snapshot and review-target projection
+  -> precomputed review JSON / review queue / Evidence Request Planner
+  -> read-only summary/detail UI
 ```
 
 The local development store is SQLite. The production-oriented schema is
@@ -68,8 +70,17 @@ Local mode uses deterministic providers for tests, demos, and offline
 development. Real-provider mode is opt-in and can use configured cloud model
 providers when credentials and project access are available.
 
-The API can be served with FastAPI, and the same core contracts are used by the
-CLI, local UI, Cloud Run deployment, and workflow endpoints.
+The API can be served with FastAPI. The app bootstrap is intentionally thin:
+route handlers live under `src/ops_evidence_synthesis/routes/`, while
+review-page rendering lives under `src/ops_evidence_synthesis/web/`. The same
+core contracts are used by the CLI, local UI, Cloud Run deployment, and
+workflow endpoints.
+
+The production-oriented Workflow runs bundle creation, provider execution,
+validation, routing, scoring, optional provider comparison, and Canonical Review
+Graph refresh. The graph refresh persists `canonical_review_graph.v1` and the
+derived review-target projection so API/UI reads use the arbitration output as
+their primary display source.
 
 ## Source Context
 
@@ -95,6 +106,11 @@ summaries or excerpts, configuration items are structural summaries, and
 environment values are represented only by safe metadata such as key name or
 hash, value type, presence, and secret-like flags.
 
+`run-case` and `arbitrate-review` accept only the approved profile and sanitized
+source artifacts as context inputs. Cloud workflow inputs remain Evidence
+Bundle centric; raw source collection stays on the operator side of the
+boundary.
+
 ## Review Graph
 
 The Review Target Arbitration stage builds `canonical_review_graph.v1`. This
@@ -112,3 +128,7 @@ A technical baseline can be shown even when incident baseline agreement is not
 established. Primary incident candidates require cited runtime evidence and must
 pass promotion gates such as impact verification, evidence diversity, caveat
 checks, and missing-evidence checks.
+
+When a persisted graph exists, `/review/graph`, `/review-targets`, summary UI,
+and detail UI load it first. Legacy proposal-based target generation is kept as
+a fallback for older local databases and partially completed runs.

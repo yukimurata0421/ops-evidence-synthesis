@@ -11,7 +11,7 @@ from ops_evidence_synthesis.timeutils import utc_now
 
 
 SCORE_DEFINITION = "claimed successful providers / all successful providers"
-PUBLIC_DEMO_PROVIDERS = ("local-gemini", "local-gpt-oss", "local-mistral", "local-fail")
+PUBLIC_DEMO_PROVIDERS = ("local-gemini", "local-gpt-oss", "local-mistral")
 
 
 def build_precomputed_review_summary(
@@ -21,6 +21,7 @@ def build_precomputed_review_summary(
     updated_at: str | None = None,
     target_limit: int = 5,
     source_note: str = "generated from deterministic local pipeline",
+    provider_mode: str = "deterministic_local",
 ) -> dict[str, Any]:
     """Project persisted pipeline output into the fast read-only review payload."""
     bundle = store.get_bundle(evidence_sha256)
@@ -57,7 +58,7 @@ def build_precomputed_review_summary(
             "schema_version": "precomputed_review_generation.v1",
             "generator": "ops_evidence_synthesis.precomputed_review",
             "source_note": source_note,
-            "provider_mode": "deterministic_local",
+            "provider_mode": str(provider_mode),
             "score_definition": SCORE_DEFINITION,
             "raw_log_policy": str(bundle.get("raw_log_policy") or "not_uploaded"),
         },
@@ -143,7 +144,7 @@ def _summary_payload(
             "incident": False,
         },
         "raw_log_policy": str(bundle.get("raw_log_policy") or "not_uploaded"),
-        "log_count": int(target_set_summary.get("sanitized_log_count") or 0),
+        "log_count": _bundle_log_count(bundle, target_set_summary),
         "canonical_graph_status": "pipeline_generated",
         "canonical_graph_sha256": graph_hash,
         "input_fingerprint_sha256": sha256_json(
@@ -160,6 +161,22 @@ def _summary_payload(
             }
         ),
     }
+
+
+def _bundle_log_count(bundle: dict[str, Any], target_set_summary: dict[str, Any]) -> int:
+    local_first_summary = bundle.get("local_first_summary") if isinstance(bundle.get("local_first_summary"), dict) else {}
+    for value in (
+        local_first_summary.get("sanitized_event_count"),
+        bundle.get("sanitized_event_count"),
+        target_set_summary.get("sanitized_log_count"),
+    ):
+        try:
+            count = int(value)
+        except (TypeError, ValueError):
+            continue
+        if count >= 0:
+            return count
+    return 0
 
 
 def _project_targets(

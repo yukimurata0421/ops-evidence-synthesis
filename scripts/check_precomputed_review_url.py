@@ -11,9 +11,7 @@ from urllib.request import Request, urlopen
 
 ROOT_NEEDLES = [
     "Review Graph Arbitration",
-    "1 converged target(s)",
     "DevOps Improvement Loop",
-    "claimed 2 / silent 1",
 ]
 
 PUBLIC_INDEX_NEEDLES = [
@@ -25,7 +23,21 @@ DETAIL_NEEDLES = [
     "Provider positions",
     "Agreement and baselines",
     "Why not promoted",
-    "Convergence score: 0.667",
+    "Convergence score:",
+]
+
+API_VIEW_NEEDLES = [
+    "Read-only API View",
+    "Summary JSON",
+    "Review Targets JSON",
+    "Review Graph JSON",
+]
+
+VISUAL_GRAPH_NEEDLES = [
+    "Review Graph",
+    "Nodes and edges",
+    "provider",
+    "review_target",
 ]
 
 REVIEW_TARGET_NEEDLES = [
@@ -38,6 +50,8 @@ REVIEW_GRAPH_NEEDLES = [
     "precomputed",
     "review_graph_summary",
     "technical_baseline",
+    "nodes",
+    "edges",
 ]
 
 BLOCKED_PUBLIC_READ_PATHS = [
@@ -53,6 +67,26 @@ BLOCKED_PUBLIC_READ_PATHS = [
     "/review-targets",
 ]
 
+PUBLIC_DEMO_FORBIDDEN_NEEDLES = [
+    "local-fail",
+    "schema_valid=false",
+]
+
+DEEP_REVIEW_CHECKS = {
+    "detail",
+    "api-view",
+    "visual-graph",
+    "review-targets",
+    "review-graph",
+}
+
+TEXT_REVIEW_CHECKS = {
+    "detail",
+    "api-view",
+    "visual-graph",
+    "review-graph",
+}
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check a deployed precomputed review page without mutations.")
@@ -60,10 +94,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--evidence-sha", required=True, help="Full evidence SHA256.")
     parser.add_argument("--missing-evidence-sha", default="", help="Evidence SHA that must return a clean 404.")
     parser.add_argument("--timeout-seconds", type=float, default=10.0)
+    parser.add_argument("--expect-text", action="append", default=[], help="Additional text that must appear on review pages.")
+    parser.add_argument("--expect-provider", action="append", default=[], help="Provider id that must appear on review pages.")
+    parser.add_argument(
+        "--allow-non-valid-provider",
+        action="store_true",
+        help="Allow schema_valid=false in recorded partial-success real-provider runs.",
+    )
     args = parser.parse_args(argv)
 
     base_url = str(args.base_url).rstrip("/")
     evidence_sha = quote(str(args.evidence_sha), safe="")
+    expected_text = [str(item) for item in args.expect_text if str(item)]
+    expected_providers = [str(item) for item in args.expect_provider if str(item)]
+    forbidden_needles = list(PUBLIC_DEMO_FORBIDDEN_NEEDLES)
+    if args.allow_non_valid_provider:
+        forbidden_needles = [needle for needle in forbidden_needles if needle != "schema_valid=false"]
     stamp = str(int(time.time()))
     checks = [
         (
@@ -82,6 +128,16 @@ def main(argv: list[str] | None = None) -> int:
             DETAIL_NEEDLES,
         ),
         (
+            "api-view",
+            f"{base_url}/ui/api?evidence_sha256={evidence_sha}&_={stamp}",
+            API_VIEW_NEEDLES,
+        ),
+        (
+            "visual-graph",
+            f"{base_url}/ui/review-graph?evidence_sha256={evidence_sha}&_={stamp}",
+            VISUAL_GRAPH_NEEDLES,
+        ),
+        (
             "review-targets",
             f"{base_url}/review-targets?evidence_sha256={evidence_sha}&_={stamp}",
             REVIEW_TARGET_NEEDLES,
@@ -97,12 +153,19 @@ def main(argv: list[str] | None = None) -> int:
             status, elapsed, body = _get(url, timeout_seconds=args.timeout_seconds)
             _require(status == 200, f"{name} returned HTTP {status}")
             _require(elapsed <= args.timeout_seconds, f"{name} exceeded {args.timeout_seconds:.1f}s: {elapsed:.3f}s")
-            missing = [needle for needle in needles if needle not in body]
+            required_needles = list(needles)
+            if name in DEEP_REVIEW_CHECKS:
+                required_needles.extend(expected_providers)
+            if name in TEXT_REVIEW_CHECKS:
+                required_needles.extend(expected_text)
+            missing = [needle for needle in required_needles if needle not in body]
             _require(not missing, f"{name} missing required text: {', '.join(missing)}")
             _require("Loading saved result" not in body, f"{name} contains loading placeholder")
             _require("Detailed review state is loading" not in body, f"{name} contains detailed loading placeholder")
             _require("Upload Sanitized Evidence Bundle" not in body, f"{name} exposed upload UI")
             _require("Write token" not in body, f"{name} exposed write-token UI")
+            forbidden = [needle for needle in forbidden_needles if needle in body]
+            _require(not forbidden, f"{name} contains public demo forbidden text: {', '.join(forbidden)}")
             print(f"{name}: http={status} elapsed={elapsed:.3f}s required_text=present")
         health_status, health_elapsed, health_body = _get(
             f"{base_url}/health?_={stamp}",
@@ -127,6 +190,16 @@ def main(argv: list[str] | None = None) -> int:
             _check_missing(
                 "retired-detail",
                 f"{base_url}/ui/full-review-page?evidence_sha256={missing_sha}&_={stamp}",
+                timeout_seconds=args.timeout_seconds,
+            )
+            _check_missing(
+                "retired-api-view",
+                f"{base_url}/ui/api?evidence_sha256={missing_sha}&_={stamp}",
+                timeout_seconds=args.timeout_seconds,
+            )
+            _check_missing(
+                "retired-visual-graph",
+                f"{base_url}/ui/review-graph?evidence_sha256={missing_sha}&_={stamp}",
                 timeout_seconds=args.timeout_seconds,
             )
             _check_missing(

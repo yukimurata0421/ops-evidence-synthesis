@@ -7,7 +7,12 @@ from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.models import ClaimRecord, ParsedResultRecord, PropositionRecord
 from ops_evidence_synthesis.profiles import profile_for_bundle, title_for_target_type
 from ops_evidence_synthesis.synthesis.structured_evidence import build_structured_evidence
-from ops_evidence_synthesis.synthesis.subsystems import OPS_SUBSYSTEMS, question_for_subsystem, subsystem_for_claim
+from ops_evidence_synthesis.synthesis.subsystems import (
+    OPS_SUBSYSTEMS,
+    question_for_subsystem,
+    subsystem_for_claim,
+    subsystem_for_text,
+)
 from ops_evidence_synthesis.synthesis.validation import valid_evidence_refs
 from ops_evidence_synthesis.timeutils import utc_now
 
@@ -45,7 +50,17 @@ def _evidence_identity(raw_claim: dict[str, Any]) -> dict[str, Any]:
         value = str(raw_identity.get(key) or "").strip().casefold()
         if value in {"known", "unknown"}:
             identity[key] = value
+        elif value:
+            identity[key] = "known"
     return identity
+
+
+def _model_subsystem(raw_value: Any) -> str:
+    value = str(raw_value or "").strip()
+    if value in OPS_SUBSYSTEMS or value == "general":
+        return value
+    mapped = subsystem_for_text(value)
+    return mapped if mapped != "general" else "general"
 
 
 def _cause_key(text: str) -> str:
@@ -127,13 +142,13 @@ def route_claims(bundle: dict[str, Any], parsed_results: list[ParsedResultRecord
             counter_refs = _string_list(raw_claim.get("counter_evidence_refs"))
             claim_text = str(raw_claim.get("claim_text", "")).strip()
             finding_status = _finding_status(raw_claim, result_status=result_status)
-            model_subsystem = str(raw_claim.get("subsystem") or "").strip()
+            model_subsystem = _model_subsystem(raw_claim.get("subsystem"))
             computed_subsystem = subsystem_for_claim(
                 bundle,
                 claim_text,
                 (*evidence_refs, *counter_refs),
             )
-            subsystem = computed_subsystem if computed_subsystem != "general" else model_subsystem or "general"
+            subsystem = computed_subsystem if computed_subsystem != "general" else model_subsystem
             claim_id = "claim-" + sha256_json(
                 {
                     "evidence_sha256": result.evidence_sha256,

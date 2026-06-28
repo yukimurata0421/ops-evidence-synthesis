@@ -7,6 +7,7 @@ from ops_evidence_synthesis.ai.prompts import (
     root_cause_prompt,
 )
 from ops_evidence_synthesis.ai.provider_registry import build_multi_ai_providers, provider_infos
+from ops_evidence_synthesis.ai.maas import VertexOpenModelProvider
 from ops_evidence_synthesis.ai.vertex import VertexGeminiProvider
 from ops_evidence_synthesis.profiles import available_profile_ids, load_profile
 
@@ -32,6 +33,29 @@ def test_provider_selection_supports_vertex_gemini(monkeypatch) -> None:
     assert providers[0].project_id == "ops-evidence-synthesis"
     assert providers[0].model_name == "gemini-3.1-flash-lite"
     assert providers[0].thinking_level == "medium"
+
+
+def test_provider_selection_supports_qwen_and_glm(monkeypatch) -> None:
+    monkeypatch.setenv("OES_VERTEX_PROJECT", "ops-evidence-synthesis")
+
+    providers = build_provider_list(["qwen,glm"])
+
+    assert [provider.provider for provider in providers] == ["qwen-agent-platform", "glm-agent-platform"]
+    assert all(isinstance(provider, VertexOpenModelProvider) for provider in providers)
+    assert providers[0].model_name == "qwen/qwen3-coder-480b-a35b-instruct-maas"
+    assert providers[1].model_name == "zai-org/glm-5-maas"
+
+
+def test_provider_registry_exposes_qwen_and_glm(monkeypatch) -> None:
+    monkeypatch.setenv("OES_ENABLE_REAL_AI", "1")
+    monkeypatch.setenv("OES_VERTEX_PROJECT", "ops-evidence-synthesis")
+
+    providers = build_multi_ai_providers(["qwen", "glm"], mode="real_or_skip")
+    infos = {row["provider_id"]: row for row in provider_infos()}
+
+    assert [provider.provider for provider in providers] == ["qwen-agent-platform", "glm-agent-platform"]
+    assert infos["qwen-agent-platform"]["status"] == "configured"
+    assert infos["glm-agent-platform"]["status"] == "configured"
 
 
 def test_provider_registry_can_disable_provider_by_policy(monkeypatch) -> None:
@@ -64,11 +88,13 @@ def test_root_cause_prompt_and_schema_are_generic_not_stream_v3_only() -> None:
     assert "context only; they are not evidence" in prompt
     assert "Do not invent log source names, metric names, state file paths, endpoints, or collector commands." in prompt
     assert "Do not translate missing evidence into ad hoc local commands" in prompt
+    assert "caveats, missing_evidence, and linked_claim_hints must never contain objects" in prompt
     assert "For next_data_needed claims, set temporary_action, permanent_action, and required_authority to empty strings" in prompt
     assert "job_configuration" in subsystem_enum
     assert "downstream_dependency" in subsystem_enum
     assert "database_connection_pool" in subsystem_enum
     assert "service_liveness" in subsystem_enum
+    assert "background_processing" in subsystem_enum
     assert "traffic" in subsystem_enum
 
 
@@ -153,6 +179,25 @@ def test_compact_bundle_for_model_keeps_high_signal_refs_and_drops_bulk_payload(
             }
         ],
     }
+    full_bundle["evidence_items"] = [
+        {
+            "evidence_id": "PATTERN-001",
+            "type": "log_pattern",
+            "severity_text": "info",
+            "count": 10,
+            "message_template": "missing configured command",
+        }
+    ]
+    for index in range(199):
+        full_bundle["evidence_items"].append(
+            {
+                "evidence_id": f"PATTERN-{index + 2:03d}",
+                "type": "log_pattern",
+                "severity_text": "info",
+                "count": 1,
+                "message_template": f"low signal pattern {index}",
+            }
+        )
 
     compact_default = compact_bundle_for_model(full_bundle, max_text_chars=80)
 
@@ -163,6 +208,11 @@ def test_compact_bundle_for_model_keeps_high_signal_refs_and_drops_bulk_payload(
     assert compact_default["source_counts"]["model_logs"] == 0
     assert compact_default["source_counts"]["full_normalized_events"] == 1
     assert compact_default["source_counts"]["model_normalized_events"] == 0
+    assert compact_default["source_counts"]["full_evidence_items"] == 200
+    assert compact_default["source_counts"]["model_evidence_items"] == 140
+    assert compact_default["evidence_corpus_summary"]["full_occurrence_count"] == 209
+    assert compact_default["evidence_corpus_summary"]["model_occurrence_count"] >= 149
+    assert compact_default["evidence_corpus_summary"]["omitted_evidence_item_count"] == 60
     assert compact_default["logs"] == []
     assert set(compact_default["evidence_refs"]) == {"METRIC-001", "PATTERN-001"}
     assert "example_log" not in compact_default["log_patterns"][0]

@@ -18,6 +18,7 @@ OPS_SUBSYSTEMS = (
     "auth_config",
     "resource_pressure",
     "observability_contract",
+    "background_processing",
     "job_configuration",
     "service_liveness",
     "traffic",
@@ -43,6 +44,7 @@ SUBSYSTEM_QUESTIONS = {
     "auth_config": "Should humans review authorization configuration as the incident driver?",
     "resource_pressure": "Should humans review resource pressure or timeout behavior?",
     "observability_contract": "Should humans review health signal and observability contract mismatch?",
+    "background_processing": "Should humans review background worker, scheduled job, or queue processing behavior?",
     "job_configuration": "Should humans review missing configured job commands or supervisor configuration drift?",
     "service_liveness": "Should humans review heartbeat, readiness, or worker liveness evidence?",
     "traffic": "Should humans review throughput, request, output, or business-event counters?",
@@ -82,6 +84,8 @@ def subsystem_for_text(value: Any) -> str:
         return "runtime_recovery"
     if any(term in text for term in ("heartbeat", "liveness", "readiness", "ready", "watch renew", "watch_renew", "watchdog", "polling")):
         return "service_liveness"
+    if any(term in text for term in ("background_processing", "background processing", "scheduled job", "queue processing", "worker loop")):
+        return "background_processing"
     if any(term in text for term in ("throughput", "request_count", "request count", "notification_forward", "business-event", "output counter")):
         return "traffic"
     if any(term in text for term in ("latency", "p95", "p99", "user experience", "user_experience")):
@@ -144,6 +148,7 @@ def bigquery_predicate_for_subsystem(subsystem: str) -> str:
         "auth_config": ("auth", "permission", "authorization"),
         "resource_pressure": ("cpu", "memory", "oom", "timeout", "load", "pressure", "peak"),
         "observability_contract": ("healthy", "critical", "warn", "adequacy", "metric", "prometheus", "alert"),
+        "background_processing": ("background_processing", "background processing", "scheduled job", "queue processing", "worker loop"),
         "job_configuration": ("can't open file", "no such file or directory", "execstart", "configured command missing"),
         "generic_runtime": ("application process", "worker", "runtime host", "generic_runtime"),
         "service_liveness": ("heartbeat", "liveness", "readiness", "ready", "watch renew", "watch_renew", "watchdog", "polling"),

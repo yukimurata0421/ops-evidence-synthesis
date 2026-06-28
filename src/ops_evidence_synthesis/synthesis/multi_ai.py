@@ -279,6 +279,61 @@ def safety_preflight(model_input: dict[str, Any]) -> SafetyPreflightResult:
     return safety_preflight_for_model_input(model_input, filename="multi_ai_model_input.json")
 
 
+def model_run_artifacts_from_records(runs: list[Any], parsed_results: list[Any]) -> list[dict[str, Any]]:
+    parsed_by_run = {str(result.run_id): result for result in parsed_results}
+    artifacts: list[dict[str, Any]] = []
+    for run in runs:
+        parsed = parsed_by_run.get(str(run.run_id))
+        claims = []
+        proposed = []
+        missing: list[str] = []
+        caveats: list[str] = []
+        parsed_sha = ""
+        schema_valid = False
+        schema_errors: list[str] = []
+        if parsed is not None:
+            payload = parsed.parsed_json
+            claims = [claim for claim in payload.get("claims") or [] if isinstance(claim, dict)]
+            proposed = [row for row in payload.get("propositions") or [] if isinstance(row, dict)]
+            missing = _unique_text(
+                item for claim in claims for item in claim.get("missing_evidence") or [] if str(item).strip()
+            )
+            caveats = _unique_text(item for claim in claims for item in claim.get("caveats") or [] if str(item).strip())
+            parsed_sha = parsed.parsed_json_sha256
+            schema_valid = bool(parsed.schema_valid)
+            schema_errors = [str(item) for item in parsed.schema_errors]
+        artifacts.append(
+            {
+                "schema_version": MODEL_RUN_SCHEMA_VERSION,
+                "run_id": run.run_id,
+                "evidence_sha256": run.evidence_sha256,
+                "provider_id": run.provider,
+                "display_name": run.provider,
+                "model_name": run.model_name,
+                "status": run.status,
+                "latency_ms": run.latency_ms,
+                "input_tokens": run.input_tokens,
+                "output_tokens": run.output_tokens,
+                "raw_output_sha256": run.raw_output_sha256,
+                "parsed_json_sha256": parsed_sha,
+                "schema_valid": schema_valid,
+                "schema_errors": schema_errors,
+                "failure_reason": "" if run.status == "ok" and schema_valid else str(run.status),
+                "parsed_result": {
+                    "claims": claims,
+                    "missing_evidence": missing,
+                    "caveats": caveats,
+                    "proposed_review_targets": proposed,
+                },
+                "safety_preflight": {
+                    "passed": run.status != "blocked_by_safety_preflight",
+                    "raw_logs_sent_to_providers": False,
+                },
+            }
+        )
+    return artifacts
+
+
 def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[str, Any]]) -> dict[str, Any]:
     successful = [run for run in model_runs if run.get("status") == "ok" and run.get("schema_valid") is True]
     failed = [
@@ -365,6 +420,15 @@ def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[s
         },
         "score_note": SCORE_NOTE,
     }
+
+
+def _unique_text(values: Any) -> list[str]:
+    output: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if text and text not in output:
+            output.append(text)
+    return output
 
 
 def _run_model_artifacts(

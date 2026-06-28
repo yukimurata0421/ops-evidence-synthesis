@@ -188,6 +188,8 @@ def build_parser() -> argparse.ArgumentParser:
     arbitrate.add_argument("--bundle", required=True, help="sanitized evidence_bundle.json")
     arbitrate.add_argument("--profile", default="", help="Optional approved explicit profile JSON/YAML")
     arbitrate.add_argument("--multi-ai-synthesis", default="", help="Optional multi_ai_synthesis.json")
+    arbitrate.add_argument("--source-context", default="", help="Optional source_context_bundle.json context input")
+    arbitrate.add_argument("--source-analysis", default="", help="Optional source_analysis_bundle.json context input")
     arbitrate.add_argument("--out", required=True, help="Output directory")
     arbitrate.add_argument("--persist", action="store_true", help="Persist snapshot in the configured store")
     arbitrate.add_argument("--persist-if-stale", action="store_true", help="Persist a new snapshot when the latest snapshot is stale")
@@ -231,6 +233,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.environ.get("OES_REVIEW_BASE_URL", "http://127.0.0.1:8080"),
         help="Base URL for the review UI link printed after analysis",
     )
+    run_case.add_argument("--approved-profile", default="", help="Optional approved explicit profile JSON/YAML")
+    run_case.add_argument("--source-context", default="", help="Optional source_context_bundle.json from sanitize-source")
+    run_case.add_argument("--source-analysis", default="", help="Optional source_analysis_bundle.json from analyze-source")
     run_case.add_argument("--json", action="store_true", help="Print machine-readable JSON summary")
     _add_incident_args(run_case)
     _add_provider_args(run_case)
@@ -298,7 +303,7 @@ def _add_provider_args(parser: argparse.ArgumentParser) -> None:
         default=[],
         help=(
             "Model provider(s) to run. Repeat or comma-separate. "
-            "Supported: local, gemini, claude, gpt-oss, mistral. "
+            "Supported: local, gemini, claude, gpt-oss, mistral, qwen, glm. "
             "Default: local heuristic providers."
         ),
     )
@@ -435,6 +440,8 @@ def main(argv: list[str] | None = None) -> int:
             bundle,
             multi_ai_synthesis=synthesis,
             approved_profile=profile,
+            source_context=_load_json_file(args.source_context) if args.source_context else None,
+            source_analysis=_load_json_file(args.source_analysis) if args.source_analysis else None,
             persist_if_missing=bool(args.persist),
             persist_if_stale=bool(args.persist_if_stale),
             created_by="cli",
@@ -509,15 +516,35 @@ def main(argv: list[str] | None = None) -> int:
             store,
             _incident_from_args(args),
             providers=build_provider_list(args.provider),
+            approved_profile=_load_json_file(args.approved_profile) if args.approved_profile else None,
+            source_context=_load_json_file(args.source_context) if args.source_context else None,
+            source_analysis=_load_json_file(args.source_analysis) if args.source_analysis else None,
         )
         target_set = store.list_review_targets(limit=5, evidence_sha256=result.evidence_sha256)
+        review_target_summary = dict(target_set.get("summary") or {})
+        if result.canonical_graph_status:
+            review_target_summary.update(
+                {
+                    "review_targets": result.primary_review_target_count + result.validation_target_count,
+                    "primary_review_targets": result.primary_review_target_count,
+                    "validation_targets": result.validation_target_count,
+                    "monitor_only": result.monitor_only_count,
+                    "auto_archived": result.auto_archived_count,
+                    "source": "canonical_review_graph",
+                }
+            )
         review_url = _review_url(args.review_base_url, result.evidence_sha256)
         payload = {
             "selected_input_files": len(selected_files),
             "skipped_input_files": len(skipped_files),
             "ingested_logs": count,
             **asdict(result),
-            "review_target_summary": target_set.get("summary") or {},
+            "review_target_summary": review_target_summary,
+            "context_inputs": {
+                "approved_profile": bool(args.approved_profile),
+                "source_context": bool(args.source_context),
+                "source_analysis": bool(args.source_analysis),
+            },
             "review_url": review_url,
             "serve_command": f"ops-evidence --db {args.db} serve --port {_port_from_url(args.review_base_url) or 8080}",
         }
@@ -768,6 +795,11 @@ def _print_run_case_summary(payload: dict[str, object]) -> None:
         "proposition_count",
         "cluster_count",
         "review_queue_count",
+        "canonical_graph_status",
+        "canonical_graph_sha256",
+        "input_fingerprint_sha256",
+        "primary_review_target_count",
+        "validation_target_count",
     )
     for key in ordered_keys:
         print(f"{key}={payload.get(key)}")

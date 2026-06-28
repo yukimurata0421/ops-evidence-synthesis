@@ -25,7 +25,9 @@ from ops_evidence_synthesis.pipeline_progress import (
 )
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.synthesis.clustering import persist_proposition_clusters
+from ops_evidence_synthesis.synthesis.multi_ai import model_run_artifacts_from_records, synthesize_multi_ai
 from ops_evidence_synthesis.synthesis.output_ingest import model_output_artifact, parse_model_output
+from ops_evidence_synthesis.synthesis.review_arbitration import resolve_canonical_review_graph_snapshot
 from ops_evidence_synthesis.synthesis.router import RoutingResult, route_claims
 from ops_evidence_synthesis.synthesis.scoring import score_propositions
 from ops_evidence_synthesis.synthesis.validation import validate_claim_result
@@ -42,12 +44,23 @@ class PipelineResult:
     score_count: int
     cluster_count: int
     review_queue_count: int
+    canonical_graph_status: str = ""
+    canonical_graph_sha256: str = ""
+    input_fingerprint_sha256: str = ""
+    primary_review_target_count: int = 0
+    validation_target_count: int = 0
+    monitor_only_count: int = 0
+    auto_archived_count: int = 0
 
 
 def run_pipeline(
     store: SQLiteStore,
     incident: IncidentWindow,
     providers: Iterable[ModelProvider] | None = None,
+    *,
+    approved_profile: dict | None = None,
+    source_context: dict | None = None,
+    source_analysis: dict | None = None,
 ) -> PipelineResult:
     store.init_schema()
     bundle = EvidenceBundleBuilder(store).build(incident)
@@ -66,7 +79,15 @@ def run_pipeline(
         status="completed",
         message="Evidence Bundle built and persisted.",
     )
-    return run_synthesis_for_bundle(store, bundle, providers, pipeline_run_id=pipeline_run_id)
+    return run_synthesis_for_bundle(
+        store,
+        bundle,
+        providers,
+        pipeline_run_id=pipeline_run_id,
+        approved_profile=approved_profile,
+        source_context=source_context,
+        source_analysis=source_analysis,
+    )
 
 
 def run_synthesis_for_bundle(
@@ -76,6 +97,9 @@ def run_synthesis_for_bundle(
     *,
     pipeline_run_id: str | None = None,
     parent_pipeline_run_id: str | None = None,
+    approved_profile: dict | None = None,
+    source_context: dict | None = None,
+    source_analysis: dict | None = None,
 ) -> PipelineResult:
     owns_pipeline_run = pipeline_run_id is None
     if owns_pipeline_run:
@@ -126,6 +150,7 @@ def run_synthesis_for_bundle(
             limit=max(1000, len(routing.propositions)),
             evidence_sha256=bundle["evidence_sha256"],
         )
+        target_set: dict = {"summary": {}, "targets": []}
         if hasattr(store, "list_review_targets"):
             target_set = store.list_review_targets(limit=5, evidence_sha256=bundle["evidence_sha256"], persist=True)
             summary = dict(target_set.get("summary") or {})
@@ -143,6 +168,20 @@ def run_synthesis_for_bundle(
                     "validation_target_count": int(summary.get("validation_targets") or 0),
                 },
             )
+        graph_resolution = run_canonical_graph_stage(
+            store,
+            bundle,
+            parsed_results,
+            legacy_review_targets=list(target_set.get("targets") or []),
+            legacy_summary=dict(target_set.get("summary") or {}),
+            pipeline_run_id=pipeline_run_id,
+            operation="synthesis",
+            approved_profile=approved_profile,
+            source_context=source_context,
+            source_analysis=source_analysis,
+        )
+        graph = graph_resolution.get("canonical_review_graph") if isinstance(graph_resolution, dict) else {}
+        graph_summary = graph.get("summary") if isinstance(graph, dict) and isinstance(graph.get("summary"), dict) else {}
 
         result = PipelineResult(
             evidence_sha256=bundle["evidence_sha256"],
@@ -153,6 +192,13 @@ def run_synthesis_for_bundle(
             score_count=len(scores),
             cluster_count=len(clusters),
             review_queue_count=len(review_queue),
+            canonical_graph_status=str(graph_resolution.get("canonical_graph_status") or ""),
+            canonical_graph_sha256=str(graph_resolution.get("canonical_graph_sha256") or ""),
+            input_fingerprint_sha256=str(graph_resolution.get("input_fingerprint_sha256") or ""),
+            primary_review_target_count=int(graph_summary.get("primary_count") or 0),
+            validation_target_count=int(graph_summary.get("validation_count") or 0),
+            monitor_only_count=int(graph_summary.get("monitor_only_count") or 0),
+            auto_archived_count=int(graph_summary.get("auto_archived_count") or 0),
         )
         finish_pipeline_run(
             store,
@@ -174,6 +220,63 @@ def run_synthesis_for_bundle(
             message=str(exc),
         )
         raise
+
+
+def run_canonical_graph_stage(
+    store: SQLiteStore,
+    bundle: dict,
+    parsed_results: list[ParsedResultRecord] | None = None,
+    *,
+    legacy_review_targets: list[dict] | None = None,
+    legacy_summary: dict | None = None,
+    pipeline_run_id: str | None = None,
+    operation: str = "synthesis",
+    approved_profile: dict | None = None,
+    source_context: dict | None = None,
+    source_analysis: dict | None = None,
+) -> dict:
+    evidence_sha = str(bundle.get("evidence_sha256") or "")
+    runs = store.fetch_model_runs(evidence_sha) if hasattr(store, "fetch_model_runs") else []
+    parsed = parsed_results if parsed_results is not None else (
+        store.fetch_parsed_results(evidence_sha) if hasattr(store, "fetch_parsed_results") else []
+    )
+    artifacts = model_run_artifacts_from_records(runs, parsed)
+    synthesis = synthesize_multi_ai(bundle, artifacts)
+    resolution = resolve_canonical_review_graph_snapshot(
+        store,
+        bundle,
+        model_runs=artifacts,
+        multi_ai_synthesis=synthesis,
+        approved_profile=approved_profile or {},
+        source_context=source_context or {},
+        source_analysis=source_analysis or {},
+        legacy_review_targets=legacy_review_targets or [],
+        legacy_summary=legacy_summary or {},
+        persist_if_missing=True,
+        persist_if_stale=True,
+        created_by=operation,
+    )
+    graph = resolution.get("canonical_review_graph") if isinstance(resolution, dict) else {}
+    summary = graph.get("summary") if isinstance(graph, dict) and isinstance(graph.get("summary"), dict) else {}
+    record_pipeline_event(
+        store,
+        pipeline_run_id=pipeline_run_id,
+        evidence_sha256=evidence_sha,
+        operation=operation,
+        step_key="canonical_graph_resolved",
+        status="completed",
+        message="Canonical review graph resolved and persisted.",
+        metadata={
+            "canonical_graph_status": resolution.get("canonical_graph_status") or "",
+            "canonical_graph_sha256": resolution.get("canonical_graph_sha256") or "",
+            "input_fingerprint_sha256": resolution.get("input_fingerprint_sha256") or "",
+            "primary_count": int(summary.get("primary_count") or 0),
+            "validation_count": int(summary.get("validation_count") or 0),
+            "monitor_only_count": int(summary.get("monitor_only_count") or 0),
+            "auto_archived_count": int(summary.get("auto_archived_count") or 0),
+        },
+    )
+    return resolution
 
 
 def run_model_stage(

@@ -18,7 +18,7 @@
       "artifact": "model_runs",
       "status": "completed",
       "step": "multi_model",
-      "summary": "3/4 provider outputs were schema-valid; failed providers remain visible.",
+      "summary": "3/3 provider outputs were schema-valid; failed providers remain visible.",
       "title": "Run deterministic providers"
     },
     {
@@ -65,7 +65,7 @@
   "evidence_sha256": "1be4a21441fec7d2a4eafa95508badbe4a892bd61f3d9e08541893fba97c6731",
   "generation": {
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "d6f33c6c10972da2dc9be0446d09c870fd81a68a96677f913bea25c8677b34fc",
+    "payload_sha256": "2e1388bcca5d324f1d2927aced7c7c1a39aa4bda8f2b32625f607f42ec63548b",
     "provider_mode": "deterministic_local",
     "raw_log_policy": "not_uploaded",
     "schema_version": "precomputed_review_generation.v1",
@@ -73,12 +73,6 @@
     "source_note": "generated from public sample fixture with deterministic local providers"
   },
   "provider_statuses": [
-    {
-      "provider_id": "local-fail",
-      "raw_output_sha256": "54eac2ad836c7d3be13ba6ef67f437e500143bd25dcc3b5231b3b8b26da193e4",
-      "schema_valid": false,
-      "status": "failed"
-    },
     {
       "provider_id": "local-gemini",
       "raw_output_sha256": "ffe7fb3357a9793dbb40880ac69e1f5e6aaa262d5532a8ec774a33e415ae178c",
@@ -128,12 +122,12 @@
       "impact": "1 target(s) show provider convergence, and 5 validation target(s) remain human-gated.",
       "title": "Multi-AI disagreement requires validation"
     },
-    "input_fingerprint_sha256": "1292c5bcaf9c0359653501de9e84008187422fd85d53d17c60b1bd1a342c3da1",
+    "input_fingerprint_sha256": "9015bdc02bca18bba634726147740fdad76a14837f1aae02bc255078a5d0c802",
     "log_count": 20,
     "providers": {
       "pipeline_status": "completed",
       "success": 3,
-      "total": 4
+      "total": 3
     },
     "raw_log_policy": "not_uploaded",
     "review": {

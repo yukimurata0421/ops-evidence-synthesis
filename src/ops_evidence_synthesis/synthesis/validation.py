@@ -53,7 +53,6 @@ CLAIM_RESULT_SCHEMA: dict[str, Any] = {
                     "claim_text": {"type": "string", "minLength": 1},
                     "subsystem": {
                         "type": "string",
-                        "enum": _VALID_SUBSYSTEMS,
                     },
                     "evidence_refs": {
                         "type": "array",
@@ -75,10 +74,10 @@ CLAIM_RESULT_SCHEMA: dict[str, Any] = {
                         "type": "object",
                         "additionalProperties": True,
                         "properties": {
-                            "program": {"type": "string", "enum": _VALID_IDENTITY_VALUES},
-                            "source": {"type": "string", "enum": _VALID_IDENTITY_VALUES},
-                            "failure_signature": {"type": "string", "enum": _VALID_IDENTITY_VALUES},
-                            "time_window": {"type": "string", "enum": _VALID_IDENTITY_VALUES},
+                            "program": {"type": "string"},
+                            "source": {"type": "string"},
+                            "failure_signature": {"type": "string"},
+                            "time_window": {"type": "string"},
                         },
                     },
                     "temporary_action": {"type": "string"},
@@ -145,8 +144,6 @@ def _fallback_validate(payload: dict[str, Any]) -> tuple[bool, tuple[str, ...]]:
     else:
         allowed = set(_VALID_CLAIM_TYPES)
         valid_statuses = set(_VALID_FINDING_STATUSES)
-        valid_identity_values = set(_VALID_IDENTITY_VALUES)
-        valid_subsystems = set(_VALID_SUBSYSTEMS)
         if payload.get("finding_status") and payload.get("finding_status") not in valid_statuses:
             errors.append("$.finding_status: unsupported value")
         for index, claim in enumerate(claims):
@@ -159,8 +156,8 @@ def _fallback_validate(payload: dict[str, Any]) -> tuple[bool, tuple[str, ...]]:
                 errors.append(f"$.claims.{index}.claim_text: required string")
             if not isinstance(claim.get("evidence_refs"), list):
                 errors.append(f"$.claims.{index}.evidence_refs: required array")
-            if claim.get("subsystem") and claim.get("subsystem") not in valid_subsystems:
-                errors.append(f"$.claims.{index}.subsystem: unsupported value")
+            if claim.get("subsystem") is not None and not isinstance(claim.get("subsystem"), str):
+                errors.append(f"$.claims.{index}.subsystem: must be string")
             if claim.get("finding_status") and claim.get("finding_status") not in valid_statuses:
                 errors.append(f"$.claims.{index}.finding_status: unsupported value")
             identity = claim.get("evidence_identity")
@@ -169,8 +166,8 @@ def _fallback_validate(payload: dict[str, Any]) -> tuple[bool, tuple[str, ...]]:
                     errors.append(f"$.claims.{index}.evidence_identity: must be object")
                 else:
                     for key in ("program", "source", "failure_signature", "time_window"):
-                        if identity.get(key, "") not in valid_identity_values:
-                            errors.append(f"$.claims.{index}.evidence_identity.{key}: unsupported value")
+                        if key in identity and not isinstance(identity.get(key), str):
+                            errors.append(f"$.claims.{index}.evidence_identity.{key}: must be string")
     return not errors, tuple(errors)
 
 

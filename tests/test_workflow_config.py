@@ -11,6 +11,7 @@ def test_workflow_has_provider_timeout_and_skip_controls() -> None:
     assert "gemini_timeout_seconds" in workflow
     assert "alternatives_timeout_seconds" in workflow
     assert "compare_timeout_seconds" in workflow
+    assert "canonical_graph_timeout_seconds" in workflow
     assert "provider_status" in workflow
     assert "workflow/provider-policy" in workflow
     assert "provider_policy" in workflow
@@ -21,3 +22,7 @@ def test_workflow_has_provider_timeout_and_skip_controls() -> None:
     assert "set_compare_skipped" in workflow
     assert "primary_review_target_count" in workflow
     assert "validation_target_count" in workflow
+    assert "review/graph/refresh" in workflow
+    assert "canonical_graph_sha256" in workflow
+    assert "canonical_primary_count" in workflow
+    assert "canonical_validation_count" in workflow

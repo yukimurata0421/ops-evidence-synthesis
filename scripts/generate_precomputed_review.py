@@ -19,7 +19,7 @@ from ops_evidence_synthesis.synthesis.pipeline import run_pipeline
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Generate a precomputed read-only review payload from deterministic local pipeline output."
+        description="Generate a precomputed read-only review payload from pipeline output."
     )
     parser.add_argument("--input", default="data/sample_logs.jsonl", help="Public-safe JSONL log fixture.")
     parser.add_argument("--db", default="workspace/public_demo/public_demo.sqlite3")
@@ -33,6 +33,7 @@ def main() -> int:
     parser.add_argument("--output-dir", default="data/precomputed_review_summaries")
     parser.add_argument("--target-limit", type=int, default=5)
     parser.add_argument("--source-note", default="generated from public sample fixture with deterministic local providers")
+    parser.add_argument("--provider-mode", default="deterministic_local")
     parser.add_argument("--expected-evidence-sha", default="")
     parser.add_argument("--expected-log-count", type=int, default=0)
     parser.add_argument("--require-convergence", action="store_true")
@@ -66,6 +67,7 @@ def main() -> int:
         updated_at=args.updated_at,
         target_limit=args.target_limit,
         source_note=args.source_note,
+        provider_mode=args.provider_mode,
     )
     _validate_payload(
         payload,

@@ -141,6 +141,85 @@ def test_router_preserves_insufficient_evidence_status_and_identity() -> None:
     assert routed.propositions[0].structured_evidence["insufficient_evidence"][0]["claim_id"] == routed.claims[0].claim_id
 
 
+def test_router_normalizes_concrete_evidence_identity_values_to_known() -> None:
+    bundle = {
+        "evidence_sha256": "a" * 64,
+        "environment": "prod",
+        "evidence_refs": {"EV-1": {}},
+    }
+    result = ParsedResultRecord(
+        result_id="result-1",
+        run_id="run-1",
+        evidence_sha256="a" * 64,
+        provider="test-provider",
+        parsed_json={
+            "schema_version": "claim-result/v1",
+            "finding_status": "supported",
+            "summary": "test",
+            "claims": [
+                {
+                    "claim_type": "support",
+                    "finding_status": "supported",
+                    "claim_text": "The systemd journal identifies stream.sh as the emitting program.",
+                    "subsystem": "service_liveness",
+                    "evidence_identity": {
+                        "program": "stream.sh",
+                        "source": "systemd_journal",
+                        "failure_signature": "known",
+                        "time_window": "known",
+                    },
+                    "evidence_refs": ["EV-1"],
+                }
+            ],
+        },
+        parsed_json_sha256="b" * 64,
+        schema_valid=True,
+        schema_errors=(),
+        created_at="2026-06-12T10:00:00Z",
+    )
+
+    routed = route_claims(bundle, [result])
+
+    assert routed.claims[0].evidence_identity["program"] == "known"
+    assert routed.claims[0].evidence_identity["source"] == "known"
+
+
+def test_router_normalizes_model_subsystem_aliases() -> None:
+    bundle = {
+        "evidence_sha256": "a" * 64,
+        "environment": "prod",
+        "evidence_refs": {"EV-1": {}},
+    }
+    result = ParsedResultRecord(
+        result_id="result-1",
+        run_id="run-1",
+        evidence_sha256="a" * 64,
+        provider="test-provider",
+        parsed_json={
+            "schema_version": "claim-result/v1",
+            "finding_status": "supported",
+            "summary": "test",
+            "claims": [
+                {
+                    "claim_type": "support",
+                    "finding_status": "supported",
+                    "claim_text": "Transport evidence needs review.",
+                    "subsystem": "rtms_ffmpeg",
+                    "evidence_refs": ["EV-1"],
+                }
+            ],
+        },
+        parsed_json_sha256="b" * 64,
+        schema_valid=True,
+        schema_errors=(),
+        created_at="2026-06-12T10:00:00Z",
+    )
+
+    routed = route_claims(bundle, [result])
+
+    assert routed.claims[0].subsystem == "rtmps_ffmpeg"
+
+
 def _result(claim_text: str, evidence_refs: list[str]) -> ParsedResultRecord:
     return ParsedResultRecord(
         result_id="result-1",

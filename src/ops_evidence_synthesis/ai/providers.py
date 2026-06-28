@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from ops_evidence_synthesis.ai.base import ModelProvider
 from ops_evidence_synthesis.ai.claude import VertexClaudeProvider
 from ops_evidence_synthesis.ai.heuristic import default_local_providers
-from ops_evidence_synthesis.ai.maas import VertexMistralProvider, VertexOpenAICompatProvider
+from ops_evidence_synthesis.ai.maas import VertexMistralProvider, VertexOpenAICompatProvider, VertexOpenModelProvider
 from ops_evidence_synthesis.ai.vertex import VertexGeminiProvider
 
 
@@ -25,8 +25,12 @@ def build_provider_list(names: Iterable[str] | None) -> list[ModelProvider]:
             providers.append(VertexOpenAICompatProvider.from_env())
         elif name in {"mistral", "vertex-mistral", "mistral-agent-platform"}:
             providers.append(VertexMistralProvider.from_env())
+        elif name in {"qwen", "qwen3-coder", "vertex-qwen", "qwen-agent-platform"}:
+            providers.append(VertexOpenModelProvider.from_qwen_env())
+        elif name in {"glm", "glm-5", "vertex-glm", "glm-agent-platform"}:
+            providers.append(VertexOpenModelProvider.from_glm_env())
         else:
-            supported = "local, gemini, claude, gpt-oss, mistral"
+            supported = "local, gemini, claude, gpt-oss, mistral, qwen, glm"
             raise ValueError(f"unsupported provider '{name}'. Supported providers: {supported}")
     return providers
 

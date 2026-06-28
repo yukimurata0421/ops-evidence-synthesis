@@ -12,18 +12,53 @@ Ops Evidence Synthesis turns sanitized operational evidence into a fast,
 reviewable incident analysis page. It is built for the failure mode where AI
 incident tools sound confident before they have enough evidence.
 
-Live demo:
+Live read-only demo:
 
-- Summary: https://ops-evidence-api-vn3uyu4gia-an.a.run.app/?evidence_sha256=c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
-- Detail: https://ops-evidence-api-vn3uyu4gia-an.a.run.app/ui/full-review-page?evidence_sha256=c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
+- Public entry: https://ops-evidence.yukimurata0421.dev/
+- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
 
-## What Runs Now
+Real API source-aware run:
 
-- The public Cloud Run URL serves a precomputed summary/detail review without
+- Evidence SHA256: `7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d`
+- Public payload: `data/precomputed_review_summaries/7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d.json`
+- Run notes: [docs/real-api-qwen-glm-run.md](docs/real-api-qwen-glm-run.md)
+
+This run was generated through the e2e API with a 6,506-row sanitized log
+corpus persisted in the API store, a bounded DB-derived model projection,
+sanitized source context, and five schema-valid real provider outputs: Gemini,
+gpt-oss, Mistral, Qwen, and GLM.
+
+stream_v3 real API source-aware runs:
+
+- Dell runtime detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681
+- Dell runtime API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681
+- arena-server monitoring detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769
+- arena-server monitoring API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769
+- Run notes: [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
+
+These runs used sanitized stream_v3 code context plus separate runtime and
+monitoring-plane log corpora. Dell retained 8,011 sanitized runtime rows; the
+arena-server monitoring run retained 5,055 sanitized rows.
+
+Deterministic local fixture:
+
+- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
+- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
+- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
+
+## What You Can Run Now
+
+- The public Cloudflare URL serves a precomputed summary/detail review without
   starting model work on the initial GET.
 - `make demo` regenerates the flagship amazon-notify review cache from
   `data/amazon_notify_flagship_logs.jsonl` using deterministic local providers.
-- `python -m uvicorn ...` serves the same read-only UI locally.
+- `python -m uvicorn ...` serves the same read-only review UI locally.
 - `make ci` verifies fixture fidelity and runs the full test suite.
 - `make smoke-public` checks that the deployed summary/detail pages and
   read-only review APIs load within the 10 second review budget and contain the
@@ -89,8 +124,8 @@ What to look for:
 | Collect | Ingest local JSONL/text logs and optional source/profile context. | `src/ops_evidence_synthesis/ingest.py`, `scripts/analyze_amazon_notify_local.py` |
 | Sanitize | Redact sensitive values and verify that raw logs stay outside model input. | `src/ops_evidence_synthesis/local_first.py`, `src/ops_evidence_synthesis/sanitizer.py` |
 | Analyze | Run deterministic or configured providers against the same Evidence Bundle. | `src/ops_evidence_synthesis/synthesis/pipeline.py`, `src/ops_evidence_synthesis/ai/` |
-| Synthesize | Parse, validate, route, score, and arbitrate model claims into review targets. | `src/ops_evidence_synthesis/synthesis/`, `src/ops_evidence_synthesis/precomputed_review.py` |
-| Report | Serve a fast, read-only summary/detail page from precomputed review JSON. | `src/ops_evidence_synthesis/api.py`, `data/precomputed_review_summaries/` |
+| Synthesize | Parse, validate, route, score, compare providers, and persist the Canonical Review Graph/review-target projection. | `src/ops_evidence_synthesis/synthesis/`, `src/ops_evidence_synthesis/precomputed_review.py` |
+| Report | Serve a fast, read-only summary/detail page from precomputed review JSON. | `src/ops_evidence_synthesis/api.py`, `src/ops_evidence_synthesis/routes/`, `src/ops_evidence_synthesis/web/`, `data/precomputed_review_summaries/` |
 
 High-level flow:
 
@@ -101,8 +136,25 @@ local logs
   -> provider runs
   -> schema and evidence-reference validation
   -> review target arbitration
+  -> persisted canonical_review_graph.v1
   -> precomputed review JSON
   -> read-only summary/detail UI
+```
+
+For local source-aware runs, generate sanitized source artifacts first, approve
+the profile draft, then pass only those sanitized context files to the product
+flow:
+
+```bash
+ops-evidence run-case \
+  --input data/sample_logs.jsonl \
+  --service payment-api \
+  --environment prod \
+  --start 2026-06-12T10:00:00Z \
+  --end 2026-06-12T10:20:00Z \
+  --approved-profile path/to/approved_profile.yaml \
+  --source-context path/to/source_context_bundle.json \
+  --source-analysis path/to/source_analysis_bundle.json
 ```
 
 ## Reviewer Reading Path
@@ -113,10 +165,12 @@ Start here if you are evaluating the hackathon submission:
 2. [src/ops_evidence_synthesis/precomputed_review.py](src/ops_evidence_synthesis/precomputed_review.py) - turns pipeline output into the fast UI cache.
 3. [tests/test_precomputed_review.py](tests/test_precomputed_review.py) - proves the public fixture is regenerated from code.
 4. [src/ops_evidence_synthesis/synthesis/output_ingest.py](src/ops_evidence_synthesis/synthesis/output_ingest.py) - canonical observation rollup and provider-overlap scoring.
-5. [src/ops_evidence_synthesis/api.py](src/ops_evidence_synthesis/api.py) - summary/detail renderer for the read-only review page.
-6. [docs/architecture.md](docs/architecture.md) - local-first architecture and review graph.
-7. [docs/evidence_bundle.md](docs/evidence_bundle.md) - Evidence Bundle contract and evidence/context boundary.
-8. [docs/current-vs-architecture-gap.md](docs/current-vs-architecture-gap.md) - implemented state and production hardening roadmap.
+5. [src/ops_evidence_synthesis/api.py](src/ops_evidence_synthesis/api.py) - FastAPI app bootstrap and store/provider wiring.
+6. [src/ops_evidence_synthesis/routes/api_routes.py](src/ops_evidence_synthesis/routes/api_routes.py) - API routes for ingest, review, progress, and public read-only views.
+7. [src/ops_evidence_synthesis/web/precomputed_review.py](src/ops_evidence_synthesis/web/precomputed_review.py) and [src/ops_evidence_synthesis/web/review_page.py](src/ops_evidence_synthesis/web/review_page.py) - HTML/JSON rendering for precomputed and SQLite-backed review pages.
+8. [docs/architecture.md](docs/architecture.md) - local-first architecture and review graph.
+9. [docs/evidence_bundle.md](docs/evidence_bundle.md) - Evidence Bundle contract and evidence/context boundary.
+10. [docs/current-vs-architecture-gap.md](docs/current-vs-architecture-gap.md) - implemented state and production hardening roadmap.
 
 ## Test Commands
 
@@ -169,6 +223,9 @@ Committed public assets:
 
 - `data/amazon_notify_flagship_logs.jsonl` - public-safe 6,506-line flagship fixture.
 - `data/precomputed_review_summaries/c43cb9c...ed1e.json` - live demo cache regenerated by `make demo` and checked by CI.
+- `data/precomputed_review_summaries/7e95346...308d.json` - real API source-aware review cache generated from a 6,506-row sanitized e2e log corpus, sanitized source context, Qwen, and GLM.
+- `data/precomputed_review_summaries/64fa799...2681.json` - stream_v3 Dell runtime real API review cache with 8,011 sanitized runtime rows.
+- `data/precomputed_review_summaries/f22b327...1769.json` - stream_v3 arena-server monitoring real API review cache with 5,055 sanitized monitoring rows.
 - `data/sample_logs.jsonl` - compact public-safe sample fixture.
 - `data/precomputed_review_summaries/1be4a214...6731.json` - compact sample cache regenerated by `make demo-sample`.
 - `sample_projects/profile_discovery_sample/` - small profile-discovery fixture.
@@ -206,14 +263,16 @@ reproducibility through deterministic fixtures.
 
 - Raw logs stay local.
 - Model input is the sanitized Evidence Bundle.
-- Source/profile/human context can guide review, but runtime claims need cited evidence IDs.
+- Source, profile, and human context can guide review, but runtime claims need cited evidence IDs.
+- API and UI reads prefer the persisted Canonical Review Graph when available.
 - Provider agreement is a review signal, not majority-vote truth.
 - Score is review priority, not truth probability.
 - Final causal judgement and operational action remain human-gated.
 
 ## Deployment Baseline
 
-The repository includes a production-oriented Google Cloud baseline:
+The repository includes a production-oriented Google Cloud baseline for teams
+that want to operate the same contracts beyond the public demo:
 
 - Cloud Run API service
 - BigQuery schemas for evidence and synthesis artifacts

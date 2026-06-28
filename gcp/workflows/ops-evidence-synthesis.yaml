@@ -11,6 +11,7 @@ main:
           - alternatives_timeout_seconds: ${default(map.get(args, "alternatives_timeout_seconds"), 240)}
           - stage_timeout_seconds: ${default(map.get(args, "stage_timeout_seconds"), 120)}
           - compare_timeout_seconds: ${default(map.get(args, "compare_timeout_seconds"), 120)}
+          - canonical_graph_timeout_seconds: ${default(map.get(args, "canonical_graph_timeout_seconds"), 120)}
           - provider_max_retries: ${default(map.get(args, "provider_max_retries"), 2)}
           - retry_initial_delay_seconds: ${default(map.get(args, "retry_initial_delay_seconds"), 5)}
           - retry_max_delay_seconds: ${default(map.get(args, "retry_max_delay_seconds"), 60)}
@@ -54,10 +55,10 @@ main:
                           skip: ${skip_compare}
     - apply_provider_policy:
         assign:
-          - provider_policy: ${default(map.get(provider_policy_response, "body"), {})}
-          - alternative_policy: ${default(map.get(provider_policy, "alternatives"), {})}
-          - compare_policy: ${default(map.get(provider_policy, "compare"), {})}
-          - cost_policy: ${default(map.get(provider_policy, "cost_policy"), {})}
+          - provider_policy: ${default(map.get(provider_policy_response, "body"), json.decode("{}"))}
+          - alternative_policy: ${default(map.get(provider_policy, "alternatives"), json.decode("{}"))}
+          - compare_policy: ${default(map.get(provider_policy, "compare"), json.decode("{}"))}
+          - cost_policy: ${default(map.get(provider_policy, "cost_policy"), json.decode("{}"))}
           - skip_alternatives: ${skip_alternatives or default(map.get(alternative_policy, "skip"), false)}
           - skip_compare: ${skip_compare or default(map.get(compare_policy, "skip"), false)}
           - provider_status.alternatives.policy: ${alternative_policy}
@@ -197,7 +198,7 @@ main:
                           comparison_count: 0
                           skipped: true
                     - provider_status.compare.status: "skipped"
-            next: done
+            next: refresh_canonical_graph
         next: compare_models
     - compare_models:
         try:
@@ -213,6 +214,8 @@ main:
               candidate_providers:
                 - openai-gpt-oss-on-vertex
                 - mistral-agent-platform
+                - qwen-agent-platform
+                - glm-agent-platform
           result: compare_response
         retry:
           predicate: ${http.default_retry_predicate}
@@ -241,6 +244,22 @@ main:
                   assign:
                     - provider_status.compare.status: "ok"
                     - provider_status.compare.comparison_count: ${default(map.get(compare_response.body, "comparison_count"), 0)}
+    - refresh_canonical_graph:
+        call: http.post
+        args:
+          url: ${api_base + "/review/graph/refresh"}
+          auth:
+            type: OIDC
+          timeout: ${canonical_graph_timeout_seconds}
+          body:
+            evidence_sha256: ${bundle_response.body.evidence_sha256}
+            created_by: "gcp-workflow"
+        result: canonical_graph_response
+    - summarize_canonical_graph:
+        assign:
+          - canonical_graph_body: ${default(map.get(canonical_graph_response, "body"), json.decode("{}"))}
+          - canonical_review_graph: ${default(map.get(canonical_graph_body, "canonical_review_graph"), json.decode("{}"))}
+          - canonical_graph_summary: ${default(map.get(canonical_review_graph, "summary"), json.decode("{}"))}
     - done:
         return:
           evidence_sha256: ${bundle_response.body.evidence_sha256}
@@ -258,6 +277,13 @@ main:
           monitor_only_count: ${score_response.body.monitor_only_count}
           auto_archived_count: ${score_response.body.auto_archived_count}
           comparison_count: ${compare_response.body.comparison_count}
+          canonical_graph_status: ${default(map.get(canonical_graph_body, "canonical_graph_status"), "")}
+          canonical_graph_sha256: ${default(map.get(canonical_graph_body, "canonical_graph_sha256"), "")}
+          input_fingerprint_sha256: ${default(map.get(canonical_graph_body, "input_fingerprint_sha256"), "")}
+          canonical_primary_count: ${default(map.get(canonical_graph_summary, "primary_count"), 0)}
+          canonical_validation_count: ${default(map.get(canonical_graph_summary, "validation_count"), 0)}
+          canonical_monitor_only_count: ${default(map.get(canonical_graph_summary, "monitor_only_count"), 0)}
+          canonical_auto_archived_count: ${default(map.get(canonical_graph_summary, "auto_archived_count"), 0)}
           review_queue_count: ${score_response.body.review_queue_count}
           provider_status: ${provider_status}
           provider_policy: ${provider_policy}

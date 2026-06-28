@@ -37,3 +37,57 @@ def test_claim_result_schema_accepts_insufficient_evidence_status() -> None:
 
     assert valid is True
     assert errors == ()
+
+
+def test_claim_result_schema_accepts_concrete_evidence_identity_values() -> None:
+    valid, errors = validate_claim_result(
+        {
+            "schema_version": "claim-result/v1",
+            "agent_role": "hypothesis_generator",
+            "finding_status": "supported",
+            "summary": "The evidence source is identifiable.",
+            "claims": [
+                {
+                    "claim_type": "support",
+                    "finding_status": "supported",
+                    "claim_text": "The systemd journal identifies stream.sh as the emitting program.",
+                    "subsystem": "service_liveness",
+                    "evidence_identity": {
+                        "program": "stream.sh",
+                        "source": "systemd_journal",
+                        "failure_signature": "known",
+                        "time_window": "known",
+                    },
+                    "evidence_refs": ["EV-1"],
+                }
+            ],
+            "propositions": [],
+        }
+    )
+
+    assert valid is True
+    assert errors == ()
+
+
+def test_claim_result_schema_accepts_model_subsystem_aliases() -> None:
+    valid, errors = validate_claim_result(
+        {
+            "schema_version": "claim-result/v1",
+            "agent_role": "hypothesis_generator",
+            "finding_status": "supported",
+            "summary": "The stream transport evidence is identifiable.",
+            "claims": [
+                {
+                    "claim_type": "support",
+                    "finding_status": "supported",
+                    "claim_text": "The ffmpeg send path has evidence that needs review.",
+                    "subsystem": "rtms_ffmpeg",
+                    "evidence_refs": ["EV-1"],
+                }
+            ],
+            "propositions": [],
+        }
+    )
+
+    assert valid is True
+    assert errors == ()

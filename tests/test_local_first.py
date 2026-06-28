@@ -490,4 +490,6 @@ def test_run_case_selects_log_files_and_skips_mp3(tmp_path: Path) -> None:
     assert "skipped_input_files=1" in result.stdout
     assert "ingested_logs=20" in result.stdout
     assert "review_url=http://127.0.0.1:8084/?evidence_sha256=" in result.stdout
+    assert "canonical_graph_status=persisted" in result.stdout
+    assert "canonical_graph_sha256=" in result.stdout
     assert "serve_command=ops-evidence --db" in result.stdout

@@ -14,7 +14,7 @@ Raw logs (local only)
   -> Multi-AI Synthesis
   -> Review Target Arbitration
   -> Canonical Review Graph
-  -> Planner / UI / Child Bundle Loop
+  -> Precomputed Review JSON / Planner / UI / Child Bundle Loop
 
 Raw source/config/env metadata (local only)
   -> sanitize-source
@@ -188,7 +188,9 @@ The UI and planner do not execute collectors. Operators collect data locally, sa
 9. UI
 -----
 
-The UI uses canonical_review_graph as the primary display decision source.
+The UI uses canonical_review_graph as the primary display decision source. In
+the public demo, precomputed review JSON lets summary/detail pages render
+without starting model work on the initial GET.
 
 local-first safety panel
 multi-AI runs

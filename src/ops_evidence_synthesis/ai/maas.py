@@ -18,6 +18,10 @@ DEFAULT_GPT_OSS_LOCATION = "us-central1"
 DEFAULT_GPT_OSS_MAX_OUTPUT_TOKENS = 8192
 DEFAULT_MISTRAL_MODEL = "mistral-small-2503"
 DEFAULT_MISTRAL_LOCATION = "us-central1"
+DEFAULT_QWEN_MODEL = "qwen/qwen3-coder-480b-a35b-instruct-maas"
+DEFAULT_QWEN_LOCATION = "global"
+DEFAULT_GLM_MODEL = "zai-org/glm-5-maas"
+DEFAULT_GLM_LOCATION = "global"
 DEFAULT_VERTEX_API_VERSION = "v1"
 
 
@@ -166,6 +170,105 @@ class VertexMistralProvider:
             f"publishers/mistralai/models/{self.model_name}"
         )
         return f"https://{endpoint}/{self.api_version}/{model}:rawPredict"
+
+
+@dataclass(frozen=True, slots=True)
+class VertexOpenModelProvider:
+    provider: str
+    model_name: str
+    default_publisher: str
+    prompt_name: str = "alternative-hypothesis"
+    project_id: str = ""
+    location: str = "global"
+    temperature: float = 0.0
+    max_output_tokens: int = 8192
+    timeout_seconds: int = 240
+    api_version: str = DEFAULT_VERTEX_API_VERSION
+
+    @classmethod
+    def from_qwen_env(cls) -> "VertexOpenModelProvider":
+        return cls(
+            provider="qwen-agent-platform",
+            model_name=os.environ.get("OES_QWEN_MODEL", DEFAULT_QWEN_MODEL),
+            default_publisher="qwen",
+            project_id=_open_model_project("QWEN"),
+            location=os.environ.get("OES_QWEN_LOCATION", DEFAULT_QWEN_LOCATION),
+            temperature=float(os.environ.get("OES_QWEN_TEMPERATURE", "0")),
+            max_output_tokens=int(os.environ.get("OES_QWEN_MAX_OUTPUT_TOKENS", "8192")),
+            timeout_seconds=int(os.environ.get("OES_QWEN_TIMEOUT_SECONDS", "240")),
+        )
+
+    @classmethod
+    def from_glm_env(cls) -> "VertexOpenModelProvider":
+        return cls(
+            provider="glm-agent-platform",
+            model_name=os.environ.get("OES_GLM_MODEL", DEFAULT_GLM_MODEL),
+            default_publisher="zai-org",
+            project_id=_open_model_project("GLM"),
+            location=os.environ.get("OES_GLM_LOCATION", DEFAULT_GLM_LOCATION),
+            temperature=float(os.environ.get("OES_GLM_TEMPERATURE", "0")),
+            max_output_tokens=int(os.environ.get("OES_GLM_MAX_OUTPUT_TOKENS", "8192")),
+            timeout_seconds=int(os.environ.get("OES_GLM_TIMEOUT_SECONDS", "240")),
+        )
+
+    def run(self, bundle: dict[str, Any]) -> ModelResponse:
+        if not self.project_id:
+            raise RuntimeError("OES_VERTEX_PROJECT, GOOGLE_CLOUD_PROJECT, or provider-specific project is required")
+
+        started = time.perf_counter()
+        prompt = alternative_hypothesis_prompt(bundle)
+        body = {
+            "model": self._request_model_name(),
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": self.max_output_tokens,
+            "temperature": self.temperature,
+            "stream": False,
+        }
+        response_payload = _post_json(self._chat_completions_url(), body, timeout_seconds=self.timeout_seconds)
+        try:
+            raw_text = _extract_chat_completion_text(response_payload, model_label="Vertex open model")
+        except RuntimeError as exc:
+            if "response content was empty" not in str(exc) or self.max_output_tokens >= 8192:
+                raise
+            body["max_tokens"] = 8192
+            response_payload = _post_json(self._chat_completions_url(), body, timeout_seconds=self.timeout_seconds)
+            raw_text = _extract_chat_completion_text(response_payload, model_label="Vertex open model")
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        usage = response_payload.get("usage") or {}
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=raw_text,
+            latency_ms=max(1, elapsed_ms),
+            input_tokens=int(usage.get("prompt_tokens") or max(1, len(prompt) // 4)),
+            output_tokens=int(usage.get("completion_tokens") or max(1, len(raw_text) // 4)),
+        )
+
+    def _chat_completions_url(self) -> str:
+        location = self.location.strip()
+        endpoint = _endpoint_for_location(location)
+        return (
+            f"https://{endpoint}/{self.api_version}/projects/{self.project_id}/"
+            f"locations/{location}/endpoints/openapi/chat/completions"
+        )
+
+    def _request_model_name(self) -> str:
+        model = self.model_name.strip()
+        if "/" in model:
+            return model
+        return f"{self.default_publisher}/{model}"
+
+
+def _open_model_project(prefix: str) -> str:
+    return (
+        os.environ.get(f"OES_{prefix}_PROJECT")
+        or os.environ.get("OES_VERTEX_PROJECT")
+        or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        or os.environ.get("GCP_PROJECT")
+        or ""
+    )
 
 
 def _post_json(url: str, body: dict[str, Any], *, timeout_seconds: int) -> dict[str, Any]:

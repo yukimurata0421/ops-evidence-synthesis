@@ -137,6 +137,10 @@ def _prompt(bundle: dict[str, Any], *, agent_role: str, role_instruction: str) -
         '"propositions":[{"question":"...","subsystem":"...",'
         '"linked_claim_hints":[]}]}. '
         f"{role_instruction} "
+        "Array fields must contain primitive strings only: evidence_refs, counter_evidence_refs, "
+        "caveats, missing_evidence, and linked_claim_hints must never contain objects, nested claims, "
+        "or dictionaries. If you want to express a caveat, put one concise sentence in the caveats "
+        "string array or create a separate top-level claim with claim_type caveat. "
         "This system is not stream_v3-specific: the input is arbitrary sanitized JSONL "
         "normalized into an evidence bundle. Choose the closest generic subsystem. "
         "Use job_configuration when evidence shows a configured command, scheduled job, "
@@ -176,16 +180,21 @@ def _prompt(bundle: dict[str, Any], *, agent_role: str, role_instruction: str) -
 def compact_bundle_for_model(
     bundle: dict[str, Any],
     *,
+    max_evidence_items: int = 140,
     max_logs: int = 0,
     max_normalized_events: int = 0,
     max_text_chars: int = 480,
 ) -> dict[str, Any]:
     """Reduce an audit bundle to the evidence surface needed for model synthesis."""
-    log_patterns = [_compact_log_pattern(row, max_text_chars=max_text_chars) for row in bundle.get("log_patterns") or []]
+    raw_evidence_items = [row for row in bundle.get("evidence_items") or [] if isinstance(row, dict)]
+    selected_evidence_items = _top_evidence_items(raw_evidence_items, limit=max_evidence_items)
+    log_patterns = [
+        _compact_log_pattern(row, max_text_chars=max_text_chars)
+        for row in _top_evidence_items(bundle.get("log_patterns") or [], limit=max_evidence_items)
+    ]
     evidence_items = [
         _compact_evidence_item(row, max_text_chars=max_text_chars)
-        for row in bundle.get("evidence_items") or []
-        if isinstance(row, dict)
+        for row in selected_evidence_items
     ]
     metric_windows = [_compact_metric_window(row) for row in bundle.get("metric_windows") or []]
     logs = [
@@ -242,10 +251,12 @@ def compact_bundle_for_model(
         "incident": bundle.get("incident") or {},
         "compression_note": (
             "Model input is compacted from the full audit bundle. Individual sanitized log lines and normalized events "
-            "remain in storage by default; this prompt keeps SQL-grouped log patterns, occurrence counts, first/last "
-            "seen timestamps, baseline counts, metrics, operational evidence, and review-routing hints. Profile context "
-            "is included only to interpret evidence, not to prove claims."
+            "remain in storage by default; this prompt keeps a bounded high-signal sample of SQL-grouped log patterns, "
+            "occurrence counts, first/last seen timestamps, baseline counts, metrics, operational evidence, and "
+            "review-routing hints. Corpus-level counts describe the omitted low-signal patterns. Profile context is "
+            "included only to interpret evidence, not to prove claims."
         ),
+        "evidence_corpus_summary": _evidence_corpus_summary(raw_evidence_items, selected_evidence_items),
         "source_counts": {
             "full_evidence_refs": len(bundle.get("evidence_refs") or {}),
             "full_evidence_items": len(bundle.get("evidence_items") or []),
@@ -280,6 +291,44 @@ def compact_bundle_for_model(
         "normalized_events": normalized_events,
         "evidence_refs": evidence_refs,
     }
+
+
+def _evidence_corpus_summary(raw_items: list[dict[str, Any]], selected_items: list[dict[str, Any]]) -> dict[str, Any]:
+    total_item_count = len(raw_items)
+    selected_ids = {str(item.get("evidence_id") or "") for item in selected_items}
+    total_occurrences = sum(_safe_int(item.get("count"), default=1) for item in raw_items)
+    selected_occurrences = sum(_safe_int(item.get("count"), default=1) for item in selected_items)
+    severity_counts: dict[str, int] = {}
+    selected_severity_counts: dict[str, int] = {}
+    type_counts: dict[str, int] = {}
+    selected_type_counts: dict[str, int] = {}
+    for item in raw_items:
+        severity = str(item.get("severity_text") or item.get("severity") or "unknown").lower()
+        item_type = str(item.get("type") or item.get("event_type") or "unknown")
+        severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        type_counts[item_type] = type_counts.get(item_type, 0) + 1
+        if str(item.get("evidence_id") or "") in selected_ids:
+            selected_severity_counts[severity] = selected_severity_counts.get(severity, 0) + 1
+            selected_type_counts[item_type] = selected_type_counts.get(item_type, 0) + 1
+    omitted_count = max(0, total_item_count - len(selected_items))
+    return _drop_empty(
+        {
+            "full_evidence_item_count": total_item_count,
+            "model_evidence_item_count": len(selected_items),
+            "omitted_evidence_item_count": omitted_count,
+            "full_occurrence_count": total_occurrences,
+            "model_occurrence_count": selected_occurrences,
+            "occurrence_coverage_ratio": round(selected_occurrences / total_occurrences, 6) if total_occurrences else 0,
+            "severity_counts": severity_counts,
+            "model_severity_counts": selected_severity_counts,
+            "type_counts": type_counts,
+            "model_type_counts": selected_type_counts,
+            "selection_policy": (
+                "Keep highest-severity, highest-count, and operationally interesting sanitized log patterns; "
+                "omit low-signal tail patterns from provider prompts while preserving corpus counts."
+            ),
+        }
+    )
 
 
 def _compact_profile_context(
@@ -515,6 +564,48 @@ def _top_logs(rows: list[dict[str, Any]], *, limit: int) -> list[dict[str, Any]]
             str(row.get("evidence_id") or row.get("event_id") or ""),
         ),
     )[:limit]
+
+
+def _top_evidence_items(rows: list[dict[str, Any]], *, limit: int) -> list[dict[str, Any]]:
+    typed_rows = [row for row in rows if isinstance(row, dict)]
+    if limit <= 0 or len(typed_rows) <= limit:
+        return typed_rows
+    return sorted(
+        typed_rows,
+        key=lambda row: (
+            -_SEVERITY_RANK.get(str(row.get("severity_text") or row.get("severity") or "").upper(), 0),
+            -_safe_int(row.get("count"), default=1),
+            -_interesting_evidence_score(row),
+            str(row.get("first_seen") or row.get("timestamp") or ""),
+            str(row.get("evidence_id") or ""),
+        ),
+    )[:limit]
+
+
+def _interesting_evidence_score(row: dict[str, Any]) -> int:
+    text = " ".join(
+        str(row.get(key) or "")
+        for key in ("event_type", "message_template", "example_sanitized", "component", "source")
+    ).casefold()
+    score = 0
+    groups = (
+        ("failure", "failed", "error", "exception", "retry", "alert", "critical"),
+        ("token", "auth", "ready", "checkpoint"),
+        ("run_result", "run_once", "processed", "matched", "notified", "non_target"),
+        ("systemd", "watchdog", "service", "deactivated", "heartbeat"),
+        ("pubsub", "streamingpull", "idle"),
+    )
+    for index, terms in enumerate(groups, start=1):
+        if any(term in text for term in terms):
+            score += 10 - index
+    return score
+
+
+def _safe_int(value: Any, *, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _evidence_ids(*groups: list[dict[str, Any]]) -> set[str]:
