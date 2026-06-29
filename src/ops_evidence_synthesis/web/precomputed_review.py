@@ -190,7 +190,7 @@ def _precomputed_summary(payload: dict[str, Any] | None, evidence_sha256: str) -
 
 
 def _public_precomputed_landing_page() -> str:
-    rows: list[tuple[str, str, str]] = []
+    rows: list[tuple[str, str, str, str]] = []
     seen: set[str] = set()
     for directory in _precomputed_review_dirs():
         try:
@@ -214,11 +214,37 @@ def _public_precomputed_landing_page() -> str:
             seen.add(evidence_sha)
             summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
             finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
+            analysis_context = (
+                payload.get("analysis_context")
+                if isinstance(payload.get("analysis_context"), dict)
+                else {}
+            )
+            profile_context = (
+                payload.get("profile_context")
+                if isinstance(payload.get("profile_context"), dict)
+                else {}
+            )
+            providers = summary.get("providers") if isinstance(summary.get("providers"), dict) else {}
+            profile_id = str(profile_context.get("profile_id") or "approved profile")
+            source_attached = bool(analysis_context.get("source_context_sha256"))
+            analysis_attached = bool(analysis_context.get("source_analysis_sha256"))
+            context_note = (
+                "Sanitized source context attached; "
+                f"source analysis {'attached' if analysis_attached else 'not attached'}; "
+                f"profile={profile_id}; "
+                f"providers={int(providers.get('success') or 0)}/{int(providers.get('total') or 0)}"
+                if source_attached
+                else (
+                    "Sanitized log review without source profile context; "
+                    f"providers={int(providers.get('success') or 0)}/{int(providers.get('total') or 0)}"
+                )
+            )
             rows.append(
                 (
                     evidence_sha,
                     str(finding.get("title") or "Precomputed review"),
                     str(payload.get("updated_at") or summary.get("updated_at") or ""),
+                    context_note,
                 )
             )
     links = "\n".join(
@@ -227,9 +253,10 @@ def _public_precomputed_landing_page() -> str:
             f"<a href='/?evidence_sha256={quote(evidence_sha)}'>{_html(title)}</a>"
             f"<span>{_html(evidence_sha[:12])}</span>"
             f"<small>{_html(updated_at)}</small>"
+            f"<small>{_html(context_note)}</small>"
             "</li>"
         )
-        for evidence_sha, title, updated_at in rows
+        for evidence_sha, title, updated_at, context_note in rows
     )
     if not links:
         links = "<li><span>No precomputed review is available.</span></li>"
@@ -266,7 +293,7 @@ def _public_precomputed_landing_page() -> str:
       <body>
         <main>
           <h1>Ops Evidence Synthesis</h1>
-          <p>This public surface serves read-only precomputed reviews. Raw bundles and write APIs are not exposed here.</p>
+          <p>This public surface serves read-only precomputed reviews over sanitized logs, sanitized source context, and approved system profiles. Raw bundles, raw source, and write APIs are not exposed here.</p>
           <ul>{links}</ul>
           {demo_section}
         </main>

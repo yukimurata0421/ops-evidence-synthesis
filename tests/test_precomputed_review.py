@@ -46,6 +46,8 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert STREAM_V3_ARENA_REAL_API_SHA[:12] in html
     assert PUBLIC_SAMPLE_SHA[:12] not in html
     assert PUBLIC_FLAGSHIP_SHA[:12] not in html
+    assert "sanitized source context" in html
+    assert "profile=" in html
     assert "Multi-AI disagreement requires validation" not in html
     assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
 
