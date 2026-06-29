@@ -29,6 +29,8 @@ Submission URLs:
 - Architecture image: [docs/assets/architecture-devops-ai-agent.svg](docs/assets/architecture-devops-ai-agent.svg)
 - Demo video script: [docs/demo-video-script.md](docs/demo-video-script.md)
 - ProtoPedia entry draft: [docs/protopedia-entry-v3.md](docs/protopedia-entry-v3.md)
+- ProtoPedia Japanese entry draft: [docs/protopedia-entry-japanese.md](docs/protopedia-entry-japanese.md)
+- X post draft: [docs/x-post-draft.md](docs/x-post-draft.md)
 
 Real API source-aware run:
 

@@ -26,6 +26,8 @@ is for a different event.
 - Architecture image: [assets/architecture-devops-ai-agent.svg](assets/architecture-devops-ai-agent.svg)
 - Demo video script: [demo-video-script.md](demo-video-script.md)
 - ProtoPedia entry draft: [protopedia-entry-v3.md](protopedia-entry-v3.md)
+- ProtoPedia Japanese entry draft: [protopedia-entry-japanese.md](protopedia-entry-japanese.md)
+- X post draft: [x-post-draft.md](x-post-draft.md)
 - Copy/paste URL set: [submission-links.md](submission-links.md)
 
 ## Live Deployment State
@@ -33,16 +35,18 @@ is for a different event.
 - Cloud Run service: `ops-evidence-api`
 - Cloud Run region: `asia-northeast1`
 - Public custom domain: https://ops-evidence.yukimurata0421.dev/
-- Deployed revision: `ops-evidence-api-00135-4zm`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:f11d9b46b11e6f82270dbbb3bef5e4ea47dd4d8c061813075b388d05cfbb4acd`
+- Deployed revision: `ops-evidence-api-00136-xf5`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:3520027ce775ae779a7c8c262884392b0b8c7c66ac9b9e66c7eb919a0719b404`
 - Public smoke after deploy: passed
 - Cloud Run min instances: `1`
 - Billing budget alert: `Ops Evidence Hackathon Budget`, 3000 JPY/month, project-filtered to `ops-evidence-synthesis`
+- Budget alerts notify only; they do not automatically stop spend.
 
 ## Remaining Manual Actions
 
 - Create the ProtoPedia project page.
 - Upload the architecture image.
 - Upload a 3 minute YouTube or Vimeo demo video.
+- Replace pending ProtoPedia URL entries in `README.md`, `HACKATHON_SUBMISSION.md`, `docs/submission-links.md`, and this file.
 - Paste GitHub, deployed project, and ProtoPedia URLs into the final Google Form.
 - Post on X with `#findy_hackathon`.

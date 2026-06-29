@@ -26,6 +26,8 @@ Current reviewer-facing URLs for the hackathon submission.
 - Architecture image: docs/assets/architecture-devops-ai-agent.svg
 - Demo video script: docs/demo-video-script.md
 - ProtoPedia entry draft: docs/protopedia-entry-v3.md
+- ProtoPedia Japanese entry draft: docs/protopedia-entry-japanese.md
+- X post draft: docs/x-post-draft.md
 
 ## Machine-Readable Review URLs
 
@@ -35,8 +37,9 @@ Current reviewer-facing URLs for the hackathon submission.
 
 ## Operational Readiness
 
-- Cloud Run revision after deploy: `ops-evidence-api-00135-4zm`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:f11d9b46b11e6f82270dbbb3bef5e4ea47dd4d8c061813075b388d05cfbb4acd`
+- Cloud Run revision after deploy: `ops-evidence-api-00136-xf5`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:3520027ce775ae779a7c8c262884392b0b8c7c66ac9b9e66c7eb919a0719b404`
 - Public smoke after deploy: passed
 - Cloud Run min instances: `1`
 - Billing budget alert: `Ops Evidence Hackathon Budget`, 3000 JPY/month, project-filtered to `ops-evidence-synthesis`
+- Budget note: alerts notify only; they do not automatically stop spend.
