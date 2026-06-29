@@ -246,19 +246,19 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
     cases = [
         {
             "sha": STREAM_V3_DELL_REAL_API_SHA,
-            "title": "4/5 real providers",
+            "title": "Five real providers",
             "service": "stream_v3_runtime",
             "log_count": 8011,
-            "providers": {"success": 4, "total": 5, "pipeline_status": "succeeded"},
+            "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 1,
+                "auto_archived": 0,
                 "monitor_only": 2,
                 "primary_targets": 0,
                 "validation_targets": 7,
             },
             "occurrences": 7383,
             "coverage": 0.921608,
-            "gemini_valid": False,
+            "gemini_valid": True,
         },
         {
             "sha": STREAM_V3_ARENA_REAL_API_SHA,
