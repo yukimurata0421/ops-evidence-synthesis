@@ -19,6 +19,7 @@ from ops_evidence_synthesis.web.precomputed_review import (
     _public_precomputed_landing_page,
     _render_precomputed_graph_page,
     _render_precomputed_review_detail_page,
+    render_rescore_demo_page,
 )
 
 
@@ -42,6 +43,20 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert PUBLIC_SAMPLE_SHA[:12] not in html
     assert PUBLIC_FLAGSHIP_SHA[:12] not in html
     assert "Multi-AI disagreement requires validation" not in html
+    assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
+
+
+def test_public_rescore_demo_is_renderable() -> None:
+    html = render_rescore_demo_page("amazon-notify-more-data-rescore")
+
+    assert "More data rescore demo" in html
+    assert "Gemini-led control plane" in html
+    assert "gemini-enterprise-agent-platform" in html
+    assert "needs_more_data -&gt; evidence_collected" in html
+    assert "validation_target" in html
+    assert "primary_candidate" in html
+    assert "user_impact_unverified" in html
+    assert "test_more_data_child_bundle_rescores_parent_graph_and_promotion" in html
 
 
 def test_public_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_path: Path) -> None:

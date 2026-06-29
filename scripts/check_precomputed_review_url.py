@@ -54,6 +54,14 @@ REVIEW_GRAPH_NEEDLES = [
     "edges",
 ]
 
+RESCORE_DEMO_NEEDLES = [
+    "More data rescore demo",
+    "Gemini-led control plane",
+    "needs_more_data -&gt; evidence_collected",
+    "primary_candidate",
+    "user_impact_unverified",
+]
+
 BLOCKED_PUBLIC_READ_PATHS = [
     "/docs",
     "/redoc",
@@ -146,6 +154,11 @@ def main(argv: list[str] | None = None) -> int:
             "review-graph",
             f"{base_url}/review/graph?evidence_sha256={evidence_sha}&_={stamp}",
             REVIEW_GRAPH_NEEDLES,
+        ),
+        (
+            "rescore-demo",
+            f"{base_url}/ui/rescore-demo?id=amazon-notify-more-data-rescore&_={stamp}",
+            RESCORE_DEMO_NEEDLES,
         ),
     ]
     try:

@@ -78,6 +78,7 @@ from ops_evidence_synthesis.web.precomputed_review import (
     render_precomputed_api_page as _render_precomputed_api_page,
     render_precomputed_graph_page as _render_precomputed_graph_page,
     render_precomputed_review_detail_page as _render_precomputed_review_detail_page,
+    render_rescore_demo_page as _render_rescore_demo_page,
     short_sha as _short_sha,
     url_quote as _url_quote,
 )
@@ -230,6 +231,7 @@ PUBLIC_PRECOMPUTED_READ_PATHS = {
     "/ui/api",
     "/ui/full-review-page",
     "/ui/review-graph",
+    "/ui/rescore-demo",
     "/ui/summary",
     "/review-targets",
     "/review/graph",
@@ -392,6 +394,14 @@ def public_review_graph_view(evidence_sha256: str | None = None) -> str:
     if precomputed is not None and evidence_sha256:
         return _render_precomputed_graph_page(evidence_sha256, precomputed)
     raise HTTPException(status_code=404, detail="precomputed review not found")
+
+
+@router.get("/ui/rescore-demo", response_class=HTMLResponse)
+def public_rescore_demo_view(id: str = "amazon-notify-more-data-rescore") -> str:
+    html = _render_rescore_demo_page(id)
+    if not html:
+        raise HTTPException(status_code=404, detail="rescore demo not found")
+    return html
 
 
 

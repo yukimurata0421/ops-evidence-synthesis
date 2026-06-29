@@ -11,6 +11,8 @@ history, private URLs, project-specific incident data, or local operator paths.
 - SQLite-backed local development store.
 - BigQuery-oriented schema for production-style storage.
 - Provider registry and per-provider `model_run.v1` artifacts.
+- Gemini-led workflow policy: Gemini runs first as the required provider and
+  baseline comparator; alternative providers act as cross-checks.
 - Safety preflight before provider calls.
 - Multi-provider synthesis with agreement groups, disagreement themes, and
   missing-evidence routing.
@@ -29,6 +31,8 @@ history, private URLs, project-specific incident data, or local operator paths.
   generation, progress state, and explicit "no text changes" output state.
 - Review queue UI with bundle provenance, review target cards, evidence drawer,
   review decisions, and More data flow.
+- Read-only public More data rescore demo showing child Evidence Bundle evidence
+  changing a promotion gate from validation target to primary candidate.
 - Thin FastAPI app bootstrap with route handlers and web rendering split into
   dedicated modules.
 - Write-token guard for mutation routes.

@@ -19,9 +19,20 @@ Live read-only demo:
 - Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
 - Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
 - Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
 - JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
 - JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
 - JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+
+Current hackathon submission surfaces:
+
+- Public GitHub repository URL: https://github.com/yukimurata0421/ops-evidence-synthesis
+- Deployed project URL: https://ops-evidence.yukimurata0421.dev/
+- Proto Pedia project URL: pending until the project page is created.
+- Link list for submission copy/paste: [docs/submission-links.md](docs/submission-links.md)
+- Submission checklist: [docs/submission-checklist.md](docs/submission-checklist.md)
+- Architecture image: [docs/assets/architecture-devops-ai-agent.svg](docs/assets/architecture-devops-ai-agent.svg)
+- Demo video script: [docs/demo-video-script.md](docs/demo-video-script.md)
 
 Real API source-aware run:
 
@@ -34,6 +45,10 @@ This run was generated through the e2e API with a 6,506-row sanitized log
 corpus persisted in the API store, a bounded DB-derived model projection,
 sanitized source context, and five schema-valid real provider outputs: Gemini,
 gpt-oss, Mistral, Qwen, and GLM.
+
+The production workflow is Gemini-led: `gemini-enterprise-agent-platform` is the
+required first provider and comparison baseline, while gpt-oss, Mistral, Qwen,
+and GLM are adversarial cross-checks.
 
 stream_v3 real API source-aware runs:
 
@@ -123,6 +138,8 @@ What to look for:
 - Convergence score is `claimed successful providers / all successful providers`.
 - Technical convergence does not promote an incident when impact is still open.
 - Raw logs are not uploaded; the UI serves a generated, read-only review cache.
+- More data rescore demo shows `needs_more_data -> evidence_collected` and a
+  promotion change from validation target to primary candidate.
 
 ## Main Pipeline
 
@@ -197,6 +214,9 @@ Run the combined local gate:
 ```bash
 make ci
 ```
+
+`make` uses `.venv/bin/python` automatically when the repository-local virtual
+environment exists; otherwise it falls back to `python3`.
 
 Run the same manual gate used before release if you prefer the shell wrapper:
 

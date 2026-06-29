@@ -70,6 +70,12 @@ Local mode uses deterministic providers for tests, demos, and offline
 development. Real-provider mode is opt-in and can use configured cloud model
 providers when credentials and project access are available.
 
+The production-oriented workflow is Gemini-led. It runs
+`gemini-enterprise-agent-platform` first as the required analysis provider, then
+uses configured alternative providers as cross-checks and compares them back to
+Gemini as the baseline provider. This keeps Google Cloud AI at the center of the
+agent loop while preserving disagreement as review work.
+
 The API can be served with FastAPI. The app bootstrap is intentionally thin:
 route handlers live under `src/ops_evidence_synthesis/routes/`, while
 review-page rendering lives under `src/ops_evidence_synthesis/web/`. The same
@@ -123,6 +129,7 @@ graph separates:
 - score caps
 - validation targets
 - missing evidence prompts
+- More data child-bundle re-score results
 
 A technical baseline can be shown even when incident baseline agreement is not
 established. Primary incident candidates require cited runtime evidence and must

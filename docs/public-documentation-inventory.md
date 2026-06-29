@@ -15,6 +15,10 @@ operator history or raw incident material.
 | `docs/architecture.md` | Main architecture overview for the local-first evidence pipeline. | Keep |
 | `docs/evidence_bundle.md` | Sanitized Evidence Bundle contract and evidence/context boundary. | Keep |
 | `docs/current-vs-architecture-gap.md` | Public implementation status and product hardening roadmap. | Keep |
+| `docs/submission-links.md` | Copy/paste URL set for the current hackathon submission surfaces and demo pages. | Keep |
+| `docs/submission-checklist.md` | Submission readiness checklist for ProtoPedia, Google Form, X hashtag, deployment, and budget alert status. | Keep |
+| `docs/demo-video-script.md` | Three minute demo script for the required YouTube or Vimeo submission video. | Keep |
+| `docs/assets/architecture-devops-ai-agent.svg` | ProtoPedia-ready system architecture image. | Keep |
 | `docs/real-api-qwen-glm-run.md` | Source-aware real API run record for the amazon-notify public payload. | Keep |
 | `docs/stream-v3-real-api-runs.md` | Source-aware real API run record for Dell runtime and arena-server stream_v3 payloads. | Keep |
 | `architecture.txt` | Plain-text architecture reference for tools or readers that prefer text output. | Keep |
@@ -27,6 +31,7 @@ operator history or raw incident material.
 | `.github/workflows/ci.yml` | Public CI gate for fixture fidelity and tests. | Keep |
 | `data/public_evidence_manifests/*.json` | Compact public manifests for real API review URLs, hashes, data-boundary flags, and model-projection statistics. | Keep |
 | `data/precomputed_review_summaries/*.json` | Read-only UI cache fixtures generated from sanitized evidence. | Keep |
+| `data/rescore_demos/*.json` | Read-only More data before/after demos showing child-bundle re-score behavior. | Keep |
 | `sample_logs/redaction_fixture.jsonl` | Synthetic redaction fixture with fake token-shaped values. | Keep |
 
 ## Reviewer Command Surface

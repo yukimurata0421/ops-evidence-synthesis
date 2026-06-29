@@ -1,4 +1,5 @@
-PYTHON ?= python3
+PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
+PYTEST_ARGS ?=
 PUBLIC_BASE_URL ?= https://ops-evidence.yukimurata0421.dev
 PUBLIC_EVIDENCE_SHA ?= 7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
 RETIRED_EVIDENCE_SHA ?= 5d0b5a918de1f99852498da2c8558d14993fe33b2259d23ac0ece59a900b48d9
@@ -29,7 +30,7 @@ verify-flagship:
 	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --input $(FLAGSHIP_INPUT) --db workspace/public_demo/amazon_notify_flagship.sqlite3 --service amazon-notify --environment prod --start $(FLAGSHIP_START) --end $(FLAGSHIP_END) --lookback-minutes 1440 --updated-at $(FLAGSHIP_END) --target-limit 6 --source-note "generated from committed public-safe amazon-notify fixture with deterministic local providers" --expected-evidence-sha $(FLAGSHIP_DETERMINISTIC_EVIDENCE_SHA) --expected-log-count 6506 --require-convergence --expected-convergence-score 0.6666666667 --check
 
 test:
-	$(PYTHON) -m pytest
+	$(PYTHON) -m pytest $(PYTEST_ARGS)
 
 ci: verify-precomputed test
 

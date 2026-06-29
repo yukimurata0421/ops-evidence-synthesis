@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="940" viewBox="0 0 1600 940" role="img" aria-labelledby="title desc">
+  <title id="title">Ops Evidence Synthesis architecture</title>
+  <desc id="desc">Local-first evidence pipeline with Gemini-led multi-provider review, validation, canonical review graph, read-only Cloud Run UI, and more-data re-score loop.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f6f8fb; }
+      .band { fill: #ffffff; stroke: #d7dee8; stroke-width: 2; }
+      .local { fill: #eef7f6; stroke: #166d6b; }
+      .ai { fill: #eef3fb; stroke: #2f5f9e; }
+      .gate { fill: #fff6e8; stroke: #a15c00; }
+      .deliver { fill: #f4f1fb; stroke: #6548a3; }
+      .loop { fill: #f8fbef; stroke: #647a14; }
+      .text { font-family: Inter, Arial, sans-serif; fill: #17202a; font-size: 28px; font-weight: 700; }
+      .small { font-family: Inter, Arial, sans-serif; fill: #4a5565; font-size: 20px; font-weight: 500; }
+      .tiny { font-family: Inter, Arial, sans-serif; fill: #627083; font-size: 17px; font-weight: 500; }
+      .arrow { stroke: #526071; stroke-width: 4; fill: none; marker-end: url(#arrowhead); }
+      .loopArrow { stroke: #647a14; stroke-width: 4; fill: none; marker-end: url(#arrowheadLoop); stroke-dasharray: 12 10; }
+    </style>
+    <marker id="arrowhead" markerWidth="14" markerHeight="10" refX="13" refY="5" orient="auto">
+      <path d="M0,0 L14,5 L0,10 Z" fill="#526071" />
+    </marker>
+    <marker id="arrowheadLoop" markerWidth="14" markerHeight="10" refX="13" refY="5" orient="auto">
+      <path d="M0,0 L14,5 L0,10 Z" fill="#647a14" />
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1600" height="940" />
+  <text class="text" x="70" y="70">Ops Evidence Synthesis</text>
+  <text class="small" x="70" y="104">Guarded AI investigation for DevOps incident review</text>
+
+  <rect class="band local" x="70" y="160" width="310" height="170" rx="10" />
+  <text class="text" x="100" y="210">Local evidence</text>
+  <text class="small" x="100" y="246">Raw logs stay local</text>
+  <text class="small" x="100" y="278">Sanitize and verify</text>
+  <text class="tiny" x="100" y="308">raw_log_policy = not_uploaded</text>
+
+  <rect class="band local" x="470" y="160" width="310" height="170" rx="10" />
+  <text class="text" x="500" y="210">SHA bundle</text>
+  <text class="small" x="500" y="246">Canonical Evidence Bundle</text>
+  <text class="small" x="500" y="278">Fixed input hash</text>
+  <text class="tiny" x="500" y="308">review artifacts are reproducible</text>
+
+  <rect class="band ai" x="870" y="160" width="310" height="170" rx="10" />
+  <text class="text" x="900" y="210">Gemini baseline</text>
+  <text class="small" x="900" y="246">Runs first</text>
+  <text class="small" x="900" y="278">Primary comparison point</text>
+  <text class="tiny" x="900" y="308">Gemini Enterprise Agent Platform</text>
+
+  <rect class="band ai" x="1220" y="160" width="310" height="170" rx="10" />
+  <text class="text" x="1250" y="210">Cross-checks</text>
+  <text class="small" x="1250" y="246">gpt-oss / Mistral</text>
+  <text class="small" x="1250" y="278">Qwen / GLM</text>
+  <text class="tiny" x="1250" y="308">disagreement is preserved</text>
+
+  <rect class="band gate" x="260" y="440" width="360" height="180" rx="10" />
+  <text class="text" x="290" y="490">Validation gate</text>
+  <text class="small" x="290" y="526">Schema validation</text>
+  <text class="small" x="290" y="558">Evidence reference checks</text>
+  <text class="tiny" x="290" y="590">claims without evidence do not promote</text>
+
+  <rect class="band gate" x="700" y="440" width="360" height="180" rx="10" />
+  <text class="text" x="730" y="490">Arbitration</text>
+  <text class="small" x="730" y="526">Agreement baseline</text>
+  <text class="small" x="730" y="558">Validation targets</text>
+  <text class="tiny" x="730" y="590">score is review priority, not truth</text>
+
+  <rect class="band deliver" x="1140" y="440" width="360" height="180" rx="10" />
+  <text class="text" x="1170" y="490">Read-only delivery</text>
+  <text class="small" x="1170" y="526">Cloud Run public UI</text>
+  <text class="small" x="1170" y="558">Precomputed review pages</text>
+  <text class="tiny" x="1170" y="590">no public write path or raw bundle upload</text>
+
+  <rect class="band loop" x="420" y="725" width="760" height="135" rx="10" />
+  <text class="text" x="455" y="775">More data re-score loop</text>
+  <text class="small" x="455" y="812">needs_more_data -&gt; evidence_collected -&gt; primary_candidate</text>
+  <text class="tiny" x="455" y="842">child Evidence Bundle removes user_impact_unverified</text>
+
+  <path class="arrow" d="M380 245 L470 245" />
+  <path class="arrow" d="M780 245 L870 245" />
+  <path class="arrow" d="M1180 245 L1220 245" />
+  <path class="arrow" d="M1375 330 C1375 390 1030 398 880 440" />
+  <path class="arrow" d="M625 330 C625 390 520 398 440 440" />
+  <path class="arrow" d="M620 530 L700 530" />
+  <path class="arrow" d="M1060 530 L1140 530" />
+  <path class="loopArrow" d="M1320 620 C1320 720 1180 790 1180 790" />
+  <path class="loopArrow" d="M420 790 C240 790 220 530 260 530" />
+
+  <text class="tiny" x="70" y="905">Autonomy boundary: AI may investigate, request more evidence, and re-score. Human approval gates final causal judgement and operational action.</text>
+</svg>

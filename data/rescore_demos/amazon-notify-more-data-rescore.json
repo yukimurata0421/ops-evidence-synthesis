@@ -1,0 +1,104 @@
+{
+  "schema_version": "rescore_demo.v1",
+  "demo_id": "amazon-notify-more-data-rescore",
+  "title": "More data child bundle changed the promotion decision",
+  "updated_at": "2026-06-29T00:00:00Z",
+  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore",
+  "source_review_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
+  "source_evidence_sha256": "7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
+  "control_plane": {
+    "primary_provider": "gemini-enterprise-agent-platform",
+    "baseline_provider": "gemini-enterprise-agent-platform",
+    "cross_check_providers": [
+      "openai-gpt-oss-on-vertex",
+      "mistral-agent-platform",
+      "qwen-agent-platform",
+      "glm-agent-platform"
+    ],
+    "policy": "Gemini is the required first analysis provider and baseline comparator; other providers are adversarial cross-checks."
+  },
+  "before": {
+    "state": "validation_target",
+    "title": "Restart loop requires validation",
+    "promotion_score": 0.69,
+    "review_priority_score": 0.69,
+    "blocked_reasons": [
+      "user_impact_unverified"
+    ],
+    "provider_positions": [
+      {
+        "provider_id": "gemini-enterprise-agent-platform",
+        "stance": "claimed"
+      },
+      {
+        "provider_id": "openai-gpt-oss-on-vertex",
+        "stance": "silent"
+      },
+      {
+        "provider_id": "mistral-agent-platform",
+        "stance": "silent"
+      }
+    ],
+    "missing_evidence": [
+      "critical outcome metric",
+      "user-visible delivery failure rows"
+    ]
+  },
+  "more_data_loop": {
+    "status_transition": "needs_more_data -> evidence_collected",
+    "request_id": "user_impact_signal_query",
+    "child_evidence_sha256": "public-demo-child-user-impact",
+    "added_evidence_ref_count": 4,
+    "added_log_count": 2,
+    "model_rerun": {
+      "completed": true,
+      "provider_count": 3,
+      "claim_count": 1,
+      "review_target_count": 1
+    },
+    "collected_rows": [
+      {
+        "timestamp": "2026-06-26T23:00:00Z",
+        "message_template": "notification_not_delivered",
+        "error_type": "notification_not_delivered",
+        "summary": "notification_not_delivered count=47 during restart loop"
+      },
+      {
+        "timestamp": "2026-06-26T23:01:00Z",
+        "message_template": "notification_not_delivered",
+        "error_type": "notification_not_delivered",
+        "summary": "notification_not_delivered count=49 after service restart"
+      }
+    ]
+  },
+  "after": {
+    "state": "primary_candidate",
+    "title": "Notifier restart loop has user-visible delivery impact",
+    "promotion_score": 0.84,
+    "review_priority_score": 0.86,
+    "blocked_reasons": [],
+    "provider_positions": [
+      {
+        "provider_id": "gemini-enterprise-agent-platform",
+        "stance": "claimed"
+      },
+      {
+        "provider_id": "openai-gpt-oss-on-vertex",
+        "stance": "claimed"
+      },
+      {
+        "provider_id": "mistral-agent-platform",
+        "stance": "claimed"
+      }
+    ],
+    "promotion_decision": {
+      "final_class": "primary_candidate",
+      "reason": "child evidence added user-impact rows and removed user_impact_unverified"
+    }
+  },
+  "verification": {
+    "local_test": "tests/test_api_more_data.py::test_more_data_child_bundle_rescores_parent_graph_and_promotion",
+    "public_mode": "read_only_precomputed",
+    "raw_log_policy": "not_uploaded"
+  }
+}

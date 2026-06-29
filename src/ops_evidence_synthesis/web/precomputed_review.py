@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import quote
 
 _PRECOMPUTED_REVIEW_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_RESCORE_DEMO_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
 def _precomputed_review_cache_ttl_seconds() -> int:
@@ -29,6 +30,19 @@ def _precomputed_review_dirs() -> list[Path]:
     if single:
         configured.insert(0, Path(single))
     configured.append(Path("data/precomputed_review_summaries"))
+    return configured
+
+
+def _rescore_demo_dirs() -> list[Path]:
+    configured = [
+        Path(item)
+        for item in os.environ.get("OES_RESCORE_DEMO_DIRS", "").split(os.pathsep)
+        if item.strip()
+    ]
+    single = os.environ.get("OES_RESCORE_DEMO_DIR")
+    if single:
+        configured.insert(0, Path(single))
+    configured.append(Path("data/rescore_demos"))
     return configured
 
 
@@ -56,6 +70,46 @@ def _precomputed_review_payload(evidence_sha256: str) -> dict[str, Any] | None:
             _PRECOMPUTED_REVIEW_CACHE[evidence_id] = (time.monotonic(), deepcopy(payload))
         return payload
     return None
+
+
+def _rescore_demo_payload(demo_id: str) -> dict[str, Any] | None:
+    safe_id = str(demo_id or "").strip()
+    if not safe_id or len(safe_id) > 96 or any(not (ch.isalnum() or ch in "-_") for ch in safe_id):
+        return None
+    ttl = _precomputed_review_cache_ttl_seconds()
+    cached = _RESCORE_DEMO_CACHE.get(safe_id)
+    if ttl > 0 and cached and time.monotonic() - cached[0] < ttl:
+        return deepcopy(cached[1])
+    for directory in _rescore_demo_dirs():
+        path = directory / f"{safe_id}.json"
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            continue
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("demo_id") or "") != safe_id:
+            continue
+        if ttl > 0:
+            _RESCORE_DEMO_CACHE[safe_id] = (time.monotonic(), deepcopy(payload))
+        return payload
+    return None
+
+
+def _public_rescore_demo_ids() -> list[str]:
+    ids: list[str] = []
+    for directory in _rescore_demo_dirs():
+        try:
+            paths = sorted(directory.glob("*.json"))
+        except Exception:
+            continue
+        for path in paths:
+            safe_id = path.stem
+            if safe_id and safe_id not in ids and _rescore_demo_payload(safe_id):
+                ids.append(safe_id)
+    return ids
 
 
 def _precomputed_summary(payload: dict[str, Any] | None, evidence_sha256: str) -> dict[str, Any] | None:
@@ -126,6 +180,17 @@ def _public_precomputed_landing_page() -> str:
     )
     if not links:
         links = "<li><span>No precomputed review is available.</span></li>"
+    demo_links = "\n".join(
+        (
+            "<li>"
+            f"<a href='/ui/rescore-demo?id={quote(demo_id)}'>More data rescore demo</a>"
+            f"<span>{_html(demo_id)}</span>"
+            "<small>read-only before/after loop</small>"
+            "</li>"
+        )
+        for demo_id in _public_rescore_demo_ids()
+    )
+    demo_section = f"<h2>Improvement loops</h2><ul>{demo_links}</ul>" if demo_links else ""
     return f"""
     <!doctype html>
     <html>
@@ -137,6 +202,7 @@ def _public_precomputed_landing_page() -> str:
           body {{ font-family: Inter, system-ui, sans-serif; margin: 0; color: #17202a; background: #f6f8fb; }}
           main {{ max-width: 760px; margin: 0 auto; padding: 48px 20px; }}
           h1 {{ font-size: 30px; margin: 0 0 12px; }}
+          h2 {{ font-size: 18px; margin: 30px 0 0; }}
           p {{ color: #4a5565; line-height: 1.6; }}
           ul {{ list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 10px; }}
           li {{ display: grid; gap: 4px; padding: 14px 16px; border: 1px solid #d9e2ec; border-radius: 8px; background: #fff; }}
@@ -149,6 +215,7 @@ def _public_precomputed_landing_page() -> str:
           <h1>Ops Evidence Synthesis</h1>
           <p>This public surface serves read-only precomputed reviews. Raw bundles and write APIs are not exposed here.</p>
           <ul>{links}</ul>
+          {demo_section}
         </main>
       </body>
     </html>
@@ -1521,6 +1588,104 @@ def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | No
 </html>"""
 
 
+def _render_rescore_demo_page(demo_id: str) -> str:
+    payload = _rescore_demo_payload(demo_id)
+    if not payload:
+        return ""
+    before = payload.get("before") if isinstance(payload.get("before"), dict) else {}
+    loop = payload.get("more_data_loop") if isinstance(payload.get("more_data_loop"), dict) else {}
+    after = payload.get("after") if isinstance(payload.get("after"), dict) else {}
+    control = payload.get("control_plane") if isinstance(payload.get("control_plane"), dict) else {}
+    verification = payload.get("verification") if isinstance(payload.get("verification"), dict) else {}
+    rows = loop.get("collected_rows") if isinstance(loop.get("collected_rows"), list) else []
+    row_html = "".join(
+        f"""
+        <article class="cell">
+          <label>{_html(str(row.get("timestamp") or ""))}</label>
+          <strong>{_html(str(row.get("message_template") or ""))}</strong>
+          <p>{_html(str(row.get("summary") or ""))}</p>
+        </article>
+        """
+        for row in rows
+        if isinstance(row, dict)
+    )
+    providers = control.get("cross_check_providers") if isinstance(control.get("cross_check_providers"), list) else []
+    provider_text = ", ".join(str(item) for item in providers if str(item))
+    before_reasons = ", ".join(str(item) for item in before.get("blocked_reasons") or []) or "none"
+    after_reasons = ", ".join(str(item) for item in after.get("blocked_reasons") or []) or "none"
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>More data rescore demo</title>
+  <style>
+    :root {{ --ink: #17202a; --muted: #647184; --line: #d8dee8; --bg: #f7f8fb; --panel: #fff; --accent: #166d6b; --warn: #a15c00; }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); letter-spacing: 0; }}
+    header {{ padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }}
+    main {{ max-width: 1120px; margin: 0 auto; padding: 18px 24px 40px; display: grid; gap: 16px; }}
+    h1 {{ margin: 0; font-size: 22px; }}
+    h2 {{ margin: 0; font-size: 20px; }}
+    p {{ margin: 0; color: var(--muted); line-height: 1.45; }}
+    code {{ overflow-wrap: anywhere; }}
+    .panel {{ border: 1px solid var(--line); border-left: 5px solid var(--accent); border-radius: 8px; background: var(--panel); padding: 16px; display: grid; gap: 12px; }}
+    .panel.warn {{ border-left-color: var(--warn); }}
+    .grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }}
+    .cell {{ border: 1px solid var(--line); border-radius: 6px; background: #fbfcfe; padding: 10px; min-width: 0; }}
+    label {{ display: block; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }}
+    strong {{ display: block; font-size: 18px; line-height: 1.25; overflow-wrap: anywhere; }}
+    a.button {{ display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--ink); text-decoration: none; font-weight: 700; }}
+    @media (max-width: 760px) {{ main {{ padding: 14px; }} .grid {{ grid-template-columns: 1fr; }} }}
+  </style>
+</head>
+<body>
+  <header><h1>More data rescore demo</h1></header>
+  <main>
+    <section class="panel">
+      <label>Read-only DevOps loop</label>
+      <h2>{_html(str(payload.get("title") or "More data child bundle changed the promotion decision"))}</h2>
+      <p>Shows the AI improvement cycle judges can inspect without starting model runs from the public URL.</p>
+      <p>Source review: <a href="{_html(str(payload.get("source_review_url") or "#"))}">{_html(str(payload.get("source_evidence_sha256") or ""))}</a></p>
+    </section>
+    <section class="panel">
+      <label>Gemini-led control plane</label>
+      <h2>{_html(str(control.get("primary_provider") or "gemini-enterprise-agent-platform"))}</h2>
+      <p>{_html(str(control.get("policy") or ""))}</p>
+      <p>Cross-check providers: {_html(provider_text)}</p>
+    </section>
+    <section class="panel warn">
+      <label>Before child evidence</label>
+      <div class="grid">
+        <article class="cell"><label>State</label><strong>{_html(str(before.get("state") or ""))}</strong><p>{_html(str(before.get("title") or ""))}</p></article>
+        <article class="cell"><label>Promotion score</label><strong>{float(before.get("promotion_score") or 0):.2f}</strong><p>Priority is not truth probability.</p></article>
+        <article class="cell"><label>Blocked reasons</label><strong>{_html(before_reasons)}</strong><p>Missing user-impact evidence blocks promotion.</p></article>
+      </div>
+    </section>
+    <section class="panel">
+      <label>More data refresh</label>
+      <h2>{_html(str(loop.get("status_transition") or "needs_more_data -> evidence_collected"))}</h2>
+      <p>Child Evidence Bundle <code>{_html(str(loop.get("child_evidence_sha256") or ""))}</code> added {int(loop.get("added_evidence_ref_count") or 0)} evidence refs and {int(loop.get("added_log_count") or 0)} log rows.</p>
+      <div class="grid">{row_html}</div>
+    </section>
+    <section class="panel">
+      <label>After re-score</label>
+      <div class="grid">
+        <article class="cell"><label>State</label><strong>{_html(str(after.get("state") or ""))}</strong><p>{_html(str(after.get("title") or ""))}</p></article>
+        <article class="cell"><label>Promotion score</label><strong>{float(after.get("promotion_score") or 0):.2f}</strong><p>Review priority increased after child evidence.</p></article>
+        <article class="cell"><label>Blocked reasons</label><strong>{_html(after_reasons)}</strong><p>Primary promotion gate is now closed.</p></article>
+      </div>
+    </section>
+    <section class="panel">
+      <label>Verification</label>
+      <p>Covered by <code>{_html(str(verification.get("local_test") or ""))}</code>. Public mode: <code>{_html(str(verification.get("public_mode") or ""))}</code>. Raw logs: <code>{_html(str(verification.get("raw_log_policy") or ""))}</code>.</p>
+      <p><a class="button" href="/">Back to public index</a></p>
+    </section>
+  </main>
+</body>
+</html>"""
+
+
 def _html(value: object) -> str:
     import html
 
@@ -1534,6 +1699,7 @@ precomputed_review_payload = _precomputed_review_payload
 precomputed_review_target_set = _precomputed_review_target_set
 precomputed_summary = _precomputed_summary
 public_precomputed_landing_page = _public_precomputed_landing_page
+render_rescore_demo_page = _render_rescore_demo_page
 render_precomputed_api_page = _render_precomputed_api_page
 render_precomputed_graph_page = _render_precomputed_graph_page
 render_precomputed_review_detail_page = _render_precomputed_review_detail_page
@@ -1548,6 +1714,7 @@ __all__ = [
     "precomputed_review_target_set",
     "precomputed_summary",
     "public_precomputed_landing_page",
+    "render_rescore_demo_page",
     "render_precomputed_api_page",
     "render_precomputed_graph_page",
     "render_precomputed_review_detail_page",
