@@ -1,0 +1,472 @@
+{
+  "approved": false,
+  "assumptions": [
+    "Critical user outcomes were not inferred as facts.",
+    "Component roles are candidates derived from sanitized entity links.",
+    "Critical user outcomes are assumed and require human validation",
+    "Source context may not match the deployed version during the incident window unless deployment evidence confirms it",
+    "Gemini analyzed sanitized Profile Discovery context, not raw source or raw logs."
+  ],
+  "confidence_summary": {
+    "collector_mapping_confidence": 0.7,
+    "component_mapping_confidence": 0.8,
+    "metric_semantics_confidence": 0.72,
+    "overall_confidence": 0.79
+  },
+  "display_summary": {
+    "primary_badges": [
+      "approved:false",
+      "explicit_profile:false",
+      "collector_mappings:read_only",
+      "profile_draft_provider:gemini",
+      "source_context:sanitized",
+      "human_approval:required",
+      "generation:gemini_profile_draft",
+      "llm_status:ok"
+    ],
+    "subtitle": "Component mappings and metric semantics are suggestions, not an explicit profile.",
+    "title": "Profile draft requires human review"
+  },
+  "draft_type": "profile_mapping_draft",
+  "explicit_profile": false,
+  "human_review_required": true,
+  "profile": {
+    "action_constraints": [
+      "Collector mappings are read-only until human approved.",
+      "Do not propose credential changes from a profile draft.",
+      "Collector mappings must be read-only",
+      "Do not propose write actions, restarts, rollbacks, credential changes, or raw data collection",
+      "Raw source, raw env values, credentials, and raw grep output must not be requested or used",
+      "This AI-generated profile draft is context only until human approval.",
+      "Runtime support claims must cite evidence_id from Evidence Items."
+    ],
+    "collector_mappings": {
+      "instrumentation_consistency_query": {
+        "candidate_collectors": [
+          "local_logs",
+          "local_config"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "params": {},
+        "safety_level": "read_only"
+      },
+      "metric_semantics_query": {
+        "candidate_collectors": [
+          "local_metrics",
+          "local_prometheus",
+          "local_logs"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "params": {},
+        "safety_level": "read_only"
+      },
+      "process_state_query": {
+        "candidate_collectors": [
+          "local_systemd",
+          "local_journal",
+          "local_process"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "params": {},
+        "safety_level": "read_only"
+      },
+      "throughput_signal_query": {
+        "candidate_collectors": [
+          "local_metrics",
+          "local_prometheus",
+          "local_logs"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "params": {},
+        "safety_level": "read_only"
+      }
+    },
+    "component_map": {
+      "amazon_notify": {
+        "confidence": 0.9,
+        "core_target_types": [
+          "general"
+        ],
+        "human_review_required": true,
+        "name": "amazon_notify",
+        "role": "component",
+        "subsystem": "general"
+      },
+      "amazon_notify_main_watchdog": {
+        "confidence": 0.86,
+        "core_target_types": [
+          "job_configuration_mismatch",
+          "restart_loop",
+          "service_start_failure"
+        ],
+        "human_review_required": true,
+        "name": "amazon_notify_main_watchdog",
+        "role": "recovery_supervisor",
+        "subsystem": "runtime_recovery"
+      },
+      "amazon_notify_watch_renew": {
+        "confidence": 0.95,
+        "core_target_types": [
+          "job_configuration_mismatch",
+          "service_start_failure"
+        ],
+        "human_review_required": true,
+        "name": "amazon_notify_watch_renew",
+        "role": "systemd_service",
+        "subsystem": "job_configuration"
+      },
+      "comp_001": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "general"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "amazon_notify",
+        "role": "component",
+        "subsystem": "general"
+      },
+      "comp_003": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "job_configuration_mismatch",
+          "service_start_failure"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "amazon_notify_pubsub",
+        "role": "listener",
+        "subsystem": "job_configuration"
+      },
+      "comp_004": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "job_configuration_mismatch",
+          "service_start_failure"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "amazon_notify_watch_renew",
+        "role": "systemd_service",
+        "subsystem": "job_configuration"
+      },
+      "comp_005": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "general"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "journalctl_json",
+        "role": "component",
+        "subsystem": "general"
+      },
+      "comp_006": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "general"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "jsonl",
+        "role": "component",
+        "subsystem": "general"
+      },
+      "comp_007": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "job_configuration_mismatch",
+          "restart_loop",
+          "service_start_failure"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "python3",
+        "role": "watchdog",
+        "subsystem": "runtime_recovery"
+      },
+      "comp_008": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "job_configuration_mismatch",
+          "service_start_failure"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "systemd_status",
+        "role": "component",
+        "subsystem": "job_configuration"
+      },
+      "comp_009": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "general"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "text_log",
+        "role": "component",
+        "subsystem": "general"
+      },
+      "comp_src_001": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "job_configuration_mismatch",
+          "restart_loop",
+          "service_start_failure"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "amazon_notify_main_watchdog",
+        "role": "recovery_supervisor",
+        "subsystem": "runtime_recovery"
+      },
+      "comp_src_002": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "general",
+          "monitoring_gap"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "job_configuration_mismatch_count",
+        "role": "component",
+        "subsystem": "background_processing"
+      },
+      "comp_src_003": {
+        "confidence": 0.7,
+        "core_target_types": [
+          "monitoring_gap",
+          "restart_loop"
+        ],
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "name": "watchdog_heartbeat_count",
+        "role": "recovery_supervisor",
+        "subsystem": "runtime_recovery"
+      },
+      "job_configuration_mismatch_count": {
+        "confidence": 0.64,
+        "core_target_types": [
+          "general",
+          "monitoring_gap"
+        ],
+        "human_review_required": true,
+        "name": "job_configuration_mismatch_count",
+        "role": "component",
+        "subsystem": "background_processing"
+      },
+      "journalctl_json": {
+        "confidence": 0.9,
+        "core_target_types": [
+          "general"
+        ],
+        "human_review_required": true,
+        "name": "journalctl_json",
+        "role": "component",
+        "subsystem": "general"
+      },
+      "jsonl": {
+        "confidence": 0.9,
+        "core_target_types": [
+          "general"
+        ],
+        "human_review_required": true,
+        "name": "jsonl",
+        "role": "component",
+        "subsystem": "general"
+      },
+      "python3": {
+        "confidence": 0.3,
+        "core_target_types": [
+          "job_configuration_mismatch",
+          "restart_loop",
+          "service_start_failure"
+        ],
+        "human_review_required": true,
+        "name": "python3",
+        "role": "watchdog",
+        "subsystem": "runtime_recovery"
+      },
+      "redacted_secret": "<REDACTED_SECRET>",
+      "systemd_status": {
+        "confidence": 0.9,
+        "core_target_types": [
+          "job_configuration_mismatch",
+          "service_start_failure"
+        ],
+        "human_review_required": true,
+        "name": "systemd_status",
+        "role": "component",
+        "subsystem": "job_configuration"
+      },
+      "text_log": {
+        "confidence": 0.9,
+        "core_target_types": [
+          "general"
+        ],
+        "human_review_required": true,
+        "name": "text_log",
+        "role": "component",
+        "subsystem": "general"
+      },
+      "watchdog_heartbeat_count": {
+        "confidence": 0.64,
+        "core_target_types": [
+          "monitoring_gap",
+          "restart_loop"
+        ],
+        "human_review_required": true,
+        "name": "watchdog_heartbeat_count",
+        "role": "recovery_supervisor",
+        "subsystem": "runtime_recovery"
+      }
+    },
+    "critical_outcomes": [
+      "Notifications are successfully processed and delivered"
+    ],
+    "known_benign_noise": [],
+    "log_sources": [
+      {
+        "human_review_required": true,
+        "meaning": "Candidate log source derived from sanitized profile discovery.",
+        "source_id": "profile",
+        "source_name": "sanitized_events",
+        "source_type": "logger_name"
+      },
+      {
+        "description": "Sanitized application events logger",
+        "generation_source": "gemini_profile_draft",
+        "source_id": "sanitized_events"
+      },
+      {
+        "description": "Standard text log output",
+        "generation_source": "gemini_profile_draft",
+        "source_id": "text_log"
+      },
+      {
+        "description": "Systemd journal JSON output",
+        "generation_source": "gemini_profile_draft",
+        "source_id": "journalctl_json"
+      }
+    ],
+    "metric_semantics": {
+      "heartbeat": {
+        "confidence": 0.7,
+        "core_target_type": "throughput_disappearance",
+        "decrease_behavior": "suspicious",
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "increase_behavior": "healthy",
+        "semantic_type": "heartbeat",
+        "subsystem": "general",
+        "zero_behavior": "suspicious"
+      },
+      "job_configuration_mismatch_count": {
+        "confidence": 0.7,
+        "core_target_type": "service_start_failure",
+        "decrease_behavior": "healthy",
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "increase_behavior": "suspicious",
+        "semantic_type": "error",
+        "subsystem": "background_processing",
+        "zero_behavior": "healthy"
+      },
+      "watchdog_heartbeat_count": {
+        "confidence": 0.7,
+        "core_target_type": "throughput_disappearance",
+        "decrease_behavior": "suspicious",
+        "generation_source": "gemini_profile_draft",
+        "human_review_required": true,
+        "increase_behavior": "healthy",
+        "semantic_type": "heartbeat",
+        "subsystem": "runtime_recovery",
+        "zero_behavior": "suspicious"
+      }
+    },
+    "profile_id": "amazon_notify",
+    "purpose": "amazon-notify service with pubsub and watchdog components",
+    "system_type": "systemd_service"
+  },
+  "profile_generation": {
+    "attempts": 1,
+    "exception_type": "",
+    "failure_reason": "",
+    "fallback_used": false,
+    "generation_mode": "gemini_profile_draft",
+    "llm_status": "ok",
+    "max_attempts": 2,
+    "model_input_sha256": "bc5d38468f1b0d7790bc9d8e45d1a8eec6270851ee7fed9cb6c075f6c26713c5",
+    "model_name": "gemini-3.1-pro-preview",
+    "parse_status": "parsed_original",
+    "parsed_json_sha256": "34fb3a5f081f1858bbc6e2e1875aa8cad10f650aad99ab7a0b26deb995dbf0b5",
+    "prompt_name": "profile-draft",
+    "provider_id": "gemini-enterprise-agent-platform",
+    "raw_output_sha256": "c2161366bbf6c01ebc590bf719e32130cf62880fd6ccb3efaf2423045c7ae476",
+    "repair_applied": false,
+    "repair_rules": [],
+    "repaired_output_sha256": "c2161366bbf6c01ebc590bf719e32130cf62880fd6ccb3efaf2423045c7ae476",
+    "retried": false,
+    "retryable": false,
+    "schema_version": "profile_draft_generation.v1",
+    "source_discovery_sha256": "48923932477e0fda31da696272b1219992b501047dc91526859556d0e053e7fa"
+  },
+  "prompt_rules": [
+    "System Profile is context, not evidence.",
+    "Source Context Bundle is context, not incident evidence.",
+    "Source Analysis Bundle is context, not incident evidence.",
+    "Code/config excerpts may support profile mapping, metric semantics, logger mapping, collector mapping, and instrumentation interpretation.",
+    "Code/config excerpts do not prove runtime occurrence or user impact by themselves.",
+    "Evidence Items are evidence.",
+    "Every support claim must cite evidence_id.",
+    "Support claims about runtime behavior must still cite Evidence Items with evidence_id.",
+    "Do not cite System Profile as support evidence.",
+    "Do not cite Source Context or Source Analysis as support evidence for runtime occurrence.",
+    "If evidence is insufficient, output missing_evidence instead of making a definitive claim.",
+    "If profile_confidence is unknown or inferred, avoid definitive diagnosis and ask for required_profile_questions.",
+    "If analysis_policy.allow_primary_candidate is false, do not produce a primary incident candidate.",
+    "If version anchoring is missing, include a caveat that source context may not match the deployed version during the incident window.",
+    "Do not invent log source names, metric names, state file paths, endpoints, or collector commands.",
+    "Only name concrete metrics or logs that appear in the evidence bundle, approved profile, or source context; otherwise describe the evidence class generically.",
+    "Do not translate missing evidence into ad hoc local commands; leave collection templates to the Evidence Request Planner.",
+    "Raw source, raw env values, credentials, and raw grep output must not be requested or used.",
+    "Score is review priority, not truth probability.",
+    "Profile Draft is not an explicit profile until human approved.",
+    "Discovery Bundle is context for profile generation, not incident evidence.",
+    "Do not upload or request raw env values.",
+    "Do not infer critical user outcomes as facts; mark them as assumptions.",
+    "Metric semantics are candidates until human reviewed.",
+    "Collector mappings must be read-only by default.",
+    "Do not propose write actions, restart actions, rollback actions, or credential changes."
+  ],
+  "required_human_decisions": [
+    "Approve or edit component roles before using this as an explicit profile.",
+    "Approve metric zero/increase/decrease semantics.",
+    "Confirm critical user outcomes.",
+    "Confirm read-only collector mappings before collection.",
+    "What is the critical user outcome?",
+    "Which component is the main service path?",
+    "Are restart failures expected or harmful?",
+    "Which metrics are zero-is-good or zero-is-bad?",
+    "Which logs indicate user impact rather than diagnostic noise?",
+    "Which discovered component roles are correct?",
+    "Which metric semantics should become explicit profile rules?",
+    "Approve or edit Gemini-generated profile fields before incident review."
+  ],
+  "required_profile_questions": [
+    "What is the critical user outcome?",
+    "Which component is the main service path?",
+    "Are restart failures expected or harmful?",
+    "Which metrics are zero-is-good or zero-is-bad?",
+    "Which logs indicate user impact rather than diagnostic noise?",
+    "Which discovered component roles are correct?",
+    "Which metric semantics should become explicit profile rules?"
+  ],
+  "schema_version": "profile_draft.v1",
+  "source_discovery_sha256": "48923932477e0fda31da696272b1219992b501047dc91526859556d0e053e7fa"
+}

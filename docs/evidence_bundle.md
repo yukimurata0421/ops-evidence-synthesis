@@ -143,7 +143,7 @@ The review graph and promotion gates enforce these rules:
 - support claims must cite `evidence_id`
 - context-only support is downgraded
 - single-signal evidence can be capped
-- unverified user impact blocks incident baseline agreement
+- unverified user impact blocks incident promotion
 - blocking caveats prevent automatic primary promotion
 
 Score remains review priority, not truth probability.

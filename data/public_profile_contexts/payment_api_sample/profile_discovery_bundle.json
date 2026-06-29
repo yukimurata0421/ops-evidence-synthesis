@@ -1,0 +1,612 @@
+{
+  "bundle_type": "sanitized_profile_discovery_bundle",
+  "canonicalization_version": "canonical_json.v1",
+  "collector_mapping_candidates": [
+    {
+      "candidate_collectors": [
+        "local_metrics",
+        "local_prometheus",
+        "local_logs"
+      ],
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "params": {
+        "metric_names": [
+          "checkout_500_count",
+          "db_pool_exhausted_count"
+        ]
+      },
+      "request_type": "throughput_signal_query",
+      "safety_level": "read_only"
+    },
+    {
+      "candidate_collectors": [
+        "local_logs",
+        "local_config"
+      ],
+      "confidence": 0.0,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "params": {
+        "components": [
+          "app_py",
+          "checkout_500_count",
+          "db_pool_exhausted_count"
+        ]
+      },
+      "request_type": "instrumentation_consistency_query",
+      "safety_level": "read_only"
+    },
+    {
+      "candidate_collectors": [
+        "local_metrics",
+        "local_prometheus",
+        "local_logs"
+      ],
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "params": {
+        "metric_names": [
+          "checkout_500_count",
+          "db_pool_exhausted_count"
+        ]
+      },
+      "request_type": "metric_semantics_query",
+      "safety_level": "read_only"
+    }
+  ],
+  "component_candidates": [
+    {
+      "component_id": "COMP-001",
+      "confidence": 0.9,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "matched_entities": [
+        "cloud_run_revision"
+      ],
+      "name": "cloud_run_revision",
+      "suggested_core_target_types": [
+        "general"
+      ],
+      "suggested_role": "component",
+      "suggested_subsystem": "general"
+    },
+    {
+      "component_id": "COMP-002",
+      "confidence": 0.9,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "matched_entities": [
+        "payment-api"
+      ],
+      "name": "payment_api",
+      "suggested_core_target_types": [
+        "general"
+      ],
+      "suggested_role": "component",
+      "suggested_subsystem": "general"
+    },
+    {
+      "component_id": "COMP-SRC-001",
+      "confidence": 0.74,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "matched_features": [
+        "entrypoint"
+      ],
+      "matched_source_refs": [
+        "src/app.py"
+      ],
+      "name": "app_py",
+      "suggested_core_target_types": [
+        "general"
+      ],
+      "suggested_role": "service_entrypoint",
+      "suggested_subsystem": "general"
+    },
+    {
+      "component_id": "COMP-SRC-002",
+      "confidence": 0.64,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "matched_features": [
+        "metric_definition"
+      ],
+      "matched_source_refs": [
+        "src/app.py",
+        "src/collectors.py"
+      ],
+      "name": "checkout_500_count",
+      "suggested_core_target_types": [
+        "general",
+        "monitoring_gap"
+      ],
+      "suggested_role": "component",
+      "suggested_subsystem": "general"
+    },
+    {
+      "component_id": "COMP-SRC-003",
+      "confidence": 0.64,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "matched_features": [
+        "metric_definition"
+      ],
+      "matched_source_refs": [
+        "src/app.py",
+        "src/collectors.py"
+      ],
+      "name": "db_pool_exhausted_count",
+      "suggested_core_target_types": [
+        "general",
+        "monitoring_gap"
+      ],
+      "suggested_role": "component",
+      "suggested_subsystem": "general"
+    }
+  ],
+  "discovery_policy": {
+    "ignored_dirs": [
+      ".cache",
+      ".git",
+      ".pytest_cache",
+      ".venv",
+      "__pycache__",
+      "build",
+      "dist",
+      "node_modules",
+      "vendor",
+      "venv"
+    ],
+    "max_file_excerpt_bytes": 8192,
+    "max_total_excerpt_bytes": 200000,
+    "mode": "source_first_sanitized_context",
+    "source_analysis_is_incident_evidence": false,
+    "source_context_is_incident_evidence": false,
+    "upload_raw_env_values": false,
+    "upload_raw_source": false
+  },
+  "discovery_sha256": "129d9c4c10ef25734646b69b3d0f00b944190a8ee9fe530f1d9beb8b47d17c14",
+  "display_summary": {
+    "primary_badges": [
+      "raw_config_policy:not_uploaded",
+      "raw_logs_policy:not_uploaded",
+      "profile_draft:requires_human_review"
+    ],
+    "subtitle": "Raw source and raw env values were not uploaded. Mapping was generated from Sanitized Source Context, Source Analysis, and sanitized evidence entities.",
+    "title": "Source-first profile discovery"
+  },
+  "entity_links": [],
+  "external_dependency_candidates": [],
+  "local_first_summary": {
+    "detected_project_type": "python_project",
+    "discovery_sha256": "129d9c4c10ef25734646b69b3d0f00b944190a8ee9fe530f1d9beb8b47d17c14",
+    "entity_link_count": 0,
+    "observed_entity_count": 6,
+    "project_entity_count": 11,
+    "raw_configs_uploaded": false,
+    "raw_env_values_uploaded": false,
+    "raw_logs_uploaded": false,
+    "raw_source_uploaded": false,
+    "redaction_total": 0,
+    "source_analysis_sha256": "efaff3304c860d176a6fec219d364da7c67476ef90db7e7ba6a892e2ea09bba8",
+    "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+  },
+  "metric_semantics_candidates": [
+    {
+      "confidence": 0.72,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "metric_name": "checkout_500_count",
+      "metric_semantics_id": "METRIC-SRC-001",
+      "source_refs": [
+        "src/app.py",
+        "src/collectors.py"
+      ],
+      "suggested_semantics": {
+        "candidate_core_target_type": "general",
+        "decrease_behavior": "unknown",
+        "increase_behavior": "unknown",
+        "semantic_type": "candidate_metric",
+        "zero_behavior": "unknown"
+      }
+    },
+    {
+      "confidence": 0.72,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "metric_name": "db_pool_exhausted_count",
+      "metric_semantics_id": "METRIC-SRC-002",
+      "source_refs": [
+        "src/app.py",
+        "src/collectors.py"
+      ],
+      "suggested_semantics": {
+        "candidate_core_target_type": "general",
+        "decrease_behavior": "unknown",
+        "increase_behavior": "unknown",
+        "semantic_type": "candidate_metric",
+        "zero_behavior": "unknown"
+      }
+    }
+  ],
+  "observed_entities": [
+    {
+      "confidence": 0.9,
+      "entity_id": "OBS-001",
+      "entity_type": "component_name",
+      "evidence_refs": [
+        "PATTERN-001",
+        "PATTERN-002",
+        "PATTERN-003",
+        "PATTERN-004",
+        "PATTERN-005",
+        "PATTERN-006",
+        "PATTERN-007",
+        "PATTERN-008",
+        "PATTERN-009"
+      ],
+      "name": "cloud_run_revision",
+      "seen_in": [
+        "evidence_items",
+        "signals"
+      ],
+      "source": "evidence_bundle"
+    },
+    {
+      "confidence": 0.85,
+      "entity_id": "OBS-002",
+      "entity_type": "error_type",
+      "evidence_refs": [
+        "PATTERN-001",
+        "PATTERN-004",
+        "PATTERN-005",
+        "PATTERN-006"
+      ],
+      "name": "timeout",
+      "seen_in": [
+        "evidence_items",
+        "signals"
+      ],
+      "source": "evidence_bundle"
+    },
+    {
+      "confidence": 0.85,
+      "entity_id": "OBS-003",
+      "entity_type": "error_type",
+      "evidence_refs": [
+        "PATTERN-002",
+        "PATTERN-003",
+        "PATTERN-007"
+      ],
+      "name": "unknown",
+      "seen_in": [
+        "evidence_items",
+        "signals"
+      ],
+      "source": "evidence_bundle"
+    },
+    {
+      "confidence": 0.85,
+      "entity_id": "OBS-004",
+      "entity_type": "error_type",
+      "evidence_refs": [
+        "PATTERN-008",
+        "PATTERN-009"
+      ],
+      "name": "warning",
+      "seen_in": [
+        "evidence_items",
+        "signals"
+      ],
+      "source": "evidence_bundle"
+    },
+    {
+      "confidence": 0.55,
+      "entity_id": "OBS-005",
+      "entity_type": "logger_name",
+      "evidence_refs": [
+        "PATTERN-001",
+        "PATTERN-002",
+        "PATTERN-003",
+        "PATTERN-004",
+        "PATTERN-005",
+        "PATTERN-006",
+        "PATTERN-007",
+        "PATTERN-008",
+        "PATTERN-009"
+      ],
+      "name": "sanitized_events",
+      "seen_in": [
+        "evidence_items"
+      ],
+      "source": "evidence_bundle"
+    },
+    {
+      "confidence": 0.9,
+      "entity_id": "OBS-006",
+      "entity_type": "service_name",
+      "evidence_refs": [],
+      "name": "payment-api",
+      "seen_in": [
+        "source"
+      ],
+      "source": "evidence_bundle"
+    }
+  ],
+  "project_entities": [
+    {
+      "attributes": {
+        "detected_languages": [
+          "markdown",
+          "python"
+        ],
+        "detected_project_type": "python_project",
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "file_tree_summary",
+      "name": "file_tree",
+      "project_entity_id": "SRC-001",
+      "relative_path": "",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "entrypoint_candidate": true,
+        "excerpt_sanitized": [
+          "from __future__ import annotations",
+          "import os",
+          "import time"
+        ],
+        "excerpt_uploaded": true,
+        "language": "python",
+        "logger_candidates": [],
+        "metric_names": [
+          "checkout_500_count",
+          "db_pool_exhausted_count"
+        ],
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "script_path",
+      "name": "src/app.py",
+      "project_entity_id": "SRC-002",
+      "relative_path": "src/app.py",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "defined_in": "src/app.py",
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "metric_name",
+      "name": "checkout_500_count",
+      "project_entity_id": "SRC-003",
+      "relative_path": "src/app.py",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "defined_in": "src/app.py",
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "metric_name",
+      "name": "db_pool_exhausted_count",
+      "project_entity_id": "SRC-004",
+      "relative_path": "src/app.py",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "entrypoint_candidate": false,
+        "excerpt_sanitized": [
+          "from __future__ import annotations",
+          "\"read db_pool_exhausted_count\",",
+          "\"read checkout_500_count\","
+        ],
+        "excerpt_uploaded": true,
+        "language": "python",
+        "logger_candidates": [],
+        "metric_names": [
+          "checkout_500_count",
+          "db_pool_exhausted_count"
+        ],
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "file_path",
+      "name": "src/collectors.py",
+      "project_entity_id": "SRC-005",
+      "relative_path": "src/collectors.py",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "defined_in": "src/collectors.py",
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "metric_name",
+      "name": "checkout_500_count",
+      "project_entity_id": "SRC-006",
+      "relative_path": "src/collectors.py",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "defined_in": "src/collectors.py",
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "metric_name",
+      "name": "db_pool_exhausted_count",
+      "project_entity_id": "SRC-007",
+      "relative_path": "src/collectors.py",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "config_type": "env_keys_only",
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "config_file",
+      "name": ".env.example",
+      "project_entity_id": "SRC-008",
+      "relative_path": ".env.example",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "config_type": "readme",
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "config_file",
+      "name": "README.md",
+      "project_entity_id": "SRC-009",
+      "relative_path": "README.md",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "config_type": "dependency_manifest",
+        "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+      },
+      "entity_type": "config_file",
+      "name": "requirements.txt",
+      "project_entity_id": "SRC-010",
+      "relative_path": "requirements.txt",
+      "source": "sanitized_source_context"
+    },
+    {
+      "attributes": {
+        "dependency_name_candidates": [
+          "fastapi",
+          "psycopg",
+          "requests",
+          "uvicorn"
+        ],
+        "manifest_type": "requirements.txt",
+        "raw_manifest_uploaded": false,
+        "relative_path": "requirements.txt"
+      },
+      "entity_type": "dependency_manifest",
+      "name": "requirements.txt",
+      "project_entity_id": "SRC-011",
+      "relative_path": "requirements.txt",
+      "source": "sanitized_source_context"
+    }
+  ],
+  "prompt_rules": [
+    "System Profile is context, not evidence.",
+    "Source Context Bundle is context, not incident evidence.",
+    "Source Analysis Bundle is context, not incident evidence.",
+    "Code/config excerpts may support profile mapping, metric semantics, logger mapping, collector mapping, and instrumentation interpretation.",
+    "Code/config excerpts do not prove runtime occurrence or user impact by themselves.",
+    "Evidence Items are evidence.",
+    "Every support claim must cite evidence_id.",
+    "Support claims about runtime behavior must still cite Evidence Items with evidence_id.",
+    "Do not cite System Profile as support evidence.",
+    "Do not cite Source Context or Source Analysis as support evidence for runtime occurrence.",
+    "If evidence is insufficient, output missing_evidence instead of making a definitive claim.",
+    "If profile_confidence is unknown or inferred, avoid definitive diagnosis and ask for required_profile_questions.",
+    "If analysis_policy.allow_primary_candidate is false, do not produce a primary incident candidate.",
+    "If version anchoring is missing, include a caveat that source context may not match the deployed version during the incident window.",
+    "Do not invent log source names, metric names, state file paths, endpoints, or collector commands.",
+    "Only name concrete metrics or logs that appear in the evidence bundle, approved profile, or source context; otherwise describe the evidence class generically.",
+    "Do not translate missing evidence into ad hoc local commands; leave collection templates to the Evidence Request Planner.",
+    "Raw source, raw env values, credentials, and raw grep output must not be requested or used.",
+    "Score is review priority, not truth probability.",
+    "Profile Draft is not an explicit profile until human approved.",
+    "Discovery Bundle is context for profile generation, not incident evidence.",
+    "Do not upload or request raw env values.",
+    "Do not infer critical user outcomes as facts; mark them as assumptions.",
+    "Metric semantics are candidates until human reviewed.",
+    "Collector mappings must be read-only by default.",
+    "Do not propose write actions, restart actions, rollback actions, or credential changes.",
+    "Source Context Bundle is context, not incident evidence.",
+    "Source Analysis Bundle is context, not incident evidence.",
+    "Code/config excerpts may support profile mapping, metric semantics, logger mapping, collector mapping, and instrumentation interpretation.",
+    "Code/config excerpts do not prove runtime occurrence or user impact by themselves.",
+    "Support claims about runtime behavior must still cite Evidence Items with evidence_id.",
+    "If version anchoring is missing, include a caveat that source context may not match the deployed version during the incident window.",
+    "Raw source, raw env values, credentials, and raw grep output must not be requested or used."
+  ],
+  "raw_config_policy": "not_uploaded",
+  "raw_logs_policy": "not_uploaded",
+  "redaction_summary": {
+    "authorization_header": 0,
+    "basic_auth": 0,
+    "cloud_credential": 0,
+    "cookie": 0,
+    "email": 0,
+    "gmail_credential": 0,
+    "id_like": 0,
+    "internal_url": 0,
+    "ip_address": 0,
+    "pubsub_credential": 0,
+    "secret_like": 0,
+    "token_like": 0,
+    "user_home": 0
+  },
+  "required_profile_questions": [
+    "What is the critical user outcome?",
+    "Which component is the main service path?",
+    "Are restart failures expected or harmful?",
+    "Which metrics are zero-is-good or zero-is-bad?",
+    "Which logs indicate user impact rather than diagnostic noise?",
+    "Which discovered component roles are correct?",
+    "Which metric semantics should become explicit profile rules?"
+  ],
+  "schema_version": "profile_discovery_bundle.v1",
+  "source": {
+    "environment": "prod",
+    "evidence_sha256": "187470a38ceb43d11f5d6bd5c562cb6f459fe99a565eb2500a7e40ab93ece718",
+    "profile_confidence": "inferred",
+    "project_name": "payment_api_sample",
+    "project_root_uploaded": false,
+    "service": "payment-api",
+    "source_analysis_sha256": "efaff3304c860d176a6fec219d364da7c67476ef90db7e7ba6a892e2ea09bba8",
+    "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4"
+  },
+  "source_analysis_summary": {
+    "analysis_sha256": "efaff3304c860d176a6fec219d364da7c67476ef90db7e7ba6a892e2ea09bba8",
+    "bundle_type": "sanitized_source_analysis_bundle",
+    "component_candidate_count": 3,
+    "context_is_not_incident_evidence": true,
+    "metric_semantics_candidate_count": 2
+  },
+  "source_context_summary": {
+    "bundle_type": "sanitized_source_context_bundle",
+    "context_is_not_incident_evidence": true,
+    "project_summary": {
+      "dependency_manifest_candidates": [
+        "requirements.txt"
+      ],
+      "detected_languages": [
+        "markdown",
+        "python"
+      ],
+      "detected_project_type": "python_project",
+      "entrypoint_candidates": [
+        "src/app.py"
+      ],
+      "logging_config_candidates": [],
+      "metric_name_candidates": [
+        "checkout_500_count",
+        "db_pool_exhausted_count"
+      ],
+      "service_unit_candidates": []
+    },
+    "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4",
+    "version_context": {
+      "caveat": "Source context may not match the deployed version during the incident window unless deployment evidence confirms it.",
+      "deployed_version_confirmed": false,
+      "exec_start_path_templates": [],
+      "file_mtime_summary": {
+        "file_count": 5,
+        "max_mtime": "2026-06-29T21:54:19.180720Z",
+        "min_mtime": "2026-06-29T21:54:19.179720Z"
+      },
+      "git_available": true,
+      "git_commit_hash": "8541e69dee913ac6388756b3308be1c97d5b6a26",
+      "git_dirty": true,
+      "systemd_unit_file_path_templates": []
+    }
+  }
+}

@@ -29,6 +29,10 @@ PUBLIC_FLAGSHIP_SHA = "c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be2540055
 REAL_API_QWEN_GLM_SHA = "7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d"
 STREAM_V3_DELL_REAL_API_SHA = "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681"
 STREAM_V3_ARENA_REAL_API_SHA = "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769"
+PUBLIC_PROFILE_CONTEXTS = {
+    "amazon-notify": ROOT / "data" / "public_profile_contexts" / "amazon_notify_sample",
+    "payment-api": ROOT / "data" / "public_profile_contexts" / "payment_api_sample",
+}
 
 
 def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
@@ -73,7 +77,7 @@ def test_public_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_path
         lookback_minutes=45,
         updated_at="2026-06-12T10:20:00Z",
         target_limit=5,
-        source_note="generated from public sample fixture with deterministic local providers",
+        source_note="generated from public sample fixture with deterministic local providers and sanitized source profile context",
     )
 
     assert result.evidence_sha256 == PUBLIC_SAMPLE_SHA
@@ -87,6 +91,10 @@ def test_public_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_path
     assert all(row["provider_id"] != "local-fail" for row in payload["provider_statuses"])
     assert payload["summary"]["review"]["primary_targets"] == 0
     assert payload["summary"]["review"]["validation_targets"] == 5
+    assert payload["profile_context"]["profile_id"] == "payment_api_sample_source_approved"
+    assert payload["profile_draft_generation"]["llm_status"] == "ok"
+    assert payload["analysis_context"]["source_context_sha256"]
+    assert payload["analysis_context"]["source_analysis_sha256"]
     first_target = payload["targets"][0]
     assert first_target["agreement"]["convergence_score"] == 0.6666666667
     assert first_target["agreement"]["score_definition"] == "claimed successful providers / all successful providers"
@@ -244,6 +252,7 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
             "summary": payload["summary"],
             "provider_statuses": payload["provider_statuses"],
             "review_graph_summary": payload["review_graph_summary"],
+            "profile_context": payload["profile_context"],
             "targets": payload["targets"],
         }
     )
@@ -259,6 +268,10 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
     assert payload["analysis_context"]["model_projection_evidence_items"] == 140
     assert payload["analysis_context"]["model_projection_occurrence_count"] == 4939
     assert payload["analysis_context"]["model_projection_occurrence_coverage_ratio"] == 0.759145
+    assert payload["profile_context"]["profile_id"] == "amazon_notify_qwen_glm_full_corpus_approved"
+    assert payload["profile_draft_generation"]["llm_status"] == "ok"
+    assert payload["analysis_context"]["source_context_sha256"]
+    assert payload["analysis_context"]["source_analysis_sha256"]
 
     detail_html = _render_precomputed_review_detail_page(REAL_API_QWEN_GLM_SHA, payload)
     graph_html = _render_precomputed_graph_page(REAL_API_QWEN_GLM_SHA, payload)
@@ -328,9 +341,14 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
                 "summary": payload["summary"],
                 "provider_statuses": payload["provider_statuses"],
                 "review_graph_summary": payload["review_graph_summary"],
+                "profile_context": payload["profile_context"],
                 "targets": payload["targets"],
             }
         )
+        assert payload["profile_draft_generation"]["llm_status"] == "ok"
+        assert payload["profile_context"]["profile_id"]
+        assert payload["analysis_context"]["source_context_sha256"]
+        assert payload["analysis_context"]["source_analysis_sha256"]
 
         provider_rows = {row["provider_id"]: row for row in payload["provider_statuses"]}
         assert provider_rows["qwen-agent-platform"]["schema_valid"] is True
@@ -363,7 +381,7 @@ def test_flagship_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_pa
         lookback_minutes=1440,
         updated_at="2026-06-26T23:32:21Z",
         target_limit=6,
-        source_note="generated from committed public-safe amazon-notify fixture with deterministic local providers",
+        source_note="generated from committed public-safe amazon-notify fixture with deterministic local providers and sanitized source profile context",
     )
 
     assert result.evidence_sha256 == PUBLIC_FLAGSHIP_SHA
@@ -376,6 +394,10 @@ def test_flagship_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_pa
     assert all(row["provider_id"] != "local-fail" for row in payload["provider_statuses"])
     assert payload["summary"]["review"]["primary_targets"] == 0
     assert payload["summary"]["review"]["validation_targets"] == 1
+    assert payload["profile_context"]["profile_id"] == "amazon_notify_sample_source_approved"
+    assert payload["profile_draft_generation"]["llm_status"] == "ok"
+    assert payload["analysis_context"]["source_context_sha256"]
+    assert payload["analysis_context"]["source_analysis_sha256"]
     assert payload["review_graph_summary"]["convergence_count"] >= 1
     target = payload["targets"][0]
     assert target["agreement"]["verdict"] == "convergence"
@@ -428,5 +450,26 @@ def _build_public_payload(
         target_limit=target_limit,
         source_note=source_note,
         provider_mode=provider_mode,
+        **_public_profile_kwargs(service),
     )
     return result, payload
+
+
+def _public_profile_kwargs(service: str) -> dict:
+    profile_dir = PUBLIC_PROFILE_CONTEXTS.get(service)
+    if not profile_dir:
+        return {}
+    approved_profile = _load_json(profile_dir / "approved_profile.json")
+    return {
+        "source_context": _load_json(profile_dir / "source_context_bundle.json"),
+        "source_analysis": _load_json(profile_dir / "source_analysis_bundle.json"),
+        "profile_draft": _load_json(profile_dir / "profile_draft.json"),
+        "approved_profile": approved_profile,
+        "profile_id": str(approved_profile.get("profile_id") or ""),
+    }
+
+
+def _load_json(path: Path) -> dict:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert isinstance(data, dict), path
+    return data

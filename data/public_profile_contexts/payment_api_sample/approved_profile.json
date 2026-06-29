@@ -1,0 +1,223 @@
+{
+  "action_constraints": [
+    "Collector mappings are read-only until human approved.",
+    "Do not propose credential changes from a profile draft.",
+    "Do not propose write actions, restart actions, rollback actions, or credential changes.",
+    "Collector mappings must be read-only by default.",
+    "This AI-generated profile draft is context only until human approval.",
+    "Runtime support claims must cite evidence_id from Evidence Items.",
+    "System Profile is context, not evidence.",
+    "Support claims must cite evidence_id."
+  ],
+  "collector_mappings": {
+    "instrumentation_consistency_query": {
+      "candidate_collectors": [
+        "local_logs",
+        "local_config"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "params": {},
+      "safety_level": "read_only"
+    },
+    "metric_semantics_query": {
+      "candidate_collectors": [
+        "local_metrics",
+        "local_prometheus",
+        "local_logs"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "params": {},
+      "safety_level": "read_only"
+    },
+    "throughput_signal_query": {
+      "candidate_collectors": [
+        "local_metrics",
+        "local_prometheus",
+        "local_logs"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "params": {},
+      "safety_level": "read_only"
+    }
+  },
+  "component_map": {
+    "app_py": {
+      "confidence": 0.74,
+      "core_target_types": [
+        "general"
+      ],
+      "human_review_required": true,
+      "name": "app_py",
+      "role": "service_entrypoint",
+      "subsystem": "general"
+    },
+    "checkout_500_count": {
+      "confidence": 0.64,
+      "core_target_types": [
+        "general",
+        "monitoring_gap"
+      ],
+      "human_review_required": true,
+      "name": "checkout_500_count",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "cloud_run_revision": {
+      "confidence": 0.9,
+      "core_target_types": [
+        "general"
+      ],
+      "human_review_required": true,
+      "name": "cloud_run_revision",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "comp_001": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "general"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "cloud_run_revision",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "comp_002": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "general"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "payment_api",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "comp_src_001": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "general"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "app_py",
+      "role": "service_entrypoint",
+      "subsystem": "general"
+    },
+    "db_pool_exhausted_count": {
+      "confidence": 0.64,
+      "core_target_types": [
+        "general",
+        "monitoring_gap"
+      ],
+      "human_review_required": true,
+      "name": "db_pool_exhausted_count",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "payment_api": {
+      "confidence": 0.9,
+      "core_target_types": [
+        "general"
+      ],
+      "human_review_required": true,
+      "name": "payment_api",
+      "role": "component",
+      "subsystem": "general"
+    }
+  },
+  "context_note": "System profile fields are interpretation context only. They are not evidence and must not be cited as support.",
+  "known_benign_noise": [],
+  "log_sources": [
+    {
+      "human_review_required": true,
+      "meaning": "Candidate log source derived from sanitized profile discovery.",
+      "source_id": "profile",
+      "source_name": "sanitized_events",
+      "source_type": "logger_name"
+    },
+    {
+      "description": "Observed logger name in evidence bundle",
+      "generation_source": "gemini_profile_draft",
+      "source_id": "sanitized_events"
+    }
+  ],
+  "metric_semantics": {
+    "checkout_500_count": {
+      "confidence": 0.7,
+      "core_target_type": "general",
+      "decrease_behavior": "unknown",
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "increase_behavior": "unknown",
+      "semantic_type": "candidate",
+      "subsystem": "general",
+      "zero_behavior": "unknown"
+    },
+    "db_pool_exhausted_count": {
+      "confidence": 0.7,
+      "core_target_type": "general",
+      "decrease_behavior": "unknown",
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "increase_behavior": "unknown",
+      "semantic_type": "candidate",
+      "subsystem": "general",
+      "zero_behavior": "unknown"
+    }
+  },
+  "metrics": {
+    "checkout_500_count": {
+      "core_target_type": "general",
+      "decrease_behavior": "unknown",
+      "increase_behavior": "unknown",
+      "semantic_type": "candidate",
+      "subsystem": "general",
+      "zero_behavior": "unknown"
+    },
+    "db_pool_exhausted_count": {
+      "core_target_type": "general",
+      "decrease_behavior": "unknown",
+      "increase_behavior": "unknown",
+      "semantic_type": "candidate",
+      "subsystem": "general",
+      "zero_behavior": "unknown"
+    }
+  },
+  "operational_contract": {
+    "expected_normal": [],
+    "failure_indicators": [],
+    "non_critical_noise": []
+  },
+  "profile_discovery_approval": {
+    "approval_note": "Approved public deterministic payment-api sample profile generated from sanitized source context.",
+    "approved": true,
+    "approved_at": "2026-06-29T21:55:18Z",
+    "approved_by": "yukimurata0421",
+    "explicit_profile": true,
+    "source_discovery_sha256": "129d9c4c10ef25734646b69b3d0f00b944190a8ee9fe530f1d9beb8b47d17c14",
+    "source_draft_schema_version": "profile_draft.v1",
+    "source_draft_type": "profile_mapping_draft"
+  },
+  "profile_id": "payment_api_sample_source_approved",
+  "profile_label": "payment_api_sample_source_approved approved profile",
+  "review_policy": {
+    "context_is_not_evidence": true,
+    "profile_draft_approved": true,
+    "require_evidence_id_for_support": true
+  },
+  "source_system": "payment_api_sample_source_approved",
+  "system_profile": {
+    "critical_user_outcomes": [
+      "Successful payment processing"
+    ],
+    "profile_scope": "Human-approved profile generated from sanitized Profile Discovery.",
+    "purpose": "payment-api service",
+    "system_name": "payment_api_sample_source_approved",
+    "system_type": "python_project"
+  }
+}

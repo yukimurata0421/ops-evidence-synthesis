@@ -158,8 +158,8 @@ def test_technical_baseline_without_impact_is_visible_but_not_primary() -> None:
     assert dimensions["incident_baseline_agreement"]["established"] is False
     assert dimensions["baseline_agreement"]["established"] is False
     assert dimensions["impact_agreement"]["value"] == "none"
-    assert graph["finding"]["title"] == "Technical baseline requires impact validation"
-    assert "Providers aligned on a technical baseline" in graph["finding"]["impact"]
+    assert graph["finding"]["title"] == "Technical support requires impact validation"
+    assert "Providers aligned on technical support" in graph["finding"]["impact"]
     assert graph["summary"]["primary_count"] == 0
     assert graph["summary"]["validation_count"] == 1
     decision = graph["promotion_decisions"][0]
@@ -377,7 +377,7 @@ def test_support_claim_without_evidence_id_is_auto_archived() -> None:
 def test_finding_impact_come_from_canonical_graph_for_disagreement() -> None:
     graph = arbitrate_review_targets(_bundle(), multi_ai_synthesis=_disagreement_synthesis())
     assert graph["finding"]["title"] == "Multi-AI disagreement requires validation"
-    assert "No incident baseline agreement was found" in graph["finding"]["impact"]
+    assert "No incident-promotion agreement was found" in graph["finding"]["impact"]
 
 
 def test_planner_uses_canonical_review_graph_request_types() -> None:

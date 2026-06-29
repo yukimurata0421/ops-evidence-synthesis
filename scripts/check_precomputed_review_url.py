@@ -21,7 +21,7 @@ PUBLIC_INDEX_NEEDLES = [
 
 DETAIL_NEEDLES = [
     "Provider positions",
-    "Agreement and baselines",
+    "Agreement and promotion gates",
     "Promotion gate",
     "Convergence score:",
 ]

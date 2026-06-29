@@ -1,0 +1,31 @@
+{
+  "policy": {
+    "max_excerpt_bytes": 4096,
+    "max_total_excerpt_bytes": 200000,
+    "raw_credentials_allowed": false,
+    "raw_env_values_uploaded": false,
+    "raw_grep_output_uploaded": false,
+    "raw_source_uploaded": false,
+    "sanitize_before_upload": true,
+    "verify_sanitized_required": true
+  },
+  "raw_env_policy": "not_uploaded",
+  "raw_source_policy": "not_uploaded",
+  "schema_version": "source_redaction_report.v1",
+  "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4",
+  "summary": {
+    "authorization_header": 0,
+    "basic_auth": 0,
+    "cloud_credential": 0,
+    "cookie": 0,
+    "email": 0,
+    "gmail_credential": 0,
+    "id_like": 0,
+    "internal_url": 0,
+    "ip_address": 0,
+    "pubsub_credential": 0,
+    "secret_like": 0,
+    "token_like": 0,
+    "user_home": 0
+  }
+}

@@ -1054,14 +1054,14 @@ def finding_impact_from_synthesis(synthesis: dict[str, Any]) -> dict[str, str]:
         }
     if agreement:
         return {
-            "finding": f"{len(agreement)} baseline review signals detected",
+            "finding": f"{len(agreement)} technical review signals detected",
             "impact": "Agreement is used as a review signal, not as truth.",
         }
     if disagreement:
         return {
             "finding": "Multi-AI disagreement requires validation",
             "impact": (
-                f"No incident baseline agreement was found. {len(disagreement)} disagreement groups were routed "
+                f"No incident-promotion agreement was found. {len(disagreement)} disagreement groups were routed "
                 "to validation targets, and no primary incident candidate was promoted."
             ),
         }

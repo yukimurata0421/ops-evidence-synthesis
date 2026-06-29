@@ -41,7 +41,7 @@ schema-valid.
 | Source context SHA256 | `669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2` | `669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2` |
 | Source analysis SHA256 | `451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5` | `451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5` |
 | Public payload | `data/precomputed_review_summaries/64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681.json` | `data/precomputed_review_summaries/f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769.json` |
-| Payload SHA256 | `3a9ae3e10e5338743ec5b7a705926b6eea07501f66d87b7c65f3bb29770d51db` | `e2c35e0b4d4dc9625b4635d53bd8344d7d30d333b0ab8996628a733bf19ff4e6` |
+| Payload SHA256 | `b629d3d45c5481b896426b1d5f88763c983d516e40caa4383d4858bcdb0fb1b5` | `1f63ffcbb0b8aa9d11d1a4dfc3a18e6640a362f7636b0d69d79b6c80b5915c56` |
 
 ## Data Boundary
 
@@ -116,9 +116,9 @@ sanitized corpus remained in the Evidence Bundle and public payload metadata.
 
 ## Review Outcome
 
-| Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived | Incident baseline |
+| Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived | Incident promotion gate |
 | --- | ---: | ---: | ---: | ---: | --- |
-| Dell runtime | 0 | 7 | 2 | 0 | Graph baseline established; action remains human-gated |
+| Dell runtime | 0 | 7 | 2 | 0 | Graph support established; action remains human-gated |
 | arena-server monitoring | 0 | 6 | 2 | 1 | Open |
 
 Both runs intentionally stop at human review. Provider convergence can create

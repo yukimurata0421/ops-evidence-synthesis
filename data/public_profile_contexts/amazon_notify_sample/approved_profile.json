@@ -1,0 +1,418 @@
+{
+  "action_constraints": [
+    "Collector mappings are read-only until human approved.",
+    "Do not propose credential changes from a profile draft.",
+    "Collector mappings must be read-only",
+    "Do not propose write actions, restarts, rollbacks, credential changes, or raw data collection",
+    "Raw source, raw env values, credentials, and raw grep output must not be requested or used",
+    "This AI-generated profile draft is context only until human approval.",
+    "Runtime support claims must cite evidence_id from Evidence Items.",
+    "System Profile is context, not evidence.",
+    "Support claims must cite evidence_id."
+  ],
+  "collector_mappings": {
+    "instrumentation_consistency_query": {
+      "candidate_collectors": [
+        "local_logs",
+        "local_config"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "params": {},
+      "safety_level": "read_only"
+    },
+    "metric_semantics_query": {
+      "candidate_collectors": [
+        "local_metrics",
+        "local_prometheus",
+        "local_logs"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "params": {},
+      "safety_level": "read_only"
+    },
+    "process_state_query": {
+      "candidate_collectors": [
+        "local_systemd",
+        "local_journal",
+        "local_process"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "params": {},
+      "safety_level": "read_only"
+    },
+    "throughput_signal_query": {
+      "candidate_collectors": [
+        "local_metrics",
+        "local_prometheus",
+        "local_logs"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "params": {},
+      "safety_level": "read_only"
+    }
+  },
+  "component_map": {
+    "amazon_notify": {
+      "confidence": 0.9,
+      "core_target_types": [
+        "general"
+      ],
+      "human_review_required": true,
+      "name": "amazon_notify",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "amazon_notify_main_watchdog": {
+      "confidence": 0.86,
+      "core_target_types": [
+        "job_configuration_mismatch",
+        "restart_loop",
+        "service_start_failure"
+      ],
+      "human_review_required": true,
+      "name": "amazon_notify_main_watchdog",
+      "role": "recovery_supervisor",
+      "subsystem": "runtime_recovery"
+    },
+    "amazon_notify_watch_renew": {
+      "confidence": 0.95,
+      "core_target_types": [
+        "job_configuration_mismatch",
+        "service_start_failure"
+      ],
+      "human_review_required": true,
+      "name": "amazon_notify_watch_renew",
+      "role": "systemd_service",
+      "subsystem": "job_configuration"
+    },
+    "comp_001": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "general"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "amazon_notify",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "comp_003": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "job_configuration_mismatch",
+        "service_start_failure"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "amazon_notify_pubsub",
+      "role": "listener",
+      "subsystem": "job_configuration"
+    },
+    "comp_004": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "job_configuration_mismatch",
+        "service_start_failure"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "amazon_notify_watch_renew",
+      "role": "systemd_service",
+      "subsystem": "job_configuration"
+    },
+    "comp_005": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "general"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "journalctl_json",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "comp_006": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "general"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "jsonl",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "comp_007": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "job_configuration_mismatch",
+        "restart_loop",
+        "service_start_failure"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "python3",
+      "role": "watchdog",
+      "subsystem": "runtime_recovery"
+    },
+    "comp_008": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "job_configuration_mismatch",
+        "service_start_failure"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "systemd_status",
+      "role": "component",
+      "subsystem": "job_configuration"
+    },
+    "comp_009": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "general"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "text_log",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "comp_src_001": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "job_configuration_mismatch",
+        "restart_loop",
+        "service_start_failure"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "amazon_notify_main_watchdog",
+      "role": "recovery_supervisor",
+      "subsystem": "runtime_recovery"
+    },
+    "comp_src_002": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "general",
+        "monitoring_gap"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "job_configuration_mismatch_count",
+      "role": "component",
+      "subsystem": "background_processing"
+    },
+    "comp_src_003": {
+      "confidence": 0.7,
+      "core_target_types": [
+        "monitoring_gap",
+        "restart_loop"
+      ],
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "name": "watchdog_heartbeat_count",
+      "role": "recovery_supervisor",
+      "subsystem": "runtime_recovery"
+    },
+    "job_configuration_mismatch_count": {
+      "confidence": 0.64,
+      "core_target_types": [
+        "general",
+        "monitoring_gap"
+      ],
+      "human_review_required": true,
+      "name": "job_configuration_mismatch_count",
+      "role": "component",
+      "subsystem": "background_processing"
+    },
+    "journalctl_json": {
+      "confidence": 0.9,
+      "core_target_types": [
+        "general"
+      ],
+      "human_review_required": true,
+      "name": "journalctl_json",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "jsonl": {
+      "confidence": 0.9,
+      "core_target_types": [
+        "general"
+      ],
+      "human_review_required": true,
+      "name": "jsonl",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "python3": {
+      "confidence": 0.3,
+      "core_target_types": [
+        "job_configuration_mismatch",
+        "restart_loop",
+        "service_start_failure"
+      ],
+      "human_review_required": true,
+      "name": "python3",
+      "role": "watchdog",
+      "subsystem": "runtime_recovery"
+    },
+    "redacted_secret": "<REDACTED_SECRET>",
+    "systemd_status": {
+      "confidence": 0.9,
+      "core_target_types": [
+        "job_configuration_mismatch",
+        "service_start_failure"
+      ],
+      "human_review_required": true,
+      "name": "systemd_status",
+      "role": "component",
+      "subsystem": "job_configuration"
+    },
+    "text_log": {
+      "confidence": 0.9,
+      "core_target_types": [
+        "general"
+      ],
+      "human_review_required": true,
+      "name": "text_log",
+      "role": "component",
+      "subsystem": "general"
+    },
+    "watchdog_heartbeat_count": {
+      "confidence": 0.64,
+      "core_target_types": [
+        "monitoring_gap",
+        "restart_loop"
+      ],
+      "human_review_required": true,
+      "name": "watchdog_heartbeat_count",
+      "role": "recovery_supervisor",
+      "subsystem": "runtime_recovery"
+    }
+  },
+  "context_note": "System profile fields are interpretation context only. They are not evidence and must not be cited as support.",
+  "known_benign_noise": [],
+  "log_sources": [
+    {
+      "human_review_required": true,
+      "meaning": "Candidate log source derived from sanitized profile discovery.",
+      "source_id": "profile",
+      "source_name": "sanitized_events",
+      "source_type": "logger_name"
+    },
+    {
+      "description": "Sanitized application events logger",
+      "generation_source": "gemini_profile_draft",
+      "source_id": "sanitized_events"
+    },
+    {
+      "description": "Standard text log output",
+      "generation_source": "gemini_profile_draft",
+      "source_id": "text_log"
+    },
+    {
+      "description": "Systemd journal JSON output",
+      "generation_source": "gemini_profile_draft",
+      "source_id": "journalctl_json"
+    }
+  ],
+  "metric_semantics": {
+    "heartbeat": {
+      "confidence": 0.7,
+      "core_target_type": "throughput_disappearance",
+      "decrease_behavior": "suspicious",
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "increase_behavior": "healthy",
+      "semantic_type": "heartbeat",
+      "subsystem": "general",
+      "zero_behavior": "suspicious"
+    },
+    "job_configuration_mismatch_count": {
+      "confidence": 0.7,
+      "core_target_type": "service_start_failure",
+      "decrease_behavior": "healthy",
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "increase_behavior": "suspicious",
+      "semantic_type": "error",
+      "subsystem": "background_processing",
+      "zero_behavior": "healthy"
+    },
+    "watchdog_heartbeat_count": {
+      "confidence": 0.7,
+      "core_target_type": "throughput_disappearance",
+      "decrease_behavior": "suspicious",
+      "generation_source": "gemini_profile_draft",
+      "human_review_required": true,
+      "increase_behavior": "healthy",
+      "semantic_type": "heartbeat",
+      "subsystem": "runtime_recovery",
+      "zero_behavior": "suspicious"
+    }
+  },
+  "metrics": {
+    "heartbeat": {
+      "core_target_type": "throughput_disappearance",
+      "decrease_behavior": "suspicious",
+      "increase_behavior": "healthy",
+      "semantic_type": "heartbeat",
+      "subsystem": "general",
+      "zero_behavior": "suspicious"
+    },
+    "job_configuration_mismatch_count": {
+      "core_target_type": "service_start_failure",
+      "decrease_behavior": "healthy",
+      "increase_behavior": "suspicious",
+      "semantic_type": "error",
+      "subsystem": "background_processing",
+      "zero_behavior": "healthy"
+    },
+    "watchdog_heartbeat_count": {
+      "core_target_type": "throughput_disappearance",
+      "decrease_behavior": "suspicious",
+      "increase_behavior": "healthy",
+      "semantic_type": "heartbeat",
+      "subsystem": "runtime_recovery",
+      "zero_behavior": "suspicious"
+    }
+  },
+  "operational_contract": {
+    "expected_normal": [],
+    "failure_indicators": [],
+    "non_critical_noise": []
+  },
+  "profile_discovery_approval": {
+    "approval_note": "Approved public deterministic amazon-notify sample profile generated from sanitized source context.",
+    "approved": true,
+    "approved_at": "2026-06-29T21:56:26Z",
+    "approved_by": "yukimurata0421",
+    "explicit_profile": true,
+    "source_discovery_sha256": "48923932477e0fda31da696272b1219992b501047dc91526859556d0e053e7fa",
+    "source_draft_schema_version": "profile_draft.v1",
+    "source_draft_type": "profile_mapping_draft"
+  },
+  "profile_id": "amazon_notify_sample_source_approved",
+  "profile_label": "amazon_notify_sample_source_approved approved profile",
+  "review_policy": {
+    "context_is_not_evidence": true,
+    "profile_draft_approved": true,
+    "require_evidence_id_for_support": true
+  },
+  "source_system": "amazon_notify_sample_source_approved",
+  "system_profile": {
+    "critical_user_outcomes": [
+      "Notifications are successfully processed and delivered"
+    ],
+    "profile_scope": "Human-approved profile generated from sanitized Profile Discovery.",
+    "purpose": "amazon-notify service with pubsub and watchdog components",
+    "system_name": "amazon_notify_sample_source_approved",
+    "system_type": "systemd_service"
+  }
+}

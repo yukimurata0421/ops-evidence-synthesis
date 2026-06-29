@@ -12,7 +12,7 @@ history, private URLs, project-specific incident data, or local operator paths.
 - BigQuery-oriented schema for production-style storage.
 - Provider registry and per-provider `model_run.v1` artifacts.
 - Gemini-led workflow policy: Gemini runs first as the required provider and
-  baseline comparator; alternative providers act as cross-checks.
+  reference point; alternative providers act as cross-checks.
 - Safety preflight before provider calls.
 - Multi-provider synthesis with agreement groups, disagreement themes, and
   missing-evidence routing.
@@ -26,7 +26,7 @@ history, private URLs, project-specific incident data, or local operator paths.
 - `run-case` and `arbitrate-review` can consume approved profile, sanitized
   source context, and sanitized source analysis artifacts without accepting raw
   source or raw environment values.
-- Separation of technical baseline agreement from incident baseline agreement.
+- Separation of technical support from incident-promotion agreement.
 - Evidence Request Planner with human-question answers, write-token guarded
   generation, progress state, and explicit "no text changes" output state.
 - Review queue UI with bundle provenance, review target cards, evidence drawer,

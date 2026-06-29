@@ -1,0 +1,302 @@
+{
+  "bundle_type": "sanitized_source_context_bundle",
+  "canonicalization_version": "canonical_json.v1",
+  "config_items": [
+    {
+      "config_id": "CFG-a3046da0d15a",
+      "config_type": "env_keys_only",
+      "raw_values_uploaded": false,
+      "relative_path": ".env.example",
+      "summary": {
+        "line_count": 5,
+        "summary_type": "config_file"
+      }
+    },
+    {
+      "config_id": "CFG-b33563055168",
+      "config_type": "readme",
+      "raw_values_uploaded": false,
+      "relative_path": "README.md",
+      "summary": {
+        "headings": [
+          "Profile Discovery Sample"
+        ],
+        "summary_type": "readme_headings"
+      }
+    },
+    {
+      "config_id": "CFG-4d7c51b1efe9",
+      "config_type": "dependency_manifest",
+      "raw_values_uploaded": false,
+      "relative_path": "requirements.txt",
+      "summary": {
+        "dependency_name_candidates": [
+          "google-api-python-client",
+          "requests"
+        ],
+        "manifest_type": "requirements.txt",
+        "raw_manifest_uploaded": false,
+        "relative_path": "requirements.txt"
+      }
+    },
+    {
+      "config_id": "CFG-6071f77fcc44",
+      "config_type": "systemd_unit",
+      "raw_values_uploaded": false,
+      "relative_path": "systemd/amazon-notify-main-watchdog.service",
+      "summary": {
+        "description": "Sample notification main watchdog",
+        "environment_file_template": "<USER_HOME>/projects/amazon-notify/.env",
+        "exec_start_template": "/usr/bin/python3 <USER_HOME>/projects/amazon-notify/src/watchdog_restart_main.py --service amazon-notify-main",
+        "raw_unit_uploaded": false,
+        "referenced_programs": [
+          "/usr/bin/python3",
+          "<USER_HOME>/projects/amazon-notify/src/watchdog_restart_main.py",
+          "python3",
+          "watchdog_restart_main.py"
+        ],
+        "relative_path": "systemd/amazon-notify-main-watchdog.service",
+        "restart": "on-failure",
+        "unit_file_path_template": "systemd/amazon-notify-main-watchdog.service",
+        "unit_name": "amazon-notify-main-watchdog.service",
+        "user": "appuser",
+        "working_directory_template": "<USER_HOME>/projects/amazon-notify"
+      }
+    }
+  ],
+  "dependency_manifests": [
+    {
+      "dependency_name_candidates": [
+        "google-api-python-client",
+        "requests"
+      ],
+      "manifest_type": "requirements.txt",
+      "raw_manifest_uploaded": false,
+      "relative_path": "requirements.txt"
+    }
+  ],
+  "display_summary": {
+    "config_item_count": 4,
+    "env_key_count": 5,
+    "primary_badges": [
+      "raw_source_policy:not_uploaded",
+      "raw_env_policy:not_uploaded",
+      "context_not_incident_evidence"
+    ],
+    "source_item_count": 2,
+    "subtitle": "Raw source code and raw env values were not uploaded. This bundle is context, not incident evidence.",
+    "systemd_unit_count": 1,
+    "title": "Sanitized Source Context Bundle"
+  },
+  "env_key_summaries": [
+    {
+      "key_hash": "44586486c4221763",
+      "key_name": "V3_FAST_RECOVERY_INTERVAL_SEC",
+      "present": true,
+      "raw_key_uploaded": true,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": false,
+      "value_type": "integer"
+    },
+    {
+      "key_hash": "0c614d8bc5ef2083",
+      "key_name": "MESSAGE_LABEL",
+      "present": true,
+      "raw_key_uploaded": true,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": false,
+      "value_type": "string"
+    },
+    {
+      "key_hash": "416fa2a4639826bb",
+      "key_name": "",
+      "present": true,
+      "raw_key_uploaded": false,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": true,
+      "value_type": "string"
+    },
+    {
+      "key_hash": "d0b81598d8c16c7d",
+      "key_name": "",
+      "present": true,
+      "raw_key_uploaded": false,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": true,
+      "value_type": "url"
+    },
+    {
+      "key_hash": "1e98969e907bc75a",
+      "key_name": "",
+      "present": true,
+      "raw_key_uploaded": false,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": true,
+      "value_type": "path"
+    }
+  ],
+  "project_summary": {
+    "dependency_manifest_candidates": [
+      "requirements.txt"
+    ],
+    "detected_languages": [
+      "markdown",
+      "python",
+      "systemd"
+    ],
+    "detected_project_type": "systemd_service",
+    "entrypoint_candidates": [
+      "systemd/amazon-notify-main-watchdog.service"
+    ],
+    "logging_config_candidates": [],
+    "metric_name_candidates": [
+      "job_configuration_mismatch_count",
+      "watchdog_heartbeat_count"
+    ],
+    "service_unit_candidates": [
+      "amazon-notify-main-watchdog.service"
+    ]
+  },
+  "prompt_rules": [
+    "Source Context Bundle is context, not incident evidence.",
+    "Source Analysis Bundle is context, not incident evidence.",
+    "Code/config excerpts may support profile mapping, metric semantics, logger mapping, collector mapping, and instrumentation interpretation.",
+    "Code/config excerpts do not prove runtime occurrence or user impact by themselves.",
+    "Support claims about runtime behavior must still cite Evidence Items with evidence_id.",
+    "If version anchoring is missing, include a caveat that source context may not match the deployed version during the incident window.",
+    "Raw source, raw env values, credentials, and raw grep output must not be requested or used."
+  ],
+  "raw_env_policy": "not_uploaded",
+  "raw_source_policy": "not_uploaded",
+  "redaction_summary": {
+    "authorization_header": 0,
+    "basic_auth": 0,
+    "cloud_credential": 0,
+    "cookie": 0,
+    "email": 0,
+    "gmail_credential": 0,
+    "id_like": 0,
+    "internal_url": 0,
+    "ip_address": 0,
+    "pubsub_credential": 0,
+    "secret_like": 0,
+    "token_like": 0,
+    "user_home": 4
+  },
+  "sanitization_policy": {
+    "max_excerpt_bytes": 4096,
+    "max_total_excerpt_bytes": 200000,
+    "raw_credentials_allowed": false,
+    "raw_env_values_uploaded": false,
+    "raw_grep_output_uploaded": false,
+    "raw_source_uploaded": false,
+    "sanitize_before_upload": true,
+    "verify_sanitized_required": true
+  },
+  "schema_version": "source_context_bundle.v1",
+  "source": {
+    "environment": "prod",
+    "project_name": "profile_discovery_sample",
+    "project_root_uploaded": false,
+    "service": "amazon-notify"
+  },
+  "source_context_sha256": "9dcf00193d0446d793b6a82ae330a7dc55b67b1c915f4c2abfe6130a5bafcb3f",
+  "source_items": [
+    {
+      "entrypoint_candidate": false,
+      "excerpt_policy": {
+        "full_source_uploaded": false,
+        "max_excerpt_bytes": 4096,
+        "raw_source_uploaded": false,
+        "secret_like_lines_excluded": 0
+      },
+      "excerpt_sanitized": [
+        "from __future__ import annotations",
+        "import os",
+        "def run_listener() -> None:",
+        "print(f\"main listener active label={label} metric=watchdog_heartbeat_count\")"
+      ],
+      "item_id": "SRC-82688d667e1b",
+      "language": "python",
+      "line_count": 8,
+      "logger_candidates": [],
+      "metric_name_candidates": [
+        "watchdog_heartbeat_count"
+      ],
+      "relative_path": "src/main_listener.py",
+      "size_bytes": 210,
+      "systemd_unit_mentions": []
+    },
+    {
+      "entrypoint_candidate": false,
+      "excerpt_policy": {
+        "full_source_uploaded": false,
+        "max_excerpt_bytes": 4096,
+        "raw_source_uploaded": false,
+        "secret_like_lines_excluded": 0
+      },
+      "excerpt_sanitized": [
+        "from __future__ import annotations",
+        "import os",
+        "\"job_configuration_mismatch_count\",",
+        "\"watchdog_heartbeat_count\",",
+        "def main() -> int:",
+        "print(f\"watchdog interval={interval} metric=job_configuration_mismatch_count\")"
+      ],
+      "item_id": "SRC-b9ed45542ed4",
+      "language": "python",
+      "line_count": 19,
+      "logger_candidates": [],
+      "metric_name_candidates": [
+        "job_configuration_mismatch_count",
+        "watchdog_heartbeat_count"
+      ],
+      "relative_path": "src/watchdog_restart_main.py",
+      "size_bytes": 392,
+      "systemd_unit_mentions": []
+    }
+  ],
+  "systemd_units": [
+    {
+      "description": "Sample notification main watchdog",
+      "environment_file_template": "<USER_HOME>/projects/amazon-notify/.env",
+      "exec_start_template": "/usr/bin/python3 <USER_HOME>/projects/amazon-notify/src/watchdog_restart_main.py --service amazon-notify-main",
+      "raw_unit_uploaded": false,
+      "referenced_programs": [
+        "/usr/bin/python3",
+        "<USER_HOME>/projects/amazon-notify/src/watchdog_restart_main.py",
+        "python3",
+        "watchdog_restart_main.py"
+      ],
+      "relative_path": "systemd/amazon-notify-main-watchdog.service",
+      "restart": "on-failure",
+      "unit_file_path_template": "systemd/amazon-notify-main-watchdog.service",
+      "unit_name": "amazon-notify-main-watchdog.service",
+      "user": "appuser",
+      "working_directory_template": "<USER_HOME>/projects/amazon-notify"
+    }
+  ],
+  "version_context": {
+    "caveat": "Source context may not match the deployed version during the incident window unless deployment evidence confirms it.",
+    "deployed_version_confirmed": false,
+    "exec_start_path_templates": [
+      "/usr/bin/python3 <USER_HOME>/projects/amazon-notify/src/watchdog_restart_main.py --service amazon-notify-main"
+    ],
+    "file_mtime_summary": {
+      "file_count": 6,
+      "max_mtime": "2026-06-27T05:14:44.999499Z",
+      "min_mtime": "2026-06-27T05:14:44.999151Z"
+    },
+    "git_available": true,
+    "git_commit_hash": "8541e69dee913ac6388756b3308be1c97d5b6a26",
+    "git_dirty": true,
+    "systemd_unit_file_path_templates": [
+      "systemd/amazon-notify-main-watchdog.service"
+    ]
+  }
+}

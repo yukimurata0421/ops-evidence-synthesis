@@ -18,7 +18,7 @@
       "summary": "Evidence Bundle 64fa79977171 fixed 8,011 sanitized rows; raw_log_policy=not_uploaded.",
       "title": "Freeze Evidence Bundle",
       "tool": "freeze_evidence_bundle",
-      "trace_sha256": "891c8b0a60d92a0f87745fdc23fce70410dc93ef14c1b082ee562bb05781791a",
+      "trace_sha256": "4ed8e0db57a75787560d794fa920f4b177588f6ffcacf8b886ccec971f451f4d",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -41,7 +41,7 @@
       "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
       "title": "Attach Sanitized Source Context",
       "tool": "attach_sanitized_source_context",
-      "trace_sha256": "891c8b0a60d92a0f87745fdc23fce70410dc93ef14c1b082ee562bb05781791a",
+      "trace_sha256": "4ed8e0db57a75787560d794fa920f4b177588f6ffcacf8b886ccec971f451f4d",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -50,7 +50,7 @@
       "artifact": "adk:tool:run_cross_check_providers",
       "output": {
         "artifact": "model_runs",
-        "gemini_baseline_present": true,
+        "gemini_reference_present": true,
         "provider_count": 5,
         "provider_ids": [
           "gemini-enterprise-agent-platform",
@@ -61,15 +61,15 @@
         ],
         "schema_valid_provider_count": 5,
         "status": "completed",
-        "summary": "5/5 provider outputs were schema-valid; Gemini baseline/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure."
+        "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure."
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "run_cross_check_providers",
-      "summary": "5/5 provider outputs were schema-valid; Gemini baseline/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
+      "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
       "title": "Run Cross-Check Providers",
       "tool": "run_cross_check_providers",
-      "trace_sha256": "891c8b0a60d92a0f87745fdc23fce70410dc93ef14c1b082ee562bb05781791a",
+      "trace_sha256": "4ed8e0db57a75787560d794fa920f4b177588f6ffcacf8b886ccec971f451f4d",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -91,7 +91,7 @@
       "summary": "7 review target(s) cite 17 sanitized evidence ref(s); 21 missing-evidence item(s) remain.",
       "title": "Validate Citations",
       "tool": "validate_citations",
-      "trace_sha256": "891c8b0a60d92a0f87745fdc23fce70410dc93ef14c1b082ee562bb05781791a",
+      "trace_sha256": "4ed8e0db57a75787560d794fa920f4b177588f6ffcacf8b886ccec971f451f4d",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -113,7 +113,7 @@
       "summary": "Canonical Review Graph projected 7 target(s), 0 primary candidate(s), and 6 convergence group(s).",
       "title": "Compute Review Targets",
       "tool": "compute_review_targets",
-      "trace_sha256": "891c8b0a60d92a0f87745fdc23fce70410dc93ef14c1b082ee562bb05781791a",
+      "trace_sha256": "4ed8e0db57a75787560d794fa920f4b177588f6ffcacf8b886ccec971f451f4d",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -138,7 +138,7 @@
       "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
       "title": "Arbitrate Human Gate",
       "tool": "arbitrate_review_gate",
-      "trace_sha256": "891c8b0a60d92a0f87745fdc23fce70410dc93ef14c1b082ee562bb05781791a",
+      "trace_sha256": "4ed8e0db57a75787560d794fa920f4b177588f6ffcacf8b886ccec971f451f4d",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -163,7 +163,7 @@
       "summary": "Generated read-only follow-up plan with 4 request type(s) and 21 missing-evidence item(s).",
       "title": "Request More Evidence",
       "tool": "request_more_evidence",
-      "trace_sha256": "891c8b0a60d92a0f87745fdc23fce70410dc93ef14c1b082ee562bb05781791a",
+      "trace_sha256": "4ed8e0db57a75787560d794fa920f4b177588f6ffcacf8b886ccec971f451f4d",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -174,17 +174,21 @@
         "approved": true,
         "artifact": "profile_draft",
         "collector_mapping_count": 4,
-        "component_count": 379,
+        "component_count": 384,
         "explicit_profile": true,
         "generation_mode": "profile_draft_and_approved_profile",
-        "llm_status": "persisted",
+        "llm_status": "ok",
         "metric_semantics_count": 352,
         "profile_id": "stream_v3_dell_runtime_source_approved",
         "required_human_decisions": [
           "Approve or edit component roles before using this as an explicit profile.",
           "Approve metric zero/increase/decrease semantics.",
           "Confirm critical user outcomes.",
-          "Confirm read-only collector mappings before collection."
+          "Confirm read-only collector mappings before collection.",
+          "What is the critical user outcome?",
+          "Which component is the main service path?",
+          "Are restart failures expected or harmful?",
+          "Which metrics are zero-is-good or zero-is-bad?"
         ],
         "status": "human_gate",
         "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs."
@@ -195,7 +199,7 @@
       "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
       "title": "Draft System Profile",
       "tool": "draft_system_profile",
-      "trace_sha256": "891c8b0a60d92a0f87745fdc23fce70410dc93ef14c1b082ee562bb05781791a",
+      "trace_sha256": "4ed8e0db57a75787560d794fa920f4b177588f6ffcacf8b886ccec971f451f4d",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -205,7 +209,7 @@
       "output": {
         "artifact": "precomputed_review_summary",
         "evidence_sha256": "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681",
-        "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm_all_valid_dev_bigquery",
+        "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
         "public_url": "",
         "status": "completed",
         "summary": "Read-only review payload for 64fa79977171 is served from precomputed JSON; page load does not invoke live model work."
@@ -216,7 +220,7 @@
       "summary": "Read-only review payload for 64fa79977171 is served from precomputed JSON; page load does not invoke live model work.",
       "title": "Deliver Read-Only Review",
       "tool": "deliver_read_only_review",
-      "trace_sha256": "891c8b0a60d92a0f87745fdc23fce70410dc93ef14c1b082ee562bb05781791a",
+      "trace_sha256": "4ed8e0db57a75787560d794fa920f4b177588f6ffcacf8b886ccec971f451f4d",
       "trace_source": "adk_tool_contract"
     }
   ],
@@ -293,32 +297,36 @@
   "generation": {
     "api_revision": "dev-local-bigquery-20260629",
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "3d56dc6abf0df906f2aa3a9c7fe3d2375a201bcbd76602476cb4144dfed79e0f",
+    "payload_sha256": "b629d3d45c5481b896426b1d5f88763c983d516e40caa4383d4858bcdb0fb1b5",
     "pipeline_run_id": "pipe-31354926a1a942c39d39",
-    "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm_all_valid_dev_bigquery",
+    "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
     "raw_log_policy": "not_uploaded",
     "real_api_evidence_sha256": "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681",
     "schema_version": "precomputed_review_generation.v1",
     "score_definition": "claimed successful providers / all successful providers",
-    "source_note": "generated from development BigQuery-backed real provider run using sanitized Dell stream_v3 runtime logs plus sanitized source context"
+    "source_note": "generated from a recorded e2e API real provider run using a sanitized log corpus and optional sanitized source context"
   },
   "profile_context": {
     "approved": true,
     "collector_mapping_count": 4,
-    "component_count": 379,
+    "component_count": 384,
     "context_is_not_incident_evidence": true,
     "draft_schema_version": "profile_draft.v1",
     "explicit_profile": true,
     "generation_mode": "profile_draft_and_approved_profile",
-    "llm_status": "persisted",
+    "llm_status": "ok",
     "metric_semantics_count": 352,
     "profile_id": "stream_v3_dell_runtime_source_approved",
-    "purpose": "Draft profile generated from sanitized log-observed entities and project structure.",
+    "purpose": "Streaming service for ADSB and YouTube with watchdog and recovery mechanisms.",
     "required_human_decisions": [
       "Approve or edit component roles before using this as an explicit profile.",
       "Approve metric zero/increase/decrease semantics.",
       "Confirm critical user outcomes.",
-      "Confirm read-only collector mappings before collection."
+      "Confirm read-only collector mappings before collection.",
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?"
     ],
     "schema_version": "profile_context_summary.v1",
     "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
@@ -330,17 +338,21 @@
   "profile_draft_generation": {
     "approved": true,
     "collector_mapping_count": 4,
-    "component_count": 379,
+    "component_count": 384,
     "explicit_profile": true,
     "generation_mode": "profile_draft_and_approved_profile",
-    "llm_status": "persisted",
+    "llm_status": "ok",
     "metric_semantics_count": 352,
     "profile_id": "stream_v3_dell_runtime_source_approved",
     "required_human_decisions": [
       "Approve or edit component roles before using this as an explicit profile.",
       "Approve metric zero/increase/decrease semantics.",
       "Confirm critical user outcomes.",
-      "Confirm read-only collector mappings before collection."
+      "Confirm read-only collector mappings before collection.",
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?"
     ],
     "schema_version": "profile_draft_generation_summary.v1"
   },
@@ -484,7 +496,7 @@
     "canonical_graph_sha256": "95ef61f6e4486821429b648d2f707f13475e11a3867d53439b2d85660e5f39e5",
     "canonical_graph_status": "persisted",
     "finding": {
-      "impact": "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid outputs. 0 primary candidate and 7 validation target(s) remain human-gated; incident baseline is not auto-accepted.",
+      "impact": "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid outputs. 0 primary candidate and 7 validation target(s) remain human-gated; incident promotion is not auto-accepted.",
       "title": "Five real providers analyzed the 8,011-row stream_v3_runtime corpus"
     },
     "input_fingerprint_sha256": "75e0188cba1f4ec98903f48d74e12dd633bb8754705d0e245476f061145f6bcf",
@@ -512,7 +524,7 @@
         "convergence_score": 1.0,
         "incident_baseline": "open",
         "score_definition": "claimed successful providers / all successful providers",
-        "summary": "5/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident baseline remains human-gated.",
+        "summary": "5/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident promotion remains human-gated.",
         "technical_baseline": "established",
         "verdict": "convergence"
       },
@@ -609,7 +621,7 @@
         "convergence_score": 0.4,
         "incident_baseline": "open",
         "score_definition": "claimed successful providers / all successful providers",
-        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident baseline remains human-gated.",
+        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident promotion remains human-gated.",
         "technical_baseline": "established",
         "verdict": "convergence"
       },
@@ -691,7 +703,7 @@
         "convergence_score": 0.4,
         "incident_baseline": "open",
         "score_definition": "claimed successful providers / all successful providers",
-        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident baseline remains human-gated.",
+        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident promotion remains human-gated.",
         "technical_baseline": "established",
         "verdict": "convergence"
       },
@@ -773,7 +785,7 @@
         "convergence_score": 0.4,
         "incident_baseline": "open",
         "score_definition": "claimed successful providers / all successful providers",
-        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident baseline remains human-gated.",
+        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident promotion remains human-gated.",
         "technical_baseline": "established",
         "verdict": "convergence"
       },
@@ -853,7 +865,7 @@
         "convergence_score": 0.4,
         "incident_baseline": "open",
         "score_definition": "claimed successful providers / all successful providers",
-        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident baseline remains human-gated.",
+        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident promotion remains human-gated.",
         "technical_baseline": "established",
         "verdict": "convergence"
       },
@@ -929,7 +941,7 @@
         "convergence_score": 0.4,
         "incident_baseline": "open",
         "score_definition": "claimed successful providers / all successful providers",
-        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident baseline remains human-gated.",
+        "summary": "2/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident promotion remains human-gated.",
         "technical_baseline": "established",
         "verdict": "convergence"
       },
@@ -1001,7 +1013,7 @@
         "convergence_score": 0.2,
         "incident_baseline": "open",
         "score_definition": "claimed successful providers / all successful providers",
-        "summary": "1/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident baseline remains human-gated.",
+        "summary": "1/5 schema-valid providers projected this review unit from the 8,011-row corpus; incident promotion remains human-gated.",
         "technical_baseline": "open",
         "verdict": "single_source"
       },

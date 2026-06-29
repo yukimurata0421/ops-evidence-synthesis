@@ -416,16 +416,16 @@ def _precomputed_graph_nodes_edges(
             "detail": str(finding.get("impact") or ""),
         },
         {
-            "id": "baseline:technical",
-            "type": "baseline",
-            "label": "Technical baseline",
+            "id": "support:technical",
+            "type": "support_signal",
+            "label": "Technical support",
             "state": "established" if baselines.get("technical") else "open",
             "detail": str(graph_summary.get("technical_baseline") or ""),
         },
         {
-            "id": "baseline:incident",
-            "type": "baseline",
-            "label": "Incident baseline",
+            "id": "gate:incident",
+            "type": "promotion_gate",
+            "label": "Incident promotion",
             "state": "established" if baselines.get("incident") else "open",
             "detail": str(graph_summary.get("incident_baseline") or ""),
         },
@@ -1063,7 +1063,7 @@ def _precomputed_provider_panel(payload: dict[str, Any], providers_summary: dict
         for row in providers
     )
     gemini_note = (
-        "<p>Gemini is shown as the baseline/arbiter provider when present; it is not expected to claim every target. Silent positions remain visible as validation signal.</p>"
+        "<p>Gemini is shown as the reference/arbiter provider when present; it is not expected to claim every target. Silent positions remain visible as validation signal.</p>"
         if any("gemini" in str(row.get("provider_id") or "") for row in providers)
         else ""
     )
@@ -1184,8 +1184,8 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
         ("Partial overlap", str(int(summary.get("partial_overlap_count") or 0))),
         ("Explicit conflicts", str(int(summary.get("conflict_count") or 0))),
         ("Primary promoted", str(int(summary.get("primary_promoted_count") or 0))),
-        ("Incident baseline", str(summary.get("incident_baseline") or "open")),
-        ("Technical baseline", str(summary.get("technical_baseline") or "open")),
+        ("Incident promotion", str(summary.get("incident_baseline") or "open")),
+        ("Technical support", str(summary.get("technical_baseline") or "open")),
         ("Detection overlap", str(summary.get("provider_detection_overlap") or "unknown")),
         ("Auto-archived", str(int(summary.get("auto_archived_count") or 0))),
     ]
@@ -1309,7 +1309,7 @@ def _target_agreement_text(target: dict[str, Any]) -> str:
     definition_text = f" Definition: {definition}." if definition else ""
     base = (
         f"Verdict: {verdict}. Convergence score: {score_text}. "
-        f"Technical baseline: {technical}. Incident baseline: {incident}.{definition_text}"
+        f"Technical support: {technical}. Incident promotion: {incident}.{definition_text}"
     )
     return f"{base} {summary}".strip()
 
@@ -1391,7 +1391,7 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
   <div class="target-grid">
     <div class="field full"><label>Observed claim</label><p>{_html(claim or title)}</p></div>
     <div class="field full"><label>Provider positions</label>{provider_positions}</div>
-    <div class="field full"><label>Agreement and baselines</label><p>{_html(agreement_text)}</p></div>
+    <div class="field full"><label>Agreement and promotion gates</label><p>{_html(agreement_text)}</p></div>
     <div class="field full"><label>Promotion gate</label><p>{_html(promotion_text)}</p></div>
     <div class="field"><label>Next check</label><p>{_html(action or "Review cited evidence and missing signals.")}</p></div>
     <div class="field"><label>Missing evidence</label><p>{_html("; ".join(str(item) for item in missing[:4]) or "none")}</p></div>

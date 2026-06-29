@@ -168,10 +168,10 @@ def run_cross_check_providers(provider_statuses: list[dict[str, Any]]) -> dict[s
         "provider_count": len(rows),
         "schema_valid_provider_count": len(valid_rows),
         "provider_ids": provider_ids,
-        "gemini_baseline_present": bool(gemini_ids),
+        "gemini_reference_present": bool(gemini_ids),
         "summary": (
             f"{len(valid_rows)}/{len(rows)} provider outputs were schema-valid; "
-            f"Gemini baseline/arbiter present={bool(gemini_ids)}. "
+            f"Gemini reference/arbiter present={bool(gemini_ids)}. "
             "A silent provider position is preserved as evidence for review, not treated as failure."
         ),
     }
@@ -260,7 +260,7 @@ def arbitrate_review_gate(
         "summary": (
             "Final incident causality remains human-gated; the agent stops with review targets."
             if requires_human_review
-            else "Incident baseline is established by the provided graph summary."
+            else "Incident promotion gate is closed by the provided graph summary."
         ),
     }
 

@@ -300,5 +300,5 @@ def test_disagreement_without_agreement_generates_validation_finding() -> None:
     assert len(synthesis["disagreement_themes"]) >= 2
     finding = finding_impact_from_synthesis(synthesis)
     assert finding["finding"] == "Multi-AI disagreement requires validation"
-    assert "No incident baseline agreement was found" in finding["impact"]
+    assert "No incident-promotion agreement was found" in finding["impact"]
     assert synthesis["finding_summary"] == finding

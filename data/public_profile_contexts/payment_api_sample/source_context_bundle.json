@@ -1,0 +1,267 @@
+{
+  "bundle_type": "sanitized_source_context_bundle",
+  "canonicalization_version": "canonical_json.v1",
+  "config_items": [
+    {
+      "config_id": "CFG-a3046da0d15a",
+      "config_type": "env_keys_only",
+      "raw_values_uploaded": false,
+      "relative_path": ".env.example",
+      "summary": {
+        "line_count": 6,
+        "summary_type": "config_file"
+      }
+    },
+    {
+      "config_id": "CFG-b33563055168",
+      "config_type": "readme",
+      "raw_values_uploaded": false,
+      "relative_path": "README.md",
+      "summary": {
+        "headings": [
+          "Payment API Sample"
+        ],
+        "summary_type": "readme_headings"
+      }
+    },
+    {
+      "config_id": "CFG-4d7c51b1efe9",
+      "config_type": "dependency_manifest",
+      "raw_values_uploaded": false,
+      "relative_path": "requirements.txt",
+      "summary": {
+        "dependency_name_candidates": [
+          "fastapi",
+          "psycopg",
+          "requests",
+          "uvicorn"
+        ],
+        "manifest_type": "requirements.txt",
+        "raw_manifest_uploaded": false,
+        "relative_path": "requirements.txt"
+      }
+    }
+  ],
+  "dependency_manifests": [
+    {
+      "dependency_name_candidates": [
+        "fastapi",
+        "psycopg",
+        "requests",
+        "uvicorn"
+      ],
+      "manifest_type": "requirements.txt",
+      "raw_manifest_uploaded": false,
+      "relative_path": "requirements.txt"
+    }
+  ],
+  "display_summary": {
+    "config_item_count": 3,
+    "env_key_count": 6,
+    "primary_badges": [
+      "raw_source_policy:not_uploaded",
+      "raw_env_policy:not_uploaded",
+      "context_not_incident_evidence"
+    ],
+    "source_item_count": 2,
+    "subtitle": "Raw source code and raw env values were not uploaded. This bundle is context, not incident evidence.",
+    "systemd_unit_count": 0,
+    "title": "Sanitized Source Context Bundle"
+  },
+  "env_key_summaries": [
+    {
+      "key_hash": "177268a7c8ca79a7",
+      "key_name": "PAYMENT_DB_DSN",
+      "present": true,
+      "raw_key_uploaded": true,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": false,
+      "value_type": "path"
+    },
+    {
+      "key_hash": "4ced33f966233852",
+      "key_name": "PAYMENT_GATEWAY_URL",
+      "present": true,
+      "raw_key_uploaded": true,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": false,
+      "value_type": "url"
+    },
+    {
+      "key_hash": "4b28ca12e6ec7399",
+      "key_name": "CHECKOUT_POOL_MAX",
+      "present": true,
+      "raw_key_uploaded": true,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": false,
+      "value_type": "integer"
+    },
+    {
+      "key_hash": "b5a91a1c2cdf1441",
+      "key_name": "CHECKOUT_POOL_WARN_MS",
+      "present": true,
+      "raw_key_uploaded": true,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": false,
+      "value_type": "integer"
+    },
+    {
+      "key_hash": "62cf56f19cfcb363",
+      "key_name": "CHECKOUT_TIMEOUT_MS",
+      "present": true,
+      "raw_key_uploaded": true,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": false,
+      "value_type": "integer"
+    },
+    {
+      "key_hash": "05343c27beb6e910",
+      "key_name": "",
+      "present": true,
+      "raw_key_uploaded": false,
+      "raw_value_uploaded": false,
+      "relative_path": ".env.example",
+      "secret_like": true,
+      "value_type": "string"
+    }
+  ],
+  "project_summary": {
+    "dependency_manifest_candidates": [
+      "requirements.txt"
+    ],
+    "detected_languages": [
+      "markdown",
+      "python"
+    ],
+    "detected_project_type": "python_project",
+    "entrypoint_candidates": [
+      "src/app.py"
+    ],
+    "logging_config_candidates": [],
+    "metric_name_candidates": [
+      "checkout_500_count",
+      "db_pool_exhausted_count"
+    ],
+    "service_unit_candidates": []
+  },
+  "prompt_rules": [
+    "Source Context Bundle is context, not incident evidence.",
+    "Source Analysis Bundle is context, not incident evidence.",
+    "Code/config excerpts may support profile mapping, metric semantics, logger mapping, collector mapping, and instrumentation interpretation.",
+    "Code/config excerpts do not prove runtime occurrence or user impact by themselves.",
+    "Support claims about runtime behavior must still cite Evidence Items with evidence_id.",
+    "If version anchoring is missing, include a caveat that source context may not match the deployed version during the incident window.",
+    "Raw source, raw env values, credentials, and raw grep output must not be requested or used."
+  ],
+  "raw_env_policy": "not_uploaded",
+  "raw_source_policy": "not_uploaded",
+  "redaction_summary": {
+    "authorization_header": 0,
+    "basic_auth": 0,
+    "cloud_credential": 0,
+    "cookie": 0,
+    "email": 0,
+    "gmail_credential": 0,
+    "id_like": 0,
+    "internal_url": 0,
+    "ip_address": 0,
+    "pubsub_credential": 0,
+    "secret_like": 0,
+    "token_like": 0,
+    "user_home": 0
+  },
+  "sanitization_policy": {
+    "max_excerpt_bytes": 4096,
+    "max_total_excerpt_bytes": 200000,
+    "raw_credentials_allowed": false,
+    "raw_env_values_uploaded": false,
+    "raw_grep_output_uploaded": false,
+    "raw_source_uploaded": false,
+    "sanitize_before_upload": true,
+    "verify_sanitized_required": true
+  },
+  "schema_version": "source_context_bundle.v1",
+  "source": {
+    "environment": "prod",
+    "project_name": "payment_api_sample",
+    "project_root_uploaded": false,
+    "service": "payment-api"
+  },
+  "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4",
+  "source_items": [
+    {
+      "entrypoint_candidate": true,
+      "excerpt_policy": {
+        "full_source_uploaded": false,
+        "max_excerpt_bytes": 4096,
+        "raw_source_uploaded": false,
+        "secret_like_lines_excluded": 0
+      },
+      "excerpt_sanitized": [
+        "from __future__ import annotations",
+        "import os",
+        "import time",
+        "class CheckoutPool:",
+        "def __init__(self, max_connections: int) -> None:",
+        "def acquire(self) -> bool:"
+      ],
+      "item_id": "SRC-04791d82dd15",
+      "language": "python",
+      "line_count": 51,
+      "logger_candidates": [],
+      "metric_name_candidates": [
+        "checkout_500_count",
+        "db_pool_exhausted_count"
+      ],
+      "relative_path": "src/app.py",
+      "size_bytes": 1794,
+      "systemd_unit_mentions": []
+    },
+    {
+      "entrypoint_candidate": false,
+      "excerpt_policy": {
+        "full_source_uploaded": false,
+        "max_excerpt_bytes": 4096,
+        "raw_source_uploaded": false,
+        "secret_like_lines_excluded": 0
+      },
+      "excerpt_sanitized": [
+        "from __future__ import annotations",
+        "\"read db_pool_exhausted_count\",",
+        "\"read checkout_500_count\",",
+        "def collector_names() -> list[str]:"
+      ],
+      "item_id": "SRC-c094900bc4f2",
+      "language": "python",
+      "line_count": 22,
+      "logger_candidates": [],
+      "metric_name_candidates": [
+        "checkout_500_count",
+        "db_pool_exhausted_count"
+      ],
+      "relative_path": "src/collectors.py",
+      "size_bytes": 552,
+      "systemd_unit_mentions": []
+    }
+  ],
+  "systemd_units": [],
+  "version_context": {
+    "caveat": "Source context may not match the deployed version during the incident window unless deployment evidence confirms it.",
+    "deployed_version_confirmed": false,
+    "exec_start_path_templates": [],
+    "file_mtime_summary": {
+      "file_count": 5,
+      "max_mtime": "2026-06-29T21:54:19.180720Z",
+      "min_mtime": "2026-06-29T21:54:19.179720Z"
+    },
+    "git_available": true,
+    "git_commit_hash": "8541e69dee913ac6388756b3308be1c97d5b6a26",
+    "git_dirty": true,
+    "systemd_unit_file_path_templates": []
+  }
+}

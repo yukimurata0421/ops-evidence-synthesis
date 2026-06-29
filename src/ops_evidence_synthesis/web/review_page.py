@@ -2623,7 +2623,7 @@ def _multi_ai_panel(evidence_sha256: str | None, *, canonical_graph: dict[str, A
         for row in themes[:5]
     )
     disagreement_note = (
-        "No incident baseline agreement was found. The system did not promote a primary incident candidate. "
+        "No incident-promotion agreement was found. The system did not promote a primary incident candidate. "
         "Disputed claims were routed to validation targets for human review."
         if agreement_count == 0 and disagreement_count > 0
         else f"{validation_count} validation targets remain for human review."
@@ -2638,8 +2638,8 @@ def _multi_ai_panel(evidence_sha256: str | None, *, canonical_graph: dict[str, A
       <div class="finding-item">
         <label>Agreement Dimensions</label>
         <strong>Provider detection overlap: {_html(provider_overlap)}</strong>
-        <span>Technical baseline: {_html(technical_baseline_text)}</span>
-        <span>Incident baseline: {_html(incident_baseline_text)}</span>
+        <span>Technical support: {_html(technical_baseline_text)}</span>
+        <span>Incident promotion: {_html(incident_baseline_text)}</span>
         <span>Review-unit convergence: {_html(review_unit_convergence)}</span>
         <span>Cause agreement: {_html(cause_text)}</span>
         <span>Impact agreement: {_html(impact_text)}</span>
@@ -3176,13 +3176,13 @@ def _canonical_review_graph_cards(graph: dict[str, Any]) -> str:
     technical_established = bool(technical_baseline.get("established"))
     incident_established = bool(incident_baseline.get("established"))
     if technical_established and incident_established:
-        baseline_note = "Technical and incident baselines are established. Score is review priority, not truth probability."
+        baseline_note = "Technical support and incident promotion are established. Score is review priority, not truth probability."
     elif technical_established:
-        baseline_note = "Technical baseline is established, but incident impact is not verified; keep impact validation separate from technical consensus."
+        baseline_note = "Technical support is established, but incident impact is not verified; keep impact validation separate from technical consensus."
     elif incident_established:
-        baseline_note = "Incident baseline is established, but technical baseline is not established; review cause and instrumentation disagreements before treating this as technical consensus."
+        baseline_note = "Incident promotion is established, but technical support is not established; review cause and instrumentation disagreements before treating this as technical consensus."
     else:
-        baseline_note = "No baseline agreement is established; disputed claims remain validation targets."
+        baseline_note = "No technical support or incident-promotion agreement is established; disputed claims remain validation targets."
     cause = (dimensions.get("cause_agreement") or {}).get("value") or "none"
     impact = (dimensions.get("impact_agreement") or {}).get("value") or "none"
     primary = [row for row in graph.get("primary_targets") or [] if isinstance(row, dict)]
@@ -3217,8 +3217,8 @@ def _canonical_review_graph_cards(graph: dict[str, Any]) -> str:
           <h2 class="title">Review Target Arbitration</h2>
           <div class="pill-row">
             <span class="pill">Provider detection overlap: {_html(provider_overlap)}</span>
-            <span class="pill">Technical baseline: {_html('established' if technical_baseline.get('established') else 'not established')}</span>
-            <span class="pill">Incident baseline: {_html('established' if incident_baseline.get('established') else 'not established')}</span>
+            <span class="pill">Technical support: {_html('established' if technical_baseline.get('established') else 'not established')}</span>
+            <span class="pill">Incident promotion: {_html('established' if incident_baseline.get('established') else 'not established')}</span>
             <span class="pill">Review-unit convergence: {_html(review_unit_convergence.get('value') or 'none')}</span>
             <span class="pill">Cause agreement: {_html(cause)}</span>
             <span class="pill">Impact agreement: {_html(impact)}</span>

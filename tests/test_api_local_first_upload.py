@@ -535,8 +535,8 @@ def test_canonical_graph_cards_use_state_specific_baseline_note() -> None:
         }
     )
 
-    assert "Incident baseline is established, but technical baseline is not established" in html
-    assert "Technical baseline agreement does not promote" not in html
+    assert "Incident promotion is established, but technical support is not established" in html
+    assert "Technical support agreement does not promote" not in html
 
 
 def test_canonical_graph_cards_explain_refreshed_snapshot_metadata() -> None:

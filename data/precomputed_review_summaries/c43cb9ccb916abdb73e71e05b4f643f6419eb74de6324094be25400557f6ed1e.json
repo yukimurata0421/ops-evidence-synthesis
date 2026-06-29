@@ -18,7 +18,7 @@
       "summary": "Evidence Bundle c43cb9ccb916 fixed 6,506 sanitized rows; raw_log_policy=not_uploaded.",
       "title": "Freeze Evidence Bundle",
       "tool": "freeze_evidence_bundle",
-      "trace_sha256": "053365f7c0fe3c8ceaa387359f4512b012e7a63be63ff69a961534d8d269b979",
+      "trace_sha256": "df4cdf51e4eb0d32fe3d4bd4e9d4445e08c888601c48dda7f5be03b8b0284f18",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -28,20 +28,20 @@
       "output": {
         "artifact": "source_context",
         "context_is_not_incident_evidence": true,
-        "source_analysis_attached": false,
-        "source_analysis_sha256": "",
-        "source_context_attached": false,
-        "source_context_sha256": "",
-        "status": "skipped",
-        "summary": "No sanitized Source Context was attached to this review payload."
+        "source_analysis_attached": true,
+        "source_analysis_sha256": "b5ead54e333cc2320aa4ea3003ff656ab53c5cef86dfe56d7bba30a07352523c",
+        "source_context_attached": true,
+        "source_context_sha256": "9dcf00193d0446d793b6a82ae330a7dc55b67b1c915f4c2abfe6130a5bafcb3f",
+        "status": "completed",
+        "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context."
       },
       "schema_version": "adk_tool_trace.v1",
-      "status": "skipped",
+      "status": "completed",
       "step": "attach_sanitized_source_context",
-      "summary": "No sanitized Source Context was attached to this review payload.",
+      "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
       "title": "Attach Sanitized Source Context",
       "tool": "attach_sanitized_source_context",
-      "trace_sha256": "053365f7c0fe3c8ceaa387359f4512b012e7a63be63ff69a961534d8d269b979",
+      "trace_sha256": "df4cdf51e4eb0d32fe3d4bd4e9d4445e08c888601c48dda7f5be03b8b0284f18",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -50,7 +50,7 @@
       "artifact": "adk:tool:run_cross_check_providers",
       "output": {
         "artifact": "model_runs",
-        "gemini_baseline_present": true,
+        "gemini_reference_present": true,
         "provider_count": 3,
         "provider_ids": [
           "local-gemini",
@@ -59,15 +59,15 @@
         ],
         "schema_valid_provider_count": 3,
         "status": "completed",
-        "summary": "3/3 provider outputs were schema-valid; Gemini baseline/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure."
+        "summary": "3/3 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure."
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "run_cross_check_providers",
-      "summary": "3/3 provider outputs were schema-valid; Gemini baseline/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
+      "summary": "3/3 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
       "title": "Run Cross-Check Providers",
       "tool": "run_cross_check_providers",
-      "trace_sha256": "053365f7c0fe3c8ceaa387359f4512b012e7a63be63ff69a961534d8d269b979",
+      "trace_sha256": "df4cdf51e4eb0d32fe3d4bd4e9d4445e08c888601c48dda7f5be03b8b0284f18",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -89,7 +89,7 @@
       "summary": "1 review target(s) cite 4 sanitized evidence ref(s); 4 missing-evidence item(s) remain.",
       "title": "Validate Citations",
       "tool": "validate_citations",
-      "trace_sha256": "053365f7c0fe3c8ceaa387359f4512b012e7a63be63ff69a961534d8d269b979",
+      "trace_sha256": "df4cdf51e4eb0d32fe3d4bd4e9d4445e08c888601c48dda7f5be03b8b0284f18",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -111,7 +111,7 @@
       "summary": "Canonical Review Graph projected 1 target(s), 0 primary candidate(s), and 1 convergence group(s).",
       "title": "Compute Review Targets",
       "tool": "compute_review_targets",
-      "trace_sha256": "053365f7c0fe3c8ceaa387359f4512b012e7a63be63ff69a961534d8d269b979",
+      "trace_sha256": "df4cdf51e4eb0d32fe3d4bd4e9d4445e08c888601c48dda7f5be03b8b0284f18",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -134,7 +134,7 @@
       "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
       "title": "Arbitrate Human Gate",
       "tool": "arbitrate_review_gate",
-      "trace_sha256": "053365f7c0fe3c8ceaa387359f4512b012e7a63be63ff69a961534d8d269b979",
+      "trace_sha256": "df4cdf51e4eb0d32fe3d4bd4e9d4445e08c888601c48dda7f5be03b8b0284f18",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -156,7 +156,7 @@
       "summary": "Generated read-only follow-up plan with 1 request type(s) and 4 missing-evidence item(s).",
       "title": "Request More Evidence",
       "tool": "request_more_evidence",
-      "trace_sha256": "053365f7c0fe3c8ceaa387359f4512b012e7a63be63ff69a961534d8d269b979",
+      "trace_sha256": "df4cdf51e4eb0d32fe3d4bd4e9d4445e08c888601c48dda7f5be03b8b0284f18",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -164,26 +164,35 @@
       "adk_event_type": "function_call_and_response",
       "artifact": "adk:tool:draft_system_profile",
       "output": {
-        "approved": false,
+        "approved": true,
         "artifact": "profile_draft",
-        "collector_mapping_count": 0,
-        "component_count": 0,
-        "explicit_profile": false,
-        "generation_mode": "not_run",
-        "llm_status": "not_run",
-        "metric_semantics_count": 0,
-        "profile_id": "",
-        "required_human_decisions": [],
-        "status": "skipped",
-        "summary": "No system profile draft or approved profile context is embedded in this review payload."
+        "collector_mapping_count": 4,
+        "component_count": 22,
+        "explicit_profile": true,
+        "generation_mode": "profile_draft_and_approved_profile",
+        "llm_status": "ok",
+        "metric_semantics_count": 3,
+        "profile_id": "amazon_notify_sample_source_approved",
+        "required_human_decisions": [
+          "Approve or edit component roles before using this as an explicit profile.",
+          "Approve metric zero/increase/decrease semantics.",
+          "Confirm critical user outcomes.",
+          "Confirm read-only collector mappings before collection.",
+          "What is the critical user outcome?",
+          "Which component is the main service path?",
+          "Are restart failures expected or harmful?",
+          "Which metrics are zero-is-good or zero-is-bad?"
+        ],
+        "status": "human_gate",
+        "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs."
       },
       "schema_version": "adk_tool_trace.v1",
-      "status": "skipped",
+      "status": "human_gate",
       "step": "draft_system_profile",
-      "summary": "No system profile draft or approved profile context is embedded in this review payload.",
+      "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
       "title": "Draft System Profile",
       "tool": "draft_system_profile",
-      "trace_sha256": "053365f7c0fe3c8ceaa387359f4512b012e7a63be63ff69a961534d8d269b979",
+      "trace_sha256": "df4cdf51e4eb0d32fe3d4bd4e9d4445e08c888601c48dda7f5be03b8b0284f18",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -204,10 +213,42 @@
       "summary": "Read-only review payload for c43cb9ccb916 is served from precomputed JSON; page load does not invoke live model work.",
       "title": "Deliver Read-Only Review",
       "tool": "deliver_read_only_review",
-      "trace_sha256": "053365f7c0fe3c8ceaa387359f4512b012e7a63be63ff69a961534d8d269b979",
+      "trace_sha256": "df4cdf51e4eb0d32fe3d4bd4e9d4445e08c888601c48dda7f5be03b8b0284f18",
       "trace_source": "adk_tool_contract"
     }
   ],
+  "analysis_context": {
+    "analysis_summary": {},
+    "collector_mapping_candidate_count": 3,
+    "component_candidate_count": 3,
+    "config_item_count": 4,
+    "detected_languages": [
+      "markdown",
+      "python",
+      "systemd"
+    ],
+    "entrypoint_candidates": [
+      "systemd/amazon-notify-main-watchdog.service"
+    ],
+    "environment": "",
+    "metric_semantics_candidate_count": 2,
+    "profile_id": "amazon_notify_sample_source_approved",
+    "raw_log_policy": "not_uploaded",
+    "raw_source_policy": "not_uploaded",
+    "sanitized_log_count": 0,
+    "schema_version": "deterministic_source_context_summary.v1",
+    "service": "",
+    "source_analysis_sha256": "b5ead54e333cc2320aa4ea3003ff656ab53c5cef86dfe56d7bba30a07352523c",
+    "source_context_sha256": "9dcf00193d0446d793b6a82ae330a7dc55b67b1c915f4c2abfe6130a5bafcb3f",
+    "source_item_count": 2,
+    "source_observations": [
+      "Sanitized source context was attached with source_context_sha256=9dcf00193d0446d793b6a82ae330a7dc55b67b1c915f4c2abfe6130a5bafcb3f.",
+      "Source analysis was attached with analysis_sha256=b5ead54e333cc2320aa4ea3003ff656ab53c5cef86dfe56d7bba30a07352523c.",
+      "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs."
+    ],
+    "window_end": "",
+    "window_start": ""
+  },
   "devops_loop": {
     "items": [
       {
@@ -237,12 +278,62 @@
   "evidence_sha256": "c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e",
   "generation": {
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "4de00942157fb8fa7e673699b66fe4fdb8fef718c2a180b8a76c3951c86dea40",
+    "payload_sha256": "41d8229f4902ccfea06f4ae474df3d29ccbc90136a09c74ec143560e400be6ac",
     "provider_mode": "deterministic_local",
     "raw_log_policy": "not_uploaded",
     "schema_version": "precomputed_review_generation.v1",
     "score_definition": "claimed successful providers / all successful providers",
-    "source_note": "generated from committed public-safe amazon-notify fixture with deterministic local providers"
+    "source_note": "generated from committed public-safe amazon-notify fixture with deterministic local providers and sanitized source profile context"
+  },
+  "profile_context": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 22,
+    "context_is_not_incident_evidence": true,
+    "draft_schema_version": "profile_draft.v1",
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
+    "llm_status": "ok",
+    "metric_semantics_count": 3,
+    "profile_id": "amazon_notify_sample_source_approved",
+    "purpose": "amazon-notify service with pubsub and watchdog components",
+    "required_human_decisions": [
+      "Approve or edit component roles before using this as an explicit profile.",
+      "Approve metric zero/increase/decrease semantics.",
+      "Confirm critical user outcomes.",
+      "Confirm read-only collector mappings before collection.",
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?"
+    ],
+    "schema_version": "profile_context_summary.v1",
+    "source_analysis_sha256": "b5ead54e333cc2320aa4ea3003ff656ab53c5cef86dfe56d7bba30a07352523c",
+    "source_context_sha256": "9dcf00193d0446d793b6a82ae330a7dc55b67b1c915f4c2abfe6130a5bafcb3f",
+    "source_discovery_sha256": "48923932477e0fda31da696272b1219992b501047dc91526859556d0e053e7fa",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains interpretation but runtime claims still require Evidence Item IDs.",
+    "system_type": "systemd_service"
+  },
+  "profile_draft_generation": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 22,
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
+    "llm_status": "ok",
+    "metric_semantics_count": 3,
+    "profile_id": "amazon_notify_sample_source_approved",
+    "required_human_decisions": [
+      "Approve or edit component roles before using this as an explicit profile.",
+      "Approve metric zero/increase/decrease semantics.",
+      "Confirm critical user outcomes.",
+      "Confirm read-only collector mappings before collection.",
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?"
+    ],
+    "schema_version": "profile_draft_generation_summary.v1"
   },
   "provider_statuses": [
     {
@@ -279,7 +370,7 @@
     "rule_or_context_count": 0,
     "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
     "single_source_count": 0,
-    "summary": "1 converged target(s), 0 single-source target(s), and 0 rule/context target(s). Incident baseline remains human-gated.",
+    "summary": "1 converged target(s), 0 single-source target(s), and 0 rule/context target(s). Incident promotion remains human-gated.",
     "targets_total": 1,
     "technical_baseline": "partial"
   },
@@ -289,13 +380,13 @@
       "incident": false,
       "technical": true
     },
-    "canonical_graph_sha256": "05106865eb23acfa6e54d172110fed3fc0df77cf0cffc2bec55b16179a8211c4",
+    "canonical_graph_sha256": "2ed93a1d6c842c4412a416173a36adb3b6766b952d01a4f221efbf1e59a777d0",
     "canonical_graph_status": "pipeline_generated",
     "finding": {
       "impact": "1 target(s) show provider convergence, and 1 validation target(s) remain human-gated.",
       "title": "Multi-AI disagreement requires validation"
     },
-    "input_fingerprint_sha256": "6154f00c522fcaff648f43c0758a19c808bd14afae2707a2037d106a71b3c371",
+    "input_fingerprint_sha256": "35f89ed58ab0af368f6a3f9f7eda84ee11f46e5f612df1333b67ae0d790e68c1",
     "log_count": 6506,
     "providers": {
       "pipeline_status": "completed",
@@ -318,7 +409,7 @@
         "convergence_score": 0.6666666667,
         "incident_baseline": "open",
         "score_definition": "claimed successful providers / all successful providers",
-        "summary": "2/3 successful providers projected this review unit; incident baseline remains open.",
+        "summary": "2/3 successful providers projected this review unit; incident promotion remains human-gated.",
         "technical_baseline": "established",
         "verdict": "convergence"
       },

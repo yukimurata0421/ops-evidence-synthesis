@@ -729,7 +729,7 @@ def _apply_review_unit_convergence(agreement_dimensions: dict[str, Any], targets
         reason = "Multiple independent candidates converged on the same review unit with cited runtime evidence."
     elif rows:
         value = "partial"
-        reason = "Duplicate review units exist, but independent provider or evidence diversity is not strong enough for technical baseline support."
+        reason = "Duplicate review units exist, but independent provider or evidence diversity is not strong enough for technical support."
     else:
         value = "none"
         reason = "No duplicate review-unit convergence was found."
@@ -1212,9 +1212,9 @@ def _canonical_finding(
     )
     if validation_targets and technical_baseline.get("established") and baseline.get("established") is False:
         return {
-            "title": "Technical baseline requires impact validation",
+            "title": "Technical support requires impact validation",
             "impact": (
-                "Providers aligned on a technical baseline, but user impact or incident impact is not verified. "
+                "Providers aligned on technical support, but user impact or incident impact is not verified. "
                 f"{len(validation_targets)} validation targets remain for human review, and no primary incident candidate was promoted."
             ),
         }
@@ -1222,7 +1222,7 @@ def _canonical_finding(
         return {
             "title": "Multi-AI disagreement requires validation",
             "impact": (
-                f"No incident baseline agreement was found. {len(validation_targets)} validation targets remain for human review, "
+                f"No incident-promotion agreement was found. {len(validation_targets)} validation targets remain for human review, "
                 "and no primary incident candidate was promoted."
             ),
         }

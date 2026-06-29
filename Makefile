@@ -8,6 +8,8 @@ FLAGSHIP_DETERMINISTIC_EVIDENCE_SHA ?= c43cb9ccb916abdb73e71e05b4f643f6419eb74de
 FLAGSHIP_INPUT ?= data/amazon_notify_flagship_logs.jsonl
 FLAGSHIP_START ?= 2026-06-26T22:30:00Z
 FLAGSHIP_END ?= 2026-06-26T23:32:21Z
+SAMPLE_PROFILE_DIR ?= data/public_profile_contexts/payment_api_sample
+FLAGSHIP_PROFILE_DIR ?= data/public_profile_contexts/amazon_notify_sample
 PUBLIC_ARCHIVE ?= /tmp/ops-evidence-synthesis-public.zip
 PUBLIC_SMOKE_EXTRA_ARGS ?= --expect-provider qwen-agent-platform --expect-provider glm-agent-platform --expect-text "Five real providers"
 
@@ -16,18 +18,18 @@ PUBLIC_SMOKE_EXTRA_ARGS ?= --expect-provider qwen-agent-platform --expect-provid
 demo: demo-flagship
 
 demo-flagship:
-	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --input $(FLAGSHIP_INPUT) --db workspace/public_demo/amazon_notify_flagship.sqlite3 --service amazon-notify --environment prod --start $(FLAGSHIP_START) --end $(FLAGSHIP_END) --lookback-minutes 1440 --updated-at $(FLAGSHIP_END) --target-limit 6 --source-note "generated from committed public-safe amazon-notify fixture with deterministic local providers" --expected-evidence-sha $(FLAGSHIP_DETERMINISTIC_EVIDENCE_SHA) --expected-log-count 6506 --require-convergence --expected-convergence-score 0.6666666667
+	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --input $(FLAGSHIP_INPUT) --db workspace/public_demo/amazon_notify_flagship.sqlite3 --service amazon-notify --environment prod --start $(FLAGSHIP_START) --end $(FLAGSHIP_END) --lookback-minutes 1440 --updated-at $(FLAGSHIP_END) --target-limit 6 --source-note "generated from committed public-safe amazon-notify fixture with deterministic local providers and sanitized source profile context" --source-context $(FLAGSHIP_PROFILE_DIR)/source_context_bundle.json --source-analysis $(FLAGSHIP_PROFILE_DIR)/source_analysis_bundle.json --profile-draft $(FLAGSHIP_PROFILE_DIR)/profile_draft.json --approved-profile $(FLAGSHIP_PROFILE_DIR)/approved_profile.json --profile-id amazon_notify_sample_source_approved --expected-evidence-sha $(FLAGSHIP_DETERMINISTIC_EVIDENCE_SHA) --expected-log-count 6506 --require-convergence --expected-convergence-score 0.6666666667
 
 demo-sample:
-	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --expected-evidence-sha $(SAMPLE_EVIDENCE_SHA)
+	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --source-note "generated from public sample fixture with deterministic local providers and sanitized source profile context" --source-context $(SAMPLE_PROFILE_DIR)/source_context_bundle.json --source-analysis $(SAMPLE_PROFILE_DIR)/source_analysis_bundle.json --profile-draft $(SAMPLE_PROFILE_DIR)/profile_draft.json --approved-profile $(SAMPLE_PROFILE_DIR)/approved_profile.json --profile-id payment_api_sample_source_approved --expected-evidence-sha $(SAMPLE_EVIDENCE_SHA)
 
 verify-precomputed: verify-sample verify-flagship
 
 verify-sample:
-	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --expected-evidence-sha $(SAMPLE_EVIDENCE_SHA) --check
+	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --source-note "generated from public sample fixture with deterministic local providers and sanitized source profile context" --source-context $(SAMPLE_PROFILE_DIR)/source_context_bundle.json --source-analysis $(SAMPLE_PROFILE_DIR)/source_analysis_bundle.json --profile-draft $(SAMPLE_PROFILE_DIR)/profile_draft.json --approved-profile $(SAMPLE_PROFILE_DIR)/approved_profile.json --profile-id payment_api_sample_source_approved --expected-evidence-sha $(SAMPLE_EVIDENCE_SHA) --check
 
 verify-flagship:
-	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --input $(FLAGSHIP_INPUT) --db workspace/public_demo/amazon_notify_flagship.sqlite3 --service amazon-notify --environment prod --start $(FLAGSHIP_START) --end $(FLAGSHIP_END) --lookback-minutes 1440 --updated-at $(FLAGSHIP_END) --target-limit 6 --source-note "generated from committed public-safe amazon-notify fixture with deterministic local providers" --expected-evidence-sha $(FLAGSHIP_DETERMINISTIC_EVIDENCE_SHA) --expected-log-count 6506 --require-convergence --expected-convergence-score 0.6666666667 --check
+	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --input $(FLAGSHIP_INPUT) --db workspace/public_demo/amazon_notify_flagship.sqlite3 --service amazon-notify --environment prod --start $(FLAGSHIP_START) --end $(FLAGSHIP_END) --lookback-minutes 1440 --updated-at $(FLAGSHIP_END) --target-limit 6 --source-note "generated from committed public-safe amazon-notify fixture with deterministic local providers and sanitized source profile context" --source-context $(FLAGSHIP_PROFILE_DIR)/source_context_bundle.json --source-analysis $(FLAGSHIP_PROFILE_DIR)/source_analysis_bundle.json --profile-draft $(FLAGSHIP_PROFILE_DIR)/profile_draft.json --approved-profile $(FLAGSHIP_PROFILE_DIR)/approved_profile.json --profile-id amazon_notify_sample_source_approved --expected-evidence-sha $(FLAGSHIP_DETERMINISTIC_EVIDENCE_SHA) --expected-log-count 6506 --require-convergence --expected-convergence-score 0.6666666667 --check
 
 test:
 	$(PYTHON) -m pytest $(PYTEST_ARGS)

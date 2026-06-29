@@ -23,6 +23,11 @@ def build_precomputed_review_summary(
     target_limit: int = 5,
     source_note: str = "generated from deterministic local pipeline",
     provider_mode: str = "deterministic_local",
+    source_context: dict[str, Any] | None = None,
+    source_analysis: dict[str, Any] | None = None,
+    profile_draft: dict[str, Any] | None = None,
+    approved_profile: dict[str, Any] | None = None,
+    profile_id: str = "",
 ) -> dict[str, Any]:
     """Project persisted pipeline output into the fast read-only review payload."""
     bundle = store.get_bundle(evidence_sha256)
@@ -51,6 +56,19 @@ def build_precomputed_review_summary(
         graph_summary=graph_summary,
         targets=targets,
     )
+    source_context = source_context if isinstance(source_context, dict) else {}
+    source_analysis = source_analysis if isinstance(source_analysis, dict) else {}
+    profile_draft = profile_draft if isinstance(profile_draft, dict) else {}
+    approved_profile = approved_profile if isinstance(approved_profile, dict) else {}
+    source_context_sha = _source_context_sha(source_context)
+    source_analysis_sha = _source_analysis_sha(source_analysis)
+    profile_context = _profile_context(
+        profile_id=profile_id,
+        profile_draft=profile_draft,
+        approved_profile=approved_profile,
+        source_context_sha=source_context_sha,
+        source_analysis_sha=source_analysis_sha,
+    )
     payload = {
         "schema_version": "precomputed_review_summary.v1",
         "evidence_sha256": str(evidence_sha256),
@@ -64,6 +82,16 @@ def build_precomputed_review_summary(
             "raw_log_policy": str(bundle.get("raw_log_policy") or "not_uploaded"),
         },
         "summary": summary,
+        "analysis_context": _analysis_context(
+            bundle=bundle,
+            profile_id=str(profile_context.get("profile_id") or ""),
+            source_context=source_context,
+            source_analysis=source_analysis,
+            source_context_sha=source_context_sha,
+            source_analysis_sha=source_analysis_sha,
+        ),
+        "profile_context": profile_context,
+        "profile_draft_generation": _profile_draft_generation(profile_context),
         "agent_trace": [],
         "devops_loop": _devops_loop(),
         "provider_statuses": provider_statuses,
@@ -77,6 +105,7 @@ def build_precomputed_review_summary(
             "summary": payload["summary"],
             "provider_statuses": payload["provider_statuses"],
             "review_graph_summary": payload["review_graph_summary"],
+            "profile_context": payload["profile_context"],
             "targets": payload["targets"],
         }
     )
@@ -345,7 +374,7 @@ def _review_graph_summary(
     )
     summary = (
         f"{convergence_count} converged target(s), {single_source_count} single-source target(s), "
-        f"and {rule_count} rule/context target(s). Incident baseline remains human-gated."
+        f"and {rule_count} rule/context target(s). Incident promotion remains human-gated."
     )
     return {
         "targets_total": len(targets),
@@ -439,7 +468,7 @@ def _recommended_request_type(drawer: dict[str, Any]) -> str:
 
 def _agreement_summary(claimed: int, total: int, verdict: str) -> str:
     if verdict == "convergence":
-        return f"{claimed}/{total} successful providers projected this review unit; incident baseline remains open."
+        return f"{claimed}/{total} successful providers projected this review unit; incident promotion remains human-gated."
     if verdict == "single_source":
         return f"{claimed}/{total} successful providers projected this review unit, so it stays validation-only."
     return "This target is rule/context-driven and remains validation-only until provider evidence or human evidence closes the gate."
@@ -467,6 +496,143 @@ def _promotion_explanation(*, state: str, claimed: int, total_successful: int) -
     if claimed == 1:
         return "A single provider surfaced this target, so it remains validation work until corroborated."
     return "This target came from deterministic routing or context and needs runtime evidence before promotion."
+
+
+def _analysis_context(
+    *,
+    bundle: dict[str, Any],
+    profile_id: str,
+    source_context: dict[str, Any],
+    source_analysis: dict[str, Any],
+    source_context_sha: str,
+    source_analysis_sha: str,
+) -> dict[str, Any]:
+    source = bundle.get("source") if isinstance(bundle.get("source"), dict) else {}
+    time_window = bundle.get("time_window") if isinstance(bundle.get("time_window"), dict) else {}
+    local_first = bundle.get("local_first_summary") if isinstance(bundle.get("local_first_summary"), dict) else {}
+    source_summary = source_context.get("project_summary") if isinstance(source_context.get("project_summary"), dict) else {}
+    analysis_summary = source_analysis.get("summary") if isinstance(source_analysis.get("summary"), dict) else {}
+    source_item_count = len(source_context.get("source_items") or [])
+    config_item_count = len(source_context.get("config_items") or [])
+    component_count = len(source_analysis.get("component_candidates") or [])
+    metric_count = len(source_analysis.get("metric_semantics_candidates") or [])
+    collector_count = len(source_analysis.get("collector_mapping_candidates") or [])
+    return {
+        "schema_version": "deterministic_source_context_summary.v1",
+        "service": str(source.get("service") or ""),
+        "environment": str(source.get("environment") or ""),
+        "window_start": str(time_window.get("start") or ""),
+        "window_end": str(time_window.get("end") or ""),
+        "profile_id": profile_id,
+        "sanitized_log_count": _bundle_log_count(bundle, {}),
+        "raw_log_policy": str(bundle.get("raw_log_policy") or local_first.get("raw_log_policy") or "not_uploaded"),
+        "raw_source_policy": str(source_context.get("raw_source_policy") or "not_uploaded"),
+        "source_context_sha256": source_context_sha,
+        "source_analysis_sha256": source_analysis_sha,
+        "source_item_count": source_item_count,
+        "config_item_count": config_item_count,
+        "component_candidate_count": component_count,
+        "metric_semantics_candidate_count": metric_count,
+        "collector_mapping_candidate_count": collector_count,
+        "detected_languages": list(source_summary.get("detected_languages") or []),
+        "entrypoint_candidates": list(source_summary.get("entrypoint_candidates") or [])[:12],
+        "analysis_summary": analysis_summary,
+        "source_observations": [
+            (
+                f"Sanitized source context was attached with source_context_sha256={source_context_sha}."
+                if source_context_sha
+                else "No sanitized source context was attached."
+            ),
+            (
+                f"Source analysis was attached with analysis_sha256={source_analysis_sha}."
+                if source_analysis_sha
+                else "No source analysis bundle was attached."
+            ),
+            "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs.",
+        ],
+    }
+
+
+def _profile_context(
+    *,
+    profile_id: str,
+    profile_draft: dict[str, Any],
+    approved_profile: dict[str, Any],
+    source_context_sha: str,
+    source_analysis_sha: str,
+) -> dict[str, Any]:
+    draft_profile = profile_draft.get("profile") if isinstance(profile_draft.get("profile"), dict) else {}
+    approved_id = str(approved_profile.get("profile_id") or "")
+    effective_profile_id = profile_id or approved_id
+    component_map = approved_profile.get("component_map") if isinstance(approved_profile.get("component_map"), dict) else {}
+    metric_semantics = approved_profile.get("metric_semantics") or draft_profile.get("metric_semantics") or {}
+    collector_mappings = approved_profile.get("collector_mappings") or draft_profile.get("collector_mappings") or {}
+    draft_components = draft_profile.get("components") if isinstance(draft_profile.get("components"), list) else []
+    generation = profile_draft.get("profile_generation") if isinstance(profile_draft.get("profile_generation"), dict) else {}
+    required_decisions = profile_draft.get("required_human_decisions")
+    if not isinstance(required_decisions, list):
+        required_decisions = [
+            "Approve profile context before treating it as an explicit operational profile.",
+            "Keep source context separate from runtime evidence.",
+        ]
+    has_context = bool(profile_draft or approved_profile or effective_profile_id or source_context_sha or source_analysis_sha)
+    llm_status = str(generation.get("llm_status") or profile_draft.get("llm_status") or ("persisted" if has_context else "not_run"))
+    return {
+        "schema_version": "profile_context_summary.v1",
+        "profile_id": effective_profile_id,
+        "generation_mode": (
+            "profile_draft_and_approved_profile"
+            if profile_draft and approved_profile
+            else "approved_profile_context"
+            if approved_profile or effective_profile_id
+            else "sanitized_source_context"
+            if has_context
+            else "not_run"
+        ),
+        "llm_status": llm_status,
+        "approved": bool(approved_profile or effective_profile_id),
+        "explicit_profile": bool(approved_profile or effective_profile_id),
+        "draft_schema_version": str(profile_draft.get("schema_version") or ""),
+        "source_discovery_sha256": str(profile_draft.get("source_discovery_sha256") or generation.get("source_discovery_sha256") or ""),
+        "source_context_sha256": source_context_sha,
+        "source_analysis_sha256": source_analysis_sha,
+        "system_type": str(approved_profile.get("system_type") or draft_profile.get("system_type") or ""),
+        "purpose": str(approved_profile.get("purpose") or draft_profile.get("purpose") or ""),
+        "component_count": len(component_map) if component_map else len(draft_components),
+        "metric_semantics_count": len(metric_semantics) if isinstance(metric_semantics, dict | list) else 0,
+        "collector_mapping_count": len(collector_mappings) if isinstance(collector_mappings, dict | list) else 0,
+        "required_human_decisions": [str(item) for item in required_decisions if str(item or "").strip()][:8],
+        "context_is_not_incident_evidence": True,
+        "summary": (
+            "Profile context was generated or approved from sanitized discovery; it constrains interpretation "
+            "but runtime claims still require Evidence Item IDs."
+            if has_context
+            else "No profile context was recorded for this payload."
+        ),
+    }
+
+
+def _profile_draft_generation(profile_context: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "profile_draft_generation_summary.v1",
+        "generation_mode": str(profile_context.get("generation_mode") or "not_run"),
+        "llm_status": str(profile_context.get("llm_status") or "not_run"),
+        "approved": bool(profile_context.get("approved")),
+        "explicit_profile": bool(profile_context.get("explicit_profile")),
+        "profile_id": str(profile_context.get("profile_id") or ""),
+        "component_count": int(profile_context.get("component_count") or 0),
+        "metric_semantics_count": int(profile_context.get("metric_semantics_count") or 0),
+        "collector_mapping_count": int(profile_context.get("collector_mapping_count") or 0),
+        "required_human_decisions": list(profile_context.get("required_human_decisions") or []),
+    }
+
+
+def _source_context_sha(source_context: dict[str, Any]) -> str:
+    return str(source_context.get("source_context_sha256") or "")
+
+
+def _source_analysis_sha(source_analysis: dict[str, Any]) -> str:
+    return str(source_analysis.get("analysis_sha256") or "")
 
 
 def _unique(values: list[str]) -> list[str]:

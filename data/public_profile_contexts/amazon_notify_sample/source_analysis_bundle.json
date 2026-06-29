@@ -1,0 +1,290 @@
+{
+  "analysis_sha256": "b5ead54e333cc2320aa4ea3003ff656ab53c5cef86dfe56d7bba30a07352523c",
+  "assumptions": [
+    "Source Analysis Bundle is context, not incident evidence.",
+    "Runtime occurrence and user impact are not inferred from code/config alone.",
+    "Metric semantics and component mappings require human review."
+  ],
+  "bundle_type": "sanitized_source_analysis_bundle",
+  "collector_mapping_candidates": [
+    {
+      "candidate_collectors": [
+        "local_systemd",
+        "local_journal",
+        "local_process"
+      ],
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "params": {
+        "units": [
+          "amazon-notify-main-watchdog.service"
+        ]
+      },
+      "request_type": "process_state_query",
+      "safety_level": "read_only"
+    },
+    {
+      "candidate_collectors": [
+        "local_metrics",
+        "local_prometheus",
+        "local_logs"
+      ],
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "params": {
+        "metric_names": [
+          "job_configuration_mismatch_count",
+          "watchdog_heartbeat_count"
+        ]
+      },
+      "request_type": "metric_semantics_query",
+      "safety_level": "read_only"
+    },
+    {
+      "candidate_collectors": [
+        "local_logs",
+        "local_config"
+      ],
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "params": {
+        "components": [
+          "amazon_notify_main_watchdog",
+          "job_configuration_mismatch_count",
+          "watchdog_heartbeat_count"
+        ]
+      },
+      "request_type": "instrumentation_consistency_query",
+      "safety_level": "read_only"
+    }
+  ],
+  "component_candidates": [
+    {
+      "component_id": "COMP-SRC-001",
+      "confidence": 0.86,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "matched_features": [
+        "/usr/bin/python3 <USER_HOME>/projects/amazon-notify/src/watchdog_restart_main.py --service amazon-notify-main",
+        "systemd_unit"
+      ],
+      "matched_source_refs": [
+        "systemd/amazon-notify-main-watchdog.service"
+      ],
+      "name": "amazon_notify_main_watchdog",
+      "suggested_core_target_types": [
+        "job_configuration_mismatch",
+        "restart_loop",
+        "service_start_failure"
+      ],
+      "suggested_role": "recovery_supervisor",
+      "suggested_subsystem": "runtime_recovery"
+    },
+    {
+      "component_id": "COMP-SRC-002",
+      "confidence": 0.64,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "matched_features": [
+        "metric_definition"
+      ],
+      "matched_source_refs": [
+        "src/watchdog_restart_main.py"
+      ],
+      "name": "job_configuration_mismatch_count",
+      "suggested_core_target_types": [
+        "general",
+        "monitoring_gap"
+      ],
+      "suggested_role": "component",
+      "suggested_subsystem": "background_processing"
+    },
+    {
+      "component_id": "COMP-SRC-003",
+      "confidence": 0.64,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "matched_features": [
+        "metric_definition"
+      ],
+      "matched_source_refs": [
+        "src/main_listener.py",
+        "src/watchdog_restart_main.py"
+      ],
+      "name": "watchdog_heartbeat_count",
+      "suggested_core_target_types": [
+        "monitoring_gap",
+        "restart_loop"
+      ],
+      "suggested_role": "recovery_supervisor",
+      "suggested_subsystem": "runtime_recovery"
+    }
+  ],
+  "display_summary": {
+    "collector_mapping_candidate_count": 3,
+    "component_candidate_count": 3,
+    "metric_semantics_candidate_count": 2,
+    "primary_badges": [
+      "provider:local",
+      "human_review_required:true",
+      "context_not_incident_evidence"
+    ],
+    "subtitle": "Rule-based source mapping candidates. Context only; not incident evidence.",
+    "title": "Sanitized Source Analysis Bundle"
+  },
+  "instrumentation_candidates": [
+    {
+      "candidate_names": [
+        "job_configuration_mismatch_count",
+        "watchdog_heartbeat_count"
+      ],
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "instrumentation_id": "INST-SRC-001",
+      "instrumentation_type": "metrics",
+      "interpretation": "Metric names were found in sanitized source excerpts or summaries."
+    },
+    {
+      "candidate_names": [
+        "amazon-notify-main-watchdog.service"
+      ],
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "instrumentation_id": "INST-SRC-003",
+      "instrumentation_type": "supervisor",
+      "interpretation": "Systemd units provide supervisor configuration context only."
+    }
+  ],
+  "logger_mapping_candidates": [],
+  "metric_semantics_candidates": [
+    {
+      "confidence": 0.72,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "metric_name": "job_configuration_mismatch_count",
+      "metric_semantics_id": "METRIC-SRC-001",
+      "source_refs": [
+        "src/watchdog_restart_main.py"
+      ],
+      "suggested_semantics": {
+        "candidate_core_target_type": "service_start_failure",
+        "decrease_behavior": "healthy_or_recovery",
+        "increase_behavior": "suspicious",
+        "semantic_type": "candidate_error_signal",
+        "zero_behavior": "healthy"
+      }
+    },
+    {
+      "confidence": 0.72,
+      "context_is_not_incident_evidence": true,
+      "human_review_required": true,
+      "metric_name": "watchdog_heartbeat_count",
+      "metric_semantics_id": "METRIC-SRC-002",
+      "source_refs": [
+        "src/main_listener.py",
+        "src/watchdog_restart_main.py"
+      ],
+      "suggested_semantics": {
+        "candidate_core_target_type": "throughput_disappearance",
+        "decrease_behavior": "suspicious",
+        "increase_behavior": "healthy_or_scale",
+        "semantic_type": "candidate_health_signal",
+        "zero_behavior": "suspicious"
+      }
+    }
+  ],
+  "profile_mapping_hints": [
+    {
+      "context_is_not_incident_evidence": true,
+      "hint_type": "component_map",
+      "human_review_required": true,
+      "name": "amazon_notify_main_watchdog",
+      "suggested_subsystem": "runtime_recovery"
+    },
+    {
+      "context_is_not_incident_evidence": true,
+      "hint_type": "component_map",
+      "human_review_required": true,
+      "name": "job_configuration_mismatch_count",
+      "suggested_subsystem": "background_processing"
+    },
+    {
+      "context_is_not_incident_evidence": true,
+      "hint_type": "component_map",
+      "human_review_required": true,
+      "name": "watchdog_heartbeat_count",
+      "suggested_subsystem": "runtime_recovery"
+    },
+    {
+      "context_is_not_incident_evidence": true,
+      "hint_type": "metric_semantics",
+      "human_review_required": true,
+      "name": "job_configuration_mismatch_count",
+      "suggested_semantics": {
+        "candidate_core_target_type": "service_start_failure",
+        "decrease_behavior": "healthy_or_recovery",
+        "increase_behavior": "suspicious",
+        "semantic_type": "candidate_error_signal",
+        "zero_behavior": "healthy"
+      }
+    },
+    {
+      "context_is_not_incident_evidence": true,
+      "hint_type": "metric_semantics",
+      "human_review_required": true,
+      "name": "watchdog_heartbeat_count",
+      "suggested_semantics": {
+        "candidate_core_target_type": "throughput_disappearance",
+        "decrease_behavior": "suspicious",
+        "increase_behavior": "healthy_or_scale",
+        "semantic_type": "candidate_health_signal",
+        "zero_behavior": "suspicious"
+      }
+    },
+    {
+      "caveat": "Source context may not match the deployed version during the incident window unless deployment evidence confirms it.",
+      "context_is_not_incident_evidence": true,
+      "hint_type": "version_anchoring_caveat",
+      "human_review_required": true,
+      "name": "deployed_version_unconfirmed"
+    }
+  ],
+  "prompt_rules": [
+    "Source Context Bundle is context, not incident evidence.",
+    "Source Analysis Bundle is context, not incident evidence.",
+    "Code/config excerpts may support profile mapping, metric semantics, logger mapping, collector mapping, and instrumentation interpretation.",
+    "Code/config excerpts do not prove runtime occurrence or user impact by themselves.",
+    "Support claims about runtime behavior must still cite Evidence Items with evidence_id.",
+    "If version anchoring is missing, include a caveat that source context may not match the deployed version during the incident window.",
+    "Raw source, raw env values, credentials, and raw grep output must not be requested or used.",
+    "System Profile is context, not evidence.",
+    "Source Context Bundle is context, not incident evidence.",
+    "Source Analysis Bundle is context, not incident evidence.",
+    "Code/config excerpts may support profile mapping, metric semantics, logger mapping, collector mapping, and instrumentation interpretation.",
+    "Code/config excerpts do not prove runtime occurrence or user impact by themselves.",
+    "Evidence Items are evidence.",
+    "Every support claim must cite evidence_id.",
+    "Support claims about runtime behavior must still cite Evidence Items with evidence_id.",
+    "Do not cite System Profile as support evidence.",
+    "Do not cite Source Context or Source Analysis as support evidence for runtime occurrence.",
+    "If evidence is insufficient, output missing_evidence instead of making a definitive claim.",
+    "If profile_confidence is unknown or inferred, avoid definitive diagnosis and ask for required_profile_questions.",
+    "If analysis_policy.allow_primary_candidate is false, do not produce a primary incident candidate.",
+    "If version anchoring is missing, include a caveat that source context may not match the deployed version during the incident window.",
+    "Do not invent log source names, metric names, state file paths, endpoints, or collector commands.",
+    "Only name concrete metrics or logs that appear in the evidence bundle, approved profile, or source context; otherwise describe the evidence class generically.",
+    "Do not translate missing evidence into ad hoc local commands; leave collection templates to the Evidence Request Planner.",
+    "Raw source, raw env values, credentials, and raw grep output must not be requested or used.",
+    "Score is review priority, not truth probability."
+  ],
+  "raw_env_policy": "not_uploaded",
+  "raw_source_policy": "not_uploaded",
+  "required_human_decisions": [
+    "Approve or edit component roles before using them in an explicit profile.",
+    "Approve metric zero/increase/decrease semantics.",
+    "Confirm whether this source context matches the deployed version during the incident window.",
+    "Confirm read-only collector mappings before collection."
+  ],
+  "schema_version": "source_analysis_bundle.v1",
+  "source_context_sha256": "9dcf00193d0446d793b6a82ae330a7dc55b67b1c915f4c2abfe6130a5bafcb3f"
+}

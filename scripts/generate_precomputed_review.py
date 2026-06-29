@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
+
+import yaml
 
 from ops_evidence_synthesis.ai.provider_registry import build_multi_ai_providers
 from ops_evidence_synthesis.ingest import ingest_jsonl
@@ -34,6 +37,11 @@ def main() -> int:
     parser.add_argument("--target-limit", type=int, default=5)
     parser.add_argument("--source-note", default="generated from public sample fixture with deterministic local providers")
     parser.add_argument("--provider-mode", default="deterministic_local")
+    parser.add_argument("--source-context", default="", help="Optional sanitized source_context_bundle.json.")
+    parser.add_argument("--source-analysis", default="", help="Optional sanitized source_analysis_bundle.json.")
+    parser.add_argument("--profile-draft", default="", help="Optional Gemini profile_draft.json.")
+    parser.add_argument("--approved-profile", default="", help="Optional approved explicit profile JSON/YAML.")
+    parser.add_argument("--profile-id", default="", help="Approved profile id used for this payload.")
     parser.add_argument("--expected-evidence-sha", default="")
     parser.add_argument("--expected-log-count", type=int, default=0)
     parser.add_argument("--require-convergence", action="store_true")
@@ -68,6 +76,11 @@ def main() -> int:
         target_limit=args.target_limit,
         source_note=args.source_note,
         provider_mode=args.provider_mode,
+        source_context=_load_json(args.source_context) if args.source_context else None,
+        source_analysis=_load_json(args.source_analysis) if args.source_analysis else None,
+        profile_draft=_load_json(args.profile_draft) if args.profile_draft else None,
+        approved_profile=_load_profile(args.approved_profile) if args.approved_profile else None,
+        profile_id=args.profile_id,
     )
     _validate_payload(
         payload,
@@ -126,6 +139,20 @@ def _validate_payload(
                 for target in converged
             ]
             raise SystemExit(f"expected convergence_score={expected_convergence_score}, got {scores}")
+
+
+def _load_json(path: str) -> dict:
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise SystemExit(f"expected JSON object: {path}")
+    return data
+
+
+def _load_profile(path: str) -> dict:
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise SystemExit(f"expected profile mapping: {path}")
+    return data
 
 
 if __name__ == "__main__":

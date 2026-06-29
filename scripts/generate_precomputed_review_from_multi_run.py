@@ -181,7 +181,7 @@ def build_payload(
                     f"{provider_result_sentence} "
                     f"{_int(graph_summary.get('primary_count'))} primary candidate and "
                     f"{_int(graph_summary.get('validation_count'))} validation target(s) remain human-gated; "
-                    "incident baseline is not auto-accepted."
+                    "incident promotion is not auto-accepted."
                 ),
             },
             "review": {
@@ -296,6 +296,7 @@ def build_payload(
             "summary": payload["summary"],
             "provider_statuses": payload["provider_statuses"],
             "review_graph_summary": payload["review_graph_summary"],
+            "profile_context": payload["profile_context"],
             "targets": payload["targets"],
         }
     )
@@ -388,7 +389,7 @@ def _targets(
                     "summary": (
                         f"{provider_count}/{valid_count} schema-valid providers projected this review unit "
                         f"from the {log_count:,}-row corpus; "
-                        "incident baseline remains human-gated."
+                        "incident promotion remains human-gated."
                     ),
                 },
                 "promotion": {
@@ -607,7 +608,7 @@ def _promotion_explanation(*, state: str, provider_count: int, valid_count: int)
     if state == "primary_candidate":
         return (
             "Primary candidacy is based on review priority, subsystem relevance, and unresolved operational risk, "
-            "not on having the highest provider convergence. The incident baseline remains human-gated."
+            "not on having the highest provider convergence. Incident promotion remains human-gated."
         )
     if provider_count >= 2:
         return (
@@ -623,7 +624,7 @@ def _analysis_conclusion_impact(canonical_graph: dict[str, Any], targets: list[d
     finding = canonical_graph.get("finding") if isinstance(canonical_graph.get("finding"), dict) else {}
     impact = str(finding.get("impact") or "").strip()
     if impact and "providers aligned on a review signal" not in impact:
-        return impact
+        return _public_review_language(impact)
     primary = next(
         (
             target
@@ -637,6 +638,19 @@ def _analysis_conclusion_impact(canonical_graph: dict[str, Any], targets: list[d
     if targets:
         return str(targets[0].get("claim") or "")
     return impact
+
+
+def _public_review_language(text: str) -> str:
+    replacements = {
+        "Providers aligned on a technical baseline": "Providers aligned on technical support",
+        "No incident baseline agreement was found": "No incident-promotion agreement was found",
+        "technical baseline": "technical support",
+        "incident baseline": "incident promotion",
+    }
+    output = text
+    for old, new in replacements.items():
+        output = output.replace(old, new)
+    return output
 
 
 def _profile_context(
@@ -661,6 +675,8 @@ def _profile_context(
             "Keep source context separate from runtime evidence.",
         ]
     has_context = bool(profile_draft or approved_profile or effective_profile_id or source_context_sha or source_analysis_sha)
+    generation = profile_draft.get("profile_generation") if isinstance(profile_draft.get("profile_generation"), dict) else {}
+    llm_status = str(generation.get("llm_status") or profile_draft.get("llm_status") or ("persisted" if has_context else "not_run"))
     return {
         "schema_version": "profile_context_summary.v1",
         "profile_id": effective_profile_id,
@@ -673,7 +689,7 @@ def _profile_context(
             if has_context
             else "not_run"
         ),
-        "llm_status": str(profile_draft.get("llm_status") or ("persisted" if has_context else "not_run")),
+        "llm_status": llm_status,
         "approved": bool(approved_profile or effective_profile_id),
         "explicit_profile": bool(approved_profile or effective_profile_id),
         "draft_schema_version": str(profile_draft.get("schema_version") or ""),

@@ -20,7 +20,7 @@ source-aware real-provider amazon-notify run.
 | Canonical graph SHA256 | `30ab89331c7389a11ce29394d8d33d3f2b8f6a48c2bfac1646b70aa9acd90215` |
 | Input fingerprint SHA256 | `4c1f7d780fd1c713fc987824fddca067f585a75618058f9cff49189677708547` |
 | Public payload | `data/precomputed_review_summaries/7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d.json` |
-| Payload SHA256 | `f17d1546dd7161c3e7edd07eeb9f50d2a7639d0735ed4c8699dfe2a15e141874` |
+| Payload SHA256 | `8e9b0eb82b9e2f2ee89e47eae0e61716471e67e413226082e0ed742e36f05d16` |
 
 ## Data Boundary
 

@@ -1,0 +1,28 @@
+{
+  "examples": [
+    {
+      "count": 0,
+      "replacement": "<REDACTED_SECRET>",
+      "type": "secret_like"
+    }
+  ],
+  "raw_config_policy": "not_uploaded",
+  "raw_log_policy": "not_uploaded",
+  "raw_logs_policy": "not_uploaded",
+  "schema_version": "profile_discovery_redaction_report.v1",
+  "summary": {
+    "authorization_header": 0,
+    "basic_auth": 0,
+    "cloud_credential": 0,
+    "cookie": 0,
+    "email": 0,
+    "gmail_credential": 0,
+    "id_like": 0,
+    "internal_url": 0,
+    "ip_address": 0,
+    "pubsub_credential": 0,
+    "secret_like": 0,
+    "token_like": 0,
+    "user_home": 0
+  }
+}
