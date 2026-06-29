@@ -11,6 +11,7 @@ operator history or raw incident material.
 | `README.md` | Fast entry point, demo URLs, local check commands, safety boundary. | Keep |
 | `HACKATHON_SUBMISSION.md` | Short reviewer-facing summary for the hackathon gate. | Keep |
 | `SECURITY.md` | Public data-boundary and secret-handling policy. | Keep |
+| `docs/data-boundary.md` | Public artifact boundary, local-only data policy, and token-compression explanation for real-provider runs. | Keep |
 | `docs/architecture.md` | Main architecture overview for the local-first evidence pipeline. | Keep |
 | `docs/evidence_bundle.md` | Sanitized Evidence Bundle contract and evidence/context boundary. | Keep |
 | `docs/current-vs-architecture-gap.md` | Public implementation status and product hardening roadmap. | Keep |
@@ -24,6 +25,7 @@ operator history or raw incident material.
 | `scripts/README.md` | Script inventory that separates the judging path from auxiliary tools. | Keep |
 | `scripts/deploy_public_demo.sh` | Release command that runs local gates, deploys Cloud Run, and smokes the live URL. | Keep |
 | `.github/workflows/ci.yml` | Public CI gate for fixture fidelity and tests. | Keep |
+| `data/public_evidence_manifests/*.json` | Compact public manifests for real API review URLs, hashes, data-boundary flags, and model-projection statistics. | Keep |
 | `data/precomputed_review_summaries/*.json` | Read-only UI cache fixtures generated from sanitized evidence. | Keep |
 | `sample_logs/redaction_fixture.jsonl` | Synthetic redaction fixture with fake token-shaped values. | Keep |
 

@@ -1,0 +1,8 @@
+{
+  "schema_version": "public_evidence_manifest_index.v1",
+  "manifests": [
+    "data/public_evidence_manifests/amazon_notify_real_api.json",
+    "data/public_evidence_manifests/stream_v3_dell_runtime_real_api.json",
+    "data/public_evidence_manifests/stream_v3_arena_monitoring_real_api.json"
+  ]
+}

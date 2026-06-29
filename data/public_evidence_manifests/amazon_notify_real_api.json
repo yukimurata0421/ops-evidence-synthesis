@@ -1,0 +1,113 @@
+{
+  "schema_version": "public_evidence_manifest.v1",
+  "case_id": "amazon_notify_real_api",
+  "title": "amazon-notify real API source-aware review",
+  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
+  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
+  "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
+  "precomputed_payload_path": "data/precomputed_review_summaries/7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d.json",
+  "evidence_sha256": "7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
+  "pipeline_run_id": "pipe-3097375a9dcb41919089",
+  "api_revision": "ops-evidence-api-e2e-00006-6t9",
+  "canonical_graph_sha256": "30ab89331c7389a11ce29394d8d33d3f2b8f6a48c2bfac1646b70aa9acd90215",
+  "input_fingerprint_sha256": "4c1f7d780fd1c713fc987824fddca067f585a75618058f9cff49189677708547",
+  "payload_sha256": "f17d1546dd7161c3e7edd07eeb9f50d2a7639d0735ed4c8699dfe2a15e141874",
+  "source_boundary": {
+    "raw_logs_committed": false,
+    "raw_logs_uploaded_to_model": false,
+    "raw_source_committed": false,
+    "raw_source_uploaded_to_model": false,
+    "row_level_sanitized_events_committed": false,
+    "public_artifact_type": "manifest_and_precomputed_review",
+    "raw_log_policy": "not_uploaded",
+    "raw_source_policy": "not_uploaded"
+  },
+  "sanitized_corpus": {
+    "service": "amazon-notify",
+    "environment": "prod",
+    "sanitized_row_count": 6506,
+    "db_ingested_log_count": 6506,
+    "window_start": "2026-06-25T23:34:06Z",
+    "window_end": "2026-06-26T23:32:21Z",
+    "public_row_level_file": null,
+    "public_note": "The full row-level sanitized corpus was not committed; the public repo carries this manifest, the SHA-fixed review payload, and a separate public-safe fixture for local deterministic demos."
+  },
+  "token_compression": {
+    "evidence_item_count": 1639,
+    "model_projection_evidence_items": 140,
+    "model_projection_occurrence_count": 4939,
+    "model_projection_occurrence_coverage_ratio": 0.759145,
+    "policy": "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; row-level raw logs stayed out of provider prompts."
+  },
+  "provider_summary": {
+    "provider_count": 5,
+    "schema_valid_provider_count": 5,
+    "pipeline_status": "succeeded",
+    "providers": [
+      {
+        "provider_id": "gemini-enterprise-agent-platform",
+        "display_name": "Vertex Gemini",
+        "model_name": "gemini-3.1-pro-preview",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "e14c393ee7aa75927828d341d29f1b621e114b604ca1f3ec3e02e3f5c5803b09",
+        "parsed_json_sha256": "6657885414cc5bb8ae71756d9d857b05600959a5a09465261d752d4257df9321",
+        "input_tokens": 70530,
+        "output_tokens": 588
+      },
+      {
+        "provider_id": "openai-gpt-oss-on-vertex",
+        "display_name": "gpt-oss on Vertex MaaS",
+        "model_name": "gpt-oss-120b-maas",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "eedbf0026419741f477dfe6f71e1b5fc50f1b28e14715f320998ce68018dcc45",
+        "parsed_json_sha256": "c8c4587b64d625eacb5be13104f452dd3dfe3a817a7c4ea796e6d66ada074835",
+        "input_tokens": 53409,
+        "output_tokens": 2799
+      },
+      {
+        "provider_id": "mistral-agent-platform",
+        "display_name": "Mistral on Vertex MaaS",
+        "model_name": "mistral-medium-3",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "4c1fa2d337b7f40d6dc9a5a57def9b8fa634c9e1a621d1a08bf59fe0efdd3d4f",
+        "parsed_json_sha256": "d908237c21f1a22240c23c49cb4323b2a6e87b5f68ee693c67d57a58fd7f7773",
+        "input_tokens": 67140,
+        "output_tokens": 809
+      },
+      {
+        "provider_id": "qwen-agent-platform",
+        "display_name": "Qwen on Vertex MaaS",
+        "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "ca22d1f948298321838d284ab872c876648fb18cd3d5b36e74b7243b65da1d30",
+        "parsed_json_sha256": "40086d91bf5112b0442d62d5eae8cc187bed3392d5c5601b36c660d46a4476df",
+        "input_tokens": 62631,
+        "output_tokens": 1708
+      },
+      {
+        "provider_id": "glm-agent-platform",
+        "display_name": "GLM on Vertex MaaS",
+        "model_name": "zai-org/glm-5-maas",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "d152ae8ed1ec951378e8315aeccbe76e5e57976bd6426191cd8702b103a05c2f",
+        "parsed_json_sha256": "255ac3be99813652da4fa83cfab86a32764d35c217fa2a268ac8da8323bbac94",
+        "input_tokens": 54262,
+        "output_tokens": 2122
+      }
+    ]
+  },
+  "review_summary": {
+    "primary_targets": 1,
+    "validation_targets": 6,
+    "monitor_only": 2,
+    "auto_archived": 0,
+    "incident_baseline": "open",
+    "technical_baseline": "established",
+    "provider_detection_overlap": "5/5"
+  }
+}

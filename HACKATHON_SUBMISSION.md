@@ -22,6 +22,7 @@ Real API source-aware run:
 
 - Evidence SHA256: `7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d`
 - Public payload: `data/precomputed_review_summaries/7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d.json`
+- Public manifest: `data/public_evidence_manifests/amazon_notify_real_api.json`
 - Run notes: [docs/real-api-qwen-glm-run.md](docs/real-api-qwen-glm-run.md)
 
 This run used a 6,506-row sanitized e2e log corpus persisted in the API store,
@@ -37,6 +38,11 @@ Additional stream_v3 source-aware real API runs:
 
 These runs use sanitized stream_v3 code context and separate 8,011-row Dell
 runtime / 5,055-row arena-server monitoring corpora.
+
+Data boundary and compression details:
+[docs/data-boundary.md](docs/data-boundary.md). Full row-level sanitized
+stream_v3 corpora are not committed; the public evidence is the live URL, fixed
+payload, manifest, provider output hashes, and model-projection statistics.
 
 ## 30-Second Reviewer Path
 
@@ -69,6 +75,9 @@ Real operational analysis is local-first: raw logs and live provider credentials
 stay in the operator environment. Cloud Run serves SHA-fixed read-only review
 caches. The public repository includes a 6,506-line public-safe amazon-notify
 fixture that regenerates the flagship review without network access or secrets.
+Private row-level sanitized corpora stay local; public manifests preserve the
+row counts, Evidence Item counts, model-projection counts, and provider output
+hashes needed to review what was analyzed.
 
 ## Build Scope
 
@@ -93,7 +102,8 @@ evaluation path.
 2. Open the Detail URL if deeper provider positions are needed.
 3. Read [Architecture](docs/architecture.md) for the local-first pipeline.
 4. Read [Evidence Bundle contract](docs/evidence_bundle.md) for the safety boundary.
-5. Read [Current implementation and roadmap](docs/current-vs-architecture-gap.md) for production gaps.
+5. Read [Public data boundary](docs/data-boundary.md) for the committed-vs-local artifact split.
+6. Read [Current implementation and roadmap](docs/current-vs-architecture-gap.md) for production gaps.
 
 The public documentation set is listed in
 [Public documentation inventory](docs/public-documentation-inventory.md).

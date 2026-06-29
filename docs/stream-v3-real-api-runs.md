@@ -118,9 +118,9 @@ sanitized corpus remained in the Evidence Bundle and public payload metadata.
 
 | Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived | Incident baseline |
 | --- | ---: | ---: | ---: | ---: | --- |
-| Dell runtime | 0 | 7 | 2 | 0 | Open |
+| Dell runtime | 0 | 7 | 2 | 0 | Graph baseline established; action remains human-gated |
 | arena-server monitoring | 0 | 6 | 2 | 1 | Open |
 
 Both runs intentionally stop at human review. Provider convergence can create
-review targets and technical support, but it does not automatically establish
-the incident baseline.
+review targets and technical support, but it does not automatically authorize a
+final causal judgement or operational action.

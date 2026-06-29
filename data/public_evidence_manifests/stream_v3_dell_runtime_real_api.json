@@ -1,0 +1,113 @@
+{
+  "schema_version": "public_evidence_manifest.v1",
+  "case_id": "stream_v3_dell_runtime_real_api",
+  "title": "stream_v3 Dell runtime real API source-aware review",
+  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681",
+  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681",
+  "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681",
+  "precomputed_payload_path": "data/precomputed_review_summaries/64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681.json",
+  "evidence_sha256": "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681",
+  "pipeline_run_id": "pipe-31354926a1a942c39d39",
+  "api_revision": "dev-local-bigquery-20260629",
+  "canonical_graph_sha256": "95ef61f6e4486821429b648d2f707f13475e11a3867d53439b2d85660e5f39e5",
+  "input_fingerprint_sha256": "75e0188cba1f4ec98903f48d74e12dd633bb8754705d0e245476f061145f6bcf",
+  "payload_sha256": "3a9ae3e10e5338743ec5b7a705926b6eea07501f66d87b7c65f3bb29770d51db",
+  "source_boundary": {
+    "raw_logs_committed": false,
+    "raw_logs_uploaded_to_model": false,
+    "raw_source_committed": false,
+    "raw_source_uploaded_to_model": false,
+    "row_level_sanitized_events_committed": false,
+    "public_artifact_type": "manifest_and_precomputed_review",
+    "raw_log_policy": "not_uploaded",
+    "raw_source_policy": "not_uploaded"
+  },
+  "sanitized_corpus": {
+    "service": "stream_v3_runtime",
+    "environment": "dell_runtime",
+    "sanitized_row_count": 8011,
+    "db_ingested_log_count": 8011,
+    "window_start": "2026-06-26T03:31:23Z",
+    "window_end": "2026-06-26T17:38:45Z",
+    "public_row_level_file": null,
+    "public_note": "The full row-level sanitized corpus was not committed; the public repo carries this manifest, the SHA-fixed review payload, and the public URL for reviewer inspection."
+  },
+  "token_compression": {
+    "evidence_item_count": 654,
+    "model_projection_evidence_items": 140,
+    "model_projection_occurrence_count": 7383,
+    "model_projection_occurrence_coverage_ratio": 0.921608,
+    "policy": "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; row-level raw logs stayed out of provider prompts."
+  },
+  "provider_summary": {
+    "provider_count": 5,
+    "schema_valid_provider_count": 5,
+    "pipeline_status": "succeeded",
+    "providers": [
+      {
+        "provider_id": "gemini-enterprise-agent-platform",
+        "display_name": "Vertex Gemini",
+        "model_name": "gemini-3.1-pro-preview",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "1957500d63b5b21d391c11141690c196a966209b898f57c28165aaea90993152",
+        "parsed_json_sha256": "1cf15bc77c1fc75aff3d02742bed4afd27d5787c404d6eabb4986390733981bd",
+        "input_tokens": 55587,
+        "output_tokens": 1328
+      },
+      {
+        "provider_id": "openai-gpt-oss-on-vertex",
+        "display_name": "gpt-oss on Vertex MaaS",
+        "model_name": "gpt-oss-120b-maas",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "0bafc0677d43dae681a5fb07a1a4ee182b22ded850fff73966afc8ef076a35d5",
+        "parsed_json_sha256": "e58140fc4f68ec9f1d0e0d50b61caf3dab0629b12eb138e2490934d56a889042",
+        "input_tokens": 42633,
+        "output_tokens": 3105
+      },
+      {
+        "provider_id": "mistral-agent-platform",
+        "display_name": "Mistral on Vertex MaaS",
+        "model_name": "mistral-medium-3",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "314cbde1a7735f3898b3ca750a331c405c7a9d8be136d76cc71d9dd7e502fd13",
+        "parsed_json_sha256": "76f924e2e9b0879084a4e7745f29bcf3b2a035ee4d71479aea93c8398721fcb6",
+        "input_tokens": 52432,
+        "output_tokens": 1119
+      },
+      {
+        "provider_id": "qwen-agent-platform",
+        "display_name": "Qwen on Vertex MaaS",
+        "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "b1b223f5b56a25cfda7a269e4ccce5d31c02836f10a02a4f4050fd7ec1f80f40",
+        "parsed_json_sha256": "341bbe3e562a6aa7b2831e6632788adbef73311a4a3d5a68f8ab29fe4d84ca0a",
+        "input_tokens": 49412,
+        "output_tokens": 1526
+      },
+      {
+        "provider_id": "glm-agent-platform",
+        "display_name": "GLM on Vertex MaaS",
+        "model_name": "zai-org/glm-5-maas",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "98d0b79b82238270aab44c19f28a6984d50bec759f7fa19836951d8e0ff14f83",
+        "parsed_json_sha256": "e028ba0cae4bee95a18aa057bb6af4704a9eee7438950b91451b54add82f03fc",
+        "input_tokens": 43141,
+        "output_tokens": 4837
+      }
+    ]
+  },
+  "review_summary": {
+    "primary_targets": 0,
+    "validation_targets": 7,
+    "monitor_only": 2,
+    "auto_archived": 0,
+    "incident_baseline": "established",
+    "technical_baseline": "established",
+    "provider_detection_overlap": "5/5"
+  }
+}

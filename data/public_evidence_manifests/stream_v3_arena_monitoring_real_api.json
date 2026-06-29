@@ -1,0 +1,113 @@
+{
+  "schema_version": "public_evidence_manifest.v1",
+  "case_id": "stream_v3_arena_monitoring_real_api",
+  "title": "stream_v3 arena-server monitoring real API source-aware review",
+  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+  "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+  "precomputed_payload_path": "data/precomputed_review_summaries/f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769.json",
+  "evidence_sha256": "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+  "pipeline_run_id": "pipe-1c22491f0c7b448aa3d1",
+  "api_revision": "ops-evidence-api-e2e-00006-6t9",
+  "canonical_graph_sha256": "3732e88c6e51596eba2331fc63f54dbe4d676da68cf0ad6e620759f39fcdfbf3",
+  "input_fingerprint_sha256": "2b771e56c49ecf63b0eb5a97e9251ab837174f4476edc1eee61436684d2b1461",
+  "payload_sha256": "e2c35e0b4d4dc9625b4635d53bd8344d7d30d333b0ab8996628a733bf19ff4e6",
+  "source_boundary": {
+    "raw_logs_committed": false,
+    "raw_logs_uploaded_to_model": false,
+    "raw_source_committed": false,
+    "raw_source_uploaded_to_model": false,
+    "row_level_sanitized_events_committed": false,
+    "public_artifact_type": "manifest_and_precomputed_review",
+    "raw_log_policy": "not_uploaded",
+    "raw_source_policy": "not_uploaded"
+  },
+  "sanitized_corpus": {
+    "service": "stream_v3_monitoring",
+    "environment": "arena_server",
+    "sanitized_row_count": 5055,
+    "db_ingested_log_count": 5055,
+    "window_start": "2026-05-24T11:29:00Z",
+    "window_end": "2026-06-17T00:12:45Z",
+    "public_row_level_file": null,
+    "public_note": "The full row-level sanitized corpus was not committed; the public repo carries this manifest, the SHA-fixed review payload, and the public URL for reviewer inspection."
+  },
+  "token_compression": {
+    "evidence_item_count": 1680,
+    "model_projection_evidence_items": 140,
+    "model_projection_occurrence_count": 496,
+    "model_projection_occurrence_coverage_ratio": 0.098121,
+    "policy": "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; row-level raw logs stayed out of provider prompts."
+  },
+  "provider_summary": {
+    "provider_count": 5,
+    "schema_valid_provider_count": 5,
+    "pipeline_status": "succeeded",
+    "providers": [
+      {
+        "provider_id": "gemini-enterprise-agent-platform",
+        "display_name": "Vertex Gemini",
+        "model_name": "gemini-3.1-pro-preview",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "490c0e98d17e0643543546f6043130710c4301efdc4fbe14e92fdbaa5c39824c",
+        "parsed_json_sha256": "963ec8f383127fa5a462155af22ccf3f0631034b2e633550cd5bc907fb25f915",
+        "input_tokens": 74472,
+        "output_tokens": 1303
+      },
+      {
+        "provider_id": "openai-gpt-oss-on-vertex",
+        "display_name": "gpt-oss on Vertex MaaS",
+        "model_name": "gpt-oss-120b-maas",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "44fa19487f28d2523a244f7c28ddf25be8e7704604cd4b5866dc6edb08cb7ec3",
+        "parsed_json_sha256": "f8da7b5d3ee79f3329527dfd0e4e8c17596167a7e061d421b05e42e54dd855d4",
+        "input_tokens": 57242,
+        "output_tokens": 2850
+      },
+      {
+        "provider_id": "mistral-agent-platform",
+        "display_name": "Mistral on Vertex MaaS",
+        "model_name": "mistral-medium-3",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "8656f2e7e1c8228115ef53d9db9de1c7bc64f4c60d0d476553d5d5f62465eb06",
+        "parsed_json_sha256": "c4eadac81b6919af995e287aff48ac9b3ae0ea9b551d913ff034befb786f0aa0",
+        "input_tokens": 72156,
+        "output_tokens": 1001
+      },
+      {
+        "provider_id": "qwen-agent-platform",
+        "display_name": "Qwen on Vertex MaaS",
+        "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "a470bdfe52aba55f8e4a5f13e2d0672f69d920f971ce8ed14c5b8ccc8f17e5cc",
+        "parsed_json_sha256": "0467f15dbae64cb19bca247b81cc4a2f2be4267d543ee91beab372c28f20cea6",
+        "input_tokens": 67921,
+        "output_tokens": 1271
+      },
+      {
+        "provider_id": "glm-agent-platform",
+        "display_name": "GLM on Vertex MaaS",
+        "model_name": "zai-org/glm-5-maas",
+        "status": "ok",
+        "schema_valid": true,
+        "raw_output_sha256": "7a7b85ace43d02d8918e1b99ab622fdc6a6de39d701d31cb5d8e145d39aa4497",
+        "parsed_json_sha256": "a3ad067faf2389c7919b3cb66c9a7f009edc9918e0585eba3964e9f3195ac16f",
+        "input_tokens": 58193,
+        "output_tokens": 3753
+      }
+    ]
+  },
+  "review_summary": {
+    "primary_targets": 0,
+    "validation_targets": 6,
+    "monitor_only": 2,
+    "auto_archived": 1,
+    "incident_baseline": "open",
+    "technical_baseline": "established",
+    "provider_detection_overlap": "5/5"
+  }
+}
