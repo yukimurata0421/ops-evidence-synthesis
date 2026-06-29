@@ -11,7 +11,7 @@
   "api_revision": "dev-local-bigquery-20260629",
   "canonical_graph_sha256": "95ef61f6e4486821429b648d2f707f13475e11a3867d53439b2d85660e5f39e5",
   "input_fingerprint_sha256": "75e0188cba1f4ec98903f48d74e12dd633bb8754705d0e245476f061145f6bcf",
-  "payload_sha256": "3a9ae3e10e5338743ec5b7a705926b6eea07501f66d87b7c65f3bb29770d51db",
+  "payload_sha256": "3d56dc6abf0df906f2aa3a9c7fe3d2375a201bcbd76602476cb4144dfed79e0f",
   "source_boundary": {
     "raw_logs_committed": false,
     "raw_logs_uploaded_to_model": false,

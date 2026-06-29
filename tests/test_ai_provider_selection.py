@@ -72,7 +72,7 @@ def test_provider_registry_can_disable_provider_by_policy(monkeypatch) -> None:
     assert "disabled_by_policy" in response.raw_output
 
 
-def test_root_cause_prompt_and_schema_are_generic_not_stream_v3_only() -> None:
+def test_root_cause_prompt_and_schema_are_generic_for_sanitized_inputs() -> None:
     bundle = {
         "evidence_sha256": "e" * 64,
         "service": "generic-service",
@@ -85,6 +85,9 @@ def test_root_cause_prompt_and_schema_are_generic_not_stream_v3_only() -> None:
     subsystem_enum = schema["properties"]["claims"]["items"]["properties"]["subsystem"]["enum"]
 
     assert "arbitrary sanitized JSONL" in prompt
+    assert "Analyze the sanitized operational log evidence" in prompt
+    assert "These are the only runtime evidence surfaces you may cite" in prompt
+    assert "If sanitized Source Context or Source Analysis is present" in prompt
     assert "context only; they are not evidence" in prompt
     assert "Do not invent log source names, metric names, state file paths, endpoints, or collector commands." in prompt
     assert "Do not translate missing evidence into ad hoc local commands" in prompt
@@ -178,6 +181,17 @@ def test_compact_bundle_for_model_keeps_high_signal_refs_and_drops_bulk_payload(
                 "message_sanitized": "event " + ("z" * 1000),
             }
         ],
+        "source_context_context": {
+            "bundle_type": "sanitized_source_context_bundle",
+            "source_context_sha256": "s" * 64,
+            "project_summary": {"entrypoint_candidates": ["app.py"]},
+            "source_items": [{"relative_path": "app.py", "excerpt": "logger.info('ok')"}],
+        },
+        "source_analysis_context": {
+            "bundle_type": "sanitized_source_analysis_bundle",
+            "analysis_sha256": "a" * 64,
+            "metric_semantics_candidates": [{"metric_name": "error_count", "suggested_semantics": {"zero_behavior": "healthy"}}],
+        },
     }
     full_bundle["evidence_items"] = [
         {
@@ -214,6 +228,10 @@ def test_compact_bundle_for_model_keeps_high_signal_refs_and_drops_bulk_payload(
     assert compact_default["evidence_corpus_summary"]["model_occurrence_count"] >= 149
     assert compact_default["evidence_corpus_summary"]["omitted_evidence_item_count"] == 60
     assert compact_default["logs"] == []
+    assert compact_default["source_context"]["source_context_sha256"] == "s" * 64
+    assert compact_default["source_analysis"]["analysis_sha256"] == "a" * 64
+    assert compact_default["source_context"]["context_is_not_incident_evidence"] is True
+    assert compact_default["source_analysis"]["context_is_not_incident_evidence"] is True
     assert set(compact_default["evidence_refs"]) == {"METRIC-001", "PATTERN-001"}
     assert "example_log" not in compact_default["log_patterns"][0]
     assert "Individual sanitized log lines" in compact_default["compression_note"]

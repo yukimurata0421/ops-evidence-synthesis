@@ -108,9 +108,108 @@ def evidence_requirement_prompt(payload: dict[str, Any]) -> str:
     )
 
 
+def profile_draft_prompt(payload: dict[str, Any]) -> str:
+    discovery = payload.get("profile_discovery") if isinstance(payload.get("profile_discovery"), dict) else payload
+    return (
+        "Return only valid JSON. Do not wrap the JSON in Markdown. "
+        "Use exactly this top-level object shape: "
+        '{"schema_version":"profile_draft_ai.v1",'
+        '"system_type":"...",'
+        '"purpose":"...",'
+        '"critical_outcomes":["..."],'
+        '"components":[{"component_id":"...","name":"...","role":"...",'
+        '"subsystem":"...","core_target_types":["..."]}],'
+        '"metric_semantics":[{"metric_name":"...","semantic_type":"heartbeat|throughput|error|warning|latency|freshness|resource|configuration_contract|candidate",'
+        '"zero_behavior":"healthy|suspicious|neutral|unknown",'
+        '"increase_behavior":"healthy|suspicious|neutral|unknown",'
+        '"decrease_behavior":"healthy|suspicious|neutral|unknown",'
+        '"subsystem":"...","core_target_type":"..."}],'
+        '"log_sources":[{"source_id":"...","description":"..."}],'
+        '"collector_mappings":[{"request_type":"...","candidate_collectors":["..."],'
+        '"safety_level":"read_only","params":{}}],'
+        '"known_benign_noise":["..."],'
+        '"action_constraints":["..."],'
+        '"assumptions":["..."],'
+        '"required_human_decisions":["..."]}. '
+        "You are creating a Profile Draft from sanitized Source Context, Source Analysis, "
+        "and sanitized log-observed entities. Analyze the sanitized code/config-derived "
+        "project entities, entrypoints, systemd units, logger mappings, metric candidates, "
+        "collector candidates, and observed log entities. Do not infer runtime incident truth. "
+        "This draft explains what the system is, which user outcomes matter, which components "
+        "exist, what metrics probably mean, which log sources are relevant, and which read-only "
+        "collector mappings a human may approve. "
+        "The draft is not an explicit profile until human approval. Keep every component, "
+        "metric semantic, and collector mapping reviewable. "
+        "Use only names, metrics, components, log sources, and collector candidates present in "
+        "the sanitized input. Do not invent concrete metric names, paths, endpoints, commands, "
+        "credentials, env values, or private identifiers. "
+        "Collector mappings must be read-only. Do not propose write actions, restarts, rollbacks, "
+        "credential changes, or raw data collection. "
+        "Source Context and Source Analysis are context, not incident evidence. Runtime support "
+        "claims later must still cite Evidence Items with evidence_id. "
+        f"{ai_evidence_rules_text()} "
+        "If a critical user outcome is plausible but not proven, include it as an assumption or "
+        "required human decision, not as a fact. "
+        f"Profile Discovery Bundle:\n{pretty_json(compact_profile_discovery_for_model(discovery))}"
+    )
+
+
+def focused_operational_profile_prompt(payload: dict[str, Any]) -> str:
+    return (
+        "Return only valid JSON. Do not wrap the JSON in Markdown. "
+        "Use exactly this top-level object shape: "
+        '{"schema_version":"focused_operational_profile.v1",'
+        '"system_label":"...",'
+        '"system_summary":{"system_type":"...","primary_purpose":"...",'
+        '"logged_subject":"...","operational_boundary":"...","confidence":0.0},'
+        '"runtime_components":[{"component_id":"...","name":"...","role":"...",'
+        '"evidence_refs":[],"source_context_refs":[],"confidence":0.0}],'
+        '"observability_contract":{"logs":[{"source":"...","meaning":"...",'
+        '"evidence_refs":[],"source_context_refs":[]}],'
+        '"metrics":[{"metric_name":"...","meaning":"...",'
+        '"healthy_direction":"increase|decrease|stable|nonzero|zero|unknown",'
+        '"evidence_refs":[],"source_context_refs":[]}],'
+        '"heartbeats":[{"name":"...","meaning":"...","evidence_refs":[],"source_context_refs":[]}],'
+        '"state_files":[{"name":"...","meaning":"...","source_context_refs":[]}]},'
+        '"orchestration_flows":[{"flow_name":"...","trigger":"...","steps":["..."],'
+        '"owned_by_components":[],"evidence_refs":[],"source_context_refs":[],"confidence":0.0}],'
+        '"failure_modes":[{"failure_mode":"...","observable_signals":[],"missing_evidence":[],"confidence":0.0}],'
+        '"read_only_collectors":[{"collector":"...","purpose":"...","safety_level":"read_only"}],'
+        '"profile_limits":{"source_context_is_incident_evidence":false,'
+        '"runtime_claims_require_evidence_id":true,'
+        '"approval_required_before_explicit_profile":true,'
+        '"raw_source_sent_to_provider":false,"raw_logs_sent_to_provider":false,'
+        '"notes":["..."]},'
+        '"human_review_required":["..."]}. '
+        "Create a focused operational profile, not an incident diagnosis and not a broad inventory. "
+        "Answer these operational questions: what system is this, what is being logged or measured, "
+        "which components matter at runtime, and what orchestration or watchdog loop is visible. "
+        "Prefer 5 to 12 high-value runtime components. Do not exhaustively list every identifier. "
+        "Prefer concrete service units, workers, watchdogs, collectors, media/process runners, queues, "
+        "publishers, schedulers, and recovery controllers over helper libraries. "
+        "The input contains only sanitized artifacts: Profile Discovery, optional sanitized Evidence Bundle, "
+        "optional sanitized Source Context, and optional sanitized Source Analysis. Analyze sanitized code/config "
+        "context when it is present, but do not treat it as runtime evidence. Runtime claims must cite evidence_id "
+        "or pattern_id values from Evidence Bundle surfaces where available. Code/config claims should cite source "
+        "item ids, config ids, systemd unit names, analysis candidate ids, or safe names from source context. "
+        "If runtime evidence and source analysis disagree, keep the disagreement explicit in failure_modes or "
+        "human_review_required. Do not invent concrete metric names, paths, hostnames, endpoints, env values, "
+        "credentials, private identifiers, or commands. Read-only collectors only. Do not propose restarts, "
+        "write operations, credential rotation, rollback, deletion, or raw data exfiltration. "
+        "Keep user-impact or business-impact statements as assumptions unless the runtime evidence proves them. "
+        f"{ai_evidence_rules_text()} "
+        "Focused profile input:\n"
+        f"{pretty_json(compact_focused_profile_input_for_model(payload))}"
+    )
+
+
 def _prompt(bundle: dict[str, Any], *, agent_role: str, role_instruction: str) -> str:
     if bundle.get("llm_task") == "evidence_requirement_planner":
         return evidence_requirement_prompt(bundle)
+    if bundle.get("llm_task") == "focused_operational_profile":
+        return focused_operational_profile_prompt(bundle)
+    if bundle.get("llm_task") == "profile_draft":
+        return profile_draft_prompt(bundle)
     subsystem_values = "|".join(GENERIC_SUBSYSTEMS)
     claim_values = "|".join(CLAIM_TYPES)
     finding_status_values = "|".join(FINDING_STATUSES)
@@ -137,11 +236,18 @@ def _prompt(bundle: dict[str, Any], *, agent_role: str, role_instruction: str) -
         '"propositions":[{"question":"...","subsystem":"...",'
         '"linked_claim_hints":[]}]}. '
         f"{role_instruction} "
+        "Analyze the sanitized operational log evidence in evidence_items, log_patterns, "
+        "metric_windows, operational_evidence, and evidence_refs. These are the only runtime "
+        "evidence surfaces you may cite. "
+        "If sanitized Source Context or Source Analysis is present, use it only to interpret "
+        "component names, metric semantics, logger mappings, collector mappings, entrypoints, "
+        "deployment/config context, and profile mapping. Do not treat source context as runtime "
+        "incident evidence. Runtime support claims must still cite Evidence Items. "
         "Array fields must contain primitive strings only: evidence_refs, counter_evidence_refs, "
         "caveats, missing_evidence, and linked_claim_hints must never contain objects, nested claims, "
         "or dictionaries. If you want to express a caveat, put one concise sentence in the caveats "
         "string array or create a separate top-level claim with claim_type caveat. "
-        "This system is not stream_v3-specific: the input is arbitrary sanitized JSONL "
+        "This system is not tied to a single source project: the input is arbitrary sanitized JSONL "
         "normalized into an evidence bundle. Choose the closest generic subsystem. "
         "Use job_configuration when evidence shows a configured command, scheduled job, "
         "supervisor unit, or expected artifact is missing. Use runtime_recovery for "
@@ -280,6 +386,8 @@ def compact_bundle_for_model(
             "model_normalized_events": len(normalized_events),
         },
         "review_graph_seed": bundle.get("review_graph_seed") or {},
+        "source_context": _compact_source_context(bundle.get("source_context_context") or {}, max_text_chars=max_text_chars),
+        "source_analysis": _compact_source_analysis(bundle.get("source_analysis_context") or {}, max_text_chars=max_text_chars),
         "evidence_items": evidence_items,
         "signals": local_first_signals,
         "evidence_signals": evidence_signals,
@@ -291,6 +399,174 @@ def compact_bundle_for_model(
         "normalized_events": normalized_events,
         "evidence_refs": evidence_refs,
     }
+
+
+def compact_profile_discovery_for_model(
+    discovery: dict[str, Any],
+    *,
+    max_items: int = 50,
+    max_text_chars: int = 480,
+) -> dict[str, Any]:
+    """Reduce a sanitized Profile Discovery Bundle for profile draft generation."""
+    if not isinstance(discovery, dict):
+        return {}
+    source_context_summary = discovery.get("source_context_summary")
+    source_analysis_summary = discovery.get("source_analysis_summary")
+    return _drop_empty(
+        {
+            "schema_version": discovery.get("schema_version"),
+            "bundle_type": discovery.get("bundle_type"),
+            "discovery_sha256": discovery.get("discovery_sha256"),
+            "raw_config_policy": discovery.get("raw_config_policy"),
+            "raw_logs_policy": discovery.get("raw_logs_policy"),
+            "source": discovery.get("source") or {},
+            "discovery_policy": discovery.get("discovery_policy") or {},
+            "local_first_summary": discovery.get("local_first_summary") or {},
+            "display_summary": discovery.get("display_summary") or {},
+            "source_context_summary": _truncate_nested(source_context_summary or {}, max_text_chars),
+            "source_analysis_summary": _truncate_nested(source_analysis_summary or {}, max_text_chars),
+            "observed_entities": _truncate_nested(list(discovery.get("observed_entities") or [])[:max_items], max_text_chars),
+            "project_entities": _truncate_nested(list(discovery.get("project_entities") or [])[:max_items], max_text_chars),
+            "entity_links": _truncate_nested(list(discovery.get("entity_links") or [])[:max_items], max_text_chars),
+            "component_candidates": _truncate_nested(list(discovery.get("component_candidates") or [])[:max_items], max_text_chars),
+            "metric_semantics_candidates": _truncate_nested(list(discovery.get("metric_semantics_candidates") or [])[:max_items], max_text_chars),
+            "collector_mapping_candidates": _truncate_nested(list(discovery.get("collector_mapping_candidates") or [])[:max_items], max_text_chars),
+            "external_dependency_candidates": _truncate_nested(list(discovery.get("external_dependency_candidates") or [])[:max_items], max_text_chars),
+            "required_profile_questions": _truncate_nested(list(discovery.get("required_profile_questions") or [])[:max_items], max_text_chars),
+            "prompt_rules": discovery.get("prompt_rules") or profile_discovery_prompt_rules(),
+        }
+    )
+
+
+def compact_focused_profile_input_for_model(payload: dict[str, Any]) -> dict[str, Any]:
+    """Build high-signal sanitized context for focused operational profiling."""
+    if not isinstance(payload, dict):
+        return {}
+    discovery = payload.get("profile_discovery") if isinstance(payload.get("profile_discovery"), dict) else {}
+    evidence_bundle = payload.get("evidence_bundle") if isinstance(payload.get("evidence_bundle"), dict) else {}
+    source_context = payload.get("source_context") if isinstance(payload.get("source_context"), dict) else {}
+    source_analysis = payload.get("source_analysis") if isinstance(payload.get("source_analysis"), dict) else {}
+    return _drop_empty(
+        {
+            "llm_task": payload.get("llm_task") or "focused_operational_profile",
+            "schema_version": payload.get("schema_version") or "focused_operational_profile_model_input.v1",
+            "profile_policy": payload.get("focused_profile_policy") or {},
+            "profile_discovery": _compact_focused_discovery(discovery),
+            "evidence_bundle": compact_bundle_for_model(
+                evidence_bundle,
+                max_evidence_items=80,
+                max_logs=0,
+                max_normalized_events=0,
+                max_text_chars=360,
+            )
+            if evidence_bundle
+            else {},
+            "source_context": _compact_focused_source_context(source_context, max_text_chars=360),
+            "source_analysis": _compact_focused_source_analysis(source_analysis, max_text_chars=360),
+            "selection_note": (
+                "Rows are sanitized and ranked toward operational profile value: runtime entrypoints, "
+                "service units, watchdogs, collectors, orchestration, loggers, metrics, heartbeats, "
+                "state files, and recovery logic. The model must still distinguish source context from "
+                "runtime evidence."
+            ),
+        }
+    )
+
+
+def _compact_focused_discovery(discovery: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(discovery, dict):
+        return {}
+    return _drop_empty(
+        {
+            "schema_version": discovery.get("schema_version"),
+            "bundle_type": discovery.get("bundle_type"),
+            "discovery_sha256": discovery.get("discovery_sha256"),
+            "raw_config_policy": discovery.get("raw_config_policy"),
+            "raw_logs_policy": discovery.get("raw_logs_policy"),
+            "source": discovery.get("source") or {},
+            "discovery_policy": discovery.get("discovery_policy") or {},
+            "local_first_summary": discovery.get("local_first_summary") or {},
+            "display_summary": discovery.get("display_summary") or {},
+            "source_context_summary": _truncate_nested(discovery.get("source_context_summary") or {}, 360),
+            "source_analysis_summary": _truncate_nested(discovery.get("source_analysis_summary") or {}, 360),
+            "component_candidates": _truncate_nested(
+                _focused_rows(discovery.get("component_candidates") or [], limit=80),
+                360,
+            ),
+            "metric_semantics_candidates": _truncate_nested(
+                _focused_rows(discovery.get("metric_semantics_candidates") or [], limit=80),
+                360,
+            ),
+            "collector_mapping_candidates": _truncate_nested(
+                _focused_rows(discovery.get("collector_mapping_candidates") or [], limit=40),
+                360,
+            ),
+            "observed_entities": _truncate_nested(
+                _focused_rows(discovery.get("observed_entities") or [], limit=80),
+                360,
+            ),
+            "project_entities": _truncate_nested(
+                _focused_rows(discovery.get("project_entities") or [], limit=80),
+                360,
+            ),
+            "entity_links": _truncate_nested(
+                _focused_rows(discovery.get("entity_links") or [], limit=80),
+                360,
+            ),
+            "external_dependency_candidates": _truncate_nested(
+                _focused_rows(discovery.get("external_dependency_candidates") or [], limit=30),
+                360,
+            ),
+            "required_profile_questions": _truncate_nested(
+                discovery.get("required_profile_questions") or [],
+                360,
+            ),
+            "prompt_rules": discovery.get("prompt_rules") or profile_discovery_prompt_rules(),
+        }
+    )
+
+
+def _compact_focused_source_context(context: dict[str, Any], *, max_text_chars: int) -> dict[str, Any]:
+    if not isinstance(context, dict):
+        return {}
+    return _drop_empty(
+        {
+            "bundle_type": context.get("bundle_type"),
+            "source_context_sha256": context.get("source_context_sha256"),
+            "context_is_not_incident_evidence": True,
+            "raw_source_policy": context.get("raw_source_policy"),
+            "raw_env_policy": context.get("raw_env_policy"),
+            "project_summary": _truncate_nested(context.get("project_summary") or {}, max_text_chars),
+            "source_items": _truncate_nested(_focused_rows(context.get("source_items") or [], limit=80), max_text_chars),
+            "config_items": _truncate_nested(_focused_rows(context.get("config_items") or [], limit=50), max_text_chars),
+            "env_key_summaries": _truncate_nested(_focused_rows(context.get("env_key_summaries") or [], limit=30), max_text_chars),
+            "systemd_units": _truncate_nested(_focused_rows(context.get("systemd_units") or [], limit=40), max_text_chars),
+            "version_context": _truncate_nested(context.get("version_context") or {}, max_text_chars),
+            "prompt_rules": context.get("prompt_rules") or [],
+        }
+    )
+
+
+def _compact_focused_source_analysis(context: dict[str, Any], *, max_text_chars: int) -> dict[str, Any]:
+    if not isinstance(context, dict):
+        return {}
+    return _drop_empty(
+        {
+            "bundle_type": context.get("bundle_type"),
+            "analysis_sha256": context.get("analysis_sha256"),
+            "source_context_sha256": context.get("source_context_sha256"),
+            "context_is_not_incident_evidence": True,
+            "raw_source_policy": context.get("raw_source_policy"),
+            "raw_env_policy": context.get("raw_env_policy"),
+            "component_candidates": _truncate_nested(_focused_rows(context.get("component_candidates") or [], limit=90), max_text_chars),
+            "metric_semantics_candidates": _truncate_nested(_focused_rows(context.get("metric_semantics_candidates") or [], limit=120), max_text_chars),
+            "logger_mapping_candidates": _truncate_nested(_focused_rows(context.get("logger_mapping_candidates") or [], limit=60), max_text_chars),
+            "instrumentation_candidates": _truncate_nested(_focused_rows(context.get("instrumentation_candidates") or [], limit=60), max_text_chars),
+            "collector_mapping_candidates": _truncate_nested(_focused_rows(context.get("collector_mapping_candidates") or [], limit=40), max_text_chars),
+            "profile_mapping_hints": _truncate_nested(_focused_rows(context.get("profile_mapping_hints") or [], limit=60), max_text_chars),
+            "prompt_rules": context.get("prompt_rules") or [],
+        }
+    )
 
 
 def _evidence_corpus_summary(raw_items: list[dict[str, Any]], selected_items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -361,6 +637,110 @@ def _compact_profile_context(
             "context_note": _truncate(bundle.get("context_note"), max_text_chars),
         }
     )
+
+
+def _compact_source_context(context: dict[str, Any], *, max_text_chars: int) -> dict[str, Any]:
+    if not isinstance(context, dict):
+        return {}
+    return _drop_empty(
+        {
+            "bundle_type": context.get("bundle_type"),
+            "source_context_sha256": context.get("source_context_sha256"),
+            "context_is_not_incident_evidence": True,
+            "raw_source_policy": context.get("raw_source_policy"),
+            "raw_env_policy": context.get("raw_env_policy"),
+            "project_summary": _truncate_nested(context.get("project_summary") or {}, max_text_chars),
+            "source_items": _truncate_nested(list(context.get("source_items") or [])[:20], max_text_chars),
+            "config_items": _truncate_nested(list(context.get("config_items") or [])[:20], max_text_chars),
+            "env_key_summaries": _truncate_nested(list(context.get("env_key_summaries") or [])[:20], max_text_chars),
+            "systemd_units": _truncate_nested(list(context.get("systemd_units") or [])[:20], max_text_chars),
+            "version_context": _truncate_nested(context.get("version_context") or {}, max_text_chars),
+            "prompt_rules": context.get("prompt_rules") or [],
+        }
+    )
+
+
+def _compact_source_analysis(context: dict[str, Any], *, max_text_chars: int) -> dict[str, Any]:
+    if not isinstance(context, dict):
+        return {}
+    return _drop_empty(
+        {
+            "bundle_type": context.get("bundle_type"),
+            "analysis_sha256": context.get("analysis_sha256"),
+            "source_context_sha256": context.get("source_context_sha256"),
+            "context_is_not_incident_evidence": True,
+            "raw_source_policy": context.get("raw_source_policy"),
+            "raw_env_policy": context.get("raw_env_policy"),
+            "component_candidates": _truncate_nested(list(context.get("component_candidates") or [])[:30], max_text_chars),
+            "metric_semantics_candidates": _truncate_nested(list(context.get("metric_semantics_candidates") or [])[:30], max_text_chars),
+            "logger_mapping_candidates": _truncate_nested(list(context.get("logger_mapping_candidates") or [])[:30], max_text_chars),
+            "instrumentation_candidates": _truncate_nested(list(context.get("instrumentation_candidates") or [])[:30], max_text_chars),
+            "collector_mapping_candidates": _truncate_nested(list(context.get("collector_mapping_candidates") or [])[:30], max_text_chars),
+            "profile_mapping_hints": _truncate_nested(list(context.get("profile_mapping_hints") or [])[:30], max_text_chars),
+            "prompt_rules": context.get("prompt_rules") or [],
+        }
+    )
+
+
+_FOCUSED_PROFILE_KEYWORDS = (
+    "systemd",
+    ".service",
+    "watchdog",
+    "orchestrat",
+    "recovery",
+    "restart",
+    "collector",
+    "exporter",
+    "logger",
+    "metric",
+    "heartbeat",
+    "freshness",
+    "state",
+    "pid",
+    "queue",
+    "pubsub",
+    "publisher",
+    "subscriber",
+    "scheduler",
+    "worker",
+    "daemon",
+    "rtmp",
+    "rtmps",
+    "ffmpeg",
+    "stream",
+    "audio",
+    "service",
+    "unit",
+    "timer",
+    "cron",
+    "health",
+    "liveness",
+)
+
+
+def _focused_rows(rows: Any, *, limit: int) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        return []
+    indexed = [(index, row) for index, row in enumerate(rows) if isinstance(row, dict)]
+    indexed.sort(key=lambda item: (-_focused_row_score(item[1]), item[0]))
+    return [row for _index, row in indexed[:limit]]
+
+
+def _focused_row_score(row: dict[str, Any]) -> float:
+    text = pretty_json(_truncate_nested(row, 240)).casefold()
+    score = 0.0
+    for keyword in _FOCUSED_PROFILE_KEYWORDS:
+        if keyword in text:
+            score += 4.0
+    for key in ("confidence", "score", "score_hint", "count", "occurrence_count"):
+        value = row.get(key)
+        try:
+            score += min(float(value), 10.0)
+        except (TypeError, ValueError):
+            continue
+    if row.get("human_review_required") is True:
+        score += 0.5
+    return score
 
 
 def _compact_log_pattern(row: dict[str, Any], *, max_text_chars: int) -> dict[str, Any]:
@@ -803,4 +1183,302 @@ def evidence_requirements_response_schema() -> dict[str, Any]:
         },
         "required": ["schema_version", "requirements"],
         "propertyOrdering": ["schema_version", "requirements"],
+    }
+
+
+def profile_draft_response_schema() -> dict[str, Any]:
+    string_array = {"type": "ARRAY", "items": {"type": "STRING"}}
+    component = {
+        "type": "OBJECT",
+        "properties": {
+            "component_id": {"type": "STRING"},
+            "name": {"type": "STRING"},
+            "role": {"type": "STRING"},
+            "subsystem": {"type": "STRING"},
+            "core_target_types": string_array,
+        },
+        "required": ["component_id", "name", "role", "subsystem", "core_target_types"],
+        "propertyOrdering": ["component_id", "name", "role", "subsystem", "core_target_types"],
+    }
+    metric = {
+        "type": "OBJECT",
+        "properties": {
+            "metric_name": {"type": "STRING"},
+            "semantic_type": {"type": "STRING"},
+            "zero_behavior": {"type": "STRING"},
+            "increase_behavior": {"type": "STRING"},
+            "decrease_behavior": {"type": "STRING"},
+            "subsystem": {"type": "STRING"},
+            "core_target_type": {"type": "STRING"},
+        },
+        "required": [
+            "metric_name",
+            "semantic_type",
+            "zero_behavior",
+            "increase_behavior",
+            "decrease_behavior",
+            "subsystem",
+            "core_target_type",
+        ],
+        "propertyOrdering": [
+            "metric_name",
+            "semantic_type",
+            "zero_behavior",
+            "increase_behavior",
+            "decrease_behavior",
+            "subsystem",
+            "core_target_type",
+        ],
+    }
+    log_source = {
+        "type": "OBJECT",
+        "properties": {
+            "source_id": {"type": "STRING"},
+            "description": {"type": "STRING"},
+        },
+        "required": ["source_id", "description"],
+        "propertyOrdering": ["source_id", "description"],
+    }
+    collector = {
+        "type": "OBJECT",
+        "properties": {
+            "request_type": {"type": "STRING"},
+            "candidate_collectors": string_array,
+            "safety_level": {"type": "STRING"},
+        },
+        "required": ["request_type", "candidate_collectors", "safety_level"],
+        "propertyOrdering": ["request_type", "candidate_collectors", "safety_level"],
+    }
+    return {
+        "type": "OBJECT",
+        "properties": {
+            "schema_version": {"type": "STRING"},
+            "system_type": {"type": "STRING"},
+            "purpose": {"type": "STRING"},
+            "critical_outcomes": string_array,
+            "components": {"type": "ARRAY", "items": component},
+            "metric_semantics": {"type": "ARRAY", "items": metric},
+            "log_sources": {"type": "ARRAY", "items": log_source},
+            "collector_mappings": {"type": "ARRAY", "items": collector},
+            "known_benign_noise": string_array,
+            "action_constraints": string_array,
+            "assumptions": string_array,
+            "required_human_decisions": string_array,
+        },
+        "required": [
+            "schema_version",
+            "system_type",
+            "purpose",
+            "critical_outcomes",
+            "components",
+            "metric_semantics",
+            "log_sources",
+            "collector_mappings",
+            "known_benign_noise",
+            "action_constraints",
+            "assumptions",
+            "required_human_decisions",
+        ],
+        "propertyOrdering": [
+            "schema_version",
+            "system_type",
+            "purpose",
+            "critical_outcomes",
+            "components",
+            "metric_semantics",
+            "log_sources",
+            "collector_mappings",
+            "known_benign_noise",
+            "action_constraints",
+            "assumptions",
+            "required_human_decisions",
+        ],
+    }
+
+
+def focused_operational_profile_response_schema() -> dict[str, Any]:
+    string_array = {"type": "ARRAY", "items": {"type": "STRING"}}
+    ref_object = {
+        "type": "OBJECT",
+        "properties": {
+            "name": {"type": "STRING"},
+            "meaning": {"type": "STRING"},
+            "evidence_refs": string_array,
+            "source_context_refs": string_array,
+        },
+        "required": ["name", "meaning", "evidence_refs", "source_context_refs"],
+        "propertyOrdering": ["name", "meaning", "evidence_refs", "source_context_refs"],
+    }
+    component = {
+        "type": "OBJECT",
+        "properties": {
+            "component_id": {"type": "STRING"},
+            "name": {"type": "STRING"},
+            "role": {"type": "STRING"},
+            "evidence_refs": string_array,
+            "source_context_refs": string_array,
+            "confidence": {"type": "NUMBER"},
+        },
+        "required": ["component_id", "name", "role", "evidence_refs", "source_context_refs", "confidence"],
+        "propertyOrdering": ["component_id", "name", "role", "evidence_refs", "source_context_refs", "confidence"],
+    }
+    metric = {
+        "type": "OBJECT",
+        "properties": {
+            "metric_name": {"type": "STRING"},
+            "meaning": {"type": "STRING"},
+            "healthy_direction": {"type": "STRING"},
+            "evidence_refs": string_array,
+            "source_context_refs": string_array,
+        },
+        "required": ["metric_name", "meaning", "healthy_direction", "evidence_refs", "source_context_refs"],
+        "propertyOrdering": ["metric_name", "meaning", "healthy_direction", "evidence_refs", "source_context_refs"],
+    }
+    log_source = {
+        "type": "OBJECT",
+        "properties": {
+            "source": {"type": "STRING"},
+            "meaning": {"type": "STRING"},
+            "evidence_refs": string_array,
+            "source_context_refs": string_array,
+        },
+        "required": ["source", "meaning", "evidence_refs", "source_context_refs"],
+        "propertyOrdering": ["source", "meaning", "evidence_refs", "source_context_refs"],
+    }
+    flow = {
+        "type": "OBJECT",
+        "properties": {
+            "flow_name": {"type": "STRING"},
+            "trigger": {"type": "STRING"},
+            "steps": string_array,
+            "owned_by_components": string_array,
+            "evidence_refs": string_array,
+            "source_context_refs": string_array,
+            "confidence": {"type": "NUMBER"},
+        },
+        "required": [
+            "flow_name",
+            "trigger",
+            "steps",
+            "owned_by_components",
+            "evidence_refs",
+            "source_context_refs",
+            "confidence",
+        ],
+        "propertyOrdering": [
+            "flow_name",
+            "trigger",
+            "steps",
+            "owned_by_components",
+            "evidence_refs",
+            "source_context_refs",
+            "confidence",
+        ],
+    }
+    failure_mode = {
+        "type": "OBJECT",
+        "properties": {
+            "failure_mode": {"type": "STRING"},
+            "observable_signals": string_array,
+            "missing_evidence": string_array,
+            "confidence": {"type": "NUMBER"},
+        },
+        "required": ["failure_mode", "observable_signals", "missing_evidence", "confidence"],
+        "propertyOrdering": ["failure_mode", "observable_signals", "missing_evidence", "confidence"],
+    }
+    collector = {
+        "type": "OBJECT",
+        "properties": {
+            "collector": {"type": "STRING"},
+            "purpose": {"type": "STRING"},
+            "safety_level": {"type": "STRING"},
+        },
+        "required": ["collector", "purpose", "safety_level"],
+        "propertyOrdering": ["collector", "purpose", "safety_level"],
+    }
+    return {
+        "type": "OBJECT",
+        "properties": {
+            "schema_version": {"type": "STRING"},
+            "system_label": {"type": "STRING"},
+            "system_summary": {
+                "type": "OBJECT",
+                "properties": {
+                    "system_type": {"type": "STRING"},
+                    "primary_purpose": {"type": "STRING"},
+                    "logged_subject": {"type": "STRING"},
+                    "operational_boundary": {"type": "STRING"},
+                    "confidence": {"type": "NUMBER"},
+                },
+                "required": ["system_type", "primary_purpose", "logged_subject", "operational_boundary", "confidence"],
+                "propertyOrdering": ["system_type", "primary_purpose", "logged_subject", "operational_boundary", "confidence"],
+            },
+            "runtime_components": {"type": "ARRAY", "items": component},
+            "observability_contract": {
+                "type": "OBJECT",
+                "properties": {
+                    "logs": {"type": "ARRAY", "items": log_source},
+                    "metrics": {"type": "ARRAY", "items": metric},
+                    "heartbeats": {"type": "ARRAY", "items": ref_object},
+                    "state_files": {"type": "ARRAY", "items": ref_object},
+                },
+                "required": ["logs", "metrics", "heartbeats", "state_files"],
+                "propertyOrdering": ["logs", "metrics", "heartbeats", "state_files"],
+            },
+            "orchestration_flows": {"type": "ARRAY", "items": flow},
+            "failure_modes": {"type": "ARRAY", "items": failure_mode},
+            "read_only_collectors": {"type": "ARRAY", "items": collector},
+            "profile_limits": {
+                "type": "OBJECT",
+                "properties": {
+                    "source_context_is_incident_evidence": {"type": "BOOLEAN"},
+                    "runtime_claims_require_evidence_id": {"type": "BOOLEAN"},
+                    "approval_required_before_explicit_profile": {"type": "BOOLEAN"},
+                    "raw_source_sent_to_provider": {"type": "BOOLEAN"},
+                    "raw_logs_sent_to_provider": {"type": "BOOLEAN"},
+                    "notes": string_array,
+                },
+                "required": [
+                    "source_context_is_incident_evidence",
+                    "runtime_claims_require_evidence_id",
+                    "approval_required_before_explicit_profile",
+                    "raw_source_sent_to_provider",
+                    "raw_logs_sent_to_provider",
+                    "notes",
+                ],
+                "propertyOrdering": [
+                    "source_context_is_incident_evidence",
+                    "runtime_claims_require_evidence_id",
+                    "approval_required_before_explicit_profile",
+                    "raw_source_sent_to_provider",
+                    "raw_logs_sent_to_provider",
+                    "notes",
+                ],
+            },
+            "human_review_required": string_array,
+        },
+        "required": [
+            "schema_version",
+            "system_label",
+            "system_summary",
+            "runtime_components",
+            "observability_contract",
+            "orchestration_flows",
+            "failure_modes",
+            "read_only_collectors",
+            "profile_limits",
+            "human_review_required",
+        ],
+        "propertyOrdering": [
+            "schema_version",
+            "system_label",
+            "system_summary",
+            "runtime_components",
+            "observability_contract",
+            "orchestration_flows",
+            "failure_modes",
+            "read_only_collectors",
+            "profile_limits",
+            "human_review_required",
+        ],
     }

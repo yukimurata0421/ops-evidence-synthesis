@@ -20,6 +20,28 @@ def _human_count(value: int) -> str:
     return f"{int(value):,}"
 
 
+def _public_repo_url() -> str:
+    return os.environ.get("OES_PUBLIC_REPO_URL", "https://github.com/yukimurata0421/ops-evidence-synthesis").rstrip("/")
+
+
+def _public_architecture_url() -> str:
+    configured = os.environ.get("OES_PUBLIC_ARCHITECTURE_URL", "").strip()
+    if configured:
+        return configured
+    return f"{_public_repo_url()}/blob/main/docs/assets/architecture-devops-ai-agent.svg"
+
+
+def _public_demo_script_url() -> str:
+    configured = os.environ.get("OES_PUBLIC_DEMO_SCRIPT_URL", "").strip()
+    if configured:
+        return configured
+    return f"{_public_repo_url()}/blob/main/docs/demo-video-script.md"
+
+
+def _public_demo_video_url() -> str:
+    return os.environ.get("OES_PUBLIC_DEMO_VIDEO_URL", "").strip()
+
+
 def _precomputed_review_dirs() -> list[Path]:
     configured = [
         Path(item)
@@ -110,6 +132,37 @@ def _public_rescore_demo_ids() -> list[str]:
             if safe_id and safe_id not in ids and _rescore_demo_payload(safe_id):
                 ids.append(safe_id)
     return ids
+
+
+def _public_action_links_html(evidence_sha256: str, *, include_detail: bool = True) -> str:
+    evidence = _url_quote(evidence_sha256)
+    links: list[tuple[str, str, str]] = [
+        ("Summary", f"/?evidence_sha256={evidence}", "read-only overview"),
+    ]
+    if include_detail:
+        links.append(("Detail", f"/ui/full-review-page?evidence_sha256={evidence}", "full review targets"))
+    links.extend(
+        [
+            ("API View", f"/ui/api?evidence_sha256={evidence}", "human-readable JSON"),
+            ("Review Graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions"),
+        ]
+    )
+    for demo_id in _public_rescore_demo_ids():
+        links.append(("More Data Loop", f"/ui/rescore-demo?id={quote(demo_id)}", demo_id))
+    links.extend(
+        [
+            ("GitHub", _public_repo_url(), "repository"),
+            ("Architecture", _public_architecture_url(), "system diagram"),
+            ("Demo Script", _public_demo_script_url(), "3 minute walkthrough"),
+        ]
+    )
+    video_url = _public_demo_video_url()
+    if video_url:
+        links.append(("Demo Video", video_url, "recorded walkthrough"))
+    return "".join(
+        f'<a class="button" href="{_html(url)}" title="{_html(title)}">{_html(label)}</a>'
+        for label, url, title in links
+    )
 
 
 def _precomputed_summary(payload: dict[str, Any] | None, evidence_sha256: str) -> dict[str, Any] | None:
@@ -264,6 +317,7 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
     baselines = summary.get("baselines") if isinstance(summary.get("baselines"), dict) else {}
     graph_summary = payload.get("review_graph_summary") if isinstance(payload.get("review_graph_summary"), dict) else {}
     analysis_context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
+    profile_context = payload.get("profile_context") if isinstance(payload.get("profile_context"), dict) else {}
     target_set = _precomputed_review_target_set(payload, evidence_sha256=evidence_sha256, limit=0, pending_only=False)
     targets = list(target_set.get("targets") or [])
     primary_targets = [row for row in targets if str(row.get("class") or "") == "primary_candidate"]
@@ -302,6 +356,7 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
         },
         "review_graph_summary": graph_summary,
         "analysis_context": analysis_context,
+        "profile_context": profile_context,
         "nodes": graph_model["nodes"],
         "edges": graph_model["edges"],
         "primary_targets": primary_targets,
@@ -322,6 +377,7 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
         "input_fingerprint_sha256": str(summary.get("input_fingerprint_sha256") or ""),
         "graph": graph_model,
         "analysis_context": analysis_context,
+        "profile_context": profile_context,
         "canonical_review_graph": graph,
         "snapshot": {
             "evidence_sha256": evidence_sha256,
@@ -720,6 +776,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     analysis_context_panel = _precomputed_analysis_context_panel(payload)
     devops_loop_panel = _precomputed_devops_loop_panel(payload)
     summary_url = f"/?evidence_sha256={_url_quote(evidence_sha256)}"
+    action_links = _public_action_links_html(evidence_sha256, include_detail=False)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -908,6 +965,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
         <div class="metric"><label>Validation</label><strong>{int(review.get("validation_targets") or 0)}</strong></div>
         <div class="metric"><label>Raw logs</label><strong>{_html(_display_policy(raw_policy))}</strong><p>{_html(_human_count(log_count) if log_count else "sanitized bundle")}</p></div>
       </div>
+      <div class="actions">{action_links}</div>
     </section>
     {graph_summary_panel}
     {analysis_context_panel}
@@ -921,6 +979,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       </div>
       <div class="actions">
         <a class="button" href="{_html(summary_url)}">Back to summary</a>
+        {action_links}
       </div>
     </section>
   </main>
@@ -938,6 +997,7 @@ def _precomputed_agent_trace_panel(payload: dict[str, Any]) -> str:
           <label>Step {index}</label>
           <strong>{_html(str(step.get("title") or step.get("step") or ""))}</strong>
           <p>{_html(str(step.get("summary") or ""))}</p>
+          {_trace_output_facts_html(step)}
           <div class="pill-row">
             <span class="pill">{_html(str(step.get("status") or "completed"))}</span>
             <span class="pill">{_html(str(step.get("artifact") or step.get("tool") or ""))}</span>
@@ -950,9 +1010,37 @@ def _precomputed_agent_trace_panel(payload: dict[str, Any]) -> str:
     <section class="panel secondary">
       <label>Agent Trace</label>
       <h2>Guarded autonomous investigation loop</h2>
-      <p>The system advances evidence collection and review planning, while final causal judgement and destructive actions stay human-gated.</p>
+      <p>The trace is generated from an ADK-compatible tool contract: deterministic evidence tools are orchestrated around Gemini-on-Vertex provider work, while final causal judgement and destructive actions stay human-gated. The same contract is compatible with Vertex Agent Runtime / AdkApp deployments.</p>
       <div class="trace-grid">{rows}</div>
     </section>"""
+
+
+def _trace_output_facts_html(step: dict[str, Any]) -> str:
+    output = step.get("output") if isinstance(step.get("output"), dict) else {}
+    if not output:
+        return ""
+    facts: list[str] = []
+    if output.get("profile_id"):
+        facts.append(f"profile={output.get('profile_id')}")
+    for key, label in (
+        ("component_count", "components"),
+        ("metric_semantics_count", "metric semantics"),
+        ("collector_mapping_count", "collectors"),
+        ("provider_count", "providers"),
+        ("schema_valid_provider_count", "schema-valid"),
+        ("missing_evidence_count", "missing evidence"),
+    ):
+        if output.get(key) not in (None, "", 0):
+            facts.append(f"{label}={output.get(key)}")
+    request_types = output.get("request_types") if isinstance(output.get("request_types"), list) else []
+    if request_types:
+        facts.append("requests=" + ", ".join(str(item) for item in request_types[:4]))
+    blocked = output.get("blocked_reasons") if isinstance(output.get("blocked_reasons"), list) else []
+    if blocked:
+        facts.append("blocked=" + "; ".join(str(item) for item in blocked[:3]))
+    if not facts:
+        return ""
+    return f"<p>{_html(' / '.join(facts))}</p>"
 
 
 def _precomputed_provider_panel(payload: dict[str, Any], providers_summary: dict[str, Any]) -> str:
@@ -974,12 +1062,18 @@ def _precomputed_provider_panel(payload: dict[str, Any], providers_summary: dict
         """
         for row in providers
     )
+    gemini_note = (
+        "<p>Gemini is shown as the baseline/arbiter provider when present; it is not expected to claim every target. Silent positions remain visible as validation signal.</p>"
+        if any("gemini" in str(row.get("provider_id") or "") for row in providers)
+        else ""
+    )
     return f"""
     <section class="panel">
       <label>Provider Frontier</label>
       <h2>{int(providers_summary.get("success") or 0)} successful / {int(providers_summary.get("total") or 0)} total</h2>
       <p>Served by the public read-only API from a precomputed review cache. Analysis mode: <code>{_html(provider_mode)}</code>.{generation_note}</p>
       <p>Provider disagreement is preserved as validation work, not collapsed into majority truth.</p>
+      {gemini_note}
       <div class="provider-grid">{rows}</div>
     </section>"""
 
@@ -988,6 +1082,7 @@ def _precomputed_analysis_context_panel(payload: dict[str, Any]) -> str:
     context = payload.get("analysis_context")
     if not isinstance(context, dict) or not context:
         return ""
+    profile_context = payload.get("profile_context") if isinstance(payload.get("profile_context"), dict) else {}
     cells = [
         ("DB ingested logs", _human_count(_context_count(context.get("db_ingested_log_count")))),
         ("Model projection", _human_count(_context_count(context.get("model_projection_evidence_items")))),
@@ -1007,6 +1102,7 @@ def _precomputed_analysis_context_panel(payload: dict[str, Any]) -> str:
     log_points = _context_points(context.get("log_observations"))
     source_points = _context_points(context.get("source_observations"))
     conclusion_points = _context_points(context.get("analysis_conclusion"))
+    profile_points = _profile_context_points(profile_context)
     projection_policy = str(context.get("model_projection_policy") or "")
     projection_note = f"<p>{_html(projection_policy)}</p>" if projection_policy else ""
     return f"""
@@ -1018,6 +1114,7 @@ def _precomputed_analysis_context_panel(payload: dict[str, Any]) -> str:
       <div class="target-grid">
         <div class="field"><label>Log observations</label>{_points_html(log_points)}</div>
         <div class="field"><label>Source observations</label>{_points_html(source_points)}</div>
+        <div class="field"><label>Profile context</label>{_points_html(profile_points)}</div>
         <div class="field full"><label>Analysis conclusion</label>{_points_html(conclusion_points)}</div>
       </div>
     </section>"""
@@ -1027,6 +1124,29 @@ def _context_points(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _profile_context_points(profile_context: dict[str, Any]) -> list[str]:
+    if not profile_context:
+        return []
+    points = []
+    if profile_context.get("profile_id"):
+        points.append(f"profile_id={profile_context.get('profile_id')}")
+    if profile_context.get("generation_mode"):
+        points.append(f"mode={profile_context.get('generation_mode')}")
+    counts = []
+    for key, label in (
+        ("component_count", "components"),
+        ("metric_semantics_count", "metric semantics"),
+        ("collector_mapping_count", "collectors"),
+    ):
+        if profile_context.get(key) not in (None, "", 0):
+            counts.append(f"{label}={profile_context.get(key)}")
+    if counts:
+        points.append(", ".join(counts))
+    if profile_context.get("summary"):
+        points.append(str(profile_context.get("summary")))
+    return points
 
 
 def _context_count(value: object) -> int:
@@ -1057,9 +1177,12 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     if not isinstance(summary, dict):
         return ""
     cells = [
-        ("Converged", str(int(summary.get("convergence_count") or 0))),
-        ("Conflicting", str(int(summary.get("conflict_count") or 0))),
-        ("Single-source", str(int(summary.get("single_source_count") or 0))),
+        ("Targets", str(int(summary.get("targets_total") or 0))),
+        ("Converged targets", str(int(summary.get("convergence_count") or 0))),
+        ("Single-source targets", str(int(summary.get("single_source_count") or 0))),
+        ("Rule/context targets", str(int(summary.get("rule_or_context_count") or 0))),
+        ("Partial overlap", str(int(summary.get("partial_overlap_count") or 0))),
+        ("Explicit conflicts", str(int(summary.get("conflict_count") or 0))),
         ("Primary promoted", str(int(summary.get("primary_promoted_count") or 0))),
         ("Incident baseline", str(summary.get("incident_baseline") or "open")),
         ("Technical baseline", str(summary.get("technical_baseline") or "open")),
@@ -1079,12 +1202,17 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     note_html = f"<p>{_html(note)}</p>" if note else ""
     score_definition = str(summary.get("score_definition") or "")
     score_definition_html = f"<p>{_html(score_definition)}</p>" if score_definition else ""
+    overlay_note = (
+        "<p>Converged, single-source, and rule/context are target verdict counts. "
+        "Partial overlap is an overlay for converged targets with one or more silent providers.</p>"
+    )
     return f"""
     <section class="panel secondary">
       <label>Review Graph Arbitration</label>
       <h2>{_html(str(summary.get("summary") or "Provider agreement was evaluated before promotion."))}</h2>
       {note_html}
       {score_definition_html}
+      {overlay_note}
       <div class="graph-summary-grid">{cell_html}</div>
     </section>"""
 
@@ -1195,8 +1323,9 @@ def _target_promotion_text(target: dict[str, Any]) -> str:
     cap = promotion.get("score_cap_applied")
     cap_text = "score cap applied" if cap else "no score cap applied"
     note = str(promotion.get("score_note") or "")
+    explanation = str(promotion.get("explanation") or "")
     text = f"State: {state}. Blocked because: {reason}. {cap_text}."
-    return f"{text} {note}".strip()
+    return f"{text} {explanation} {note}".strip()
 
 
 def _precomputed_target_preview_panel(targets: list[dict[str, Any]]) -> str:
@@ -1263,7 +1392,7 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     <div class="field full"><label>Observed claim</label><p>{_html(claim or title)}</p></div>
     <div class="field full"><label>Provider positions</label>{provider_positions}</div>
     <div class="field full"><label>Agreement and baselines</label><p>{_html(agreement_text)}</p></div>
-    <div class="field full"><label>Why not promoted</label><p>{_html(promotion_text)}</p></div>
+    <div class="field full"><label>Promotion gate</label><p>{_html(promotion_text)}</p></div>
     <div class="field"><label>Next check</label><p>{_html(action or "Review cited evidence and missing signals.")}</p></div>
     <div class="field"><label>Missing evidence</label><p>{_html("; ".join(str(item) for item in missing[:4]) or "none")}</p></div>
     <div class="field"><label>Evidence refs</label><p>{_html(", ".join(str(item) for item in evidence_refs[:8]) or "none")}</p></div>
@@ -1308,6 +1437,7 @@ def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | No
     devops_loop_panel = _precomputed_devops_loop_panel(precomputed or {})
     short_sha = _short_sha(evidence_sha256)
     full_url = f"/ui/full-review-page?evidence_sha256={_url_quote(evidence_sha256)}"
+    action_links = _public_action_links_html(evidence_sha256)
     finding_title = str(finding.get("title") or "No persisted finding yet")
     finding_impact = str(finding.get("impact") or "Run analysis to create a persisted review result.")
     provider_text = (
@@ -1550,6 +1680,7 @@ def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | No
       <p>Open the detailed page for the full target list. This route is precomputed and read-only for evaluator self-service.</p>
       <div class="actions">
         <a class="button primary" href="{_html(full_url)}">Open detailed review</a>
+        {action_links}
       </div>
     </section>
   </main>
@@ -1615,6 +1746,8 @@ def _render_rescore_demo_page(demo_id: str) -> str:
     after_reasons = ", ".join(str(item) for item in after.get("blocked_reasons") or []) or "none"
     before_provider_positions = _rescore_provider_positions_html(before.get("provider_positions"))
     after_provider_positions = _rescore_provider_positions_html(after.get("provider_positions"))
+    source_evidence_sha = str(payload.get("source_evidence_sha256") or "")
+    action_links = _public_action_links_html(source_evidence_sha) if source_evidence_sha else ""
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1637,6 +1770,7 @@ def _render_rescore_demo_page(demo_id: str) -> str:
     .cell {{ border: 1px solid var(--line); border-radius: 6px; background: #fbfcfe; padding: 10px; min-width: 0; }}
     .positions {{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }}
     .position {{ border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 8px; min-width: 0; }}
+    .actions {{ display: flex; flex-wrap: wrap; gap: 10px; }}
     label {{ display: block; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }}
     strong {{ display: block; font-size: 18px; line-height: 1.25; overflow-wrap: anywhere; }}
     a.button {{ display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--ink); text-decoration: none; font-weight: 700; }}
@@ -1688,6 +1822,7 @@ def _render_rescore_demo_page(demo_id: str) -> str:
       <label>Verification</label>
       <p>Covered by <code>{_html(str(verification.get("local_test") or ""))}</code>. Public mode: <code>{_html(str(verification.get("public_mode") or ""))}</code>. Raw logs: <code>{_html(str(verification.get("raw_log_policy") or ""))}</code>.</p>
       <p><a class="button" href="/">Back to public index</a></p>
+      <div class="actions">{action_links}</div>
     </section>
   </main>
 </body>

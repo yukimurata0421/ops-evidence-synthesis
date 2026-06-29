@@ -4,6 +4,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from ops_evidence_synthesis.agents.adk_investigator import build_adk_tool_contract_trace
 from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.models import ModelRunRecord, ParsedResultRecord
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
@@ -63,12 +64,13 @@ def build_precomputed_review_summary(
             "raw_log_policy": str(bundle.get("raw_log_policy") or "not_uploaded"),
         },
         "summary": summary,
-        "agent_trace": _agent_trace(bundle, provider_statuses, targets),
+        "agent_trace": [],
         "devops_loop": _devops_loop(),
         "provider_statuses": provider_statuses,
         "review_graph_summary": graph_summary,
         "targets": targets,
     }
+    payload["agent_trace"] = build_adk_tool_contract_trace(payload)
     payload["generation"]["payload_sha256"] = sha256_json(
         {
             "evidence_sha256": payload["evidence_sha256"],
@@ -225,6 +227,11 @@ def _project_targets(
                 "promotion": {
                     "state": "validation",
                     "blocked_reason": _blocked_reason(claimed),
+                    "explanation": _promotion_explanation(
+                        state="validation",
+                        claimed=claimed,
+                        total_successful=total_successful,
+                    ),
                     "score_cap_applied": False,
                     "score_note": "Priority is review urgency, not truth probability.",
                 },
@@ -327,6 +334,15 @@ def _review_graph_summary(
     rule_count = sum(1 for target in targets if (target.get("agreement") or {}).get("verdict") == "rule_or_context")
     total_successful = len(successful_runs)
     max_claimed = max((int(target.get("provider_count") or 0) for target in targets), default=0)
+    partial_overlap_count = sum(
+        1 for target in targets if 1 < int(target.get("provider_count") or 0) < max(total_successful, 1)
+    )
+    explicit_conflict_count = sum(
+        1
+        for target in targets
+        for position in target.get("provider_positions") or []
+        if isinstance(position, dict) and str(position.get("stance") or "") == "contradicted"
+    )
     summary = (
         f"{convergence_count} converged target(s), {single_source_count} single-source target(s), "
         f"and {rule_count} rule/context target(s). Incident baseline remains human-gated."
@@ -334,7 +350,8 @@ def _review_graph_summary(
     return {
         "targets_total": len(targets),
         "convergence_count": convergence_count,
-        "conflict_count": 0,
+        "partial_overlap_count": partial_overlap_count,
+        "conflict_count": explicit_conflict_count,
         "single_source_count": single_source_count,
         "rule_or_context_count": rule_count,
         "incident_baseline_established_count": 0,
@@ -346,59 +363,16 @@ def _review_graph_summary(
         "auto_archived_count": int(target_set_summary.get("auto_archived") or 0),
         "hidden_multi_provider_archived_count": 0,
         "summary": summary,
-        "note": "Provider convergence is treated as technical support only; causal judgement remains human-gated.",
+        "note": (
+            "Provider convergence is treated as technical support only; causal judgement remains human-gated. "
+            "Partial overlap is an overlay count for targets where some schema-valid providers were silent; "
+            "it is not additive with converged/single-source target counts."
+        ),
         "score_definition": (
             "Convergence score = claimed successful providers / all successful providers. "
             "Silent providers count against convergence."
         ),
     }
-
-
-def _agent_trace(
-    bundle: dict[str, Any],
-    provider_statuses: list[dict[str, Any]],
-    targets: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    log_count = int(bundle.get("log_count") or 0) or len(bundle.get("logs") or []) or len(bundle.get("evidence_items") or [])
-    successful = sum(1 for row in provider_statuses if row["status"] == "ok" and row["schema_valid"])
-    total = len(provider_statuses)
-    return [
-        {
-            "step": "sanitize",
-            "status": "completed",
-            "artifact": "sanitized_events.jsonl",
-            "title": "Sanitize local evidence",
-            "summary": f"{log_count} sanitized evidence item(s) were prepared locally. Raw logs were not uploaded.",
-        },
-        {
-            "step": "bundle",
-            "status": "completed",
-            "artifact": "evidence_bundle.json",
-            "title": "Freeze Evidence Bundle",
-            "summary": "The review input was fixed by SHA256 before model output was projected.",
-        },
-        {
-            "step": "multi_model",
-            "status": "completed",
-            "artifact": "model_runs",
-            "title": "Run deterministic providers",
-            "summary": f"{successful}/{total} provider outputs were schema-valid; failed providers remain visible.",
-        },
-        {
-            "step": "arbitrate",
-            "status": "completed",
-            "artifact": "review_targets",
-            "title": "Arbitrate review targets",
-            "summary": f"{len(targets)} target(s) were projected with provider stance and human-gated promotion.",
-        },
-        {
-            "step": "deliver",
-            "status": "completed",
-            "artifact": "precomputed_review_summary",
-            "title": "Deliver read-only cache",
-            "summary": "The UI serves this generated payload without starting model runs on initial GET.",
-        },
-    ]
 
 
 def _devops_loop() -> dict[str, Any]:
@@ -477,6 +451,22 @@ def _blocked_reason(claimed: int) -> str:
     if claimed == 1:
         return "single_provider_only; user_impact_unverified"
     return "no_provider_claim; human_validation_required"
+
+
+def _promotion_explanation(*, state: str, claimed: int, total_successful: int) -> str:
+    if state == "primary_candidate":
+        return (
+            "Primary candidacy is selected by review priority and incident relevance, not by maximum "
+            "provider count. It still stops at the human gate until impact and causality are validated."
+        )
+    if claimed >= 2:
+        return (
+            f"{claimed}/{max(total_successful, 1)} providers converged, so this is technical review support; "
+            "it remains a validation target until user impact or operational outcome evidence closes the gate."
+        )
+    if claimed == 1:
+        return "A single provider surfaced this target, so it remains validation work until corroborated."
+    return "This target came from deterministic routing or context and needs runtime evidence before promotion."
 
 
 def _unique(values: list[str]) -> list[str]:

@@ -14,6 +14,10 @@ from ops_evidence_synthesis.ai.prompts import (
     claim_result_response_schema,
     evidence_requirement_prompt,
     evidence_requirements_response_schema,
+    focused_operational_profile_prompt,
+    focused_operational_profile_response_schema,
+    profile_draft_prompt,
+    profile_draft_response_schema,
     root_cause_prompt,
 )
 
@@ -39,9 +43,17 @@ class VertexGeminiProvider:
     thinking_level: str = DEFAULT_VERTEX_THINKING_LEVEL
 
     @classmethod
-    def from_env(cls) -> "VertexGeminiProvider":
+    def from_env(
+        cls,
+        *,
+        prompt_name: str = "root-cause",
+        model_name: str = "",
+        max_output_tokens: int | None = None,
+        timeout_seconds: int | None = None,
+    ) -> "VertexGeminiProvider":
         return cls(
-            model_name=os.environ.get("OES_GEMINI_MODEL", DEFAULT_VERTEX_MODEL),
+            model_name=model_name or os.environ.get("OES_GEMINI_MODEL", DEFAULT_VERTEX_MODEL),
+            prompt_name=prompt_name,
             project_id=(
                 os.environ.get("OES_VERTEX_PROJECT")
                 or os.environ.get("GOOGLE_CLOUD_PROJECT")
@@ -50,8 +62,12 @@ class VertexGeminiProvider:
             ),
             location=os.environ.get("OES_VERTEX_LOCATION", DEFAULT_VERTEX_LOCATION),
             temperature=float(os.environ.get("OES_GEMINI_TEMPERATURE", "0")),
-            max_output_tokens=int(os.environ.get("OES_GEMINI_MAX_OUTPUT_TOKENS", "8192")),
-            timeout_seconds=int(os.environ.get("OES_GEMINI_TIMEOUT_SECONDS", "60")),
+            max_output_tokens=max_output_tokens
+            if max_output_tokens is not None
+            else int(os.environ.get("OES_GEMINI_MAX_OUTPUT_TOKENS", "8192")),
+            timeout_seconds=timeout_seconds
+            if timeout_seconds is not None
+            else int(os.environ.get("OES_GEMINI_TIMEOUT_SECONDS", "60")),
             thinking_level=os.environ.get("OES_GEMINI_THINKING_LEVEL", DEFAULT_VERTEX_THINKING_LEVEL),
         )
 
@@ -112,6 +128,10 @@ class VertexGeminiProvider:
         return f"https://{endpoint}/{self.api_version}/{model}:generateContent"
 
     def _prompt(self, bundle: dict[str, Any]) -> str:
+        if self.prompt_name == "focused-operational-profile" or bundle.get("llm_task") == "focused_operational_profile":
+            return focused_operational_profile_prompt(bundle)
+        if self.prompt_name == "profile-draft" or bundle.get("llm_task") == "profile_draft":
+            return profile_draft_prompt(bundle)
         if self.prompt_name == "evidence-requirements":
             return evidence_requirement_prompt(bundle)
         return root_cause_prompt(bundle)
@@ -140,6 +160,10 @@ class VertexGeminiProvider:
         return {"thinkingLevel": level}
 
     def _response_schema(self) -> dict[str, Any]:
+        if self.prompt_name == "focused-operational-profile":
+            return focused_operational_profile_response_schema()
+        if self.prompt_name == "profile-draft":
+            return profile_draft_response_schema()
         if self.prompt_name == "evidence-requirements":
             return evidence_requirements_response_schema()
         return claim_result_response_schema()

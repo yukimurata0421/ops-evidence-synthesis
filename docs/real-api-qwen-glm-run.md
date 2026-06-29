@@ -79,9 +79,9 @@ The canonical review graph produced:
 - 0 auto-archived targets
 - 5/5 provider detection overlap
 
-Technical convergence is treated as review support only. The incident baseline
-remained open because cause, impact, and next action were not fully aligned and
-still require human review.
+Technical convergence is treated as review support only. Incident and
+user-impact promotion remained open because cause, impact, and next action were
+not fully aligned and still require human review.
 
 ## Regeneration Entry Point
 
@@ -94,6 +94,8 @@ PYTHONPATH=src python scripts/generate_precomputed_review_from_multi_run.py \
   --evidence-bundle workspace/real_api_qwen_glm_20260628_144326/evidence_bundle_full_6506.json \
   --source-context workspace/real_api_qwen_glm_20260628_144326/source_context/source_context_bundle.json \
   --source-analysis workspace/real_api_qwen_glm_20260628_144326/source_analysis/source_analysis_bundle.json \
+  --profile-draft workspace/real_api_qwen_glm_20260628_144326/profile_discovery/profile_draft.json \
+  --approved-profile workspace/real_api_qwen_glm_20260628_144326/profile_discovery/approved_profile.yaml \
   --api-revision ops-evidence-api-e2e-00006-6t9 \
   --profile-id amazon_notify_qwen_glm_full_corpus_approved \
   --updated-at 2026-06-28T14:48:00Z \

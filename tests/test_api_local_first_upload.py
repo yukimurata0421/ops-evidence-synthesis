@@ -192,7 +192,7 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert "Provider positions" in detail.text
     assert "provider-a" in detail.text
     assert "provider-b" in detail.text
-    assert "Why not promoted" in detail.text
+    assert "Promotion gate" in detail.text
     assert "user_impact_unverified" in detail.text
     assert "Definition: claimed successful providers / all successful providers" in detail.text
     assert api_view.status_code == 200

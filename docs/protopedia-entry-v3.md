@@ -30,10 +30,10 @@ The system turns local sanitized logs into a SHA-fixed Evidence Bundle, runs a
 Gemini-led multi-provider review, validates cited claims, preserves provider
 disagreement, and projects the result into a Canonical Review Graph.
 
-Gemini Enterprise Agent Platform is the baseline provider. gpt-oss, Mistral,
-Qwen, and GLM act as adversarial cross-checks. Agreement becomes a review
-signal. Disagreement becomes a validation target. Score is review priority, not
-truth probability.
+Gemini Enterprise Agent Platform is the required first provider and reference
+point for comparison. gpt-oss, Mistral, Qwen, and GLM act as adversarial
+cross-checks. Agreement becomes a review signal. Disagreement becomes a
+validation target. Score is review priority, not truth probability.
 
 The public Cloud Run surface is read-only and precomputed. Reviewers can inspect
 the exact fixed artifacts without uploading raw logs, using credentials, or
@@ -44,7 +44,7 @@ starting live model work from the public URL.
 The product is not a static dashboard. The investigation loop can:
 
 - inspect sanitized evidence,
-- run the baseline provider and cross-check providers,
+- run the reference provider and cross-check providers,
 - validate model outputs against schema and evidence references,
 - arbitrate provider disagreement,
 - create missing-evidence requests,
@@ -127,8 +127,11 @@ Flow:
 ```text
 raw logs stay local
 -> sanitize and verify
+-> sanitized code context
+-> Gemini-focused system profile draft
+-> human-approved profile context
 -> SHA-fixed Evidence Bundle
--> Gemini baseline
+-> Gemini reference provider
 -> cross-check providers
 -> schema and evidence-reference validation
 -> Canonical Review Graph
@@ -151,4 +154,3 @@ Ops Evidence Synthesis is built around guarded autonomy: give AI enough agency
 to investigate, compare, request evidence, and improve the review graph, while
 keeping raw data local and keeping final operational judgement behind a human
 gate.
-

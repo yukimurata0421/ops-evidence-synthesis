@@ -7,6 +7,10 @@ import os
 from dataclasses import asdict
 from pathlib import Path
 
+from ops_evidence_synthesis.agents.adk_investigator import (
+    adk_dependency_status,
+    build_adk_tool_contract_trace,
+)
 from ops_evidence_synthesis.ai.providers import build_provider_list
 from ops_evidence_synthesis.bundle import EvidenceBundleBuilder
 from ops_evidence_synthesis.collectors.remote import (
@@ -25,7 +29,12 @@ from ops_evidence_synthesis.local_first import (
 )
 from ops_evidence_synthesis.models import IncidentWindow, RawLog
 from ops_evidence_synthesis.evidence_request_planner import plan_evidence_requests
-from ops_evidence_synthesis.profile_discovery import approve_profile_draft, discover_profile, draft_profile
+from ops_evidence_synthesis.profile_discovery import (
+    approve_profile_draft,
+    discover_profile,
+    draft_focused_profile,
+    draft_profile,
+)
 from ops_evidence_synthesis.source_context import analyze_source_context, sanitize_source
 from ops_evidence_synthesis.storage.sqlite_store import DEFAULT_DB_PATH, SQLiteStore
 from ops_evidence_synthesis.synthesis.multi_ai import run_multi_ai
@@ -143,11 +152,42 @@ def build_parser() -> argparse.ArgumentParser:
 
     draft = subcommands.add_parser(
         "draft-profile",
-        help="Create a deterministic profile draft from a sanitized Profile Discovery Bundle",
+        help="Create a profile draft from a sanitized Profile Discovery Bundle",
     )
     draft.add_argument("--discovery-bundle", required=True, help="profile_discovery_bundle.json")
-    draft.add_argument("--provider", required=True, choices=["local"], help="Draft provider. Only local is implemented.")
+    draft.add_argument(
+        "--provider",
+        required=True,
+        choices=["local", "gemini", "vertex-gemini", "gemini-enterprise-agent-platform"],
+        help="Draft provider. Use gemini for sanitized source-aware AI profile drafting.",
+    )
+    draft.add_argument(
+        "--model",
+        default="",
+        help="Optional Gemini model override for profile drafting, for example gemini-3.1-pro-preview.",
+    )
     draft.add_argument("--out", required=True, help="Output profile_draft.json path")
+
+    focused = subcommands.add_parser(
+        "draft-focused-profile",
+        help="Create a focused operational profile from sanitized discovery, code analysis, and evidence",
+    )
+    focused.add_argument("--discovery-bundle", required=True, help="profile_discovery_bundle.json")
+    focused.add_argument(
+        "--provider",
+        required=True,
+        choices=["local", "gemini", "vertex-gemini", "gemini-enterprise-agent-platform"],
+        help="Focused profile provider. Use gemini for sanitized source-aware operational profiling.",
+    )
+    focused.add_argument(
+        "--model",
+        default="",
+        help="Optional Gemini model override, for example gemini-3.1-pro-preview.",
+    )
+    focused.add_argument("--evidence-bundle", default="", help="Optional sanitized evidence_bundle.json")
+    focused.add_argument("--source-context", default="", help="Optional source_context_bundle.json from sanitize-source")
+    focused.add_argument("--source-analysis", default="", help="Optional source_analysis_bundle.json from analyze-source")
+    focused.add_argument("--out", required=True, help="Output focused_operational_profile.json path")
 
     approve = subcommands.add_parser(
         "approve-profile",
@@ -158,6 +198,14 @@ def build_parser() -> argparse.ArgumentParser:
     approve.add_argument("--approved-by", required=True, help="Reviewer/operator name")
     approve.add_argument("--note", default="", help="Approval note")
     approve.add_argument("--out", required=True, help="Output profile .yaml/.json path")
+
+    adk_trace = subcommands.add_parser(
+        "adk-trace",
+        help="Build an ADK tool-call trace from a precomputed review payload",
+    )
+    adk_trace.add_argument("--precomputed-payload", required=True, help="precomputed_review_summary.v1 JSON")
+    adk_trace.add_argument("--out", default="", help="Optional output path for adk_trace_export.v1 JSON")
+    adk_trace.add_argument("--check-runtime", action="store_true", help="Report optional ADK import availability")
 
     multi_ai = subcommands.add_parser(
         "run-multi-ai",
@@ -397,9 +445,23 @@ def main(argv: list[str] | None = None) -> int:
         draft = draft_profile(
             args.discovery_bundle,
             provider=args.provider,
+            model_name=args.model,
             out_path=args.out,
         )
         print(draft["source_discovery_sha256"])
+        return 0
+
+    if args.command == "draft-focused-profile":
+        profile = draft_focused_profile(
+            args.discovery_bundle,
+            provider=args.provider,
+            model_name=args.model,
+            evidence_bundle_path=args.evidence_bundle or None,
+            source_context_path=args.source_context or None,
+            source_analysis_path=args.source_analysis or None,
+            out_path=args.out,
+        )
+        print(profile.get("source_discovery_sha256", ""))
         return 0
 
     if args.command == "approve-profile":
@@ -410,6 +472,22 @@ def main(argv: list[str] | None = None) -> int:
             note=args.note,
             out_path=args.out,
         )
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
+        return 0
+
+    if args.command == "adk-trace":
+        payload = _load_json_file(args.precomputed_payload)
+        result = {
+            "schema_version": "adk_trace_export.v1",
+            "evidence_sha256": payload.get("evidence_sha256") or "",
+            "trace": build_adk_tool_contract_trace(payload),
+        }
+        if args.check_runtime:
+            result["adk_runtime"] = adk_dependency_status()
+        if args.out:
+            output = Path(args.out)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
         return 0
 

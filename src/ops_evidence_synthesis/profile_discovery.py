@@ -8,6 +8,13 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
+from ops_evidence_synthesis.ai.base import ModelProvider
+from ops_evidence_synthesis.ai.runtime import (
+    run_provider_with_retries,
+    safe_provider_error_message,
+    safety_preflight_for_model_input,
+)
+from ops_evidence_synthesis.ai.vertex import VertexGeminiProvider
 from ops_evidence_synthesis.canonical import canonical_json, pretty_json, sha256_json, sha256_text
 from ops_evidence_synthesis.evidence_rules import ai_evidence_rules, profile_discovery_rules, source_context_rules
 from ops_evidence_synthesis.local_first import (
@@ -34,8 +41,19 @@ PROFILE_DISCOVERY_SCHEMA_VERSION = "profile_discovery_bundle.v1"
 PROFILE_DISCOVERY_BUNDLE_TYPE = "sanitized_profile_discovery_bundle"
 PROFILE_DRAFT_SCHEMA_VERSION = "profile_draft.v1"
 PROFILE_DRAFT_TYPE = "profile_mapping_draft"
+PROFILE_DRAFT_AI_SCHEMA_VERSION = "profile_draft_ai.v1"
+FOCUSED_PROFILE_SCHEMA_VERSION = "focused_operational_profile.v1"
+FOCUSED_PROFILE_MODEL_INPUT_SCHEMA_VERSION = "focused_operational_profile_model_input.v1"
+FOCUSED_PROFILE_GENERATION_SCHEMA_VERSION = "focused_operational_profile_generation.v1"
 RAW_CONFIG_POLICY = "not_uploaded"
 RAW_LOGS_POLICY = "not_uploaded"
+DEFAULT_PROFILE_DRAFT_GEMINI_MODEL = "gemini-3.1-pro-preview"
+DEFAULT_FOCUSED_PROFILE_GEMINI_MODEL = "gemini-3.1-pro-preview"
+PROFILE_DRAFT_GEMINI_ALIASES = {
+    "gemini",
+    "vertex-gemini",
+    "gemini-enterprise-agent-platform",
+}
 
 IGNORED_DIRS = {
     ".git",
@@ -323,15 +341,145 @@ def build_profile_discovery_bundle(
     return bundle
 
 
-def draft_profile(discovery_bundle_path: str | Path, *, provider: str, out_path: str | Path) -> dict[str, Any]:
-    if provider != "local":
-        raise ValueError("only --provider local is implemented")
+def draft_profile(
+    discovery_bundle_path: str | Path,
+    *,
+    provider: str,
+    out_path: str | Path,
+    model_name: str = "",
+) -> dict[str, Any]:
     discovery = _load_json(discovery_bundle_path)
-    draft = build_profile_draft(discovery)
+    provider_name = provider.strip().casefold().replace("_", "-")
+    if provider_name == "local":
+        draft = build_profile_draft(discovery)
+    elif provider_name in PROFILE_DRAFT_GEMINI_ALIASES:
+        draft = build_profile_draft_with_provider(
+            discovery,
+            _profile_draft_gemini_provider(model_name=model_name),
+        )
+    else:
+        supported = "local, gemini, vertex-gemini, gemini-enterprise-agent-platform"
+        raise ValueError(f"unsupported profile draft provider '{provider}'. Supported providers: {supported}")
     output = Path(out_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(pretty_json(draft) + "\n", encoding="utf-8")
     return draft
+
+
+def draft_focused_profile(
+    discovery_bundle_path: str | Path,
+    *,
+    provider: str,
+    out_path: str | Path,
+    model_name: str = "",
+    evidence_bundle_path: str | Path | None = None,
+    source_context_path: str | Path | None = None,
+    source_analysis_path: str | Path | None = None,
+) -> dict[str, Any]:
+    discovery = _load_json(discovery_bundle_path)
+    evidence_bundle = _load_json(evidence_bundle_path) if evidence_bundle_path else {}
+    source_context = load_source_context_bundle(source_context_path) if source_context_path else {}
+    source_analysis = load_source_analysis_bundle(source_analysis_path) if source_analysis_path else {}
+    if source_context:
+        validation = validate_source_context_bundle_for_upload(source_context)
+        if not validation["passed"]:
+            raise ValueError("source_context_bundle validation failed")
+    if source_analysis:
+        validation = validate_source_analysis_bundle_for_upload(source_analysis)
+        if not validation["passed"]:
+            raise ValueError("source_analysis_bundle validation failed")
+
+    provider_name = provider.strip().casefold().replace("_", "-")
+    if provider_name == "local":
+        profile = build_focused_profile(
+            discovery,
+            evidence_bundle=evidence_bundle,
+            source_context=source_context,
+            source_analysis=source_analysis,
+        )
+    elif provider_name in PROFILE_DRAFT_GEMINI_ALIASES:
+        profile = build_focused_profile_with_provider(
+            discovery,
+            _focused_profile_gemini_provider(model_name=model_name),
+            evidence_bundle=evidence_bundle,
+            source_context=source_context,
+            source_analysis=source_analysis,
+        )
+    else:
+        supported = "local, gemini, vertex-gemini, gemini-enterprise-agent-platform"
+        raise ValueError(f"unsupported focused profile provider '{provider}'. Supported providers: {supported}")
+    output = Path(out_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(pretty_json(profile) + "\n", encoding="utf-8")
+    return profile
+
+
+def build_profile_draft_with_provider(discovery: dict[str, Any], provider: ModelProvider) -> dict[str, Any]:
+    base = build_profile_draft(discovery)
+    model_input = _profile_draft_model_input(discovery)
+    metadata: dict[str, Any] = {
+        "schema_version": "profile_draft_generation.v1",
+        "generation_mode": "gemini_profile_draft",
+        "provider_id": getattr(provider, "provider", ""),
+        "model_name": getattr(provider, "model_name", ""),
+        "prompt_name": getattr(provider, "prompt_name", ""),
+        "llm_status": "not_started",
+        "fallback_used": False,
+        "source_discovery_sha256": discovery.get("discovery_sha256") or "",
+        "model_input_sha256": sha256_json(model_input),
+    }
+    preflight = safety_preflight_for_model_input(model_input, filename="profile_draft_model_input.json")
+    if not preflight.passed:
+        metadata.update(
+            {
+                "llm_status": "blocked_by_safety_preflight",
+                "fallback_used": True,
+                "failure_reason": preflight.failure_reason,
+                "finding_types": list(preflight.finding_types),
+                "finding_count": preflight.finding_count,
+            }
+        )
+        return _with_profile_generation_metadata(base, metadata)
+
+    run = run_provider_with_retries(provider, model_input)
+    metadata.update(run.retry_metadata())
+    metadata["llm_status"] = run.response.status
+    metadata["raw_output_sha256"] = sha256_text(run.response.raw_output)
+    if run.response.status != "ok":
+        metadata.update(
+            {
+                "fallback_used": True,
+                "failure_reason": run.failure_reason or run.response.status,
+            }
+        )
+        return _with_profile_generation_metadata(base, metadata)
+
+    from ops_evidence_synthesis.synthesis.output_ingest import parse_model_output
+
+    parsed = parse_model_output(run.response.raw_output)
+    metadata.update(
+        {
+            "parse_status": parsed.parse_status,
+            "repair_applied": parsed.repair_applied,
+            "repair_rules": list(parsed.repair_rules),
+            "repaired_output_sha256": parsed.repaired_output_sha256,
+        }
+    )
+    if parsed.parsed is None:
+        metadata.update(
+            {
+                "fallback_used": True,
+                "failure_reason": "invalid_profile_draft_json",
+                "parse_errors": [safe_provider_error_message(error, max_chars=240) for error in parsed.parse_errors],
+            }
+        )
+        return _with_profile_generation_metadata(base, metadata)
+
+    metadata["parsed_json_sha256"] = sha256_json(parsed.parsed)
+    normalized = _profile_draft_from_ai_payload(parsed.parsed, discovery, base)
+    metadata["llm_status"] = "ok"
+    metadata["fallback_used"] = False
+    return _with_profile_generation_metadata(normalized, metadata)
 
 
 def approve_profile_draft(
@@ -512,6 +660,967 @@ def build_profile_draft(discovery: dict[str, Any]) -> dict[str, Any]:
         "prompt_rules": ai_evidence_rules() + profile_discovery_rules(),
     }
     return redact_mapping(draft, RedactionCounter())
+
+
+def build_focused_profile(
+    discovery: dict[str, Any],
+    *,
+    evidence_bundle: dict[str, Any] | None = None,
+    source_context: dict[str, Any] | None = None,
+    source_analysis: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    source = discovery.get("source") if isinstance(discovery.get("source"), dict) else {}
+    evidence_bundle = evidence_bundle if isinstance(evidence_bundle, dict) else {}
+    source_context = source_context if isinstance(source_context, dict) else {}
+    source_analysis = source_analysis if isinstance(source_analysis, dict) else {}
+    components = _focused_component_rows(discovery, source_analysis)
+    metrics = _focused_metric_rows(discovery, source_analysis)
+    collectors = _focused_collector_rows(discovery, source_analysis)
+    log_sources = _focused_log_sources(discovery, evidence_bundle, source_analysis)
+    system_label = str(source.get("service") or source.get("project_name") or "discovered-system")
+    project_summary = source_context.get("project_summary") if isinstance(source_context.get("project_summary"), dict) else {}
+    detected_type = str(
+        discovery.get("local_first_summary", {}).get("detected_project_type")
+        or project_summary.get("detected_project_type")
+        or "operational_service"
+    )
+    focused = {
+        "schema_version": FOCUSED_PROFILE_SCHEMA_VERSION,
+        "system_label": _sanitize_discovery_text(system_label, RedactionCounter()),
+        "source_discovery_sha256": discovery.get("discovery_sha256") or "",
+        "source_evidence_sha256": evidence_bundle.get("evidence_sha256") or "",
+        "source_context_sha256": source_context.get("source_context_sha256") or "",
+        "source_analysis_sha256": source_analysis.get("analysis_sha256") or "",
+        "human_review_required": [
+            "Confirm the system purpose and user-impact boundary before approving as an explicit profile.",
+            "Confirm metric semantics and healthy direction before using them as incident support.",
+            "Confirm read-only collectors before any follow-up data collection.",
+        ],
+        "system_summary": {
+            "system_type": _sanitize_discovery_text(detected_type, RedactionCounter()),
+            "primary_purpose": _focused_primary_purpose(project_summary, components, log_sources),
+            "logged_subject": _focused_logged_subject(log_sources, metrics),
+            "operational_boundary": "Sanitized code/config context can explain component roles; runtime claims still require Evidence Item ids.",
+            "confidence": _average([row.get("confidence") for row in components]) or 0.6,
+        },
+        "runtime_components": [
+            {
+                "component_id": _slug(str(row.get("component_id") or row.get("name") or f"component_{index:03d}")),
+                "name": _sanitize_discovery_text(str(row.get("name") or row.get("component_id") or f"component_{index:03d}"), RedactionCounter()),
+                "role": _sanitize_discovery_text(
+                    str(row.get("suggested_role") or row.get("role") or "Candidate runtime component."),
+                    RedactionCounter(),
+                ),
+                "evidence_refs": _refs_from_row(row),
+                "source_context_refs": _source_refs_from_row(row),
+                "confidence": _safe_float(row.get("confidence"), default=0.6),
+            }
+            for index, row in enumerate(components, start=1)
+        ],
+        "observability_contract": {
+            "logs": log_sources,
+            "metrics": [
+                {
+                    "metric_name": _sanitize_discovery_text(str(row.get("metric_name") or row.get("name") or ""), RedactionCounter()),
+                    "meaning": _sanitize_discovery_text(_metric_meaning(row), RedactionCounter()),
+                    "healthy_direction": _metric_healthy_direction(row),
+                    "evidence_refs": _refs_from_row(row),
+                    "source_context_refs": _source_refs_from_row(row),
+                }
+                for row in metrics
+                if row.get("metric_name") or row.get("name")
+            ],
+            "heartbeats": [
+                {
+                    "name": _sanitize_discovery_text(str(row.get("metric_name") or row.get("name") or ""), RedactionCounter()),
+                    "meaning": _sanitize_discovery_text(_metric_meaning(row), RedactionCounter()),
+                    "evidence_refs": _refs_from_row(row),
+                    "source_context_refs": _source_refs_from_row(row),
+                }
+                for row in metrics
+                if "heartbeat" in str(row.get("metric_name") or row.get("name") or row.get("suggested_semantics") or "").casefold()
+            ][:8],
+            "state_files": _focused_state_files(source_context, source_analysis),
+        },
+        "orchestration_flows": _focused_orchestration_flows(components, collectors),
+        "failure_modes": _focused_failure_modes(metrics, components),
+        "read_only_collectors": [
+            {
+                "collector": _sanitize_discovery_text(
+                    str(row.get("request_type") or row.get("collector") or f"collector_{index:03d}"),
+                    RedactionCounter(),
+                ),
+                "purpose": _sanitize_discovery_text(
+                    str(row.get("request_description") or row.get("description") or row.get("need") or "Collect read-only profile evidence."),
+                    RedactionCounter(),
+                ),
+                "safety_level": "read_only",
+            }
+            for index, row in enumerate(collectors[:10], start=1)
+        ],
+        "profile_limits": {
+            "source_context_is_incident_evidence": False,
+            "runtime_claims_require_evidence_id": True,
+            "approval_required_before_explicit_profile": True,
+            "raw_source_sent_to_provider": False,
+            "raw_logs_sent_to_provider": False,
+            "notes": [
+                "This profile is derived from sanitized artifacts only.",
+                "Source context explains expected structure, not incident truth.",
+            ],
+        },
+    }
+    return redact_mapping(_normalize_focused_profile(focused), RedactionCounter())
+
+
+def build_focused_profile_with_provider(
+    discovery: dict[str, Any],
+    provider: ModelProvider,
+    *,
+    evidence_bundle: dict[str, Any] | None = None,
+    source_context: dict[str, Any] | None = None,
+    source_analysis: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    base = build_focused_profile(
+        discovery,
+        evidence_bundle=evidence_bundle,
+        source_context=source_context,
+        source_analysis=source_analysis,
+    )
+    model_input = _focused_profile_model_input(
+        discovery,
+        evidence_bundle=evidence_bundle,
+        source_context=source_context,
+        source_analysis=source_analysis,
+    )
+    metadata: dict[str, Any] = {
+        "schema_version": FOCUSED_PROFILE_GENERATION_SCHEMA_VERSION,
+        "generation_mode": "gemini_focused_operational_profile",
+        "provider_id": getattr(provider, "provider", ""),
+        "model_name": getattr(provider, "model_name", ""),
+        "prompt_name": getattr(provider, "prompt_name", ""),
+        "llm_status": "not_started",
+        "fallback_used": False,
+        "source_discovery_sha256": discovery.get("discovery_sha256") or "",
+        "source_evidence_sha256": (evidence_bundle or {}).get("evidence_sha256") if isinstance(evidence_bundle, dict) else "",
+        "source_context_sha256": (source_context or {}).get("source_context_sha256") if isinstance(source_context, dict) else "",
+        "source_analysis_sha256": (source_analysis or {}).get("analysis_sha256") if isinstance(source_analysis, dict) else "",
+        "model_input_sha256": sha256_json(model_input),
+    }
+    preflight = safety_preflight_for_model_input(model_input, filename="focused_profile_model_input.json")
+    if not preflight.passed:
+        metadata.update(
+            {
+                "llm_status": "blocked_by_safety_preflight",
+                "fallback_used": True,
+                "failure_reason": preflight.failure_reason,
+                "finding_types": list(preflight.finding_types),
+                "finding_count": preflight.finding_count,
+            }
+        )
+        return _with_focused_profile_generation_metadata(base, metadata)
+
+    run = run_provider_with_retries(provider, model_input)
+    metadata.update(run.retry_metadata())
+    metadata["llm_status"] = run.response.status
+    metadata["raw_output_sha256"] = sha256_text(run.response.raw_output)
+    if run.response.status != "ok":
+        metadata.update({"fallback_used": True, "failure_reason": run.failure_reason or run.response.status})
+        return _with_focused_profile_generation_metadata(base, metadata)
+
+    from ops_evidence_synthesis.synthesis.output_ingest import parse_model_output
+
+    parsed = parse_model_output(run.response.raw_output)
+    metadata.update(
+        {
+            "parse_status": parsed.parse_status,
+            "repair_applied": parsed.repair_applied,
+            "repair_rules": list(parsed.repair_rules),
+            "repaired_output_sha256": parsed.repaired_output_sha256,
+        }
+    )
+    if parsed.parsed is None:
+        metadata.update(
+            {
+                "fallback_used": True,
+                "failure_reason": "invalid_focused_profile_json",
+                "parse_errors": [safe_provider_error_message(error, max_chars=240) for error in parsed.parse_errors],
+            }
+        )
+        return _with_focused_profile_generation_metadata(base, metadata)
+
+    metadata["parsed_json_sha256"] = sha256_json(parsed.parsed)
+    normalized = _focused_profile_from_ai_payload(parsed.parsed, base)
+    metadata["llm_status"] = "ok"
+    metadata["fallback_used"] = False
+    return _with_focused_profile_generation_metadata(normalized, metadata)
+
+
+def _focused_component_rows(discovery: dict[str, Any], source_analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = _merge_candidates(
+        [row for row in discovery.get("component_candidates") or [] if isinstance(row, dict)],
+        _source_analysis_rows(source_analysis, "component_candidates"),
+        key_fields=("name",),
+    )
+    return _rank_focused_rows(rows, limit=12)
+
+
+def _focused_metric_rows(discovery: dict[str, Any], source_analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = _merge_candidates(
+        [row for row in discovery.get("metric_semantics_candidates") or [] if isinstance(row, dict)],
+        _source_analysis_rows(source_analysis, "metric_semantics_candidates"),
+        key_fields=("metric_name",),
+    )
+    return _rank_focused_rows(rows, limit=20)
+
+
+def _focused_collector_rows(discovery: dict[str, Any], source_analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = _merge_candidates(
+        [row for row in discovery.get("collector_mapping_candidates") or [] if isinstance(row, dict)],
+        _source_analysis_rows(source_analysis, "collector_mapping_candidates"),
+        key_fields=("request_type",),
+    )
+    return _rank_focused_rows(rows, limit=10)
+
+
+def _focused_log_sources(
+    discovery: dict[str, Any],
+    evidence_bundle: dict[str, Any],
+    source_analysis: dict[str, Any],
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in _draft_log_sources(discovery):
+        source_id = str(row.get("source_id") or row.get("id") or "").strip()
+        if not source_id or source_id in seen:
+            continue
+        seen.add(source_id)
+        output.append(
+            {
+                "source": _sanitize_discovery_text(source_id, RedactionCounter()),
+                "meaning": _sanitize_discovery_text(str(row.get("description") or "Sanitized discovered log source."), RedactionCounter()),
+                "evidence_refs": _refs_from_row(row),
+                "source_context_refs": _source_refs_from_row(row),
+            }
+        )
+    for item in evidence_bundle.get("evidence_items") or []:
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or item.get("component") or item.get("event_type") or "").strip()
+        if not source or source in seen:
+            continue
+        seen.add(source)
+        output.append(
+            {
+                "source": _sanitize_discovery_text(source, RedactionCounter()),
+                "meaning": "Sanitized runtime evidence source.",
+                "evidence_refs": _refs_from_row(item),
+                "source_context_refs": [],
+            }
+        )
+        if len(output) >= 12:
+            break
+    for row in _rank_focused_rows(_source_analysis_rows(source_analysis, "logger_mapping_candidates"), limit=12):
+        source = str(row.get("logger") or row.get("name") or row.get("source") or "").strip()
+        if not source or source in seen:
+            continue
+        seen.add(source)
+        output.append(
+            {
+                "source": _sanitize_discovery_text(source, RedactionCounter()),
+                "meaning": _sanitize_discovery_text(str(row.get("meaning") or row.get("role") or "Sanitized source logger mapping."), RedactionCounter()),
+                "evidence_refs": [],
+                "source_context_refs": _source_refs_from_row(row),
+            }
+        )
+        if len(output) >= 12:
+            break
+    return output
+
+
+def _focused_primary_purpose(
+    project_summary: dict[str, Any],
+    components: list[dict[str, Any]],
+    log_sources: list[dict[str, Any]],
+) -> str:
+    summary = str(project_summary.get("summary") or project_summary.get("purpose") or "").strip()
+    if summary:
+        return _sanitize_discovery_text(summary, RedactionCounter())
+    names = _unique_strings([row.get("name") for row in components[:5]], limit=5)
+    if names:
+        return f"Operate and monitor runtime components: {', '.join(names)}."
+    sources = _unique_strings([row.get("source") for row in log_sources[:5]], limit=5)
+    if sources:
+        return f"Operate and monitor sanitized log sources: {', '.join(sources)}."
+    return "Operate a sanitized system whose explicit purpose requires human confirmation."
+
+
+def _focused_logged_subject(log_sources: list[dict[str, Any]], metrics: list[dict[str, Any]]) -> str:
+    log_names = _unique_strings([row.get("source") for row in log_sources[:4]], limit=4)
+    metric_names = _unique_strings([row.get("metric_name") or row.get("name") for row in metrics[:4]], limit=4)
+    if log_names and metric_names:
+        return f"Logs: {', '.join(log_names)}. Metrics: {', '.join(metric_names)}."
+    if log_names:
+        return f"Logs: {', '.join(log_names)}."
+    if metric_names:
+        return f"Metrics: {', '.join(metric_names)}."
+    return "Sanitized operational logs, metrics, and source-derived instrumentation candidates."
+
+
+def _focused_state_files(source_context: dict[str, Any], source_analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for field in ("config_items", "source_items"):
+        for row in source_context.get(field) or []:
+            if isinstance(row, dict) and _row_has_any(row, ("state", "pid", "json", "cache", "checkpoint", "lock")):
+                rows.append(row)
+    for row in source_analysis.get("instrumentation_candidates") or []:
+        if isinstance(row, dict) and _row_has_any(row, ("state", "pid", "checkpoint", "cache", "file")):
+            rows.append(row)
+    output: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in _rank_focused_rows(rows, limit=10):
+        name = str(row.get("path") or row.get("name") or row.get("file") or row.get("source_id") or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        output.append(
+            {
+                "name": _sanitize_discovery_text(name, RedactionCounter()),
+                "meaning": _sanitize_discovery_text(str(row.get("meaning") or row.get("description") or "Source-derived state/config artifact."), RedactionCounter()),
+                "evidence_refs": [],
+                "source_context_refs": _source_refs_from_row(row),
+            }
+        )
+    return output
+
+
+def _focused_orchestration_flows(
+    components: list[dict[str, Any]],
+    collectors: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    orchestration_components = [
+        row for row in components if _row_has_any(row, ("watchdog", "orchestr", "recover", "restart", "scheduler", "timer", "worker"))
+    ]
+    if not orchestration_components and not collectors:
+        return []
+    names = _unique_strings([row.get("name") or row.get("component_id") for row in orchestration_components[:6]], limit=6)
+    collector_names = _unique_strings([row.get("request_type") or row.get("collector") for row in collectors[:4]], limit=4)
+    flow_name = "Operational Recovery Loop" if names else "Read-only Evidence Collection Loop"
+    steps = _unique_strings(
+        [
+            "Observe sanitized logs, metrics, or state signals.",
+            "Compare runtime signals with source-derived component and metric expectations.",
+            "Route missing evidence to read-only collectors or human review.",
+            "Keep final operational action behind human approval.",
+        ],
+        limit=8,
+    )
+    return [
+        {
+            "flow_name": flow_name,
+            "trigger": "Runtime signal, watchdog event, scheduled check, or reviewer request.",
+            "steps": steps,
+            "owned_by_components": names or collector_names,
+            "evidence_refs": _unique_strings([ref for row in orchestration_components for ref in _refs_from_row(row)], limit=12),
+            "source_context_refs": _unique_strings([ref for row in orchestration_components for ref in _source_refs_from_row(row)], limit=12),
+            "confidence": _average([row.get("confidence") for row in orchestration_components]) or 0.6,
+        }
+    ]
+
+
+def _focused_failure_modes(metrics: list[dict[str, Any]], components: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    modes: list[dict[str, Any]] = []
+    for row in metrics[:8]:
+        name = str(row.get("metric_name") or row.get("name") or "")
+        if not name:
+            continue
+        modes.append(
+            {
+                "failure_mode": f"{name} outside expected direction",
+                "observable_signals": [name],
+                "missing_evidence": ["Human must confirm metric semantics before treating this as support evidence."],
+                "confidence": _safe_float(row.get("confidence"), default=0.5),
+            }
+        )
+    for row in components[:4]:
+        name = str(row.get("name") or row.get("component_id") or "")
+        if not name or not _row_has_any(row, ("watchdog", "recover", "restart", "service", "worker")):
+            continue
+        modes.append(
+            {
+                "failure_mode": f"{name} liveness or orchestration gap",
+                "observable_signals": _unique_strings([*_refs_from_row(row), *_source_refs_from_row(row)], limit=8),
+                "missing_evidence": ["Confirm runtime state and user impact with read-only evidence."],
+                "confidence": _safe_float(row.get("confidence"), default=0.5),
+            }
+        )
+    return modes[:12]
+
+
+def _metric_meaning(row: dict[str, Any]) -> str:
+    semantics = row.get("suggested_semantics") if isinstance(row.get("suggested_semantics"), dict) else {}
+    return str(
+        row.get("meaning")
+        or row.get("description")
+        or semantics.get("semantic_type")
+        or row.get("semantic_type")
+        or "Candidate operational metric."
+    )
+
+
+def _metric_healthy_direction(row: dict[str, Any]) -> str:
+    semantics = row.get("suggested_semantics") if isinstance(row.get("suggested_semantics"), dict) else row
+    zero = str(semantics.get("zero_behavior") or "").casefold()
+    increase = str(semantics.get("increase_behavior") or "").casefold()
+    decrease = str(semantics.get("decrease_behavior") or "").casefold()
+    if "healthy" in increase:
+        return "increase"
+    if "healthy" in decrease:
+        return "decrease"
+    if "healthy" in zero:
+        return "zero"
+    if "suspicious" in zero or "unhealthy" in zero:
+        return "nonzero"
+    return "unknown"
+
+
+def _refs_from_row(row: dict[str, Any]) -> list[str]:
+    values: list[Any] = []
+    for key in ("evidence_refs", "evidence_ids", "support_evidence_refs", "counter_evidence_refs"):
+        values.extend(row.get(key) or [])
+    for key in ("evidence_id", "pattern_id", "metric_window_id", "signal_id"):
+        if row.get(key):
+            values.append(row.get(key))
+    return _unique_strings(values, limit=12)
+
+
+def _source_refs_from_row(row: dict[str, Any]) -> list[str]:
+    values: list[Any] = []
+    for key in ("source_context_refs", "source_refs", "source_item_refs", "config_refs", "source_ids"):
+        values.extend(row.get(key) or [])
+    for key in ("source_id", "config_id", "unit_name", "path", "file", "name", "metric_name", "request_type"):
+        if row.get(key):
+            values.append(row.get(key))
+    return _unique_strings(values, limit=12)
+
+
+def _rank_focused_rows(rows: list[dict[str, Any]], *, limit: int) -> list[dict[str, Any]]:
+    typed = [row for row in rows if isinstance(row, dict)]
+    return sorted(typed, key=lambda row: (-_focused_row_score(row), str(row.get("name") or row.get("metric_name") or "")))[:limit]
+
+
+def _focused_row_score(row: dict[str, Any]) -> float:
+    text = json.dumps(row, ensure_ascii=False, sort_keys=True).casefold()
+    score = 0.0
+    for keyword in (
+        "systemd",
+        ".service",
+        "watchdog",
+        "orchestr",
+        "recovery",
+        "restart",
+        "collector",
+        "exporter",
+        "logger",
+        "metric",
+        "heartbeat",
+        "freshness",
+        "state",
+        "pid",
+        "queue",
+        "pubsub",
+        "scheduler",
+        "worker",
+        "daemon",
+        "rtmp",
+        "rtmps",
+        "ffmpeg",
+        "stream",
+        "audio",
+        "service",
+        "health",
+        "liveness",
+    ):
+        if keyword in text:
+            score += 4.0
+    score += _safe_float(row.get("confidence"), default=0.0)
+    try:
+        score += min(float(row.get("count") or 0), 10.0)
+    except (TypeError, ValueError):
+        pass
+    return score
+
+
+def _row_has_any(row: dict[str, Any], needles: Iterable[str]) -> bool:
+    text = json.dumps(row, ensure_ascii=False, sort_keys=True).casefold()
+    return any(needle in text for needle in needles)
+
+
+def _bounded_confidence(value: Any, *, default: float) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        number = default
+    return max(0.0, min(1.0, number))
+
+
+def _profile_draft_gemini_provider(*, model_name: str = "") -> VertexGeminiProvider:
+    model = (
+        model_name.strip()
+        or os.environ.get("OES_PROFILE_DRAFT_GEMINI_MODEL", "").strip()
+        or DEFAULT_PROFILE_DRAFT_GEMINI_MODEL
+    )
+    return VertexGeminiProvider.from_env(
+        prompt_name="profile-draft",
+        model_name=model,
+        max_output_tokens=_int_env("OES_PROFILE_DRAFT_GEMINI_MAX_OUTPUT_TOKENS", 8192),
+        timeout_seconds=_int_env("OES_PROFILE_DRAFT_GEMINI_TIMEOUT_SECONDS", 180),
+    )
+
+
+def _focused_profile_gemini_provider(*, model_name: str = "") -> VertexGeminiProvider:
+    model = (
+        model_name.strip()
+        or os.environ.get("OES_FOCUSED_PROFILE_GEMINI_MODEL", "").strip()
+        or os.environ.get("OES_PROFILE_DRAFT_GEMINI_MODEL", "").strip()
+        or DEFAULT_FOCUSED_PROFILE_GEMINI_MODEL
+    )
+    return VertexGeminiProvider.from_env(
+        prompt_name="focused-operational-profile",
+        model_name=model,
+        max_output_tokens=_int_env("OES_FOCUSED_PROFILE_GEMINI_MAX_OUTPUT_TOKENS", 14000),
+        timeout_seconds=_int_env("OES_FOCUSED_PROFILE_GEMINI_TIMEOUT_SECONDS", 240),
+    )
+
+
+def _profile_draft_model_input(discovery: dict[str, Any]) -> dict[str, Any]:
+    from ops_evidence_synthesis.ai.prompts import compact_profile_discovery_for_model
+
+    return {
+        "llm_task": "profile_draft",
+        "schema_version": "profile_draft_model_input.v1",
+        "profile_discovery": compact_profile_discovery_for_model(discovery),
+        "profile_draft_policy": {
+            "raw_source_sent_to_provider": False,
+            "raw_env_values_sent_to_provider": False,
+            "raw_logs_sent_to_provider": False,
+            "input_artifact": "sanitized_profile_discovery_bundle",
+            "draft_requires_human_approval": True,
+            "source_context_is_incident_evidence": False,
+            "support_claims_must_cite_evidence_id": True,
+        },
+    }
+
+
+def _focused_profile_model_input(
+    discovery: dict[str, Any],
+    *,
+    evidence_bundle: dict[str, Any] | None = None,
+    source_context: dict[str, Any] | None = None,
+    source_analysis: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    from ops_evidence_synthesis.ai.prompts import compact_focused_profile_input_for_model
+
+    raw_input = {
+        "llm_task": "focused_operational_profile",
+        "schema_version": FOCUSED_PROFILE_MODEL_INPUT_SCHEMA_VERSION,
+        "profile_discovery": discovery,
+        "evidence_bundle": evidence_bundle if isinstance(evidence_bundle, dict) else {},
+        "source_context": source_context if isinstance(source_context, dict) else {},
+        "source_analysis": source_analysis if isinstance(source_analysis, dict) else {},
+        "focused_profile_policy": {
+            "raw_source_sent_to_provider": False,
+            "raw_env_values_sent_to_provider": False,
+            "raw_logs_sent_to_provider": False,
+            "input_artifacts": [
+                "sanitized_profile_discovery_bundle",
+                "sanitized_evidence_bundle",
+                "sanitized_source_context",
+                "sanitized_source_analysis",
+            ],
+            "source_context_is_incident_evidence": False,
+            "runtime_claims_must_cite_evidence_id": True,
+            "draft_requires_human_approval": True,
+            "collector_mappings_must_be_read_only": True,
+            "profile_focus": [
+                "what_system_is_this",
+                "what_is_logged_or_measured",
+                "which_runtime_components_matter",
+                "what_orchestration_or_watchdog_loop_exists",
+            ],
+        },
+    }
+    model_input = compact_focused_profile_input_for_model(raw_input)
+    model_input["llm_task"] = "focused_operational_profile"
+    model_input["schema_version"] = FOCUSED_PROFILE_MODEL_INPUT_SCHEMA_VERSION
+    model_input["focused_profile_policy"] = raw_input["focused_profile_policy"]
+    return model_input
+
+
+def _profile_draft_from_ai_payload(
+    payload: dict[str, Any],
+    discovery: dict[str, Any],
+    base: dict[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return base
+    profile_payload = payload.get("profile") if isinstance(payload.get("profile"), dict) else payload
+    draft = json.loads(json.dumps(base, ensure_ascii=False))
+    profile = draft.setdefault("profile", {})
+    if isinstance(profile_payload.get("system_type"), str) and profile_payload["system_type"].strip():
+        profile["system_type"] = _sanitize_discovery_text(profile_payload["system_type"], RedactionCounter())
+    if isinstance(profile_payload.get("purpose"), str) and profile_payload["purpose"].strip():
+        profile["purpose"] = _sanitize_discovery_text(profile_payload["purpose"], RedactionCounter())
+
+    critical = _string_list(profile_payload.get("critical_outcomes") or profile_payload.get("critical_user_outcomes"))
+    if critical:
+        profile["critical_outcomes"] = critical[:12]
+
+    ai_components = _component_map_from_ai(profile_payload.get("components") or profile_payload.get("component_map"))
+    if ai_components:
+        profile["component_map"] = {**profile.get("component_map", {}), **ai_components}
+
+    ai_metrics = _metric_semantics_from_ai(profile_payload.get("metric_semantics"))
+    if ai_metrics:
+        profile["metric_semantics"] = {**profile.get("metric_semantics", {}), **ai_metrics}
+
+    ai_collectors = _collector_mappings_from_ai(profile_payload.get("collector_mappings"))
+    if ai_collectors:
+        profile["collector_mappings"] = {**profile.get("collector_mappings", {}), **ai_collectors}
+
+    ai_sources = _log_sources_from_ai(profile_payload.get("log_sources"))
+    if ai_sources:
+        profile["log_sources"] = _merge_log_sources(profile.get("log_sources") or [], ai_sources)
+
+    profile["known_benign_noise"] = _unique_strings(
+        [*list(profile.get("known_benign_noise") or []), *_string_list(profile_payload.get("known_benign_noise"))],
+        limit=30,
+    )
+    profile["action_constraints"] = _unique_strings(
+        [
+            *list(profile.get("action_constraints") or []),
+            *_string_list(profile_payload.get("action_constraints")),
+            "This AI-generated profile draft is context only until human approval.",
+            "Runtime support claims must cite evidence_id from Evidence Items.",
+            "Collector mappings are read-only until human approved.",
+        ],
+        limit=40,
+    )
+    draft["assumptions"] = _unique_strings(
+        [
+            *list(draft.get("assumptions") or []),
+            *_string_list(profile_payload.get("assumptions")),
+            "Gemini analyzed sanitized Profile Discovery context, not raw source or raw logs.",
+        ],
+        limit=30,
+    )
+    draft["required_human_decisions"] = _unique_strings(
+        [
+            *list(draft.get("required_human_decisions") or []),
+            *_string_list(profile_payload.get("required_human_decisions")),
+            "Approve or edit Gemini-generated profile fields before incident review.",
+        ],
+        limit=30,
+    )
+    summary = draft.setdefault("display_summary", {})
+    badges = list(summary.get("primary_badges") or [])
+    summary["primary_badges"] = _unique_strings(
+        [*badges, "profile_draft_provider:gemini", "source_context:sanitized", "human_approval:required"],
+        limit=12,
+    )
+    draft["human_review_required"] = True
+    draft["approved"] = False
+    draft["explicit_profile"] = False
+    draft["source_discovery_sha256"] = discovery.get("discovery_sha256") or draft.get("source_discovery_sha256") or ""
+    return redact_mapping(draft, RedactionCounter())
+
+
+def _focused_profile_from_ai_payload(payload: dict[str, Any], base: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return base
+    normalized = json.loads(json.dumps(payload, ensure_ascii=False))
+    for key in (
+        "source_discovery_sha256",
+        "source_evidence_sha256",
+        "source_context_sha256",
+        "source_analysis_sha256",
+    ):
+        if not normalized.get(key) and base.get(key):
+            normalized[key] = base.get(key)
+    if not normalized.get("system_label"):
+        normalized["system_label"] = base.get("system_label") or "discovered-system"
+    return redact_mapping(_normalize_focused_profile(normalized), RedactionCounter())
+
+
+def _normalize_focused_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    output = json.loads(json.dumps(profile, ensure_ascii=False))
+    output["schema_version"] = FOCUSED_PROFILE_SCHEMA_VERSION
+    output["system_label"] = _sanitize_discovery_text(str(output.get("system_label") or "discovered-system"), RedactionCounter())
+
+    summary = output.get("system_summary") if isinstance(output.get("system_summary"), dict) else {}
+    output["system_summary"] = {
+        "system_type": _sanitize_discovery_text(str(summary.get("system_type") or "operational_service"), RedactionCounter()),
+        "primary_purpose": _sanitize_discovery_text(str(summary.get("primary_purpose") or "Human-reviewed operational profile candidate."), RedactionCounter()),
+        "logged_subject": _sanitize_discovery_text(str(summary.get("logged_subject") or "Sanitized operational logs and metrics."), RedactionCounter()),
+        "operational_boundary": _sanitize_discovery_text(
+            str(summary.get("operational_boundary") or "Source context is interpretation context, not incident evidence."),
+            RedactionCounter(),
+        ),
+        "confidence": _bounded_confidence(summary.get("confidence"), default=0.6),
+    }
+
+    output["runtime_components"] = [
+        {
+            "component_id": _slug(str(row.get("component_id") or row.get("name") or f"component_{index:03d}")),
+            "name": _sanitize_discovery_text(str(row.get("name") or row.get("component_id") or f"component_{index:03d}"), RedactionCounter()),
+            "role": _sanitize_discovery_text(str(row.get("role") or "Candidate runtime component."), RedactionCounter()),
+            "evidence_refs": _string_list(row.get("evidence_refs"))[:12],
+            "source_context_refs": _string_list(row.get("source_context_refs"))[:12],
+            "confidence": _bounded_confidence(row.get("confidence"), default=0.6),
+        }
+        for index, row in enumerate(_rows_from_ai(output.get("runtime_components"))[:12], start=1)
+    ]
+
+    contract = output.get("observability_contract") if isinstance(output.get("observability_contract"), dict) else {}
+    output["observability_contract"] = {
+        "logs": [_normalize_named_ref(row, name_key="source") for row in _rows_from_ai(contract.get("logs"))[:12]],
+        "metrics": [_normalize_metric_ref(row) for row in _rows_from_ai(contract.get("metrics"))[:20]],
+        "heartbeats": [_normalize_named_ref(row, name_key="name") for row in _rows_from_ai(contract.get("heartbeats"))[:10]],
+        "state_files": [_normalize_named_ref(row, name_key="name") for row in _rows_from_ai(contract.get("state_files"))[:10]],
+    }
+    output["orchestration_flows"] = [
+        {
+            "flow_name": _sanitize_discovery_text(str(row.get("flow_name") or row.get("name") or f"flow_{index:03d}"), RedactionCounter()),
+            "trigger": _sanitize_discovery_text(str(row.get("trigger") or ""), RedactionCounter()),
+            "steps": _string_list(row.get("steps"))[:12],
+            "owned_by_components": _string_list(row.get("owned_by_components"))[:12],
+            "evidence_refs": _string_list(row.get("evidence_refs"))[:12],
+            "source_context_refs": _string_list(row.get("source_context_refs"))[:12],
+            "confidence": _bounded_confidence(row.get("confidence"), default=0.6),
+        }
+        for index, row in enumerate(_rows_from_ai(output.get("orchestration_flows"))[:8], start=1)
+    ]
+    output["failure_modes"] = [
+        {
+            "failure_mode": _sanitize_discovery_text(str(row.get("failure_mode") or row.get("name") or f"failure_mode_{index:03d}"), RedactionCounter()),
+            "observable_signals": _string_list(row.get("observable_signals"))[:12],
+            "missing_evidence": _string_list(row.get("missing_evidence"))[:12],
+            "confidence": _bounded_confidence(row.get("confidence"), default=0.5),
+        }
+        for index, row in enumerate(_rows_from_ai(output.get("failure_modes"))[:12], start=1)
+    ]
+    output["read_only_collectors"] = [
+        {
+            "collector": _sanitize_discovery_text(str(row.get("collector") or row.get("request_type") or f"collector_{index:03d}"), RedactionCounter()),
+            "purpose": _sanitize_discovery_text(str(row.get("purpose") or row.get("description") or "Collect read-only evidence."), RedactionCounter()),
+            "safety_level": "read_only",
+        }
+        for index, row in enumerate(_rows_from_ai(output.get("read_only_collectors"))[:10], start=1)
+    ]
+    limits = output.get("profile_limits") if isinstance(output.get("profile_limits"), dict) else {}
+    output["profile_limits"] = {
+        "source_context_is_incident_evidence": False,
+        "runtime_claims_require_evidence_id": True,
+        "approval_required_before_explicit_profile": True,
+        "raw_source_sent_to_provider": False,
+        "raw_logs_sent_to_provider": False,
+        "notes": _unique_strings(
+            [
+                *_string_list(limits.get("notes")),
+                "This profile is derived from sanitized artifacts only.",
+                "Source context explains expected structure, not incident truth.",
+            ],
+            limit=12,
+        ),
+    }
+    output["human_review_required"] = _unique_strings(
+        [
+            *_string_list(output.get("human_review_required")),
+            "Approve or edit the focused profile before using it as an explicit system profile.",
+        ],
+        limit=20,
+    )
+    return output
+
+
+def _normalize_named_ref(row: dict[str, Any], *, name_key: str) -> dict[str, Any]:
+    name = str(row.get(name_key) or row.get("name") or row.get("source") or "")
+    return {
+        name_key: _sanitize_discovery_text(name, RedactionCounter()),
+        "meaning": _sanitize_discovery_text(str(row.get("meaning") or ""), RedactionCounter()),
+        "evidence_refs": _string_list(row.get("evidence_refs"))[:12],
+        "source_context_refs": _string_list(row.get("source_context_refs"))[:12],
+    }
+
+
+def _normalize_metric_ref(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "metric_name": _sanitize_discovery_text(str(row.get("metric_name") or row.get("name") or ""), RedactionCounter()),
+        "meaning": _sanitize_discovery_text(str(row.get("meaning") or ""), RedactionCounter()),
+        "healthy_direction": str(row.get("healthy_direction") or "unknown"),
+        "evidence_refs": _string_list(row.get("evidence_refs"))[:12],
+        "source_context_refs": _string_list(row.get("source_context_refs"))[:12],
+    }
+
+
+def _with_profile_generation_metadata(draft: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+    output = json.loads(json.dumps(draft, ensure_ascii=False))
+    output["profile_generation"] = redact_mapping(metadata, RedactionCounter())
+    summary = output.setdefault("display_summary", {})
+    badges = list(summary.get("primary_badges") or [])
+    status = str(metadata.get("llm_status") or "unknown")
+    mode = str(metadata.get("generation_mode") or "unknown")
+    if metadata.get("fallback_used"):
+        badges.append("profile_draft:fallback_used")
+    badges.extend([f"generation:{mode}", f"llm_status:{status}"])
+    summary["primary_badges"] = _unique_strings(badges, limit=14)
+    return redact_mapping(output, RedactionCounter())
+
+
+def _with_focused_profile_generation_metadata(profile: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+    output = json.loads(json.dumps(profile, ensure_ascii=False))
+    output["focused_profile_generation"] = redact_mapping(metadata, RedactionCounter())
+    notes = output.setdefault("profile_limits", {}).setdefault("notes", [])
+    if isinstance(notes, list):
+        status = str(metadata.get("llm_status") or "unknown")
+        mode = str(metadata.get("generation_mode") or "unknown")
+        notes.extend([f"generation:{mode}", f"llm_status:{status}"])
+        if metadata.get("fallback_used"):
+            notes.append("focused_profile:fallback_used")
+        output["profile_limits"]["notes"] = _unique_strings(notes, limit=16)
+    return redact_mapping(_normalize_focused_profile(output), RedactionCounter())
+
+
+def _component_map_from_ai(value: Any) -> dict[str, dict[str, Any]]:
+    components: dict[str, dict[str, Any]] = {}
+    for index, row in enumerate(_rows_from_ai(value), start=1):
+        name = str(row.get("name") or row.get("component_name") or row.get("component_id") or "").strip()
+        component_id = _slug(str(row.get("component_id") or name or f"component_{index:03d}"))
+        if not component_id:
+            continue
+        components[component_id] = {
+            "name": _sanitize_discovery_text(name or component_id, RedactionCounter()),
+            "role": _sanitize_discovery_text(str(row.get("role") or row.get("suggested_role") or "Candidate component"), RedactionCounter()),
+            "subsystem": _slug(str(row.get("subsystem") or row.get("suggested_subsystem") or "general")),
+            "core_target_types": _string_list(row.get("core_target_types") or row.get("suggested_core_target_types"))[:8],
+            "confidence": _safe_float(row.get("confidence"), default=0.7),
+            "generation_source": "gemini_profile_draft",
+            "human_review_required": True,
+        }
+    return components
+
+
+def _metric_semantics_from_ai(value: Any) -> dict[str, dict[str, Any]]:
+    metrics: dict[str, dict[str, Any]] = {}
+    for row in _rows_from_ai(value):
+        name = str(row.get("metric_name") or row.get("name") or "").strip()
+        if not name:
+            continue
+        metrics[_sanitize_discovery_text(name, RedactionCounter())] = {
+            "semantic_type": str(row.get("semantic_type") or "candidate"),
+            "zero_behavior": str(row.get("zero_behavior") or "unknown"),
+            "increase_behavior": str(row.get("increase_behavior") or "unknown"),
+            "decrease_behavior": str(row.get("decrease_behavior") or "unknown"),
+            "subsystem": _slug(str(row.get("subsystem") or "general")),
+            "core_target_type": _slug(str(row.get("core_target_type") or row.get("candidate_core_target_type") or "general")),
+            "confidence": _safe_float(row.get("confidence"), default=0.7),
+            "generation_source": "gemini_profile_draft",
+            "human_review_required": True,
+        }
+    return metrics
+
+
+def _collector_mappings_from_ai(value: Any) -> dict[str, dict[str, Any]]:
+    collectors: dict[str, dict[str, Any]] = {}
+    for index, row in enumerate(_rows_from_ai(value), start=1):
+        request_type = _slug(str(row.get("request_type") or row.get("need") or f"collector_{index:03d}"))
+        if not request_type:
+            continue
+        collectors[request_type] = {
+            "candidate_collectors": _string_list(row.get("candidate_collectors") or row.get("collectors"))[:8],
+            "params": row.get("params") if isinstance(row.get("params"), dict) else {},
+            "safety_level": "read_only",
+            "generation_source": "gemini_profile_draft",
+            "human_review_required": True,
+        }
+    return collectors
+
+
+def _log_sources_from_ai(value: Any) -> list[dict[str, str]]:
+    sources: list[dict[str, str]] = []
+    for index, row in enumerate(_rows_from_ai(value), start=1):
+        source_id = _slug(str(row.get("source_id") or row.get("id") or row.get("name") or f"log_source_{index:03d}"))
+        description = str(row.get("description") or row.get("meaning") or "Candidate log source derived from sanitized context.")
+        if source_id:
+            sources.append(
+                {
+                    "source_id": source_id,
+                    "description": _sanitize_discovery_text(description, RedactionCounter()),
+                    "generation_source": "gemini_profile_draft",
+                }
+            )
+    return sources
+
+
+def _merge_log_sources(base: list[Any], generated: list[dict[str, str]]) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    for row in [*base, *generated]:
+        if not isinstance(row, dict):
+            continue
+        source_id = _slug(str(row.get("source_id") or row.get("id") or row.get("name") or ""))
+        if source_id and source_id not in merged:
+            merged[source_id] = {**row, "source_id": source_id}
+    return list(merged.values())[:30]
+
+
+def _rows_from_ai(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [row for row in value if isinstance(row, dict)]
+    if isinstance(value, dict):
+        rows = []
+        for key, row in value.items():
+            if isinstance(row, dict):
+                rows.append({**row, "name": row.get("name") or str(key)})
+        return rows
+    return []
+
+
+def _string_list(value: Any) -> list[str]:
+    values = value if isinstance(value, list) else [value] if value not in (None, "") else []
+    output: list[str] = []
+    for item in values:
+        text = _sanitize_discovery_text(str(item or "").strip(), RedactionCounter())
+        if text:
+            output.append(text)
+    return _unique_strings(output, limit=100)
+
+
+def _unique_strings(values: Iterable[Any], *, limit: int) -> list[str]:
+    output: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        output.append(text)
+        if len(output) >= limit:
+            break
+    return output
+
+
+def _safe_float(value: Any, *, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _int_env(key: str, default: int) -> int:
+    try:
+        return int(os.environ.get(key, str(default)))
+    except ValueError:
+        return default
 
 
 def _metrics_from_semantics(metric_semantics: dict[str, Any], component_map: dict[str, Any]) -> dict[str, Any]:

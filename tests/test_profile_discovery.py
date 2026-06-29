@@ -7,11 +7,15 @@ import sys
 from pathlib import Path
 
 from ops_evidence_synthesis.canonical import sha256_json
+from ops_evidence_synthesis.ai.base import ModelResponse
 from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sanitize_input, verify_sanitized_output
 from ops_evidence_synthesis.profile_discovery import (
     approve_profile_draft,
+    build_focused_profile_with_provider,
     build_profile_discovery_bundle,
+    build_profile_draft_with_provider,
     discover_profile,
+    draft_focused_profile,
     draft_profile,
     profile_discovery_hash_payload,
 )
@@ -19,6 +23,173 @@ from ops_evidence_synthesis.profile_discovery import (
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = ROOT / "sample_projects" / "profile_discovery_sample"
+
+
+class FakeGeminiProfileDraftProvider:
+    provider = "gemini-enterprise-agent-platform"
+    model_name = "gemini-3.1-pro-preview"
+    prompt_name = "profile-draft"
+    temperature = 0.0
+
+    def run(self, bundle: dict) -> ModelResponse:
+        assert bundle["llm_task"] == "profile_draft"
+        assert bundle["profile_draft_policy"]["raw_source_sent_to_provider"] is False
+        assert bundle["profile_draft_policy"]["draft_requires_human_approval"] is True
+        payload = {
+            "schema_version": "profile_draft_ai.v1",
+            "system_type": "notification_workflow",
+            "purpose": "Monitor sanitized notification workflow evidence and route review work.",
+            "critical_outcomes": ["Notification forwarding remains observable."],
+            "components": [
+                {
+                    "component_id": "watchdog",
+                    "name": "watchdog",
+                    "role": "Monitors scheduler and service liveness.",
+                    "subsystem": "service_liveness",
+                    "core_target_types": ["heartbeat_missing"],
+                }
+            ],
+            "metric_semantics": [
+                {
+                    "metric_name": "watchdog_success_count",
+                    "semantic_type": "heartbeat",
+                    "zero_behavior": "suspicious",
+                    "increase_behavior": "healthy",
+                    "decrease_behavior": "suspicious",
+                    "subsystem": "service_liveness",
+                    "core_target_type": "heartbeat_missing",
+                }
+            ],
+            "log_sources": [{"source_id": "application_logs", "description": "Sanitized application logs."}],
+            "collector_mappings": [
+                {
+                    "request_type": "process_state_query",
+                    "candidate_collectors": ["systemd status"],
+                    "safety_level": "read_only",
+                }
+            ],
+            "known_benign_noise": ["empty polling interval"],
+            "action_constraints": ["Do not request credentials."],
+            "assumptions": ["Critical outcomes require human confirmation."],
+            "required_human_decisions": ["Confirm metric semantics before approval."],
+        }
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            latency_ms=1,
+            input_tokens=100,
+            output_tokens=100,
+        )
+
+
+class FakeGeminiFocusedProfileProvider:
+    provider = "gemini-enterprise-agent-platform"
+    model_name = "gemini-3.1-pro-preview"
+    prompt_name = "focused-operational-profile"
+    temperature = 0.0
+
+    def run(self, bundle: dict) -> ModelResponse:
+        assert bundle["llm_task"] == "focused_operational_profile"
+        assert bundle["focused_profile_policy"]["raw_source_sent_to_provider"] is False
+        assert bundle["focused_profile_policy"]["raw_logs_sent_to_provider"] is False
+        assert bundle["focused_profile_policy"]["source_context_is_incident_evidence"] is False
+        payload = {
+            "schema_version": "focused_operational_profile.v1",
+            "system_label": "unknown-sample",
+            "system_summary": {
+                "system_type": "notification_workflow",
+                "primary_purpose": "Watch notification workflow liveness and route review work.",
+                "logged_subject": "watchdog service logs and heartbeat metrics",
+                "operational_boundary": "Source context is profile context, not incident evidence.",
+                "confidence": 0.84,
+            },
+            "runtime_components": [
+                {
+                    "component_id": "watchdog",
+                    "name": "watchdog",
+                    "role": "Monitors scheduler and service liveness.",
+                    "evidence_refs": ["EVT-001"],
+                    "source_context_refs": ["amazon-notify-main-watchdog.service"],
+                    "confidence": 0.86,
+                }
+            ],
+            "observability_contract": {
+                "logs": [
+                    {
+                        "source": "application_logs",
+                        "meaning": "Sanitized application log stream.",
+                        "evidence_refs": ["EVT-001"],
+                        "source_context_refs": [],
+                    }
+                ],
+                "metrics": [
+                    {
+                        "metric_name": "watchdog_success_count",
+                        "meaning": "Watchdog successful checks.",
+                        "healthy_direction": "increase",
+                        "evidence_refs": ["EVT-001"],
+                        "source_context_refs": [],
+                    }
+                ],
+                "heartbeats": [
+                    {
+                        "name": "watchdog_success_count",
+                        "meaning": "Liveness heartbeat.",
+                        "evidence_refs": ["EVT-001"],
+                        "source_context_refs": [],
+                    }
+                ],
+                "state_files": [],
+            },
+            "orchestration_flows": [
+                {
+                    "flow_name": "Watchdog Recovery",
+                    "trigger": "missing heartbeat or service liveness gap",
+                    "steps": ["observe heartbeat", "request read-only verification", "stop for human approval"],
+                    "owned_by_components": ["watchdog"],
+                    "evidence_refs": ["EVT-001"],
+                    "source_context_refs": ["amazon-notify-main-watchdog.service"],
+                    "confidence": 0.8,
+                }
+            ],
+            "failure_modes": [
+                {
+                    "failure_mode": "watchdog liveness gap",
+                    "observable_signals": ["watchdog_success_count"],
+                    "missing_evidence": ["confirm user impact"],
+                    "confidence": 0.7,
+                }
+            ],
+            "read_only_collectors": [
+                {
+                    "collector": "process_state_query",
+                    "purpose": "Check service liveness without changing runtime state.",
+                    "safety_level": "read_only",
+                }
+            ],
+            "profile_limits": {
+                "source_context_is_incident_evidence": False,
+                "runtime_claims_require_evidence_id": True,
+                "approval_required_before_explicit_profile": True,
+                "raw_source_sent_to_provider": False,
+                "raw_logs_sent_to_provider": False,
+                "notes": ["sanitized input only"],
+            },
+            "human_review_required": ["Confirm critical outcome before approval."],
+        }
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            latency_ms=1,
+            input_tokens=100,
+            output_tokens=100,
+        )
 
 
 def _redaction_fixture_bundle(tmp_path: Path) -> dict[str, object]:
@@ -144,6 +315,62 @@ def test_metric_candidates_draft_and_verify_sanitized(tmp_path: Path) -> None:
     assert "Authorization:" not in serialized_draft
 
 
+def test_gemini_profile_draft_uses_sanitized_discovery_and_requires_human_review(tmp_path: Path) -> None:
+    evidence = _bundle_with_script_and_metric(tmp_path)
+    evidence_path = tmp_path / "evidence_bundle.json"
+    evidence_path.write_text(json.dumps(evidence, sort_keys=True), encoding="utf-8")
+    discovery = build_profile_discovery_bundle(
+        PROJECT_ROOT,
+        evidence_bundle_path=evidence_path,
+        service="unknown-sample",
+        environment="prod",
+    )
+
+    draft = build_profile_draft_with_provider(discovery, FakeGeminiProfileDraftProvider())
+
+    assert draft["schema_version"] == "profile_draft.v1"
+    assert draft["approved"] is False
+    assert draft["explicit_profile"] is False
+    assert draft["human_review_required"] is True
+    assert draft["profile_generation"]["llm_status"] == "ok"
+    assert draft["profile_generation"]["model_name"] == "gemini-3.1-pro-preview"
+    assert draft["profile"]["system_type"] == "notification_workflow"
+    assert draft["profile"]["component_map"]["watchdog"]["human_review_required"] is True
+    assert draft["profile"]["metric_semantics"]["watchdog_success_count"]["zero_behavior"] == "suspicious"
+    assert draft["profile"]["collector_mappings"]["process_state_query"]["safety_level"] == "read_only"
+    assert any("Gemini analyzed sanitized Profile Discovery context" in item for item in draft["assumptions"])
+
+
+def test_gemini_focused_profile_uses_sanitized_operational_context(tmp_path: Path) -> None:
+    evidence = _bundle_with_script_and_metric(tmp_path)
+    evidence_path = tmp_path / "evidence_bundle.json"
+    evidence_path.write_text(json.dumps(evidence, sort_keys=True), encoding="utf-8")
+    discovery = build_profile_discovery_bundle(
+        PROJECT_ROOT,
+        evidence_bundle_path=evidence_path,
+        service="unknown-sample",
+        environment="prod",
+    )
+
+    profile = build_focused_profile_with_provider(
+        discovery,
+        FakeGeminiFocusedProfileProvider(),
+        evidence_bundle=evidence,
+    )
+
+    assert profile["schema_version"] == "focused_operational_profile.v1"
+    assert profile["focused_profile_generation"]["llm_status"] == "ok"
+    assert profile["focused_profile_generation"]["fallback_used"] is False
+    assert profile["system_summary"]["system_type"] == "notification_workflow"
+    assert profile["profile_limits"]["source_context_is_incident_evidence"] is False
+    assert profile["profile_limits"]["runtime_claims_require_evidence_id"] is True
+    assert profile["profile_limits"]["raw_source_sent_to_provider"] is False
+    assert profile["profile_limits"]["raw_logs_sent_to_provider"] is False
+    assert profile["read_only_collectors"][0]["safety_level"] == "read_only"
+    assert len(profile["runtime_components"]) <= 12
+    assert verify_sanitized_output(tmp_path)["passed"] is True
+
+
 def test_discovery_sha_is_stable_and_ignores_key_order(tmp_path: Path) -> None:
     evidence = _bundle_with_script_and_metric(tmp_path)
     evidence_path = tmp_path / "evidence_bundle.json"
@@ -226,6 +453,15 @@ def test_discover_and_draft_profile_cli(tmp_path: Path) -> None:
         check=True,
         cwd=ROOT,
     )
+    draft_focused_profile(
+        discovery_out / "profile_discovery_bundle.json",
+        provider="local",
+        evidence_bundle_path=evidence_path,
+        out_path=discovery_out / "focused_operational_profile.json",
+    )
+    focused = json.loads((discovery_out / "focused_operational_profile.json").read_text(encoding="utf-8"))
+    assert focused["schema_version"] == "focused_operational_profile.v1"
+    assert focused["profile_limits"]["approval_required_before_explicit_profile"] is True
     assert verify_sanitized_output(discovery_out)["passed"] is True
 
 

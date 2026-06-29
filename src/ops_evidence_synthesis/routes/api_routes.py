@@ -45,6 +45,7 @@ from ops_evidence_synthesis.profile_discovery import (
     approved_profile_from_draft,
     build_profile_discovery_bundle,
     build_profile_draft,
+    build_profile_draft_with_provider,
     validate_profile_discovery_bundle_for_upload,
 )
 from ops_evidence_synthesis.profiles import profile_context_for_bundle
@@ -100,6 +101,7 @@ _TARGET_SET_CACHE: dict[tuple[str, str, int, bool], tuple[float, dict[str, Any]]
 
 _STORE_FACTORY: Callable[[], Any] | None = None
 _GEMINI_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
+_PROFILE_DRAFT_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _EVIDENCE_REQUIREMENT_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _CLAUDE_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _GPT_OSS_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
@@ -112,6 +114,7 @@ def configure_api_routes(
     *,
     store_factory: Callable[[], Any],
     gemini_provider_factory: Callable[[], ModelProvider],
+    profile_draft_provider_factory: Callable[[], ModelProvider],
     evidence_requirement_provider_factory: Callable[[], ModelProvider],
     claude_provider_factory: Callable[[], ModelProvider],
     gpt_oss_provider_factory: Callable[[], ModelProvider],
@@ -121,6 +124,7 @@ def configure_api_routes(
 ) -> None:
     global _STORE_FACTORY
     global _GEMINI_PROVIDER_FACTORY
+    global _PROFILE_DRAFT_PROVIDER_FACTORY
     global _EVIDENCE_REQUIREMENT_PROVIDER_FACTORY
     global _CLAUDE_PROVIDER_FACTORY
     global _GPT_OSS_PROVIDER_FACTORY
@@ -129,6 +133,7 @@ def configure_api_routes(
     global _GLM_PROVIDER_FACTORY
     _STORE_FACTORY = store_factory
     _GEMINI_PROVIDER_FACTORY = gemini_provider_factory
+    _PROFILE_DRAFT_PROVIDER_FACTORY = profile_draft_provider_factory
     _EVIDENCE_REQUIREMENT_PROVIDER_FACTORY = evidence_requirement_provider_factory
     _CLAUDE_PROVIDER_FACTORY = claude_provider_factory
     _GPT_OSS_PROVIDER_FACTORY = gpt_oss_provider_factory
@@ -147,6 +152,12 @@ def _gemini_provider() -> ModelProvider:
     if _GEMINI_PROVIDER_FACTORY is None:
         raise RuntimeError("Gemini provider factory is not configured")
     return _GEMINI_PROVIDER_FACTORY()
+
+
+def _profile_draft_provider() -> ModelProvider:
+    if _PROFILE_DRAFT_PROVIDER_FACTORY is None:
+        raise RuntimeError("profile draft provider factory is not configured")
+    return _PROFILE_DRAFT_PROVIDER_FACTORY()
 
 
 def _evidence_requirement_provider() -> ModelProvider:
@@ -1002,7 +1013,12 @@ def upload_profile_discovery_bundle(payload: dict[str, Any]) -> dict[str, Any]:
                 "findings": validation["findings"],
             },
         )
-    draft = build_profile_draft(bundle)
+    generate_with_ai = bool(payload.get("generate_profile_draft_with_ai") or payload.get("use_ai_profile_draft"))
+    draft = (
+        build_profile_draft_with_provider(bundle, _profile_draft_provider())
+        if generate_with_ai
+        else build_profile_draft(bundle)
+    )
     return {
         "status": "accepted",
         "discovery_sha256": bundle["discovery_sha256"],
@@ -1022,6 +1038,7 @@ def upload_profile_discovery_bundle(payload: dict[str, Any]) -> dict[str, Any]:
         "collector_mapping_candidates": bundle.get("collector_mapping_candidates") or [],
         "required_profile_questions": bundle.get("required_profile_questions") or [],
         "profile_draft": draft,
+        "profile_draft_generation": draft.get("profile_generation") or {"generation_mode": "deterministic_local"},
         "source_context": {
             "accepted": bool(source_context),
             "source_context_sha256": source_context.get("source_context_sha256") if source_context else "",

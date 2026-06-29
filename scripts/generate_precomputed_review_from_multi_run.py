@@ -6,13 +6,16 @@ import json
 from pathlib import Path
 from typing import Any
 
+import yaml
+
+from ops_evidence_synthesis.agents.adk_investigator import build_adk_tool_contract_trace
 from ops_evidence_synthesis.ai.prompts import compact_bundle_for_model
 from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.precomputed_review import SCORE_DEFINITION, stable_precomputed_review_json
 
 
 DEFAULT_SOURCE_NOTE = (
-    "generated from e2e API real provider run using 6506 sanitized amazon-notify rows plus sanitized source context"
+    "generated from a recorded e2e API real provider run using a sanitized log corpus and optional sanitized source context"
 )
 DEFAULT_PROVIDER_MODE = "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm"
 
@@ -25,6 +28,8 @@ def main() -> int:
     parser.add_argument("--evidence-bundle", required=True, help="Full sanitized Evidence Bundle used by the run.")
     parser.add_argument("--source-context", default="", help="Optional sanitized source_context_bundle.json.")
     parser.add_argument("--source-analysis", default="", help="Optional sanitized source_analysis_bundle.json.")
+    parser.add_argument("--profile-draft", default="", help="Optional profile_draft.json generated from sanitized discovery.")
+    parser.add_argument("--approved-profile", default="", help="Optional approved explicit profile JSON/YAML.")
     parser.add_argument("--api-revision", default="", help="API revision that produced the multi-run response.")
     parser.add_argument("--profile-id", default="", help="Approved profile id used for the run.")
     parser.add_argument("--updated-at", default="", help="Timestamp to store in the public payload.")
@@ -44,12 +49,16 @@ def main() -> int:
     bundle = _load_json(args.evidence_bundle)
     source_context = _load_json(args.source_context) if args.source_context else {}
     source_analysis = _load_json(args.source_analysis) if args.source_analysis else {}
+    profile_draft = _load_json(args.profile_draft) if args.profile_draft else {}
+    approved_profile = _load_profile(args.approved_profile) if args.approved_profile else {}
 
     payload = build_payload(
         api_response,
         bundle,
         source_context=source_context,
         source_analysis=source_analysis,
+        profile_draft=profile_draft,
+        approved_profile=approved_profile,
         api_revision=args.api_revision,
         profile_id=args.profile_id,
         updated_at=args.updated_at,
@@ -82,6 +91,8 @@ def build_payload(
     *,
     source_context: dict[str, Any],
     source_analysis: dict[str, Any],
+    profile_draft: dict[str, Any],
+    approved_profile: dict[str, Any],
     api_revision: str,
     profile_id: str,
     updated_at: str,
@@ -131,6 +142,13 @@ def build_payload(
         provider_statuses,
         valid_provider_statuses=valid_provider_statuses,
         invalid_provider_statuses=invalid_provider_statuses,
+    )
+    profile_context = _profile_context(
+        profile_id=profile_id,
+        profile_draft=profile_draft,
+        approved_profile=approved_profile,
+        source_context_sha=source_context_sha,
+        source_analysis_sha=source_analysis_sha,
     )
 
     payload: dict[str, Any] = {
@@ -192,6 +210,8 @@ def build_payload(
         },
         "provider_statuses": provider_statuses,
         "review_graph_summary": public_graph_summary,
+        "profile_context": profile_context,
+        "profile_draft_generation": _profile_draft_generation(profile_context),
         "targets": targets,
         "analysis_context": {
             "schema_version": "real_api_source_context_summary.v2",
@@ -258,16 +278,10 @@ def build_payload(
                     f"{_int(graph_summary.get('validation_count'))} validation target(s), and "
                     f"{_int(graph_summary.get('monitor_only_count'))} monitor-only item(s)."
                 ),
-                str((canonical_graph.get("finding") or {}).get("impact") or ""),
+                _analysis_conclusion_impact(canonical_graph, targets),
             ],
         },
-        "agent_trace": _agent_trace(
-            evidence_sha256=evidence_sha256,
-            log_count=log_count,
-            provider_count=provider_count,
-            valid_provider_count=valid_provider_count,
-            target_count=len(targets),
-        ),
+        "agent_trace": [],
         "devops_loop": _devops_loop(
             model_items=model_items,
             model_occurrences=model_occurrences,
@@ -275,6 +289,7 @@ def build_payload(
             valid_provider_count=valid_provider_count,
         ),
     }
+    payload["agent_trace"] = build_adk_tool_contract_trace(payload)
     payload["generation"]["payload_sha256"] = sha256_json(
         {
             "evidence_sha256": payload["evidence_sha256"],
@@ -341,20 +356,28 @@ def _targets(
         ]
         provider_count = sum(1 for row in provider_positions if row["stance"] == "claimed")
         verdict = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
+        evidence_refs = list(target.get("evidence_refs") or [])
+        target_class = str(target.get("class") or "validation_target")
+        promotion_state = "primary_candidate" if target_class == "primary_candidate" else "validation"
         targets.append(
             {
                 "target_id": str(target.get("target_id") or target.get("review_target_id") or ""),
                 "review_target_id": str(target.get("review_target_id") or target.get("target_id") or ""),
                 "title": str(target.get("title") or ""),
-                "class": str(target.get("class") or "validation_target"),
-                "state": str(target.get("state") or target.get("class") or "validation_target"),
+                "class": target_class,
+                "state": str(target.get("state") or target_class),
                 "status": str(target.get("status") or "pending"),
                 "subsystem": str(target.get("subsystem") or "general"),
                 "canonical_review_unit": str(target.get("canonical_review_unit") or target.get("subsystem") or "general"),
                 "review_priority_score": round(float(target.get("review_priority_score") or 0.0), 4),
                 "provider_count": provider_count,
                 "recommended_request_type": str(target.get("recommended_request_type") or ""),
-                "claim": str(target.get("impact_summary") or ""),
+                "claim": _target_claim(
+                    target,
+                    provider_count=provider_count,
+                    valid_count=valid_count,
+                    evidence_ref_count=len(evidence_refs),
+                ),
                 "provider_positions": provider_positions,
                 "agreement": {
                     "verdict": verdict,
@@ -369,12 +392,17 @@ def _targets(
                     ),
                 },
                 "promotion": {
-                    "state": "primary_candidate" if str(target.get("class") or "") == "primary_candidate" else "validation",
+                    "state": promotion_state,
                     "blocked_reason": _blocked_reason(target, provider_count=provider_count),
+                    "explanation": _promotion_explanation(
+                        state=promotion_state,
+                        provider_count=provider_count,
+                        valid_count=valid_count,
+                    ),
                     "score_cap_applied": False,
                     "score_note": "Priority is review urgency, not truth probability.",
                 },
-                "evidence_refs": list(target.get("evidence_refs") or []),
+                "evidence_refs": evidence_refs,
                 "missing_evidence": list(target.get("missing_evidence") or []),
                 "caveats": list(target.get("caveats") or []),
                 "raw": {
@@ -404,13 +432,20 @@ def _review_graph_summary(
     summary = canonical_graph.get("summary") if isinstance(canonical_graph.get("summary"), dict) else {}
     convergence_count = sum(1 for target in targets if _int(target.get("provider_count")) >= 2)
     single_source_count = sum(1 for target in targets if _int(target.get("provider_count")) == 1)
-    conflict_count = sum(1 for target in targets if 1 < _int(target.get("provider_count")) < provider_count)
+    partial_overlap_count = sum(1 for target in targets if 1 < _int(target.get("provider_count")) < provider_count)
+    conflict_count = sum(
+        1
+        for target in targets
+        for position in target.get("provider_positions") or []
+        if isinstance(position, dict) and str(position.get("stance") or "") == "contradicted"
+    )
     return {
         "targets_total": len(targets),
         "primary_promoted_count": _int(summary.get("primary_count")),
         "convergence_count": convergence_count,
         "single_source_count": single_source_count,
         "rule_or_context_count": sum(1 for target in targets if _int(target.get("provider_count")) == 0),
+        "partial_overlap_count": partial_overlap_count,
         "conflict_count": conflict_count,
         "auto_archived_count": _int(summary.get("auto_archived_count")),
         "hidden_multi_provider_archived_count": 0,
@@ -420,7 +455,11 @@ def _review_graph_summary(
         "provider_detection_overlap": str((agreement.get("provider_detection_overlap") or {}).get("value") or ""),
         "review_unit_convergence": str((agreement.get("review_unit_convergence") or {}).get("value") or ""),
         "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
-        "note": "Provider convergence is technical support only; causal and impact judgement remains human-gated.",
+        "note": (
+            "Provider convergence is technical support only; causal and impact judgement remains human-gated. "
+            "Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; "
+            "it is not additive with target verdict counts."
+        ),
         "summary": (
             f"The e2e API analyzed a {log_count:,}-row sanitized log corpus with "
             f"{provider_count} schema-valid real provider output(s); "
@@ -539,6 +578,139 @@ def _blocked_reason(target: dict[str, Any], *, provider_count: int) -> str:
     return "user_impact_unverified; impact_disagreement"
 
 
+def _target_claim(
+    target: dict[str, Any],
+    *,
+    provider_count: int,
+    valid_count: int,
+    evidence_ref_count: int,
+) -> str:
+    text = str(target.get("impact_summary") or "").strip()
+    if text and "providers aligned on a review signal" not in text:
+        return text
+    unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
+    refs = f"{evidence_ref_count} cited Evidence Item(s)" if evidence_ref_count else "cited Evidence Items unavailable"
+    if provider_count >= 2:
+        return (
+            f"{provider_count}/{max(valid_count, 1)} schema-valid providers projected {unit} with {refs}; "
+            "this is technical review support, not majority-vote truth."
+        )
+    if provider_count == 1:
+        return (
+            f"1/{max(valid_count, 1)} schema-valid provider projected {unit} with {refs}; "
+            "the target remains single-source validation work."
+        )
+    return f"Deterministic routing projected {unit} with {refs}; provider support still needs validation."
+
+
+def _promotion_explanation(*, state: str, provider_count: int, valid_count: int) -> str:
+    if state == "primary_candidate":
+        return (
+            "Primary candidacy is based on review priority, subsystem relevance, and unresolved operational risk, "
+            "not on having the highest provider convergence. The incident baseline remains human-gated."
+        )
+    if provider_count >= 2:
+        return (
+            f"{provider_count}/{max(valid_count, 1)} providers converged, so this is technical support; "
+            "it remains validation work until user impact or operational outcome evidence is attached."
+        )
+    if provider_count == 1:
+        return "A single provider surfaced this target; it needs corroboration before promotion."
+    return "This target is context/rule driven and needs runtime support before promotion."
+
+
+def _analysis_conclusion_impact(canonical_graph: dict[str, Any], targets: list[dict[str, Any]]) -> str:
+    finding = canonical_graph.get("finding") if isinstance(canonical_graph.get("finding"), dict) else {}
+    impact = str(finding.get("impact") or "").strip()
+    if impact and "providers aligned on a review signal" not in impact:
+        return impact
+    primary = next(
+        (
+            target
+            for target in targets
+            if str(target.get("class") or target.get("state") or "") == "primary_candidate"
+        ),
+        None,
+    )
+    if isinstance(primary, dict):
+        return str(primary.get("claim") or "")
+    if targets:
+        return str(targets[0].get("claim") or "")
+    return impact
+
+
+def _profile_context(
+    *,
+    profile_id: str,
+    profile_draft: dict[str, Any],
+    approved_profile: dict[str, Any],
+    source_context_sha: str,
+    source_analysis_sha: str,
+) -> dict[str, Any]:
+    draft_profile = profile_draft.get("profile") if isinstance(profile_draft.get("profile"), dict) else {}
+    approved_id = str(approved_profile.get("profile_id") or "")
+    effective_profile_id = profile_id or approved_id
+    component_map = approved_profile.get("component_map") if isinstance(approved_profile.get("component_map"), dict) else {}
+    draft_components = draft_profile.get("components") if isinstance(draft_profile.get("components"), list) else []
+    metric_semantics = approved_profile.get("metric_semantics") or draft_profile.get("metric_semantics") or {}
+    collector_mappings = approved_profile.get("collector_mappings") or draft_profile.get("collector_mappings") or {}
+    required_decisions = profile_draft.get("required_human_decisions")
+    if not isinstance(required_decisions, list):
+        required_decisions = [
+            "Approve profile context before treating it as an explicit operational profile.",
+            "Keep source context separate from runtime evidence.",
+        ]
+    has_context = bool(profile_draft or approved_profile or effective_profile_id or source_context_sha or source_analysis_sha)
+    return {
+        "schema_version": "profile_context_summary.v1",
+        "profile_id": effective_profile_id,
+        "generation_mode": (
+            "profile_draft_and_approved_profile"
+            if profile_draft and approved_profile
+            else "approved_profile_context"
+            if approved_profile or effective_profile_id
+            else "sanitized_source_context"
+            if has_context
+            else "not_run"
+        ),
+        "llm_status": str(profile_draft.get("llm_status") or ("persisted" if has_context else "not_run")),
+        "approved": bool(approved_profile or effective_profile_id),
+        "explicit_profile": bool(approved_profile or effective_profile_id),
+        "draft_schema_version": str(profile_draft.get("schema_version") or ""),
+        "source_discovery_sha256": str(profile_draft.get("source_discovery_sha256") or ""),
+        "source_context_sha256": source_context_sha,
+        "source_analysis_sha256": source_analysis_sha,
+        "system_type": str(approved_profile.get("system_type") or draft_profile.get("system_type") or ""),
+        "purpose": str(approved_profile.get("purpose") or draft_profile.get("purpose") or ""),
+        "component_count": len(component_map) if component_map else len(draft_components),
+        "metric_semantics_count": len(metric_semantics) if isinstance(metric_semantics, dict | list) else 0,
+        "collector_mapping_count": len(collector_mappings) if isinstance(collector_mappings, dict | list) else 0,
+        "required_human_decisions": [str(item) for item in required_decisions if str(item or "").strip()][:8],
+        "context_is_not_incident_evidence": True,
+        "summary": (
+            "Profile context was generated or approved from sanitized discovery; it constrains interpretation "
+            "but runtime claims still require Evidence Item IDs."
+            if has_context
+            else "No profile context was recorded for this payload."
+        ),
+    }
+
+
+def _profile_draft_generation(profile_context: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "profile_draft_generation_summary.v1",
+        "generation_mode": str(profile_context.get("generation_mode") or "not_run"),
+        "llm_status": str(profile_context.get("llm_status") or "not_run"),
+        "approved": bool(profile_context.get("approved")),
+        "explicit_profile": bool(profile_context.get("explicit_profile")),
+        "profile_id": str(profile_context.get("profile_id") or ""),
+        "component_count": _int(profile_context.get("component_count")),
+        "metric_semantics_count": _int(profile_context.get("metric_semantics_count")),
+        "collector_mapping_count": _int(profile_context.get("collector_mapping_count")),
+        "required_human_decisions": list(profile_context.get("required_human_decisions") or []),
+    }
+
+
 def _provider_sentence(provider_statuses: list[dict[str, Any]]) -> str:
     ordered = sorted(provider_statuses, key=lambda row: _provider_label_rank(str(row.get("provider_id") or "")))
     labels = [_short_provider_label(row.get("provider_id", "")) for row in ordered]
@@ -645,6 +817,14 @@ def _load_json(path: str) -> dict[str, Any]:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise SystemExit(f"expected JSON object: {path}")
+    return data
+
+
+def _load_profile(path: str) -> dict[str, Any]:
+    text = Path(path).read_text(encoding="utf-8")
+    data = yaml.safe_load(text)
+    if not isinstance(data, dict):
+        raise SystemExit(f"expected profile mapping: {path}")
     return data
 
 

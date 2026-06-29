@@ -1,46 +1,222 @@
 {
   "agent_trace": [
     {
-      "artifact": "sanitized_events.jsonl",
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:freeze_evidence_bundle",
+      "output": {
+        "artifact": "evidence_bundle",
+        "evidence_sha256": "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+        "log_count": 5055,
+        "raw_log_policy": "not_uploaded",
+        "status": "completed",
+        "summary": "Evidence Bundle f22b327f6017 fixed 5,055 sanitized rows; raw_log_policy=not_uploaded."
+      },
+      "schema_version": "adk_tool_trace.v1",
       "status": "completed",
-      "step": "sanitize",
-      "summary": "5,055 log rows were sanitized locally; raw logs were not uploaded.",
-      "title": "Sanitize local evidence"
+      "step": "freeze_evidence_bundle",
+      "summary": "Evidence Bundle f22b327f6017 fixed 5,055 sanitized rows; raw_log_policy=not_uploaded.",
+      "title": "Freeze Evidence Bundle",
+      "tool": "freeze_evidence_bundle",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
     },
     {
-      "artifact": "source_context_bundle.json",
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:attach_sanitized_source_context",
+      "output": {
+        "artifact": "source_context",
+        "context_is_not_incident_evidence": true,
+        "source_analysis_attached": true,
+        "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+        "source_context_attached": true,
+        "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
+        "status": "completed",
+        "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context."
+      },
+      "schema_version": "adk_tool_trace.v1",
       "status": "completed",
-      "step": "source_context",
-      "summary": "Source context and source analysis were attached as non-evidence interpretation context.",
-      "title": "Attach sanitized code context"
+      "step": "attach_sanitized_source_context",
+      "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
+      "title": "Attach Sanitized Source Context",
+      "tool": "attach_sanitized_source_context",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
     },
     {
-      "artifact": "evidence_bundle.json",
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:run_cross_check_providers",
+      "output": {
+        "artifact": "model_runs",
+        "gemini_baseline_present": true,
+        "provider_count": 5,
+        "provider_ids": [
+          "gemini-enterprise-agent-platform",
+          "glm-agent-platform",
+          "mistral-agent-platform",
+          "openai-gpt-oss-on-vertex",
+          "qwen-agent-platform"
+        ],
+        "schema_valid_provider_count": 5,
+        "status": "completed",
+        "summary": "5/5 provider outputs were schema-valid; Gemini baseline/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure."
+      },
+      "schema_version": "adk_tool_trace.v1",
       "status": "completed",
-      "step": "bundle",
-      "summary": "The review input was fixed by SHA256 f22b327f6017 before provider execution.",
-      "title": "Freeze Evidence Bundle"
+      "step": "run_cross_check_providers",
+      "summary": "5/5 provider outputs were schema-valid; Gemini baseline/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
+      "title": "Run Cross-Check Providers",
+      "tool": "run_cross_check_providers",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
     },
     {
-      "artifact": "model_runs",
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:validate_citations",
+      "output": {
+        "artifact": "citation_validation",
+        "cited_evidence_ref_count": 40,
+        "missing_evidence_count": 14,
+        "status": "completed",
+        "summary": "6 review target(s) cite 40 sanitized evidence ref(s); 14 missing-evidence item(s) remain.",
+        "target_count": 6,
+        "uncited_target_ids": []
+      },
+      "schema_version": "adk_tool_trace.v1",
       "status": "completed",
-      "step": "multi_model",
-      "summary": "5/5 provider outputs were schema-valid; Qwen and GLM were included.",
-      "title": "Run real Vertex providers"
+      "step": "validate_citations",
+      "summary": "6 review target(s) cite 40 sanitized evidence ref(s); 14 missing-evidence item(s) remain.",
+      "title": "Validate Citations",
+      "tool": "validate_citations",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
     },
     {
-      "artifact": "canonical_review_graph",
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:compute_review_targets",
+      "output": {
+        "artifact": "canonical_review_graph",
+        "convergence_count": 5,
+        "primary_count": 0,
+        "status": "completed",
+        "summary": "Canonical Review Graph projected 6 target(s), 0 primary candidate(s), and 5 convergence group(s).",
+        "targets_total": 6,
+        "validation_count": 6
+      },
+      "schema_version": "adk_tool_trace.v1",
       "status": "completed",
-      "step": "arbitrate",
-      "summary": "6 target(s) were projected with provider stance and human-gated promotion.",
-      "title": "Arbitrate review targets"
+      "step": "compute_review_targets",
+      "summary": "Canonical Review Graph projected 6 target(s), 0 primary candidate(s), and 5 convergence group(s).",
+      "title": "Compute Review Targets",
+      "tool": "compute_review_targets",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
     },
     {
-      "artifact": "precomputed_review_summary",
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:arbitrate_review_gate",
+      "output": {
+        "artifact": "review_arbitration",
+        "blocked_reasons": [
+          "core_missing_evidence",
+          "single_metric_only; user_impact_unverified; impact_disagreement",
+          "user_impact_unverified; impact_disagreement"
+        ],
+        "incident_baseline": "open",
+        "requires_human_review": true,
+        "status": "human_gate",
+        "summary": "Final incident causality remains human-gated; the agent stops with review targets."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "arbitrate_review_gate",
+      "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
+      "title": "Arbitrate Human Gate",
+      "tool": "arbitrate_review_gate",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:request_more_evidence",
+      "output": {
+        "artifact": "evidence_request_plan",
+        "missing_evidence_count": 14,
+        "request_types": [
+          "external_dependency_status_query",
+          "instrumentation_consistency_query",
+          "user_impact_signal_query"
+        ],
+        "status": "completed",
+        "summary": "Generated read-only follow-up plan with 3 request type(s) and 14 missing-evidence item(s)."
+      },
+      "schema_version": "adk_tool_trace.v1",
       "status": "completed",
-      "step": "deliver",
-      "summary": "The public UI serves this generated payload without running models on page load.",
-      "title": "Deliver read-only URL"
+      "step": "request_more_evidence",
+      "summary": "Generated read-only follow-up plan with 3 request type(s) and 14 missing-evidence item(s).",
+      "title": "Request More Evidence",
+      "tool": "request_more_evidence",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:draft_system_profile",
+      "output": {
+        "approved": true,
+        "artifact": "profile_draft",
+        "collector_mapping_count": 4,
+        "component_count": 392,
+        "explicit_profile": true,
+        "generation_mode": "profile_draft_and_approved_profile",
+        "llm_status": "persisted",
+        "metric_semantics_count": 367,
+        "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+        "required_human_decisions": [
+          "Approve or edit component roles before using this as an explicit profile.",
+          "Approve metric zero/increase/decrease semantics.",
+          "Confirm critical user outcomes.",
+          "Confirm read-only collector mappings before collection."
+        ],
+        "status": "human_gate",
+        "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "draft_system_profile",
+      "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
+      "title": "Draft System Profile",
+      "tool": "draft_system_profile",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:deliver_read_only_review",
+      "output": {
+        "artifact": "precomputed_review_summary",
+        "evidence_sha256": "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+        "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
+        "public_url": "",
+        "status": "completed",
+        "summary": "Read-only review payload for f22b327f6017 is served from precomputed JSON; page load does not invoke live model work."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "deliver_read_only_review",
+      "summary": "Read-only review payload for f22b327f6017 is served from precomputed JSON; page load does not invoke live model work.",
+      "title": "Deliver Read-Only Review",
+      "tool": "deliver_read_only_review",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
     }
   ],
   "analysis_context": {
@@ -56,8 +232,7 @@
       "The run used all 5,055 sanitized stream_v3_monitoring rows from 2026-05-24T11:29:00Z to 2026-06-17T00:12:45Z.",
       "The local-first Evidence Bundle retained 1,680 grouped evidence items and 7 deterministic signals.",
       "The provider prompt used 140 selected evidence items covering 496 occurrences (9.8% of the sanitized corpus).",
-      "Arena monitoring analysis used compact monitoring JSONL, watchdog and fast-recovery tails, exporter metrics, resource memory assessment, systemd journals, k8s event output, runtime state snapshots, and recent runtime log tails represented by evidence IDs and counts.",
-      "The monitoring-plane corpus is separated from Dell runtime evidence; shared source context is interpretation context, not incident evidence."
+      "Repeated RUN_ONCE/RUN_RESULT, systemd watchdog, token refresh, Pub/Sub idle, and status snapshot patterns were represented by evidence IDs rather than raw log bodies."
     ],
     "model_projection_evidence_items": 140,
     "model_projection_occurrence_count": 496,
@@ -117,7 +292,7 @@
   "generation": {
     "api_revision": "ops-evidence-api-e2e-00006-6t9",
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "e2c35e0b4d4dc9625b4635d53bd8344d7d30d333b0ab8996628a733bf19ff4e6",
+    "payload_sha256": "f7ab810104bf7c26615f8498f46778a99b4b758e1bdb93e19f44164d13314695",
     "pipeline_run_id": "pipe-1c22491f0c7b448aa3d1",
     "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
     "raw_log_policy": "not_uploaded",
@@ -125,6 +300,48 @@
     "schema_version": "precomputed_review_generation.v1",
     "score_definition": "claimed successful providers / all successful providers",
     "source_note": "generated from e2e API real provider run using enriched sanitized arena-server stream_v3 monitoring logs plus sanitized source context"
+  },
+  "profile_context": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 392,
+    "context_is_not_incident_evidence": true,
+    "draft_schema_version": "profile_draft.v1",
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
+    "llm_status": "persisted",
+    "metric_semantics_count": 367,
+    "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+    "purpose": "Draft profile generated from sanitized log-observed entities and project structure.",
+    "required_human_decisions": [
+      "Approve or edit component roles before using this as an explicit profile.",
+      "Approve metric zero/increase/decrease semantics.",
+      "Confirm critical user outcomes.",
+      "Confirm read-only collector mappings before collection."
+    ],
+    "schema_version": "profile_context_summary.v1",
+    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
+    "source_discovery_sha256": "457f35eb1be42e7214a3eb71b3db33cbd9c0ca17695e159f32b4a3706b560a37",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains interpretation but runtime claims still require Evidence Item IDs.",
+    "system_type": "systemd_service"
+  },
+  "profile_draft_generation": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 392,
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
+    "llm_status": "persisted",
+    "metric_semantics_count": 367,
+    "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+    "required_human_decisions": [
+      "Approve or edit component roles before using this as an explicit profile.",
+      "Approve metric zero/increase/decrease semantics.",
+      "Confirm critical user outcomes.",
+      "Confirm read-only collector mappings before collection."
+    ],
+    "schema_version": "profile_draft_generation_summary.v1"
   },
   "provider_statuses": [
     {
@@ -240,12 +457,13 @@
   ],
   "review_graph_summary": {
     "auto_archived_count": 1,
-    "conflict_count": 5,
+    "conflict_count": 0,
     "convergence_count": 5,
     "hidden_multi_provider_archived_count": 0,
     "incident_baseline": "open",
     "incident_baseline_established_count": 0,
-    "note": "Provider convergence is technical support only; causal and impact judgement remains human-gated.",
+    "note": "Provider convergence is technical support only; causal and impact judgement remains human-gated. Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; it is not additive with target verdict counts.",
+    "partial_overlap_count": 5,
     "primary_promoted_count": 0,
     "provider_detection_overlap": "5/5",
     "review_unit_convergence": "strong",
@@ -324,6 +542,7 @@
       ],
       "promotion": {
         "blocked_reason": "user_impact_unverified; impact_disagreement",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
         "state": "validation"
@@ -420,6 +639,7 @@
       ],
       "promotion": {
         "blocked_reason": "core_missing_evidence",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
         "state": "validation"
@@ -512,6 +732,7 @@
       ],
       "promotion": {
         "blocked_reason": "core_missing_evidence",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
         "state": "validation"
@@ -587,6 +808,7 @@
       "missing_evidence": [],
       "promotion": {
         "blocked_reason": "user_impact_unverified; impact_disagreement",
+        "explanation": "2/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
         "state": "validation"
@@ -650,7 +872,7 @@
       },
       "canonical_review_unit": "resource_pressure",
       "caveats": [],
-      "claim": "4 providers aligned on a review signal with 3 cited Evidence Items; this is not majority-vote truth.",
+      "claim": "4/5 schema-valid providers projected resource_pressure with 3 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
       "class": "validation_target",
       "evidence_refs": [
         "PATTERN-1664",
@@ -660,6 +882,7 @@
       "missing_evidence": [],
       "promotion": {
         "blocked_reason": "user_impact_unverified; impact_disagreement",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
         "state": "validation"
@@ -731,6 +954,7 @@
       "missing_evidence": [],
       "promotion": {
         "blocked_reason": "single_metric_only; user_impact_unverified; impact_disagreement",
+        "explanation": "A single provider surfaced this target; it needs corroboration before promotion.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
         "state": "validation"

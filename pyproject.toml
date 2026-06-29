@@ -20,6 +20,10 @@ api = [
 gcp = [
   "google-cloud-bigquery>=3.25",
 ]
+agent = [
+  "google-adk==2.3.0",
+  "google-cloud-aiplatform[agent_engines,adk]==1.158.0",
+]
 test = [
   "pytest>=8.2,<9",
   "httpx>=0.27",

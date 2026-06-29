@@ -50,8 +50,10 @@ sanitized source context, and five schema-valid real provider outputs: Gemini,
 gpt-oss, Mistral, Qwen, and GLM.
 
 The production workflow is Gemini-led: `gemini-enterprise-agent-platform` is the
-required first provider and comparison baseline, while gpt-oss, Mistral, Qwen,
-and GLM are adversarial cross-checks.
+required first provider and reference point for comparison, while gpt-oss,
+Mistral, Qwen, and GLM are adversarial cross-checks. Gemini is not treated as a
+truth source or answer key; runtime claims still need cited evidence IDs and
+promotion gates.
 
 stream_v3 real API source-aware runs:
 
@@ -84,6 +86,9 @@ Deterministic local fixture:
 - `make demo` regenerates the flagship amazon-notify review cache from
   `data/amazon_notify_flagship_logs.jsonl` using deterministic local providers.
 - `python -m uvicorn ...` serves the same read-only review UI locally.
+- `ops-evidence draft-focused-profile` asks Gemini to profile the sanitized
+  code/config and evidence context into the runtime components, logged signals,
+  orchestration loops, and read-only collectors that matter for review.
 - `make ci` verifies fixture fidelity and runs the full test suite.
 - `make smoke-public` checks that the deployed summary/detail pages and
   read-only review APIs load within the 10 second review budget and contain the
@@ -143,6 +148,8 @@ What to look for:
 - Raw logs are not uploaded; the UI serves a generated, read-only review cache.
 - More data rescore demo shows `needs_more_data -> evidence_collected` and a
   promotion change from validation target to primary candidate.
+- Agent Trace is generated through an ADK tool contract: the deterministic
+  pipeline is wrapped as ADK-compatible tools, while human gates remain explicit.
 
 ## Main Pipeline
 
@@ -151,6 +158,7 @@ What to look for:
 | Collect | Ingest local JSONL/text logs and optional source/profile context. | `src/ops_evidence_synthesis/ingest.py`, `scripts/analyze_amazon_notify_local.py` |
 | Sanitize | Redact sensitive values and verify that raw logs stay outside model input. | `src/ops_evidence_synthesis/local_first.py`, `src/ops_evidence_synthesis/sanitizer.py` |
 | Analyze | Run deterministic or configured providers against the same Evidence Bundle. | `src/ops_evidence_synthesis/synthesis/pipeline.py`, `src/ops_evidence_synthesis/ai/` |
+| Orchestrate | Wrap the investigation loop as ADK tools and emit a tool-call trace for Agent Runtime / `AdkApp` deployments. | `src/ops_evidence_synthesis/agents/adk_investigator.py` |
 | Synthesize | Parse, validate, route, score, compare providers, and persist the Canonical Review Graph/review-target projection. | `src/ops_evidence_synthesis/synthesis/`, `src/ops_evidence_synthesis/precomputed_review.py` |
 | Report | Serve a fast, read-only summary/detail page from precomputed review JSON. | `src/ops_evidence_synthesis/api.py`, `src/ops_evidence_synthesis/routes/`, `src/ops_evidence_synthesis/web/`, `data/precomputed_review_summaries/` |
 
@@ -161,6 +169,7 @@ local logs
   -> sanitize locally
   -> Evidence Bundle with stable SHA256
   -> provider runs
+  -> ADK tool-call trace
   -> schema and evidence-reference validation
   -> review target arbitration
   -> persisted canonical_review_graph.v1
@@ -247,6 +256,15 @@ make archive-public
 
 CI also runs `make verify-precomputed` and `make test` on GitHub Actions.
 
+Optional ADK / Agent Runtime check:
+
+```bash
+pip install -e ".[agent]"
+ops-evidence adk-trace \
+  --precomputed-payload data/precomputed_review_summaries/c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e.json \
+  --check-runtime
+```
+
 ## Assets, Samples, and Generated Outputs
 
 Committed public assets:
@@ -300,9 +318,9 @@ reproducibility through deterministic fixtures.
 - Score is review priority, not truth probability.
 - Final causal judgement and operational action remain human-gated.
 
-## Deployment Baseline
+## Deployment Template
 
-The repository includes a production-oriented Google Cloud baseline for teams
+The repository includes a production-oriented Google Cloud template for teams
 that want to operate the same contracts beyond the public demo:
 
 - Cloud Run API service

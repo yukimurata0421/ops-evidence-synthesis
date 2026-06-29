@@ -32,9 +32,10 @@ Show:
 
 Narration:
 The investigation loop is autonomous up to the evidence boundary. Gemini runs
-first as the baseline provider. gpt-oss, Mistral, Qwen, and GLM act as
-adversarial cross-checks. Every provider sees the same SHA-fixed sanitized
-bundle, and every claim must point back to evidence.
+first as the reference provider. gpt-oss, Mistral, Qwen, and GLM act as
+adversarial cross-checks. Gemini is not treated as a truth source or answer key. Every
+provider sees the same SHA-fixed sanitized bundle, and every claim must point
+back to evidence.
 
 ## 0:55-1:35 Evidence And Disagreement
 
@@ -47,12 +48,12 @@ Show:
 
 - Provider positions
 - `claimed` versus `silent`
-- Agreement and baselines
-- Why not promoted
+- Agreement and promotion gates
+- Promotion gate
 
 Narration:
 The product does not turn agreement into truth. Technical convergence becomes a
-review signal, but incident baseline and user impact still gate promotion. That
+review signal, but incident support and user impact still gate promotion. That
 is why the system can investigate automatically while keeping causal judgement
 human-gated.
 
@@ -100,4 +101,3 @@ Narration:
 The core claim is guarded autonomy: let AI investigate, compare, ask for more
 evidence, and re-score, but do not let it invent certainty or take unsafe
 operations past the human gate.
-

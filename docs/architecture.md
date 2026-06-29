@@ -14,6 +14,7 @@ raw logs / local artifacts
   -> verify sanitized output
   -> build Evidence Bundle
   -> run providers
+  -> ADK tool contract trace
   -> validate model output
   -> ingest and normalize provider output
   -> build canonical review graph
@@ -61,7 +62,8 @@ selected Evidence Bundle.
 - Source context, profile context, human answers, and model interpretation are
   context. They are not runtime evidence.
 - Score is review priority. It is not truth probability.
-- Provider agreement is a baseline review signal. It is not majority-vote truth.
+- Provider agreement is a technical support signal. It is not majority-vote
+  truth.
 - Provider disagreement is routed to validation targets and evidence requests.
 
 ## Runtime Modes
@@ -73,8 +75,20 @@ providers when credentials and project access are available.
 The production-oriented workflow is Gemini-led. It runs
 `gemini-enterprise-agent-platform` first as the required analysis provider, then
 uses configured alternative providers as cross-checks and compares them back to
-Gemini as the baseline provider. This keeps Google Cloud AI at the center of the
-agent loop while preserving disagreement as review work.
+Gemini as the reference provider. This keeps Google Cloud AI at the center of
+the agent loop while preserving disagreement as review work. Gemini is not a
+truth source or answer key; it is the first provider and arbiter context for the
+same SHA-fixed evidence.
+
+ADK / Agent Runtime wraps this loop rather than replacing it. The pure
+investigation steps are exposed as ADK-compatible tools in
+`src/ops_evidence_synthesis/agents/adk_investigator.py`: freeze the Evidence
+Bundle, attach sanitized source context, run provider cross-checks, validate
+citations, compute review targets, arbitrate the human gate, request more
+evidence, draft a system profile, and deliver the read-only review. Public
+payloads store that tool contract as `agent_trace`, and environments with the
+optional `agent` extra can build a `google.adk.agents.Agent` and
+`vertexai.agent_engines.AdkApp` for Agent Runtime deployment.
 
 The API can be served with FastAPI. The app bootstrap is intentionally thin:
 route handlers live under `src/ops_evidence_synthesis/routes/`, while
@@ -101,6 +115,8 @@ local source/config/unit/env summaries
   -> analyze-source
   -> source_analysis_bundle.json
   -> discover-profile
+  -> draft-focused-profile
+  -> focused_operational_profile.json
   -> profile_draft.json
   -> human approval
   -> approved profile
@@ -111,6 +127,13 @@ The system does not upload a full source tree. Sanitized source items are short
 summaries or excerpts, configuration items are structural summaries, and
 environment values are represented only by safe metadata such as key name or
 hash, value type, presence, and secret-like flags.
+
+The focused profile path is Gemini-backed and intentionally narrow. It asks
+what system is being reviewed, what is logged or measured, which runtime
+components matter, and what orchestration or watchdog loop is visible from
+sanitized source analysis plus sanitized runtime evidence. It is still a draft:
+source context is not incident evidence, runtime support claims require
+`evidence_id`, and every collector remains read-only until human approval.
 
 `run-case` and `arbitrate-review` accept only the approved profile and sanitized
 source artifacts as context inputs. Cloud workflow inputs remain Evidence
@@ -123,18 +146,18 @@ The Review Target Arbitration stage builds `canonical_review_graph.v1`. This
 graph separates:
 
 - provider detection overlap
-- technical baseline agreement
-- incident baseline agreement
+- technical support signal (`technical_baseline_agreement` in the graph schema)
+- incident and user-impact gate (`incident_baseline_agreement` in the graph schema)
 - promotion decisions
 - score caps
 - validation targets
 - missing evidence prompts
 - More data child-bundle re-score results
 
-A technical baseline can be shown even when incident baseline agreement is not
-established. Primary incident candidates require cited runtime evidence and must
-pass promotion gates such as impact verification, evidence diversity, caveat
-checks, and missing-evidence checks.
+A technical support signal can be shown even when incident and user-impact
+promotion is not established. Primary incident candidates require cited runtime
+evidence and must pass promotion gates such as impact verification, evidence
+diversity, caveat checks, and missing-evidence checks.
 
 When a persisted graph exists, `/review/graph`, `/review-targets`, summary UI,
 and detail UI load it first. Legacy proposal-based target generation is kept as

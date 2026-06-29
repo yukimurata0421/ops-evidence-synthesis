@@ -64,6 +64,16 @@ def _gemini_provider() -> ModelProvider:
     return HeuristicProvider("gemini-local", "gemini-simulated-root", "root-cause")
 
 
+def _profile_draft_provider() -> ModelProvider:
+    model_name = os.environ.get("OES_PROFILE_DRAFT_GEMINI_MODEL", "gemini-3.1-pro-preview")
+    return VertexGeminiProvider.from_env(
+        prompt_name="profile-draft",
+        model_name=model_name,
+        max_output_tokens=int(os.environ.get("OES_PROFILE_DRAFT_GEMINI_MAX_OUTPUT_TOKENS", "8192")),
+        timeout_seconds=int(os.environ.get("OES_PROFILE_DRAFT_GEMINI_TIMEOUT_SECONDS", "180")),
+    )
+
+
 def _evidence_requirement_provider() -> ModelProvider:
     provider_name = os.environ.get("OES_EVIDENCE_REQUIREMENTS_PROVIDER", "gemini").casefold()
     if provider_name in {"local", "heuristic"}:
@@ -147,6 +157,7 @@ configure_review_page_store(_store)
 configure_api_routes(
     store_factory=_store,
     gemini_provider_factory=_gemini_provider,
+    profile_draft_provider_factory=_profile_draft_provider,
     evidence_requirement_provider_factory=_evidence_requirement_provider,
     claude_provider_factory=_claude_provider,
     gpt_oss_provider_factory=_gpt_oss_provider,
