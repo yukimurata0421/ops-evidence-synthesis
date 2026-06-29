@@ -100,6 +100,10 @@ def _public_precomputed_landing_page() -> str:
             evidence_sha = str(payload.get("evidence_sha256") or path.stem)
             if not evidence_sha or evidence_sha in seen:
                 continue
+            generation = payload.get("generation") if isinstance(payload.get("generation"), dict) else {}
+            provider_mode = str(generation.get("provider_mode") or "")
+            if provider_mode and not provider_mode.startswith("real_api"):
+                continue
             seen.add(evidence_sha)
             summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
             finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}

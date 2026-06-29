@@ -16,6 +16,7 @@ from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.synthesis.pipeline import run_pipeline
 from ops_evidence_synthesis.web.precomputed_review import (
     _precomputed_review_graph_response,
+    _public_precomputed_landing_page,
     _render_precomputed_graph_page,
     _render_precomputed_review_detail_page,
 )
@@ -27,6 +28,20 @@ PUBLIC_FLAGSHIP_SHA = "c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be2540055
 REAL_API_QWEN_GLM_SHA = "7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d"
 STREAM_V3_DELL_REAL_API_SHA = "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681"
 STREAM_V3_ARENA_REAL_API_SHA = "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769"
+
+
+def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
+    monkeypatch.delenv("OES_PRECOMPUTED_REVIEW_DIR", raising=False)
+    monkeypatch.delenv("OES_PRECOMPUTED_REVIEW_DIRS", raising=False)
+
+    html = _public_precomputed_landing_page()
+
+    assert REAL_API_QWEN_GLM_SHA[:12] in html
+    assert STREAM_V3_DELL_REAL_API_SHA[:12] in html
+    assert STREAM_V3_ARENA_REAL_API_SHA[:12] in html
+    assert PUBLIC_SAMPLE_SHA[:12] not in html
+    assert PUBLIC_FLAGSHIP_SHA[:12] not in html
+    assert "Multi-AI disagreement requires validation" not in html
 
 
 def test_public_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_path: Path) -> None:
