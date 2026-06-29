@@ -25,6 +25,7 @@ Current reviewer-facing URLs for the hackathon submission.
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
 - Architecture image: docs/assets/architecture-devops-ai-agent.svg
 - Demo video script: docs/demo-video-script.md
+- ProtoPedia entry draft: docs/protopedia-entry-v3.md
 
 ## Machine-Readable Review URLs
 

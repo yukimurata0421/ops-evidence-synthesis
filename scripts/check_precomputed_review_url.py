@@ -57,9 +57,12 @@ REVIEW_GRAPH_NEEDLES = [
 RESCORE_DEMO_NEEDLES = [
     "More data rescore demo",
     "Gemini-led control plane",
+    "Provider positions",
     "needs_more_data -&gt; evidence_collected",
     "primary_candidate",
     "user_impact_unverified",
+    "qwen-agent-platform",
+    "glm-agent-platform",
 ]
 
 BLOCKED_PUBLIC_READ_PATHS = [

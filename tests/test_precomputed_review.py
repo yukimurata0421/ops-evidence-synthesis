@@ -52,6 +52,9 @@ def test_public_rescore_demo_is_renderable() -> None:
     assert "More data rescore demo" in html
     assert "Gemini-led control plane" in html
     assert "gemini-enterprise-agent-platform" in html
+    assert "qwen-agent-platform" in html
+    assert "glm-agent-platform" in html
+    assert "Provider positions" in html
     assert "needs_more_data -&gt; evidence_collected" in html
     assert "validation_target" in html
     assert "primary_candidate" in html

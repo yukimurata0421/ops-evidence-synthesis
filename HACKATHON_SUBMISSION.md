@@ -28,6 +28,7 @@ Submission URLs:
 - Submission checklist: [docs/submission-checklist.md](docs/submission-checklist.md)
 - Architecture image: [docs/assets/architecture-devops-ai-agent.svg](docs/assets/architecture-devops-ai-agent.svg)
 - Demo video script: [docs/demo-video-script.md](docs/demo-video-script.md)
+- ProtoPedia entry draft: [docs/protopedia-entry-v3.md](docs/protopedia-entry-v3.md)
 
 Real API source-aware run:
 

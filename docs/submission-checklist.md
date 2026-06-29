@@ -25,6 +25,7 @@ is for a different event.
 
 - Architecture image: [assets/architecture-devops-ai-agent.svg](assets/architecture-devops-ai-agent.svg)
 - Demo video script: [demo-video-script.md](demo-video-script.md)
+- ProtoPedia entry draft: [protopedia-entry-v3.md](protopedia-entry-v3.md)
 - Copy/paste URL set: [submission-links.md](submission-links.md)
 
 ## Live Deployment State
@@ -45,4 +46,3 @@ is for a different event.
 - Upload a 3 minute YouTube or Vimeo demo video.
 - Paste GitHub, deployed project, and ProtoPedia URLs into the final Google Form.
 - Post on X with `#findy_hackathon`.
-

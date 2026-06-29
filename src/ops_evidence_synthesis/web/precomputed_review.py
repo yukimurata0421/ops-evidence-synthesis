@@ -1613,6 +1613,8 @@ def _render_rescore_demo_page(demo_id: str) -> str:
     provider_text = ", ".join(str(item) for item in providers if str(item))
     before_reasons = ", ".join(str(item) for item in before.get("blocked_reasons") or []) or "none"
     after_reasons = ", ".join(str(item) for item in after.get("blocked_reasons") or []) or "none"
+    before_provider_positions = _rescore_provider_positions_html(before.get("provider_positions"))
+    after_provider_positions = _rescore_provider_positions_html(after.get("provider_positions"))
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1633,10 +1635,12 @@ def _render_rescore_demo_page(demo_id: str) -> str:
     .panel.warn {{ border-left-color: var(--warn); }}
     .grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }}
     .cell {{ border: 1px solid var(--line); border-radius: 6px; background: #fbfcfe; padding: 10px; min-width: 0; }}
+    .positions {{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }}
+    .position {{ border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 8px; min-width: 0; }}
     label {{ display: block; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }}
     strong {{ display: block; font-size: 18px; line-height: 1.25; overflow-wrap: anywhere; }}
     a.button {{ display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--ink); text-decoration: none; font-weight: 700; }}
-    @media (max-width: 760px) {{ main {{ padding: 14px; }} .grid {{ grid-template-columns: 1fr; }} }}
+    @media (max-width: 760px) {{ main {{ padding: 14px; }} .grid, .positions {{ grid-template-columns: 1fr; }} }}
   </style>
 </head>
 <body>
@@ -1661,6 +1665,8 @@ def _render_rescore_demo_page(demo_id: str) -> str:
         <article class="cell"><label>Promotion score</label><strong>{float(before.get("promotion_score") or 0):.2f}</strong><p>Priority is not truth probability.</p></article>
         <article class="cell"><label>Blocked reasons</label><strong>{_html(before_reasons)}</strong><p>Missing user-impact evidence blocks promotion.</p></article>
       </div>
+      <label>Provider positions</label>
+      <div class="positions">{before_provider_positions}</div>
     </section>
     <section class="panel">
       <label>More data refresh</label>
@@ -1675,6 +1681,8 @@ def _render_rescore_demo_page(demo_id: str) -> str:
         <article class="cell"><label>Promotion score</label><strong>{float(after.get("promotion_score") or 0):.2f}</strong><p>Review priority increased after child evidence.</p></article>
         <article class="cell"><label>Blocked reasons</label><strong>{_html(after_reasons)}</strong><p>Primary promotion gate is now closed.</p></article>
       </div>
+      <label>Provider positions</label>
+      <div class="positions">{after_provider_positions}</div>
     </section>
     <section class="panel">
       <label>Verification</label>
@@ -1684,6 +1692,25 @@ def _render_rescore_demo_page(demo_id: str) -> str:
   </main>
 </body>
 </html>"""
+
+
+def _rescore_provider_positions_html(positions: object) -> str:
+    rows = positions if isinstance(positions, list) else []
+    cells = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        provider_id = str(row.get("provider_id") or "")
+        stance = str(row.get("stance") or "")
+        cells.append(
+            "<article class='position'>"
+            f"<label>{_html(provider_id)}</label>"
+            f"<strong>{_html(stance)}</strong>"
+            "</article>"
+        )
+    if not cells:
+        return "<article class='position'><strong>not recorded</strong></article>"
+    return "\n".join(cells)
 
 
 def _html(value: object) -> str:

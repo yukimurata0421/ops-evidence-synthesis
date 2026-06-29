@@ -37,6 +37,14 @@
       {
         "provider_id": "mistral-agent-platform",
         "stance": "silent"
+      },
+      {
+        "provider_id": "qwen-agent-platform",
+        "stance": "silent"
+      },
+      {
+        "provider_id": "glm-agent-platform",
+        "stance": "silent"
       }
     ],
     "missing_evidence": [
@@ -52,7 +60,7 @@
     "added_log_count": 2,
     "model_rerun": {
       "completed": true,
-      "provider_count": 3,
+      "provider_count": 5,
       "claim_count": 1,
       "review_target_count": 1
     },
@@ -88,6 +96,14 @@
       },
       {
         "provider_id": "mistral-agent-platform",
+        "stance": "claimed"
+      },
+      {
+        "provider_id": "qwen-agent-platform",
+        "stance": "claimed"
+      },
+      {
+        "provider_id": "glm-agent-platform",
         "stance": "claimed"
       }
     ],
