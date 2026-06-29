@@ -16,7 +16,7 @@ ROOT_NEEDLES = [
 
 PUBLIC_INDEX_NEEDLES = [
     "read-only precomputed reviews",
-    "Raw bundles and write APIs are not exposed",
+    "sanitized logs, sanitized source context, and approved system profiles",
 ]
 
 DETAIL_NEEDLES = [
