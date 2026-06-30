@@ -1,95 +1,159 @@
 {
-  "api_revision": "ops-evidence-api-e2e-00006-6t9",
-  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
-  "canonical_graph_sha256": "30ab89331c7389a11ce29394d8d33d3f2b8f6a48c2bfac1646b70aa9acd90215",
+  "api_revision": "real-api-7d-target-explanations-20260630-regrouped-v2",
+  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
+  "canonical_graph_sha256": "87c3d02ab1b0fad2e120e756477ec77dd6cd78eba1f83525b6d7af6128798aea",
   "case_id": "amazon_notify_real_api",
-  "evidence_sha256": "7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
-  "input_fingerprint_sha256": "4c1f7d780fd1c713fc987824fddca067f585a75618058f9cff49189677708547",
-  "payload_sha256": "8e9b0eb82b9e2f2ee89e47eae0e61716471e67e413226082e0ed742e36f05d16",
-  "pipeline_run_id": "pipe-3097375a9dcb41919089",
-  "precomputed_payload_path": "data/precomputed_review_summaries/7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d.json",
+  "evidence_sha256": "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
+  "input_fingerprint_sha256": "875c8061b0e7a8bc13b6c7f2b806b4fe0eb6b10ffe786d66978a21c3dbb45fff",
+  "payload_sha256": "bfc4384341253c101d9d75a201432cbfeccbf4389fde948d30e739c2f951290e",
+  "pipeline_run_id": "",
+  "precomputed_payload_path": "data/precomputed_review_summaries/7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb.json",
   "provider_summary": {
     "pipeline_status": "succeeded",
     "provider_count": 5,
     "providers": [
       {
         "display_name": "Vertex Gemini",
-        "input_tokens": 70530,
+        "failure_reason": "",
+        "input_tokens": 99903,
+        "latency_ms": 54414,
         "model_name": "gemini-3.1-pro-preview",
-        "output_tokens": 588,
-        "parsed_json_sha256": "6657885414cc5bb8ae71756d9d857b05600959a5a09465261d752d4257df9321",
+        "output_tokens": 1069,
+        "parsed_json_sha256": "a14fccbfe69415165de78328894414dd8886dca948d23774a631f352b80201ca",
         "provider_id": "gemini-enterprise-agent-platform",
-        "raw_output_sha256": "e14c393ee7aa75927828d341d29f1b621e114b604ca1f3ec3e02e3f5c5803b09",
-        "schema_valid": true,
-        "status": "ok"
-      },
-      {
-        "display_name": "gpt-oss on Vertex MaaS",
-        "input_tokens": 53409,
-        "model_name": "gpt-oss-120b-maas",
-        "output_tokens": 2799,
-        "parsed_json_sha256": "c8c4587b64d625eacb5be13104f452dd3dfe3a817a7c4ea796e6d66ada074835",
-        "provider_id": "openai-gpt-oss-on-vertex",
-        "raw_output_sha256": "eedbf0026419741f477dfe6f71e1b5fc50f1b28e14715f320998ce68018dcc45",
-        "schema_valid": true,
-        "status": "ok"
-      },
-      {
-        "display_name": "Mistral on Vertex MaaS",
-        "input_tokens": 67140,
-        "model_name": "mistral-medium-3",
-        "output_tokens": 809,
-        "parsed_json_sha256": "d908237c21f1a22240c23c49cb4323b2a6e87b5f68ee693c67d57a58fd7f7773",
-        "provider_id": "mistral-agent-platform",
-        "raw_output_sha256": "4c1fa2d337b7f40d6dc9a5a57def9b8fa634c9e1a621d1a08bf59fe0efdd3d4f",
-        "schema_valid": true,
-        "status": "ok"
-      },
-      {
-        "display_name": "Qwen on Vertex MaaS",
-        "input_tokens": 62631,
-        "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
-        "output_tokens": 1708,
-        "parsed_json_sha256": "40086d91bf5112b0442d62d5eae8cc187bed3392d5c5601b36c660d46a4476df",
-        "provider_id": "qwen-agent-platform",
-        "raw_output_sha256": "ca22d1f948298321838d284ab872c876648fb18cd3d5b36e74b7243b65da1d30",
+        "raw_output_sha256": "b71d98ea4694bfcea988410c736f7d6ca77509acd61d8c85452a11246247c9f5",
+        "retry": {
+          "attempts": 1,
+          "exception_type": "",
+          "failure_reason": "",
+          "max_attempts": 2,
+          "retried": false,
+          "retryable": false
+        },
+        "schema_errors": [],
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "GLM on Vertex MaaS",
-        "input_tokens": 54262,
+        "failure_reason": "",
+        "input_tokens": 77858,
+        "latency_ms": 55239,
         "model_name": "zai-org/glm-5-maas",
-        "output_tokens": 2122,
-        "parsed_json_sha256": "255ac3be99813652da4fa83cfab86a32764d35c217fa2a268ac8da8323bbac94",
+        "output_tokens": 4355,
+        "parsed_json_sha256": "f73cfe6149981a5cdcd96b13b198e996fa35b719a4811cc95bc72e308e4529fb",
         "provider_id": "glm-agent-platform",
-        "raw_output_sha256": "d152ae8ed1ec951378e8315aeccbe76e5e57976bd6426191cd8702b103a05c2f",
+        "raw_output_sha256": "28904735b923f6bb3541f32e7079aba4a67a45d6652c9a155d03fad67976542e",
+        "retry": {
+          "attempts": 1,
+          "exception_type": "",
+          "failure_reason": "",
+          "max_attempts": 2,
+          "retried": false,
+          "retryable": false
+        },
+        "schema_errors": [],
+        "schema_valid": true,
+        "status": "ok"
+      },
+      {
+        "display_name": "Mistral on Vertex MaaS",
+        "failure_reason": "",
+        "input_tokens": 96045,
+        "latency_ms": 53613,
+        "model_name": "mistral-medium-3",
+        "output_tokens": 1487,
+        "parsed_json_sha256": "c9f2acd3f7842f49365f657f395d8bb2d887fc6c508353e6dcdb06a272ca7f1e",
+        "provider_id": "mistral-agent-platform",
+        "raw_output_sha256": "bf910061a37d2601b28e23b85a154f33661275dfd415d218140e3cafbbbee4e0",
+        "retry": {
+          "attempts": 1,
+          "exception_type": "",
+          "failure_reason": "",
+          "max_attempts": 2,
+          "retried": false,
+          "retryable": false
+        },
+        "schema_errors": [],
+        "schema_valid": true,
+        "status": "ok"
+      },
+      {
+        "display_name": "gpt-oss on Vertex MaaS",
+        "failure_reason": "",
+        "input_tokens": 75988,
+        "latency_ms": 23429,
+        "model_name": "gpt-oss-120b-maas",
+        "output_tokens": 2998,
+        "parsed_json_sha256": "cba2294edfd37c73be21fb78caae3823d45bf2ca7e039fb6300f97e552c742a4",
+        "provider_id": "openai-gpt-oss-on-vertex",
+        "raw_output_sha256": "8a62406cfa5cb3712620130ed7f790116bf13fc679f813968d5c0ad42e5b83e8",
+        "retry": {
+          "attempts": 1,
+          "exception_type": "",
+          "failure_reason": "",
+          "max_attempts": 2,
+          "retried": false,
+          "retryable": false
+        },
+        "schema_errors": [],
+        "schema_valid": true,
+        "status": "ok"
+      },
+      {
+        "display_name": "Qwen on Vertex MaaS",
+        "failure_reason": "",
+        "input_tokens": 89831,
+        "latency_ms": 25771,
+        "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
+        "output_tokens": 1812,
+        "parsed_json_sha256": "0483739fe653af36d985eeb798a8339f0bab69e8e3e9a9b77426d225b6977f95",
+        "provider_id": "qwen-agent-platform",
+        "raw_output_sha256": "39bd8c86be1fca1c9b2ddcfc8898b38586d002106ade49f2f1391745da7a2d2d",
+        "retry": {
+          "attempts": 1,
+          "exception_type": "",
+          "failure_reason": "",
+          "max_attempts": 2,
+          "retried": false,
+          "retryable": false
+        },
+        "schema_errors": [],
         "schema_valid": true,
         "status": "ok"
       }
     ],
     "schema_valid_provider_count": 5
   },
-  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
-  "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
+  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
+  "public_verification": {
+    "profile_id": "amazon_notify_qwen_glm_full_corpus_approved",
+    "source_analysis_sha256": "f482362f4ffa1a47cbc52f4eeb03724ab651edcfd3edc6efdd36007a363e5a84",
+    "source_context_sha256": "58e8d81ff20222774a13969462853a7cafb548ac78b7e40d59b07dec1fe360f0",
+    "updated_at": "2026-06-30T10:09:03Z",
+    "window_selection_note": "2d, 5d, and 7d sanitized-log windows were evaluated locally from the original 14d input; the longest valid 7d window was selected."
+  },
+  "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
   "review_summary": {
-    "auto_archived": 0,
-    "incident_baseline": "open",
+    "auto_archived": 2,
+    "incident_baseline": "established",
     "monitor_only": 2,
-    "primary_targets": 1,
+    "primary_targets": 0,
     "provider_detection_overlap": "5/5",
     "technical_baseline": "established",
-    "validation_targets": 6
+    "validation_targets": 4
   },
   "sanitized_corpus": {
-    "db_ingested_log_count": 6506,
+    "analysis_window_hours": 168.0,
+    "db_ingested_log_count": 23400,
     "environment": "prod",
-    "public_note": "The full row-level sanitized corpus was not committed; the public repo carries this manifest, the SHA-fixed review payload, and a separate public-safe fixture for local deterministic demos.",
+    "min_analysis_window_hours": 24,
+    "public_note": "The full row-level sanitized corpus was not committed; the public repo carries this manifest, the SHA-fixed review payload, and the public URL for reviewer inspection.",
     "public_row_level_file": null,
-    "sanitized_row_count": 6506,
+    "sanitized_row_count": 23400,
     "service": "amazon-notify",
-    "window_end": "2026-06-26T23:32:21Z",
-    "window_start": "2026-06-25T23:34:06Z"
+    "window_end": "2026-06-16T18:35:25Z",
+    "window_start": "2026-06-09T18:35:25Z"
   },
   "schema_version": "public_evidence_manifest.v1",
   "source_boundary": {
@@ -104,10 +168,10 @@
   },
   "title": "amazon-notify real API source-aware review",
   "token_compression": {
-    "evidence_item_count": 1639,
+    "evidence_item_count": 2759,
     "model_projection_evidence_items": 140,
-    "model_projection_occurrence_count": 4939,
-    "model_projection_occurrence_coverage_ratio": 0.759145,
+    "model_projection_occurrence_count": 19649,
+    "model_projection_occurrence_coverage_ratio": 0.839701,
     "policy": "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; row-level raw logs stayed out of provider prompts."
   }
 }

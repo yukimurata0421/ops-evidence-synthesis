@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from ops_evidence_synthesis.canonical import sha256_json
@@ -26,9 +27,9 @@ from ops_evidence_synthesis.web.precomputed_review import (
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_SAMPLE_SHA = "1be4a21441fec7d2a4eafa95508badbe4a892bd61f3d9e08541893fba97c6731"
 PUBLIC_FLAGSHIP_SHA = "c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e"
-REAL_API_QWEN_GLM_SHA = "7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d"
-STREAM_V3_DELL_REAL_API_SHA = "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681"
-STREAM_V3_ARENA_REAL_API_SHA = "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769"
+REAL_API_QWEN_GLM_SHA = "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb"
+STREAM_V3_DELL_REAL_API_SHA = "aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778"
+STREAM_V3_ARENA_REAL_API_SHA = "a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267"
 PUBLIC_PROFILE_CONTEXTS = {
     "amazon-notify": ROOT / "data" / "public_profile_contexts" / "amazon_notify_sample",
     "payment-api": ROOT / "data" / "public_profile_contexts" / "payment_api_sample",
@@ -236,17 +237,17 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
     payload_path = ROOT / "data" / "precomputed_review_summaries" / f"{REAL_API_QWEN_GLM_SHA}.json"
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
 
-    assert payload["summary"]["log_count"] == 6506
+    assert payload["summary"]["log_count"] == 23400
     assert payload["summary"]["providers"] == {
         "success": 5,
         "total": 5,
         "pipeline_status": "succeeded",
     }
     assert payload["summary"]["review"] == {
-        "auto_archived": 0,
+        "auto_archived": 2,
         "monitor_only": 2,
-        "primary_targets": 1,
-        "validation_targets": 6,
+        "primary_targets": 0,
+        "validation_targets": 4,
     }
     assert payload["generation"]["payload_sha256"] == sha256_json(
         {
@@ -268,26 +269,41 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
     } <= providers
     assert all(row["status"] == "ok" and row["schema_valid"] for row in payload["provider_statuses"])
     assert payload["analysis_context"]["model_projection_evidence_items"] == 140
-    assert payload["analysis_context"]["model_projection_occurrence_count"] == 4939
-    assert payload["analysis_context"]["model_projection_occurrence_coverage_ratio"] == 0.759145
+    assert payload["analysis_context"]["model_projection_occurrence_count"] == 19649
+    assert payload["analysis_context"]["model_projection_occurrence_coverage_ratio"] == 0.839701
     assert payload["profile_context"]["profile_id"] == "amazon_notify_qwen_glm_full_corpus_approved"
     assert payload["profile_draft_generation"]["llm_status"] == "ok"
     assert payload["analysis_context"]["source_context_sha256"]
     assert payload["analysis_context"]["source_analysis_sha256"]
+    assert all("review_reason" in target for target in payload["targets"])
+    assert payload["targets"][0]["review_reason"]["headline"].startswith(
+        "Review target created because provider convergence"
+    )
+    assert all("target_explanation" in target for target in payload["targets"])
+    assert payload["targets"][0]["target_explanation"]["suspected_issue"]
+    evidence_summary_text = " ".join(payload["targets"][0]["target_explanation"]["evidence_summary"])
+    assert "No such file" in evidence_summary_text or "can't open file" in evidence_summary_text
+    assert payload["targets"][0]["missing_evidence"]
 
     detail_html = _render_precomputed_review_detail_page(REAL_API_QWEN_GLM_SHA, payload)
     graph_html = _render_precomputed_graph_page(REAL_API_QWEN_GLM_SHA, payload)
     graph = _precomputed_review_graph_response(payload, evidence_sha256=REAL_API_QWEN_GLM_SHA)
 
     assert "Five real providers" in detail_html
+    assert "What this target means operationally" in detail_html
+    assert "Suspected issue" in detail_html
+    assert "Operational mechanism" in detail_html
+    assert "Why this target is in review" in detail_html
+    assert "Review target created because provider convergence" in detail_html
+    assert "No such file" in detail_html or "can't open file" in detail_html
     assert "qwen-agent-platform" in detail_html
     assert "glm-agent-platform" in detail_html
-    assert "4,939" in detail_html
+    assert "19,649" in detail_html
     assert "qwen-agent-platform" in graph_html
-    assert graph["canonical_review_graph"]["summary"]["primary_count"] == 1
-    assert graph["canonical_review_graph"]["summary"]["validation_count"] == 6
+    assert graph["canonical_review_graph"]["summary"]["primary_count"] == 0
+    assert graph["canonical_review_graph"]["summary"]["validation_count"] == 4
     assert graph["canonical_review_graph"]["review_graph_summary"]["provider_detection_overlap"] == "5/5"
-    assert graph["analysis_context"]["model_projection_occurrence_count"] == 4939
+    assert graph["analysis_context"]["model_projection_occurrence_count"] == 19649
 
 
 def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
@@ -296,32 +312,32 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "sha": STREAM_V3_DELL_REAL_API_SHA,
             "title": "Five real providers",
             "service": "stream_v3_runtime",
-            "log_count": 8011,
+            "log_count": 11399,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 0,
+                "auto_archived": 4,
                 "monitor_only": 2,
                 "primary_targets": 0,
-                "validation_targets": 7,
+                "validation_targets": 3,
             },
-            "occurrences": 7383,
-            "coverage": 0.921608,
+            "occurrences": 10771,
+            "coverage": 0.944907,
             "gemini_valid": True,
         },
         {
             "sha": STREAM_V3_ARENA_REAL_API_SHA,
             "title": "Five real providers",
             "service": "stream_v3_monitoring",
-            "log_count": 5055,
+            "log_count": 4747,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 1,
+                "auto_archived": 0,
                 "monitor_only": 2,
-                "primary_targets": 0,
-                "validation_targets": 6,
+                "primary_targets": 1,
+                "validation_targets": 3,
             },
             "occurrences": 496,
-            "coverage": 0.098121,
+            "coverage": 0.104487,
             "gemini_valid": True,
         },
     ]
@@ -333,6 +349,11 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert payload["summary"]["log_count"] == case["log_count"]
         assert payload["summary"]["providers"] == case["providers"]
         assert payload["summary"]["review"] == case["review"]
+        public_primary_count = sum(1 for target in payload["targets"] if target["class"] == "primary_candidate")
+        public_validation_count = sum(1 for target in payload["targets"] if target["class"] != "primary_candidate")
+        assert payload["summary"]["review"]["primary_targets"] == public_primary_count
+        assert payload["summary"]["review"]["validation_targets"] == public_validation_count
+        assert payload["review_graph_summary"]["targets_total"] == len(payload["targets"])
         assert payload["analysis_context"]["service"] == case["service"]
         assert payload["analysis_context"]["model_projection_evidence_items"] == 140
         assert payload["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]
@@ -351,6 +372,57 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert payload["profile_context"]["profile_id"]
         assert payload["analysis_context"]["source_context_sha256"]
         assert payload["analysis_context"]["source_analysis_sha256"]
+        assert all("review_reason" in target for target in payload["targets"])
+        assert payload["targets"][0]["review_reason"]["headline"].startswith(
+            "Review target created because provider convergence"
+        )
+        assert all("target_explanation" in target for target in payload["targets"])
+        assert payload["targets"][0]["target_explanation"]["suspected_issue"]
+        assert payload["targets"][0]["target_explanation"]["evidence_summary"]
+        for target in payload["targets"]:
+            summaries = target["target_explanation"]["evidence_summary"]
+            assert all(
+                not re.fullmatch(r"PATTERN-\d+", str(summary).strip())
+                for summary in summaries
+            )
+        if case["sha"] == STREAM_V3_ARENA_REAL_API_SHA:
+            public_refs = {
+                ref
+                for target in payload["targets"]
+                for ref in target["evidence_refs"]
+            }
+            assert not {"PATTERN-1504", "PATTERN-1505", "PATTERN-1506"} & public_refs
+            explanation_text = "\n".join(
+                str(summary)
+                for target in payload["targets"]
+                for field in ("evidence_summary", "counter_evidence_summary")
+                for summary in target["target_explanation"].get(field, [])
+            )
+            assert "PATTERN-1504" not in explanation_text
+            assert "PATTERN-1505" not in explanation_text
+            assert "PATTERN-1506" not in explanation_text
+            runtime_exception = next(
+                target
+                for target in payload["targets"]
+                if target["canonical_review_unit"] == "runtime_exception"
+            )
+            assert set(runtime_exception["evidence_refs"]) == {
+                "PATTERN-098",
+                "PATTERN-099",
+                "PATTERN-100",
+            }
+        if case["sha"] == STREAM_V3_DELL_REAL_API_SHA:
+            transport = next(
+                target
+                for target in payload["targets"]
+                if target["canonical_review_unit"] == "transport_sender"
+            )
+            transport_support_text = "\n".join(transport["target_explanation"]["evidence_summary"])
+            transport_counter_text = "\n".join(transport["target_explanation"]["counter_evidence_summary"])
+            assert "no timeout" not in transport_support_text
+            assert "connected=true" not in transport_support_text
+            assert "no timeout" in transport_counter_text
+            assert "connected=true" in transport_counter_text
 
         provider_rows = {row["provider_id"]: row for row in payload["provider_statuses"]}
         assert provider_rows["qwen-agent-platform"]["schema_valid"] is True
@@ -363,6 +435,10 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
 
         assert case["title"] in detail_html
         assert case["service"] in detail_html
+        assert "What this target means operationally" in detail_html
+        assert "Suspected issue" in detail_html
+        assert "Why this target is in review" in detail_html
+        assert "Review target created because provider convergence" in detail_html
         assert "qwen-agent-platform" in detail_html
         assert "glm-agent-platform" in detail_html
         assert "DB-to-model projection" in detail_html

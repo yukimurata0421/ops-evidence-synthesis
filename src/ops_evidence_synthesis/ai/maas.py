@@ -115,6 +115,10 @@ class VertexMistralProvider:
     temperature: float = 0.0
     max_output_tokens: int = 4096
     timeout_seconds: int = 90
+    max_evidence_items: int = 140
+    max_logs: int = 0
+    max_normalized_events: int = 0
+    max_text_chars: int = 480
     api_version: str = DEFAULT_VERTEX_API_VERSION
 
     @classmethod
@@ -132,6 +136,10 @@ class VertexMistralProvider:
             temperature=float(os.environ.get("OES_MISTRAL_TEMPERATURE", "0")),
             max_output_tokens=int(os.environ.get("OES_MISTRAL_MAX_OUTPUT_TOKENS", "4096")),
             timeout_seconds=int(os.environ.get("OES_MISTRAL_TIMEOUT_SECONDS", "90")),
+            max_evidence_items=int(os.environ.get("OES_MISTRAL_MAX_EVIDENCE_ITEMS", "140")),
+            max_logs=int(os.environ.get("OES_MISTRAL_MAX_LOGS", "0")),
+            max_normalized_events=int(os.environ.get("OES_MISTRAL_MAX_NORMALIZED_EVENTS", "0")),
+            max_text_chars=int(os.environ.get("OES_MISTRAL_MAX_TEXT_CHARS", "480")),
         )
 
     def run(self, bundle: dict[str, Any]) -> ModelResponse:
@@ -139,7 +147,13 @@ class VertexMistralProvider:
             raise RuntimeError("OES_MISTRAL_PROJECT, OES_VERTEX_PROJECT, or GOOGLE_CLOUD_PROJECT is required")
 
         started = time.perf_counter()
-        prompt = alternative_hypothesis_prompt(bundle)
+        prompt = alternative_hypothesis_prompt(
+            bundle,
+            max_evidence_items=self.max_evidence_items,
+            max_logs=self.max_logs,
+            max_normalized_events=self.max_normalized_events,
+            max_text_chars=self.max_text_chars,
+        )
         body = {
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt}],

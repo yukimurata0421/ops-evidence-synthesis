@@ -60,17 +60,17 @@ human-gated.
 The main review page shows a five-provider source-aware run over the
 amazon-notify public payload:
 
-- Evidence SHA256: `7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d`
-- Sanitized log count: 6,506
+- Evidence SHA256: `7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb`
+- Sanitized log count: 23,400
 - Raw log policy: `not_uploaded`
 - Providers: Gemini, gpt-oss, Mistral, Qwen, GLM
 - Output state: schema-valid provider outputs with review targets
 
 Live URL:
-https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
 
 Detail URL:
-https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
 
 ## Run
 
@@ -103,8 +103,8 @@ decision only after the evidence boundary is satisfied.
 The public product path is deployed to Cloud Run behind a custom domain:
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
-- Visual graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- Visual graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
 
 The release path runs:
 

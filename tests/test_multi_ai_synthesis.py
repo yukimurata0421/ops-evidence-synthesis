@@ -9,7 +9,14 @@ from fastapi.testclient import TestClient
 
 from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sanitize_input
 from ops_evidence_synthesis.profile_discovery import approve_profile_draft, discover_profile, draft_profile
-from ops_evidence_synthesis.synthesis.multi_ai import SCORE_NOTE, finding_impact_from_synthesis, run_multi_ai, synthesize_multi_ai
+from ops_evidence_synthesis.synthesis.multi_ai import (
+    SCORE_NOTE,
+    _normalize_claim_result_payload,
+    finding_impact_from_synthesis,
+    run_multi_ai,
+    synthesize_multi_ai,
+)
+from ops_evidence_synthesis.synthesis.validation import validate_claim_result
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -125,6 +132,34 @@ def test_support_claim_without_evidence_id_is_unsupported() -> None:
     synthesis = synthesize_multi_ai(bundle, model_runs)
     assert synthesis["claim_groups"][0]["unsupported"] is True
     assert synthesis["auto_archived"][0]["reason"] == "unsupported_support_without_evidence_id"
+
+
+def test_claim_result_normalization_infers_refs_from_evidence_summary() -> None:
+    payload = {
+        "schema_version": "claim-result/v1",
+        "summary": "Memory pressure should be reviewed.",
+        "claims": [
+            {
+                "claim_type": "support",
+                "claim_text": "Memory pressure is visible in PATTERN-1504.",
+                "evidence_summary": [
+                    'PATTERN-1504: stream_v3_memory_critical_count{window="rolling_1h"} 26.0',
+                    'PATTERN-1505: stream_v3_memory_critical_count{window="rolling_24h"} 355.0',
+                ],
+            }
+        ],
+    }
+
+    normalized, rules = _normalize_claim_result_payload(
+        payload,
+        known_refs={"PATTERN-1504", "PATTERN-1505", "PATTERN-9999"},
+    )
+
+    assert rules == ("evidence_refs_from_summary:0:2",)
+    assert normalized["claims"][0]["evidence_refs"] == ["PATTERN-1504", "PATTERN-1505"]
+    valid, errors = validate_claim_result(normalized)
+    assert valid is True
+    assert errors == ()
 
 
 def test_safety_preflight_blocks_secret_like_model_input(tmp_path: Path) -> None:

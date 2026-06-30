@@ -1355,6 +1355,89 @@ def _target_promotion_text(target: dict[str, Any]) -> str:
     return f"{text} {explanation} {note}".strip()
 
 
+def _target_review_reason_html(target: dict[str, Any]) -> str:
+    reason = target.get("review_reason") if isinstance(target.get("review_reason"), dict) else {}
+    headline = str(reason.get("headline") or "").strip()
+    factors = [str(item).strip() for item in reason.get("factors") or [] if str(item).strip()]
+    operator_question = str(reason.get("operator_question") or "").strip()
+    if not headline:
+        canonical_unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
+        provider_summary = _provider_position_summary(target)
+        evidence_refs = target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else []
+        promotion = target.get("promotion") if isinstance(target.get("promotion"), dict) else {}
+        blocked_reason = str(promotion.get("blocked_reason") or "human validation required")
+        headline = (
+            f"Review target created because `{canonical_unit}` was projected from provider output "
+            "and still needs human validation."
+        )
+        factors = [
+            f"Provider stance: {provider_summary}.",
+            f"{len(evidence_refs)} cited Evidence Item(s) are attached.",
+            f"Promotion is blocked by `{blocked_reason}`.",
+        ]
+        operator_question = str(target.get("recommended_request_type") or "Review cited evidence and missing signals.")
+    items = "".join(f"<li>{_html(item)}</li>" for item in factors)
+    question = f"<p>{_html(operator_question)}</p>" if operator_question else ""
+    return f"<p>{_html(headline)}</p><ul>{items}</ul>{question}"
+
+
+def _target_explanation_html(target: dict[str, Any]) -> str:
+    explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
+    suspected_issue = str(
+        target.get("suspected_issue")
+        or explanation.get("suspected_issue")
+        or target.get("impact_summary")
+        or target.get("claim")
+        or target.get("title")
+        or "Review target needs human validation."
+    )
+    operational_mechanism = str(
+        target.get("operational_mechanism")
+        or explanation.get("operational_mechanism")
+        or "Operational mechanism was not supplied by the provider output."
+    )
+    why_it_matters = str(
+        target.get("why_it_matters")
+        or explanation.get("why_it_matters")
+        or "Outcome impact is not proven by this target alone."
+    )
+    why_not_promoted = str(
+        target.get("why_not_promoted")
+        or explanation.get("why_not_promoted")
+        or _target_promotion_text(target)
+    )
+    next_question = str(
+        target.get("next_validation_question")
+        or explanation.get("next_validation_question")
+        or target.get("recommended_request_type")
+        or "Review cited evidence and missing signals."
+    )
+    evidence_summary = _string_items(target.get("evidence_summary") or explanation.get("evidence_summary"))
+    if not evidence_summary:
+        refs = target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else []
+        evidence_summary = [
+            f"{ref}: cited runtime evidence for this target; inspect the Evidence Item body before treating it as causal support."
+            for ref in refs[:8]
+        ]
+    counter_summary = _string_items(
+        target.get("counter_evidence_summary") or explanation.get("counter_evidence_summary")
+    )
+    evidence_items = "".join(f"<li>{_html(item)}</li>" for item in evidence_summary[:8])
+    counter_items = "".join(f"<li>{_html(item)}</li>" for item in counter_summary[:6])
+    counter_block = f"<label>Counter / weak signals</label><ul>{counter_items}</ul>" if counter_items else ""
+    return f"""
+      <div class="target-explanation">
+        <label>Suspected issue</label><p>{_html(suspected_issue)}</p>
+        <label>Operational mechanism</label><p>{_html(operational_mechanism)}</p>
+        <label>Why it matters</label><p>{_html(why_it_matters)}</p>
+        <label>Evidence summary</label><ul>{evidence_items}</ul>
+        {counter_block}
+        <label>Why not promoted</label><p>{_html(why_not_promoted)}</p>
+        <label>Next validation question</label><p>{_html(next_question)}</p>
+      </div>
+    """
+
+
 def _precomputed_target_preview_panel(targets: list[dict[str, Any]]) -> str:
     rows = "".join(
         f"""
@@ -1398,6 +1481,8 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     provider_positions = _provider_positions_html(target)
     agreement_text = _target_agreement_text(target)
     promotion_text = _target_promotion_text(target)
+    review_reason = _target_review_reason_html(target)
+    target_explanation = _target_explanation_html(target)
     return f"""
 <article class="target">
   <div class="target-head">
@@ -1416,6 +1501,8 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     <div class="score">{score:.3f}<span>Priority</span></div>
   </div>
   <div class="target-grid">
+    <div class="field full"><label>What this target means operationally</label>{target_explanation}</div>
+    <div class="field full"><label>Why this target is in review</label>{review_reason}</div>
     <div class="field full"><label>Observed claim</label><p>{_html(claim or title)}</p></div>
     <div class="field full"><label>Provider positions</label>{provider_positions}</div>
     <div class="field full"><label>Agreement and promotion gates</label><p>{_html(agreement_text)}</p></div>
@@ -1436,6 +1523,13 @@ def _short_sha(value: str) -> str:
 def _display_policy(value: object) -> str:
     text = str(value or "").strip()
     return text.replace("_", " ").replace("-", " ") if text else "unknown"
+
+
+def _string_items(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    text = str(value or "").strip()
+    return [text] if text else []
 
 
 def _url_quote(value: str) -> str:

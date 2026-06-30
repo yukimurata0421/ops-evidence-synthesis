@@ -15,14 +15,14 @@ incident tools sound confident before they have enough evidence.
 Live read-only demo:
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
-- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
-- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
-- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
-- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
 
 Current hackathon submission surfaces:
 
@@ -39,15 +39,16 @@ Current hackathon submission surfaces:
 
 Real API source-aware run:
 
-- Evidence SHA256: `7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d`
-- Public payload: `data/precomputed_review_summaries/7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d.json`
+- Evidence SHA256: `7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb`
+- Public payload: `data/precomputed_review_summaries/7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb.json`
 - Public manifest: `data/public_evidence_manifests/amazon_notify_real_api.json`
 - Run notes: [docs/real-api-qwen-glm-run.md](docs/real-api-qwen-glm-run.md)
 
-This run was generated through the e2e API with a 6,506-row sanitized log
-corpus persisted in the API store, a bounded DB-derived model projection,
+This run was generated through a 7-day storeless CLI real-provider path with a
+23,400-row sanitized log corpus, a bounded Evidence Bundle model projection,
 sanitized source context, and five schema-valid real provider outputs: Gemini,
-gpt-oss, Mistral, Qwen, and GLM.
+gpt-oss, Mistral, Qwen, and GLM. The 7-day window was selected after 2-day,
+5-day, and 7-day candidates were evaluated.
 
 The production workflow is Gemini-led: `gemini-enterprise-agent-platform` is the
 required first provider and reference point for comparison, while gpt-oss,
@@ -57,15 +58,16 @@ promotion gates.
 
 stream_v3 real API source-aware runs:
 
-- Dell runtime detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681
-- Dell runtime API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681
-- arena-server monitoring detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769
-- arena-server monitoring API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769
+- Dell runtime detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778
+- Dell runtime API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778
+- arena-server monitoring detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267
+- arena-server monitoring API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267
 - Run notes: [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
 
 These runs used sanitized stream_v3 code context plus separate runtime and
-monitoring-plane log corpora. Dell retained 8,011 sanitized runtime rows; the
-arena-server monitoring run retained 5,055 sanitized rows.
+monitoring-plane log corpora. Dell retained 11,399 sanitized runtime rows over
+a 7-day analysis window; the arena-server monitoring run retained 4,747
+sanitized rows over a 7-day analysis window.
 
 The public data boundary is documented in
 [docs/data-boundary.md](docs/data-boundary.md). Full row-level sanitized
@@ -272,9 +274,9 @@ Committed public assets:
 - `data/amazon_notify_flagship_logs.jsonl` - public-safe 6,506-line flagship fixture.
 - `data/public_evidence_manifests/*.json` - compact public manifests for real API reviews, including URLs, evidence hashes, provider hashes, data-boundary flags, and token-compression statistics.
 - `data/precomputed_review_summaries/c43cb9c...ed1e.json` - live demo cache regenerated by `make demo` and checked by CI.
-- `data/precomputed_review_summaries/7e95346...308d.json` - real API source-aware review cache generated from a 6,506-row sanitized e2e log corpus, sanitized source context, Qwen, and GLM.
-- `data/precomputed_review_summaries/64fa799...2681.json` - stream_v3 Dell runtime real API review cache with 8,011 sanitized runtime rows.
-- `data/precomputed_review_summaries/f22b327...1769.json` - stream_v3 arena-server monitoring real API review cache with 5,055 sanitized monitoring rows.
+- `data/precomputed_review_summaries/7ca07b...0ccfb.json` - real API source-aware review cache generated from a 23,400-row sanitized 7-day corpus, sanitized source context, and five real providers.
+- `data/precomputed_review_summaries/aba039f...c778.json` - stream_v3 Dell runtime real API review cache with 11,399 sanitized runtime rows over a 7-day analysis window.
+- `data/precomputed_review_summaries/a09ee4...d267.json` - stream_v3 arena-server monitoring real API review cache with 4,747 sanitized monitoring rows.
 - `data/sample_logs.jsonl` - compact public-safe sample fixture.
 - `data/precomputed_review_summaries/1be4a214...6731.json` - compact sample cache regenerated by `make demo-sample`.
 - `sample_projects/profile_discovery_sample/` - small profile-discovery fixture.

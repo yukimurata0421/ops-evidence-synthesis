@@ -847,6 +847,14 @@ def _candidate_from_multi_ai(row: dict[str, Any], *, original_class: str) -> dic
         "evidence_refs": _unique(row.get("evidence_refs") or []),
         "missing_evidence": _unique(row.get("missing_evidence") or []),
         "caveats": _unique(row.get("caveats") or []),
+        "target_explanation": dict(row.get("target_explanation") or {}),
+        "suspected_issue": str(row.get("suspected_issue") or ""),
+        "operational_mechanism": str(row.get("operational_mechanism") or ""),
+        "why_it_matters": str(row.get("why_it_matters") or ""),
+        "evidence_summary": _unique(row.get("evidence_summary") or []),
+        "counter_evidence_summary": _unique(row.get("counter_evidence_summary") or []),
+        "why_not_promoted": str(row.get("why_not_promoted") or ""),
+        "next_validation_question": str(row.get("next_validation_question") or ""),
         "score_before": float(row.get("review_priority_score") or row.get("score") or (0.75 if original_class == "primary_candidate" else 0.62)),
         "group_id": str(row.get("group_id") or target_id),
         "raw": row,
@@ -880,6 +888,14 @@ def _candidate_from_legacy(row: dict[str, Any], *, original_class: str) -> dict[
         "counter_evidence": counter,
         "missing_evidence": missing,
         "caveats": caveats,
+        "target_explanation": dict(row.get("target_explanation") or {}),
+        "suspected_issue": str(row.get("suspected_issue") or ""),
+        "operational_mechanism": str(row.get("operational_mechanism") or ""),
+        "why_it_matters": str(row.get("why_it_matters") or ""),
+        "evidence_summary": _unique(row.get("evidence_summary") or []),
+        "counter_evidence_summary": _unique(row.get("counter_evidence_summary") or []),
+        "why_not_promoted": str(row.get("why_not_promoted") or ""),
+        "next_validation_question": str(row.get("next_validation_question") or ""),
         "score_before": float(row.get("review_priority_score") or 0.0),
         "group_id": str(row.get("cluster_id") or target_id),
         "raw": row,
@@ -1010,6 +1026,14 @@ def _arbitrate_candidate(
     }.get(final_class, "validation_target")
     linked_theme = theme_by_group.get(str(candidate.get("group_id") or "")) or _theme_for_candidate(candidate, text)
     request_type = request_by_theme.get(linked_theme) or _request_type_for_reasons(reasons, linked_theme)
+    missing_evidence = _missing_evidence_for_target(candidate, reasons)
+    target_explanation = _target_explanation_for_candidate(
+        candidate,
+        refs=refs,
+        reasons=reasons,
+        request_type=request_type,
+        linked_theme=linked_theme,
+    )
     target = {
         "target_id": str(candidate.get("target_id") or ""),
         "review_target_id": str(candidate.get("target_id") or ""),
@@ -1053,8 +1077,16 @@ def _arbitrate_candidate(
         "evidence_diversity": evidence_diversity,
         "has_runtime_evidence": runtime,
         "has_user_impact_evidence": has_user_impact,
-        "missing_evidence": _unique(candidate.get("missing_evidence") or []),
+        "missing_evidence": missing_evidence,
         "caveats": _unique(candidate.get("caveats") or []),
+        "target_explanation": target_explanation,
+        "suspected_issue": str(target_explanation.get("suspected_issue") or ""),
+        "operational_mechanism": str(target_explanation.get("operational_mechanism") or ""),
+        "why_it_matters": str(target_explanation.get("why_it_matters") or ""),
+        "evidence_summary": list(target_explanation.get("evidence_summary") or []),
+        "counter_evidence_summary": list(target_explanation.get("counter_evidence_summary") or []),
+        "why_not_promoted": str(target_explanation.get("why_not_promoted") or ""),
+        "next_validation_question": str(target_explanation.get("next_validation_question") or ""),
         "providers": _unique(candidate.get("providers") or []),
         "provider_count": int(candidate.get("provider_count") or 0),
         "linked_disagreement_theme": linked_theme,
@@ -1063,7 +1095,16 @@ def _arbitrate_candidate(
         "status": "pending",
         "profile": {"profile_id": "canonical_review_graph"},
         "cluster_id": str(candidate.get("group_id") or ""),
-        "drawer": _drawer_for_target(candidate, bundle, refs, reasons, linked_theme, request_type),
+        "drawer": _drawer_for_target(
+            candidate,
+            bundle,
+            refs,
+            reasons,
+            linked_theme,
+            request_type,
+            missing_evidence=missing_evidence,
+            target_explanation=target_explanation,
+        ),
     }
     decision = {
         "target_id": target["target_id"],
@@ -1082,6 +1123,174 @@ def _arbitrate_candidate(
         "score_caps_applied": score_caps,
     }
     return target, decision
+
+
+def _missing_evidence_for_target(candidate: dict[str, Any], reasons: list[str]) -> list[str]:
+    missing = _unique(candidate.get("missing_evidence") or [])
+    if "user_impact_unverified" in reasons:
+        missing.append("User impact or operational outcome evidence tied to this review unit.")
+    if "cause_disagreement" in reasons or "no_baseline_agreement_or_causal_alignment" in reasons:
+        missing.append("Causal alignment evidence connecting the review unit to the incident window.")
+    if "support_without_evidence_id" in reasons:
+        missing.append("Runtime Evidence Item IDs that support the claim.")
+    if "support_is_context_not_runtime_evidence" in reasons:
+        missing.append("Runtime log or metric evidence; source context alone cannot support an incident claim.")
+    if "core_missing_evidence" in reasons:
+        missing.append("Core evidence needed to close the promotion gate.")
+    return _unique(missing)
+
+
+def _target_explanation_for_candidate(
+    candidate: dict[str, Any],
+    *,
+    refs: list[str],
+    reasons: list[str],
+    request_type: str,
+    linked_theme: str,
+) -> dict[str, Any]:
+    raw = candidate.get("target_explanation") if isinstance(candidate.get("target_explanation"), dict) else {}
+    unit = str(candidate.get("canonical_review_unit") or candidate.get("component") or candidate.get("subsystem") or "review unit")
+    suspected_issue = (
+        _first_non_meta_text(
+            candidate.get("suspected_issue"),
+            raw.get("suspected_issue"),
+            candidate.get("impact_summary"),
+            candidate.get("title"),
+        )
+        or _fallback_suspected_issue(candidate, unit=unit, request_type=request_type)
+    )
+    operational_mechanism = (
+        str(candidate.get("operational_mechanism") or raw.get("operational_mechanism") or "").strip()
+        or _fallback_operational_mechanism(candidate, unit=unit)
+    )
+    why_it_matters = (
+        str(candidate.get("why_it_matters") or raw.get("why_it_matters") or "").strip()
+        or "The current evidence may affect an operational outcome, but user impact is not proven by this target alone."
+    )
+    evidence_summary = _unique(
+        [
+            *_string_items(candidate.get("evidence_summary")),
+            *_string_items(raw.get("evidence_summary")),
+        ]
+    )
+    if not evidence_summary:
+        evidence_summary = [
+            f"{ref}: cited runtime evidence for this review unit; inspect the Evidence Item body before changing incident state."
+            for ref in refs[:8]
+        ]
+    counter_summary = _unique(
+        [
+            *_string_items(candidate.get("counter_evidence_summary")),
+            *_string_items(raw.get("counter_evidence_summary")),
+        ]
+    )
+    if not counter_summary and reasons:
+        counter_summary = [f"Promotion blocker: {reason}." for reason in reasons[:4]]
+    why_not_promoted = (
+        str(candidate.get("why_not_promoted") or raw.get("why_not_promoted") or "").strip()
+        or _why_not_promoted_from_reasons(reasons)
+    )
+    next_validation_question = (
+        str(candidate.get("next_validation_question") or raw.get("next_validation_question") or "").strip()
+        or _next_validation_question(unit=unit, request_type=request_type, linked_theme=linked_theme)
+    )
+    provider_explanations = list(raw.get("provider_explanations") or [])
+    return {
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": suspected_issue,
+        "operational_mechanism": operational_mechanism,
+        "why_it_matters": why_it_matters,
+        "evidence_summary": evidence_summary,
+        "counter_evidence_summary": counter_summary,
+        "why_not_promoted": why_not_promoted,
+        "next_validation_question": next_validation_question,
+        "provider_explanations": provider_explanations,
+    }
+
+
+def _fallback_operational_mechanism(candidate: dict[str, Any], *, unit: str) -> str:
+    target_type = str(candidate.get("core_target_type") or candidate.get("canonical_target_type") or "").casefold()
+    subsystem = str(candidate.get("subsystem") or "").casefold()
+    text = f"{target_type} {subsystem} {unit}".casefold()
+    if "job" in text or "config" in text or "deployment" in text:
+        return "Configuration, deployment, or scheduled-job behavior may be shaping the observed runtime signal."
+    if "runtime" in text or "restart" in text or "watchdog" in text:
+        return "Runtime recovery or watchdog orchestration may be shaping the observed state transitions."
+    if "external" in text or "dependency" in text or "youtube" in text:
+        return "An external dependency or downstream health signal may be involved, but it needs independent confirmation."
+    if "observability" in text or "instrument" in text or "metric" in text:
+        return "The instrumentation contract may be incomplete or inconsistent with the runtime behavior."
+    return f"The `{unit}` review unit groups provider claims and cited evidence that need a human operational interpretation."
+
+
+def _fallback_suspected_issue(candidate: dict[str, Any], *, unit: str, request_type: str) -> str:
+    text = " ".join(
+        str(candidate.get(key) or "")
+        for key in ("core_target_type", "canonical_target_type", "subsystem", "component", "title")
+    ).casefold()
+    if "job" in text or "config" in text or "deployment" in text or "deployment_correlation" in request_type:
+        return (
+            f"Review whether configuration, deployment timing, or scheduled-job behavior for `{unit}` "
+            "correlates with the cited runtime evidence."
+        )
+    if "runtime" in text or "restart" in text or "watchdog" in text:
+        return f"Review whether `{unit}` indicates a runtime recovery or watchdog behavior that needs validation."
+    if "external" in text or "dependency" in text or "youtube" in text:
+        return f"Review whether `{unit}` reflects an external dependency or downstream health issue."
+    if "observability" in text or "instrument" in text or "metric" in text:
+        return f"Review whether `{unit}` reflects an instrumentation or observability contract gap."
+    return f"Review what operational issue `{unit}` represents before promoting it."
+
+
+def _first_non_meta_text(*values: object) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text and not _is_meta_summary(text):
+            return text
+    return ""
+
+
+def _is_meta_summary(text: str) -> bool:
+    lowered = text.casefold()
+    return any(
+        token in lowered
+        for token in (
+            "providers aligned",
+            "schema-valid providers projected",
+            "review target requires validation",
+            "this is not majority-vote truth",
+            "technical review support",
+        )
+    )
+
+
+def _why_not_promoted_from_reasons(reasons: list[str]) -> str:
+    if "user_impact_unverified" in reasons:
+        return "Not promoted because user impact or operational outcome evidence is not attached to this target."
+    if "support_is_context_not_runtime_evidence" in reasons:
+        return "Not promoted because context can guide interpretation but cannot prove runtime incident support."
+    if "support_without_evidence_id" in reasons:
+        return "Not promoted because runtime support is missing usable Evidence Item IDs."
+    if "cause_disagreement" in reasons or "no_baseline_agreement_or_causal_alignment" in reasons:
+        return "Not promoted because causal alignment is not established across the current evidence."
+    if reasons:
+        return "Not promoted because one or more promotion gates remain open: " + ", ".join(reasons) + "."
+    return "Not promoted until a human reviews the cited evidence and confirms the operational outcome."
+
+
+def _next_validation_question(*, unit: str, request_type: str, linked_theme: str) -> str:
+    if request_type:
+        return f"Can `{request_type}` confirm whether `{unit}` explains the observed runtime behavior?"
+    if linked_theme:
+        return f"Does the validation theme `{linked_theme}` close or weaken `{unit}`?"
+    return f"What read-only evidence would confirm or reject `{unit}` as an operational issue?"
+
+
+def _string_items(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    text = str(value or "").strip()
+    return [text] if text else []
 
 
 def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
@@ -1300,6 +1509,9 @@ def _drawer_for_target(
     reasons: list[str],
     linked_theme: str,
     request_type: str,
+    *,
+    missing_evidence: list[str] | None = None,
+    target_explanation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     raw = candidate.get("raw") if isinstance(candidate.get("raw"), dict) else {}
     raw_drawer = raw.get("drawer") if isinstance(raw.get("drawer"), dict) else {}
@@ -1308,7 +1520,8 @@ def _drawer_for_target(
         "support_evidence": raw_drawer.get("support_evidence") or candidate.get("support_evidence") or [],
         "counter_evidence": raw_drawer.get("counter_evidence") or candidate.get("counter_evidence") or [],
         "caveats": _unique([*(candidate.get("caveats") or []), *reasons]),
-        "missing_evidence": _unique(candidate.get("missing_evidence") or []),
+        "missing_evidence": _unique(missing_evidence or candidate.get("missing_evidence") or []),
+        "target_explanation": target_explanation or {},
         "next_evidence_requests": [
             {
                 "request_id": "CANONICAL-REQ-001",

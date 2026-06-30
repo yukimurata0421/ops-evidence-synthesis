@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ops_evidence_synthesis.window_policy import validate_minimum_analysis_window
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_DIR = ROOT / "data" / "public_evidence_manifests"
@@ -55,6 +57,12 @@ def test_public_evidence_manifests_match_precomputed_payloads() -> None:
         assert manifest["sanitized_corpus"]["db_ingested_log_count"] == analysis_context["db_ingested_log_count"]
         assert manifest["sanitized_corpus"]["window_start"] == analysis_context["window_start"]
         assert manifest["sanitized_corpus"]["window_end"] == analysis_context["window_end"]
+        window = validate_minimum_analysis_window(
+            manifest["sanitized_corpus"]["window_start"],
+            manifest["sanitized_corpus"]["window_end"],
+            context=manifest_path.name,
+        )
+        assert manifest["sanitized_corpus"].get("analysis_window_hours", window.duration_hours) >= 24
         assert manifest["sanitized_corpus"]["public_row_level_file"] is None
 
         assert manifest["token_compression"]["evidence_item_count"] == analysis_context["evidence_item_count"]

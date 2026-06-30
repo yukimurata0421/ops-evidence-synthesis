@@ -52,7 +52,14 @@ def root_cause_prompt(bundle: dict[str, Any]) -> str:
     )
 
 
-def alternative_hypothesis_prompt(bundle: dict[str, Any]) -> str:
+def alternative_hypothesis_prompt(
+    bundle: dict[str, Any],
+    *,
+    max_evidence_items: int = 140,
+    max_logs: int = 0,
+    max_normalized_events: int = 0,
+    max_text_chars: int = 480,
+) -> str:
     return _prompt(
         bundle,
         agent_role="alternative_hypothesis_generator",
@@ -61,6 +68,10 @@ def alternative_hypothesis_prompt(bundle: dict[str, Any]) -> str:
             "Generate only hypotheses that are grounded in the evidence bundle. "
             "Prefer support/counter/caveat structure over broad narrative."
         ),
+        max_evidence_items=max_evidence_items,
+        max_logs=max_logs,
+        max_normalized_events=max_normalized_events,
+        max_text_chars=max_text_chars,
     )
 
 
@@ -203,7 +214,16 @@ def focused_operational_profile_prompt(payload: dict[str, Any]) -> str:
     )
 
 
-def _prompt(bundle: dict[str, Any], *, agent_role: str, role_instruction: str) -> str:
+def _prompt(
+    bundle: dict[str, Any],
+    *,
+    agent_role: str,
+    role_instruction: str,
+    max_evidence_items: int = 140,
+    max_logs: int = 0,
+    max_normalized_events: int = 0,
+    max_text_chars: int = 480,
+) -> str:
     if bundle.get("llm_task") == "evidence_requirement_planner":
         return evidence_requirement_prompt(bundle)
     if bundle.get("llm_task") == "focused_operational_profile":
@@ -223,6 +243,13 @@ def _prompt(bundle: dict[str, Any], *, agent_role: str, role_instruction: str) -
         f'"claims":[{{"claim_type":"{claim_values}",'
         f'"finding_status":"{finding_status_values}",'
         '"claim_text":"...",'
+        '"suspected_issue":"...",'
+        '"operational_mechanism":"...",'
+        '"why_it_matters":"...",'
+        '"evidence_summary":["..."],'
+        '"counter_evidence_summary":["..."],'
+        '"why_not_promoted":"...",'
+        '"next_validation_question":"...",'
         f'"subsystem":"{subsystem_values}",'
         '"evidence_identity":{"program":"known|unknown","source":"known|unknown",'
         '"failure_signature":"known|unknown","time_window":"known|unknown"},'
@@ -261,6 +288,9 @@ def _prompt(bundle: dict[str, Any], *, agent_role: str, role_instruction: str) -
         "Do not cite context as support or counter-evidence. "
         f"{ai_evidence_rules_text()} "
         "Use only evidence_refs present in the bundle; do not invent evidence ids. "
+        "Every Evidence ID named in evidence_summary, counter_evidence_summary, claim_text, caveats, "
+        "or missing_evidence must also appear in evidence_refs or counter_evidence_refs as a primitive string; "
+        "never cite Evidence IDs only inside prose fields. "
         "Evidence signals and candidate targets are deterministic routing hints derived before AI synthesis; "
         "they are not primary evidence. When using a signal or candidate target, cite its evidence_ids, "
         "not the signal_id or target_id. "
@@ -274,12 +304,22 @@ def _prompt(bundle: dict[str, Any], *, agent_role: str, role_instruction: str) -
         "Assign exactly one subsystem per claim and do not mix unrelated subsystems in a single proposition. "
         "If a hypothesis needs validation, include missing_evidence and next_data_needed claims. "
         "Avoid 'No immediate action required' unless the evidence is explicitly normal, stable, or improved. "
+        "For each support, counter_evidence, caveat, or validation_target claim, fill these review-explanation fields in English: "
+        "suspected_issue is the concrete issue a human should inspect, not just a subsystem label; "
+        "operational_mechanism explains which job, worker, scheduler, watchdog, config surface, dependency, or orchestration step could connect the evidence to the suspected issue; "
+        "why_it_matters states the reliability or user/operational outcome that could be affected, while marking user impact as unverified unless runtime evidence proves it; "
+        "evidence_summary must contain concise bullets that name the cited Evidence IDs and explain what each cited ref shows; "
+        "counter_evidence_summary must list contradictory, weak, silent, or missing signals; "
+        "why_not_promoted must explain why this is not a root-cause finding yet; "
+        "next_validation_question must be the single read-only question that would promote, weaken, or close the target. "
         "For each support, counter_evidence, caveat, or validation_target claim, fill temporary_action, "
         "permanent_action, and required_authority with concrete human-reviewable recommendations. "
         "For next_data_needed claims, set temporary_action, permanent_action, and required_authority to empty strings; "
         "do not propose collection commands there. "
         "Do not reveal raw secrets or identifiers; preserve only sanitized evidence references.\n\n"
-        f"Evidence bundle:\n{pretty_json(compact_bundle_for_model(bundle))}"
+        "The compacted evidence bundle may be provider-budgeted; use its corpus summary "
+        "to understand omitted lower-signal evidence counts. "
+        f"Evidence bundle:\n{pretty_json(compact_bundle_for_model(bundle, max_evidence_items=max_evidence_items, max_logs=max_logs, max_normalized_events=max_normalized_events, max_text_chars=max_text_chars))}"
     )
 
 
@@ -1040,6 +1080,13 @@ def claim_result_response_schema() -> dict[str, Any]:
         "properties": {
             "claim_type": {"type": "STRING", "enum": list(CLAIM_TYPES)},
             "claim_text": {"type": "STRING"},
+            "suspected_issue": {"type": "STRING"},
+            "operational_mechanism": {"type": "STRING"},
+            "why_it_matters": {"type": "STRING"},
+            "evidence_summary": string_array,
+            "counter_evidence_summary": string_array,
+            "why_not_promoted": {"type": "STRING"},
+            "next_validation_question": {"type": "STRING"},
             "subsystem": {"type": "STRING", "enum": list(GENERIC_SUBSYSTEMS)},
             "evidence_refs": string_array,
             "counter_evidence_refs": string_array,
@@ -1061,6 +1108,13 @@ def claim_result_response_schema() -> dict[str, Any]:
         "required": [
             "claim_type",
             "claim_text",
+            "suspected_issue",
+            "operational_mechanism",
+            "why_it_matters",
+            "evidence_summary",
+            "counter_evidence_summary",
+            "why_not_promoted",
+            "next_validation_question",
             "evidence_refs",
             "subsystem",
             "counter_evidence_refs",
@@ -1073,6 +1127,13 @@ def claim_result_response_schema() -> dict[str, Any]:
         "propertyOrdering": [
             "claim_type",
             "claim_text",
+            "suspected_issue",
+            "operational_mechanism",
+            "why_it_matters",
+            "evidence_summary",
+            "counter_evidence_summary",
+            "why_not_promoted",
+            "next_validation_question",
             "subsystem",
             "evidence_refs",
             "counter_evidence_refs",

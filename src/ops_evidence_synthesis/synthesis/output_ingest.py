@@ -209,15 +209,19 @@ def canonical_observation_key(candidate: dict[str, Any], *, evidence_sha256: str
     target_type = _canonical_target_type(candidate, text)
     subject = _canonical_subject(candidate, text)
     review_unit = _canonical_review_unit(candidate, subject)
+    review_family = _canonical_review_family(candidate, text, target_type=target_type, review_unit=review_unit)
     key_payload = {
         "evidence_sha256": str(evidence_sha256 or candidate.get("evidence_sha256") or ""),
         "canonical_review_unit": review_unit,
     }
+    if review_family:
+        key_payload["canonical_review_family"] = review_family
     return {
         "canonical_group_key": sha256_json(key_payload)[:24],
         "canonical_target_type": target_type,
         "canonical_subject": subject,
         "canonical_review_unit": review_unit,
+        "canonical_review_family": review_family,
     }
 
 
@@ -379,12 +383,22 @@ def _split_lines(text: str) -> list[tuple[str, str]]:
 
 def _candidate_text(candidate: dict[str, Any]) -> str:
     raw = candidate.get("raw") if isinstance(candidate.get("raw"), dict) else {}
+    explanation = candidate.get("target_explanation") if isinstance(candidate.get("target_explanation"), dict) else {}
     parts = [
         candidate.get("title"),
         candidate.get("impact_summary"),
         candidate.get("core_target_type"),
         candidate.get("subsystem"),
         candidate.get("component"),
+        candidate.get("suspected_issue"),
+        candidate.get("operational_mechanism"),
+        candidate.get("why_it_matters"),
+        " ".join(str(item) for item in candidate.get("evidence_summary") or []),
+        " ".join(str(item) for item in explanation.get("evidence_summary") or []),
+        explanation.get("suspected_issue"),
+        explanation.get("operational_mechanism"),
+        explanation.get("why_it_matters"),
+        " ".join(str(item.get("claim_text") or "") for item in explanation.get("provider_explanations") or [] if isinstance(item, dict)),
         " ".join(str(item) for item in candidate.get("missing_evidence") or []),
         " ".join(str(item) for item in candidate.get("caveats") or []),
         raw.get("title"),
@@ -409,7 +423,11 @@ def _canonical_target_type(candidate: dict[str, Any], text: str) -> str:
         return normalized
     if any(token in text for token in ("restart", "restarted", "crash", "crashed", "exit code", "process state", "loop")):
         return "process_restart_loop"
-    if any(token in text for token in ("transport", "connection reset", "io error", "i/o error", "throughput", "send-path", "send path", "rtmps", "packet loss")):
+    if any(token in text for token in ("memory", "oom", "resource pressure", "memory_critical", "memory critical")):
+        return "resource_pressure"
+    if any(token in text for token in ("traceback", "exception occurred", "unhandled exception", "request processing")):
+        return "runtime_exception"
+    if any(token in text for token in ("transport", "connection reset", "io error", "i/o error", "throughput", "send-path", "send path", "rtmps", "packet loss", "timeout", "timed out", "cloudflare", "tcp anchor", "anchor observer")):
         return "transport_path_failure"
     if any(token in text for token in ("youtube", "external dependency", "watch url", "ingest health")):
         return "external_dependency_health"
@@ -423,7 +441,13 @@ def _canonical_target_type(candidate: dict[str, Any], text: str) -> str:
 
 
 def _canonical_subject(candidate: dict[str, Any], text: str) -> str:
+    if any(token in text for token in ("memory", "oom", "resource pressure", "memory_critical", "memory critical")):
+        return "resource_pressure"
+    if any(token in text for token in ("traceback", "exception occurred", "unhandled exception", "request processing")):
+        return "runtime_exception"
     if any(token in text for token in ("rtmps", "ffmpeg", "send-path", "send path", "transport")):
+        return "transport_sender"
+    if any(token in text for token in ("cloudflare", "tcp anchor", "anchor observer", "timeout", "timed out")):
         return "transport_sender"
     if any(token in text for token in ("youtube", "watch url", "external ingest", "ingest status")):
         return "external_ingest"
@@ -451,6 +475,30 @@ def _canonical_review_unit(candidate: dict[str, Any], subject: str) -> str:
     return normalized_subject
 
 
+def _canonical_review_family(
+    candidate: dict[str, Any],
+    text: str,
+    *,
+    target_type: str,
+    review_unit: str,
+) -> str:
+    subsystem = _normalize_token(str(candidate.get("subsystem") or ""))
+    if subsystem and subsystem not in {"general", "unknown", "none", "null"}:
+        return ""
+    normalized_unit = _normalize_token(review_unit)
+    if normalized_unit not in {"general", "unknown", "none", "null"}:
+        return ""
+    if target_type and target_type != "general_review":
+        return target_type
+    if any(token in text for token in ("memory", "oom", "resource pressure", "memory_critical", "memory critical")):
+        return "resource_pressure"
+    if any(token in text for token in ("traceback", "exception occurred", "unhandled exception", "request processing")):
+        return "runtime_exception"
+    if any(token in text for token in ("cloudflare", "tcp anchor", "anchor observer", "timeout", "timed out", "transport", "connection reset", "rtmps", "packet loss")):
+        return "transport_path_failure"
+    return ""
+
+
 def _merge_observation_group(
     canonical_group_key: str,
     rows: list[dict[str, Any]],
@@ -472,6 +520,7 @@ def _merge_observation_group(
     counter_evidence = _merge_jsonish(row.get("counter_evidence") for row in rows)
     missing = _unique_str(item for row in rows for item in row.get("missing_evidence") or [])
     caveats = _unique_str(item for row in rows for item in row.get("caveats") or [])
+    target_explanation = _merge_target_explanations(rows, top)
     rollup = _rollup_profile(rows, evidence_refs=evidence_refs)
     group_id = "cog-" + sha256_json(
         {
@@ -494,6 +543,14 @@ def _merge_observation_group(
         "counter_evidence": counter_evidence,
         "missing_evidence": missing,
         "caveats": caveats,
+        "target_explanation": target_explanation,
+        "suspected_issue": target_explanation.get("suspected_issue", ""),
+        "operational_mechanism": target_explanation.get("operational_mechanism", ""),
+        "why_it_matters": target_explanation.get("why_it_matters", ""),
+        "evidence_summary": target_explanation.get("evidence_summary", []),
+        "counter_evidence_summary": target_explanation.get("counter_evidence_summary", []),
+        "why_not_promoted": target_explanation.get("why_not_promoted", ""),
+        "next_validation_question": target_explanation.get("next_validation_question", ""),
         "score_before": max(float(row.get("score_before") or 0.0) for row in rows),
         "group_id": group_id,
         "canonical_group_key": canonical_group_key,
@@ -528,6 +585,7 @@ def _merge_observation_group(
         "evidence_refs": evidence_refs,
         "missing_evidence": missing,
         "caveats": caveats,
+        "target_explanation": target_explanation,
         "support_evidence": support_evidence,
         "counter_evidence": counter_evidence,
         "rollup": rollup,
@@ -552,6 +610,70 @@ def _merge_jsonish(values: Any) -> list[Any]:
             seen.add(key)
             output.append(item)
     return output
+
+
+def _merge_target_explanations(rows: list[dict[str, Any]], top: dict[str, Any]) -> dict[str, Any]:
+    explanation_rows = [_target_explanation_source(row) for row in rows]
+    explanation_rows = [row for row in explanation_rows if row]
+    if not explanation_rows:
+        explanation_rows = [_target_explanation_source(top)]
+    evidence_summary = _unique_str(
+        item
+        for row in explanation_rows
+        for item in row.get("evidence_summary") or []
+    )
+    counter_summary = _unique_str(
+        item
+        for row in explanation_rows
+        for item in row.get("counter_evidence_summary") or []
+    )
+    provider_explanations = _merge_jsonish(row.get("provider_explanations") for row in explanation_rows)
+    return {
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": _first_explanation_text(explanation_rows, "suspected_issue")
+        or str(top.get("impact_summary") or top.get("title") or ""),
+        "operational_mechanism": _first_explanation_text(explanation_rows, "operational_mechanism"),
+        "why_it_matters": _first_explanation_text(explanation_rows, "why_it_matters"),
+        "evidence_summary": evidence_summary,
+        "counter_evidence_summary": counter_summary,
+        "why_not_promoted": _first_explanation_text(explanation_rows, "why_not_promoted"),
+        "next_validation_question": _first_explanation_text(explanation_rows, "next_validation_question"),
+        "provider_explanations": provider_explanations,
+    }
+
+
+def _target_explanation_source(row: dict[str, Any]) -> dict[str, Any]:
+    explanation = row.get("target_explanation") if isinstance(row.get("target_explanation"), dict) else {}
+    return {
+        "suspected_issue": str(row.get("suspected_issue") or explanation.get("suspected_issue") or ""),
+        "operational_mechanism": str(row.get("operational_mechanism") or explanation.get("operational_mechanism") or ""),
+        "why_it_matters": str(row.get("why_it_matters") or explanation.get("why_it_matters") or ""),
+        "evidence_summary": _unique_str([*_string_items(row.get("evidence_summary")), *_string_items(explanation.get("evidence_summary"))]),
+        "counter_evidence_summary": _unique_str(
+            [
+                *_string_items(row.get("counter_evidence_summary")),
+                *_string_items(explanation.get("counter_evidence_summary")),
+            ]
+        ),
+        "why_not_promoted": str(row.get("why_not_promoted") or explanation.get("why_not_promoted") or ""),
+        "next_validation_question": str(row.get("next_validation_question") or explanation.get("next_validation_question") or ""),
+        "provider_explanations": list(explanation.get("provider_explanations") or []),
+    }
+
+
+def _string_items(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    text = str(value or "").strip()
+    return [text] if text else []
+
+
+def _first_explanation_text(rows: list[dict[str, Any]], key: str) -> str:
+    for row in rows:
+        text = str(row.get(key) or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def _consensus_class(target: dict[str, Any]) -> str:

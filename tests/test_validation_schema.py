@@ -69,6 +69,40 @@ def test_claim_result_schema_accepts_concrete_evidence_identity_values() -> None
     assert errors == ()
 
 
+def test_claim_result_schema_accepts_structured_identity_time_window() -> None:
+    valid, errors = validate_claim_result(
+        {
+            "schema_version": "claim-result/v1",
+            "agent_role": "hypothesis_generator",
+            "finding_status": "supported",
+            "summary": "The evidence window is identifiable.",
+            "claims": [
+                {
+                    "claim_type": "support",
+                    "finding_status": "supported",
+                    "claim_text": "The runtime evidence is scoped to the inspected seven-day window.",
+                    "subsystem": "runtime_recovery",
+                    "evidence_identity": {
+                        "program": "known",
+                        "source": "known",
+                        "failure_signature": "known",
+                        "time_window": {
+                            "start": "2026-06-19T19:44:54Z",
+                            "end": "2026-06-26T19:44:54Z",
+                            "timezone": "UTC",
+                        },
+                    },
+                    "evidence_refs": ["PATTERN-001"],
+                }
+            ],
+            "propositions": [],
+        }
+    )
+
+    assert valid is True
+    assert errors == ()
+
+
 def test_claim_result_schema_accepts_model_subsystem_aliases() -> None:
     valid, errors = validate_claim_result(
         {

@@ -40,7 +40,7 @@ Gemini Enterprise Agent Platform を最初に走る reference provider とし、
 
 メインデモURL:
 
-https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d
+https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
 
 ### 5. まわす
 

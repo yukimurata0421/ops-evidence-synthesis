@@ -1,0 +1,1208 @@
+{
+  "agent_trace": [
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:freeze_evidence_bundle",
+      "output": {
+        "artifact": "evidence_bundle",
+        "evidence_sha256": "aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778",
+        "log_count": 11399,
+        "raw_log_policy": "not_uploaded",
+        "status": "completed",
+        "summary": "Evidence Bundle aba039fb4c47 fixed 11,399 sanitized rows; raw_log_policy=not_uploaded."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "freeze_evidence_bundle",
+      "summary": "Evidence Bundle aba039fb4c47 fixed 11,399 sanitized rows; raw_log_policy=not_uploaded.",
+      "title": "Freeze Evidence Bundle",
+      "tool": "freeze_evidence_bundle",
+      "trace_sha256": "eaec8a9a3d43bba1c78273e9e667d097735a06394e70d58be08a1469e54dbef5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:attach_sanitized_source_context",
+      "output": {
+        "artifact": "source_context",
+        "context_is_not_incident_evidence": true,
+        "source_analysis_attached": true,
+        "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+        "source_context_attached": true,
+        "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
+        "status": "completed",
+        "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "attach_sanitized_source_context",
+      "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
+      "title": "Attach Sanitized Source Context",
+      "tool": "attach_sanitized_source_context",
+      "trace_sha256": "eaec8a9a3d43bba1c78273e9e667d097735a06394e70d58be08a1469e54dbef5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:run_cross_check_providers",
+      "output": {
+        "artifact": "model_runs",
+        "gemini_reference_present": true,
+        "provider_count": 5,
+        "provider_ids": [
+          "gemini-enterprise-agent-platform",
+          "glm-agent-platform",
+          "mistral-agent-platform",
+          "openai-gpt-oss-on-vertex",
+          "qwen-agent-platform"
+        ],
+        "schema_valid_provider_count": 5,
+        "status": "completed",
+        "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "run_cross_check_providers",
+      "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
+      "title": "Run Cross-Check Providers",
+      "tool": "run_cross_check_providers",
+      "trace_sha256": "eaec8a9a3d43bba1c78273e9e667d097735a06394e70d58be08a1469e54dbef5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:validate_citations",
+      "output": {
+        "artifact": "citation_validation",
+        "cited_evidence_ref_count": 15,
+        "missing_evidence_count": 8,
+        "status": "completed",
+        "summary": "3 review target(s) cite 15 sanitized evidence ref(s); 8 missing-evidence item(s) remain.",
+        "target_count": 3,
+        "uncited_target_ids": []
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "validate_citations",
+      "summary": "3 review target(s) cite 15 sanitized evidence ref(s); 8 missing-evidence item(s) remain.",
+      "title": "Validate Citations",
+      "tool": "validate_citations",
+      "trace_sha256": "eaec8a9a3d43bba1c78273e9e667d097735a06394e70d58be08a1469e54dbef5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:compute_review_targets",
+      "output": {
+        "artifact": "canonical_review_graph",
+        "convergence_count": 2,
+        "primary_count": 0,
+        "status": "completed",
+        "summary": "Canonical Review Graph projected 3 target(s), 0 primary candidate(s), and 2 convergence group(s).",
+        "targets_total": 3,
+        "validation_count": 3
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "compute_review_targets",
+      "summary": "Canonical Review Graph projected 3 target(s), 0 primary candidate(s), and 2 convergence group(s).",
+      "title": "Compute Review Targets",
+      "tool": "compute_review_targets",
+      "trace_sha256": "eaec8a9a3d43bba1c78273e9e667d097735a06394e70d58be08a1469e54dbef5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:arbitrate_review_gate",
+      "output": {
+        "artifact": "review_arbitration",
+        "blocked_reasons": [
+          "user_impact_unverified"
+        ],
+        "incident_baseline": "established",
+        "requires_human_review": true,
+        "status": "human_gate",
+        "summary": "Final incident causality remains human-gated; the agent stops with review targets."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "arbitrate_review_gate",
+      "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
+      "title": "Arbitrate Human Gate",
+      "tool": "arbitrate_review_gate",
+      "trace_sha256": "eaec8a9a3d43bba1c78273e9e667d097735a06394e70d58be08a1469e54dbef5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:request_more_evidence",
+      "output": {
+        "artifact": "evidence_request_plan",
+        "missing_evidence_count": 8,
+        "request_types": [
+          "instrumentation_consistency_query",
+          "user_impact_signal_query"
+        ],
+        "status": "completed",
+        "summary": "Generated read-only follow-up plan with 2 request type(s) and 8 missing-evidence item(s)."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "request_more_evidence",
+      "summary": "Generated read-only follow-up plan with 2 request type(s) and 8 missing-evidence item(s).",
+      "title": "Request More Evidence",
+      "tool": "request_more_evidence",
+      "trace_sha256": "eaec8a9a3d43bba1c78273e9e667d097735a06394e70d58be08a1469e54dbef5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:draft_system_profile",
+      "output": {
+        "approved": true,
+        "artifact": "profile_draft",
+        "collector_mapping_count": 4,
+        "component_count": 384,
+        "explicit_profile": true,
+        "generation_mode": "profile_draft_and_approved_profile",
+        "llm_status": "ok",
+        "metric_semantics_count": 352,
+        "profile_id": "stream_v3_dell_runtime_source_approved",
+        "required_human_decisions": [
+          "Approve or edit component roles before using this as an explicit profile.",
+          "Approve metric zero/increase/decrease semantics.",
+          "Confirm critical user outcomes.",
+          "Confirm read-only collector mappings before collection.",
+          "What is the critical user outcome?",
+          "Which component is the main service path?",
+          "Are restart failures expected or harmful?",
+          "Which metrics are zero-is-good or zero-is-bad?"
+        ],
+        "status": "human_gate",
+        "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "draft_system_profile",
+      "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
+      "title": "Draft System Profile",
+      "tool": "draft_system_profile",
+      "trace_sha256": "eaec8a9a3d43bba1c78273e9e667d097735a06394e70d58be08a1469e54dbef5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:deliver_read_only_review",
+      "output": {
+        "artifact": "precomputed_review_summary",
+        "evidence_sha256": "aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778",
+        "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
+        "public_url": "",
+        "status": "completed",
+        "summary": "Read-only review payload for aba039fb4c47 is served from precomputed JSON; page load does not invoke live model work."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "deliver_read_only_review",
+      "summary": "Read-only review payload for aba039fb4c47 is served from precomputed JSON; page load does not invoke live model work.",
+      "title": "Deliver Read-Only Review",
+      "tool": "deliver_read_only_review",
+      "trace_sha256": "eaec8a9a3d43bba1c78273e9e667d097735a06394e70d58be08a1469e54dbef5",
+      "trace_source": "adk_tool_contract"
+    }
+  ],
+  "analysis_context": {
+    "analysis_conclusion": [
+      "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned status=ok and schema_valid=true.",
+      "The public graph exposes 0 primary candidate, 3 validation target(s), and 2 monitor-only item(s) after the analysis-window boundary is applied.",
+      "3 validation targets remain for human review."
+    ],
+    "analysis_window_hours": 168.0,
+    "db_ingested_log_count": 11399,
+    "environment": "dell_runtime",
+    "evidence_item_count": 654,
+    "log_observations": [
+      "The run used all 11,399 sanitized stream_v3_runtime rows from 2026-06-19T19:44:54Z to 2026-06-26T19:44:54Z.",
+      "The local-first Evidence Bundle retained 654 grouped evidence items and 7 deterministic signals.",
+      "The provider prompt used 140 selected evidence items covering 10,771 occurrences (94.5% of the sanitized corpus).",
+      "Repeated RUN_ONCE/RUN_RESULT, systemd watchdog, token refresh, Pub/Sub idle, and status snapshot patterns were represented by evidence IDs rather than raw log bodies."
+    ],
+    "min_analysis_window_hours": 24,
+    "model_projection_evidence_items": 140,
+    "model_projection_occurrence_count": 10771,
+    "model_projection_occurrence_coverage_ratio": 0.944907,
+    "model_projection_policy": "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; row-level raw logs stayed out of provider prompts.",
+    "pipeline_run_id": "",
+    "profile_id": "stream_v3_dell_runtime_source_approved",
+    "provider_count": 5,
+    "raw_log_policy": "not_uploaded",
+    "raw_source_policy": "not_uploaded",
+    "real_api_revision": "real-api-7d-target-explanations-20260630-regrouped-v2",
+    "sanitized_log_count": 11399,
+    "schema_valid_provider_count": 5,
+    "schema_version": "real_api_source_context_summary.v2",
+    "service": "stream_v3_runtime",
+    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
+    "source_observations": [
+      "Sanitized source context was attached with source_context_sha256=669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2.",
+      "Source analysis was attached with analysis_sha256=451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5.",
+      "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs from the sanitized corpus."
+    ],
+    "token_usage": {
+      "input_tokens": 447271,
+      "output_tokens": 17256
+    },
+    "window_end": "2026-06-26T19:44:54Z",
+    "window_start": "2026-06-19T19:44:54Z"
+  },
+  "devops_loop": {
+    "items": [
+      {
+        "detail": "Gemini, GPT OSS, Mistral, Qwen, and GLM were executed through Vertex-backed endpoints.",
+        "label": "Real provider run",
+        "value": "5 providers"
+      },
+      {
+        "detail": "Raw logs and raw source stayed local; only sanitized bundles and context reached the API.",
+        "label": "Source-first boundary",
+        "value": "raw not uploaded"
+      },
+      {
+        "detail": "10,771 occurrences were represented by selected evidence IDs and counts.",
+        "label": "Token compression",
+        "value": "140 items"
+      },
+      {
+        "detail": "Provider convergence creates review targets, not automatic causal truth.",
+        "label": "Human gate",
+        "value": "incident open"
+      }
+    ],
+    "summary": "The public URL is backed by a recorded e2e API run, provider hashes, schema validation, and read-only precomputed serving.",
+    "title": "AI workflow is operated as production software"
+  },
+  "evidence_sha256": "aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778",
+  "generation": {
+    "api_revision": "real-api-7d-target-explanations-20260630-regrouped-v2",
+    "generator": "ops_evidence_synthesis.precomputed_review",
+    "min_analysis_window_hours": 24,
+    "payload_sha256": "5aa30b021f8b87ff3eea64e87c2bdaf253837b4a8d69e6d7e58b79cd4a2b52f6",
+    "pipeline_run_id": "",
+    "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
+    "raw_log_policy": "not_uploaded",
+    "real_api_evidence_sha256": "aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778",
+    "schema_version": "precomputed_review_generation.v1",
+    "score_definition": "claimed successful providers / all successful providers",
+    "source_note": "generated from a recorded e2e API real provider run using a sanitized log corpus and optional sanitized source context"
+  },
+  "profile_context": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 384,
+    "context_is_not_incident_evidence": true,
+    "draft_schema_version": "profile_draft.v1",
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
+    "llm_status": "ok",
+    "metric_semantics_count": 352,
+    "profile_id": "stream_v3_dell_runtime_source_approved",
+    "purpose": "Streaming service for ADSB and YouTube with watchdog and recovery mechanisms.",
+    "required_human_decisions": [
+      "Approve or edit component roles before using this as an explicit profile.",
+      "Approve metric zero/increase/decrease semantics.",
+      "Confirm critical user outcomes.",
+      "Confirm read-only collector mappings before collection.",
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?"
+    ],
+    "schema_version": "profile_context_summary.v1",
+    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
+    "source_discovery_sha256": "38250bb07613e11b87239fec3e384547a9d4bfc582e4431e574b885234fc28f4",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains interpretation but runtime claims still require Evidence Item IDs.",
+    "system_type": "systemd_service"
+  },
+  "profile_draft_generation": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 384,
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
+    "llm_status": "ok",
+    "metric_semantics_count": 352,
+    "profile_id": "stream_v3_dell_runtime_source_approved",
+    "required_human_decisions": [
+      "Approve or edit component roles before using this as an explicit profile.",
+      "Approve metric zero/increase/decrease semantics.",
+      "Confirm critical user outcomes.",
+      "Confirm read-only collector mappings before collection.",
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?"
+    ],
+    "schema_version": "profile_draft_generation_summary.v1"
+  },
+  "provider_statuses": [
+    {
+      "display_name": "Vertex Gemini",
+      "failure_reason": "",
+      "input_tokens": 105276,
+      "latency_ms": 40135,
+      "model_name": "gemini-3.1-pro-preview",
+      "output_tokens": 1402,
+      "parsed_json_sha256": "57603edc279dd0907af2d2465b4aed5f1c90d061c146637604c6cf309e8505a5",
+      "provider_id": "gemini-enterprise-agent-platform",
+      "raw_output_sha256": "85c5007d988751f12141df0867a0bb0489acd76bbc2c74c110424b1bd89a8489",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "display_name": "GLM on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 80199,
+      "latency_ms": 80691,
+      "model_name": "zai-org/glm-5-maas",
+      "output_tokens": 5248,
+      "parsed_json_sha256": "41057b8bc3e122d2d468f7fdb04f2e4357ab8989e69b4b900e8899a1970725d2",
+      "provider_id": "glm-agent-platform",
+      "raw_output_sha256": "15b9a7c2e60dcc07230ce78cf83395a3c314ca569df33c0243a29415b67bdeb8",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "display_name": "Mistral on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 94401,
+      "latency_ms": 54265,
+      "model_name": "mistral-medium-3",
+      "output_tokens": 1609,
+      "parsed_json_sha256": "2198b67a4697965bd6ad881d6c48942e7e2880c9d9b60bdfcf5fbbe06f9554f4",
+      "provider_id": "mistral-agent-platform",
+      "raw_output_sha256": "7d6545b637ef7e14bdf254858dc7448a85cc99421d39c8e7804e667424572a5f",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "display_name": "gpt-oss on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 80120,
+      "latency_ms": 30078,
+      "model_name": "gpt-oss-120b-maas",
+      "output_tokens": 5613,
+      "parsed_json_sha256": "7556d7e75b475c9d9c4e7a92453546a9b74886193879a5d37a0a1019d2a905bc",
+      "provider_id": "openai-gpt-oss-on-vertex",
+      "raw_output_sha256": "e326892db848a9d8e8d3cdd0eed6cf81020d8ea4c00503f1e98ef985bba68593",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "display_name": "Qwen on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 87275,
+      "latency_ms": 31272,
+      "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
+      "output_tokens": 3384,
+      "parsed_json_sha256": "db56ccdf3282cfb5f9daa78bbbea8c70b96fdd98b48fcec120f4a2fb8fc61480",
+      "provider_id": "qwen-agent-platform",
+      "raw_output_sha256": "1bafc80794bed0b5f367810092b712a4fb86a165623c53536dceeac9446126cb",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    }
+  ],
+  "review_graph_summary": {
+    "auto_archived_count": 4,
+    "conflict_count": 0,
+    "convergence_count": 2,
+    "hidden_multi_provider_archived_count": 0,
+    "incident_baseline": "established",
+    "incident_baseline_established_count": 0,
+    "note": "Provider convergence is technical support only; causal and impact judgement remains human-gated. Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; it is not additive with target verdict counts.",
+    "partial_overlap_count": 1,
+    "primary_promoted_count": 0,
+    "provider_detection_overlap": "5/5",
+    "review_unit_convergence": "strong",
+    "rule_or_context_count": 0,
+    "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
+    "single_source_count": 1,
+    "summary": "The e2e API analyzed a 11,399-row sanitized log corpus with 5 schema-valid real provider output(s); 2 review unit(s) had at least two provider positions while impact remains human-gated.",
+    "targets_total": 3,
+    "technical_baseline": "established"
+  },
+  "schema_version": "precomputed_review_summary.v1",
+  "summary": {
+    "baselines": {
+      "incident": true,
+      "technical": true
+    },
+    "canonical_graph_sha256": "e281e51e08bea27f95071e7fe39a78376abf6b56d666f8de09136edb5b5ea5bb",
+    "canonical_graph_status": "computed_on_request",
+    "finding": {
+      "impact": "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid outputs. 0 primary candidate and 3 validation target(s) remain human-gated; incident promotion is not auto-accepted.",
+      "title": "Five real providers analyzed the 11,399-row stream_v3_runtime corpus"
+    },
+    "input_fingerprint_sha256": "e83991c8974951d4f348cddaee9b40ed3d55866b4ded46c5a0e169f1b2fef5d5",
+    "log_count": 11399,
+    "message": "",
+    "providers": {
+      "pipeline_status": "succeeded",
+      "success": 5,
+      "total": 5
+    },
+    "raw_log_policy": "not_uploaded",
+    "review": {
+      "auto_archived": 4,
+      "monitor_only": 2,
+      "primary_targets": 0,
+      "validation_targets": 3
+    },
+    "schema_version": "ui_summary.v1",
+    "status": "ok",
+    "updated_at": "2026-06-30T10:09:03Z"
+  },
+  "targets": [
+    {
+      "agreement": {
+        "convergence_score": 1.0,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "5/5 schema-valid providers projected this review unit from the 11,399-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "transport_sender",
+      "caveats": [],
+      "claim": "5/5 schema-valid providers projected transport_sender with 13 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
+      "class": "validation_target",
+      "counter_evidence_summary": [
+        "PATTERN-261: stall_streak: 0, suggesting this was a transient event.",
+        "PATTERN-261: State dump shows last_reason: healthy and net_fail_streak: 0, suggesting recovery.",
+        "PATTERN-009 logs successful cloudflare DNS probes (connected=true) with no timeout."
+      ],
+      "evidence_refs": [
+        "PATTERN-262",
+        "PATTERN-142",
+        "PATTERN-227",
+        "PATTERN-648",
+        "PATTERN-139",
+        "PATTERN-138",
+        "PATTERN-645",
+        "PATTERN-646",
+        "PATTERN-647",
+        "PATTERN-649",
+        "PATTERN-650",
+        "PATTERN-651",
+        "PATTERN-009"
+      ],
+      "evidence_summary": [
+        "PATTERN-262 shows fast_recovery triggering due to low upload pressure (send_mbps=2.89<=3.2).",
+        "PATTERN-262 shows a critical event indicating low upload pressure with specific metrics on bytes sent and not sent.",
+        "PATTERN-262: low upload pressure: send_mbps=2.89<=3.2, notsent=876405.",
+        "PATTERN-142: Error closing file rtmps://... Input/output error.",
+        "PATTERN-227: Error writing trailer ... Broken pipe.",
+        "PATTERN-648: tls ... IO error: Broken pipe.",
+        "PATTERN-139: ffmpeg exited with code 1. Restarting in 5s...",
+        "PATTERN-262: Log explicitly states the target unit 'adsb-streamnew-youtube-stream.service' was triggered for restart due to 'low_upload_pressure'.",
+        "PATTERN-138, PATTERN-139: Logs indicate ffmpeg exited and was restarted, consistent with a recovery action.",
+        "PATTERN-142 shows Input/output error closing RTMPS file.",
+        "PATTERN-227 shows Broken pipe writing trailer.",
+        "PATTERN-139 shows ffmpeg exited with code 1 and restarting.",
+        "PATTERN-262: Critical log entry shows fast recovery triggered by low upload pressure metrics (send_mbps, notsent bytes, unacked packets).",
+        "PATTERN-142: 'Error closing file rtmps://...: Input/output error' indicates failure to close the stream cleanly.",
+        "PATTERN-227: 'Error writing trailer of rtmps://...: Broken pipe' shows the connection was broken during finalization.",
+        "PATTERN-645 reports a TLS push‑function error.",
+        "PATTERN-646 reports another TLS push‑function error.",
+        "PATTERN-647 reports a TLS push‑function error.",
+        "PATTERN-648 reports a TLS IO error: Broken pipe.",
+        "PATTERN-649 reports a TLS error: Broken pipe.",
+        "PATTERN-650 reports a TLS error: End of file.",
+        "PATTERN-651 reports a TLS push‑function error.",
+        "PATTERN-651, PATTERN-649, PATTERN-650: Logs show 'Error in the push/pull function' from the TLS module.",
+        "PATTERN-648, PATTERN-646, PATTERN-647, PATTERN-645: Subsequent IO errors ('Broken pipe', 'End of file') indicate connection failures.",
+        "PATTERN-227 shows an error writing trailer of RTMPS URL due to a broken pipe.",
+        "PATTERN-142 shows an error closing file RTMPS URL due to an input/output error.",
+        "PATTERN-648 shows an IO error: Broken pipe in the TLS context.",
+        "PATTERN-651 shows an error in the TLS push function.",
+        "PATTERN-650 shows an error in the TLS pull function.",
+        "PATTERN-649 shows an IO error in the TLS context."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "ISP bandwidth metrics.",
+        "Detailed network interface packet drop metrics.",
+        "Network interface statistics (e.g., from `ifconfig` or `ip -s link`) during the incident window.",
+        "Packet capture (e.g., tcpdump) data showing RTMPS traffic during the incident.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Did the WAN link experience a bandwidth drop or latency spike?",
+      "operational_mechanism": "The fast_recovery watchdog detected send_mbps=2.89 (<=3.2) with unacked packets, triggering a recovery action on the youtube-stream service.",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "5/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 5,
+      "provider_positions": [
+        {
+          "model_run_hash": "85c5007d9887",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "15b9a7c2e60d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "7d6545b637ef",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "e326892db848",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "1bafc80794be",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "547040605b8020bdd5998e1b",
+        "rollup_provider_ratio": 0.4167,
+        "source_candidate_count": 12
+      },
+      "recommended_request_type": "instrumentation_consistency_query",
+      "review_priority_score": 0.86,
+      "review_reason": {
+        "factors": [
+          "5/5 schema-valid providers independently projected the normalized review unit `transport_sender`.",
+          "13 cited Evidence Item(s) tie the unit back to the 11,399-row sanitized corpus.",
+          "12 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.417).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `transport_sender` worth human validation.",
+        "operator_question": "Run `instrumentation_consistency_query` to decide whether `transport_sender` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-5cb47173f2a86bbe4712",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "network_transport",
+      "suspected_issue": "Insufficient upload bandwidth or network stall.",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "PATTERN-261: stall_streak: 0, suggesting this was a transient event.",
+          "PATTERN-261: State dump shows last_reason: healthy and net_fail_streak: 0, suggesting recovery.",
+          "PATTERN-009 logs successful cloudflare DNS probes (connected=true) with no timeout."
+        ],
+        "evidence_summary": [
+          "PATTERN-262 shows fast_recovery triggering due to low upload pressure (send_mbps=2.89<=3.2).",
+          "PATTERN-262 shows a critical event indicating low upload pressure with specific metrics on bytes sent and not sent.",
+          "PATTERN-262: low upload pressure: send_mbps=2.89<=3.2, notsent=876405.",
+          "PATTERN-142: Error closing file rtmps://... Input/output error.",
+          "PATTERN-227: Error writing trailer ... Broken pipe.",
+          "PATTERN-648: tls ... IO error: Broken pipe.",
+          "PATTERN-139: ffmpeg exited with code 1. Restarting in 5s...",
+          "PATTERN-262: Log explicitly states the target unit 'adsb-streamnew-youtube-stream.service' was triggered for restart due to 'low_upload_pressure'.",
+          "PATTERN-138, PATTERN-139: Logs indicate ffmpeg exited and was restarted, consistent with a recovery action.",
+          "PATTERN-142 shows Input/output error closing RTMPS file.",
+          "PATTERN-227 shows Broken pipe writing trailer.",
+          "PATTERN-139 shows ffmpeg exited with code 1 and restarting.",
+          "PATTERN-262: Critical log entry shows fast recovery triggered by low upload pressure metrics (send_mbps, notsent bytes, unacked packets).",
+          "PATTERN-142: 'Error closing file rtmps://...: Input/output error' indicates failure to close the stream cleanly.",
+          "PATTERN-227: 'Error writing trailer of rtmps://...: Broken pipe' shows the connection was broken during finalization.",
+          "PATTERN-645 reports a TLS push‑function error.",
+          "PATTERN-646 reports another TLS push‑function error.",
+          "PATTERN-647 reports a TLS push‑function error.",
+          "PATTERN-648 reports a TLS IO error: Broken pipe.",
+          "PATTERN-649 reports a TLS error: Broken pipe.",
+          "PATTERN-650 reports a TLS error: End of file.",
+          "PATTERN-651 reports a TLS push‑function error.",
+          "PATTERN-651, PATTERN-649, PATTERN-650: Logs show 'Error in the push/pull function' from the TLS module.",
+          "PATTERN-648, PATTERN-646, PATTERN-647, PATTERN-645: Subsequent IO errors ('Broken pipe', 'End of file') indicate connection failures.",
+          "PATTERN-227 shows an error writing trailer of RTMPS URL due to a broken pipe.",
+          "PATTERN-142 shows an error closing file RTMPS URL due to an input/output error.",
+          "PATTERN-648 shows an IO error: Broken pipe in the TLS context.",
+          "PATTERN-651 shows an error in the TLS push function.",
+          "PATTERN-650 shows an error in the TLS pull function.",
+          "PATTERN-649 shows an IO error in the TLS context."
+        ],
+        "next_validation_question": "Did the WAN link experience a bandwidth drop or latency spike?",
+        "operational_mechanism": "The fast_recovery watchdog detected send_mbps=2.89 (<=3.2) with unacked packets, triggering a recovery action on the youtube-stream service.",
+        "provider_explanations": [
+          {
+            "claim_text": "A low upload pressure event was triggered due to send_mbps dropping below the threshold.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-262"
+            ],
+            "next_validation_question": "Did the WAN link experience a bandwidth drop or latency spike?",
+            "operational_mechanism": "The fast_recovery watchdog detected send_mbps=2.89 (<=3.2) with unacked packets, triggering a recovery action on the youtube-stream service.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Insufficient upload bandwidth or network stall.",
+            "why_it_matters": "Low upload pressure directly degrades stream quality and can cause the ingest server to disconnect.",
+            "why_not_promoted": "Need to correlate with WAN link status."
+          },
+          {
+            "claim_text": "The system experienced low upload pressure, which could indicate network congestion or issues with the YouTube ingest endpoint.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-262"
+            ],
+            "next_validation_question": "Are there any corresponding viewer complaints or drops in viewership during the times of low upload pressure?",
+            "operational_mechanism": "The fast recovery mechanism monitors the upload pressure and triggers alerts or recovery actions when the pressure is low.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "Low upload pressure in the RTMPS/ffmpeg process",
+            "why_it_matters": "Low upload pressure can lead to buffering or interruptions in the stream, affecting the viewer experience. The user impact is unverified as there is no direct evidence of viewer complaints.",
+            "why_not_promoted": "While the low upload pressure is a concern, there is no direct evidence linking it to a specific user impact or a drop in stream quality."
+          },
+          {
+            "claim_text": "A low upload pressure event was detected, indicating a potential send stall.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-262"
+            ],
+            "next_validation_question": "Did the low upload pressure persist or recover immediately?",
+            "operational_mechanism": "Fast recovery monitor detected send_mbps dropped below threshold with high notsent bytes.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "Network congestion or remote endpoint flow control causing data to back up in the send buffer.",
+            "why_it_matters": "Could lead to increased latency or buffering for viewers if sustained.",
+            "why_not_promoted": "Single event; stall streak is zero; need to see if this persisted."
+          },
+          {
+            "claim_text": "ffmpeg process experienced TLS transport errors (Broken pipe, EOF) leading to restarts.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-142",
+              "PATTERN-227",
+              "PATTERN-648",
+              "PATTERN-139"
+            ],
+            "next_validation_question": "Did the restart duration exceed the viewer buffer tolerance?",
+            "operational_mechanism": "ffmpeg writes to RTMPS endpoint; TLS layer reports IO errors; process exits with code 1; supervisor restarts.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "Intermittent network or remote endpoint disconnection during RTMPS push.",
+            "why_it_matters": "Stream continuity is interrupted; viewers may experience buffering or dropouts during restart windows.",
+            "why_not_promoted": "Errors are transient and followed by restarts; need to confirm if user impact occurred during the restart windows."
+          },
+          {
+            "claim_text": "The fast recovery mechanism successfully restarted the stream after detecting low upload pressure.",
+            "claim_type": "validation_target",
+            "evidence_refs": [
+              "PATTERN-262",
+              "PATTERN-138",
+              "PATTERN-139"
+            ],
+            "next_validation_question": "How many times did the fast recovery mechanism trigger during this incident, and was the underlying issue resolved after the restart?",
+            "operational_mechanism": "The fast_recovery service is designed to restart the stream service when certain conditions (like low upload pressure) are met.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Fast recovery loop masking a deeper issue.",
+            "why_it_matters": "While restarts can mitigate temporary issues, frequent restarts might indicate a persistent underlying problem and could lead to stream unavailability or data loss.",
+            "why_not_promoted": "This validates the recovery mechanism's function but does not address the root cause of the low upload pressure."
+          },
+          {
+            "claim_text": "The RTMPS transport experienced broken pipes and I/O errors, causing the ffmpeg process to exit and restart.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-142",
+              "PATTERN-227",
+              "PATTERN-139"
+            ],
+            "next_validation_question": "Are there corresponding network interface drops or ISP outages during this time?",
+            "operational_mechanism": "Network instability or remote server closure caused the TCP connection for RTMPS to break, leading ffmpeg to fail writing the trailer and exit with code 1, which triggered a restart loop.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "RTMPS connection failure and ffmpeg crash.",
+            "why_it_matters": "If ffmpeg crashes and the RTMPS connection drops, the live stream ingest stops, causing viewer impact.",
+            "why_not_promoted": "Need to confirm if this was a transient network drop or a persistent issue."
+          },
+          {
+            "claim_text": "Low upload pressure triggered a fast recovery event, indicating potential network transport issues affecting RTMPS stream stability.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-262"
+            ],
+            "next_validation_question": "What network conditions or local resource constraints caused the sustained low upload pressure and high unsent/unacked bytes?",
+            "operational_mechanism": "The fast_recovery service detected low upload pressure (send_mbps=2.89<=3.2) with significant unsent bytes (876405) and unacked packets (595), triggering a restart of the adsb-streamnew-youtube-stream.service unit.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Low upload pressure causing ffmpeg stream instability.",
+            "why_it_matters": "This directly impacts the RTMPS stream's ability to maintain a stable connection to YouTube, risking stream interruption or degradation.",
+            "why_not_promoted": "While this is a strong indicator of network transport issues, it's a recovery action rather than the root cause of the pressure itself."
+          },
+          {
+            "claim_text": "Need evidence of network interface statistics and packet loss to confirm network transport issues.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "",
+            "operational_mechanism": "Network interface counters (tx_errors, tx_dropped, collisions) and packet capture analysis can reveal if the network layer is the bottleneck.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Network interface saturation or packet loss causing upload pressure.",
+            "why_it_matters": "Confirming network issues is crucial to differentiate between local and external causes of stream instability.",
+            "why_not_promoted": "No network interface statistics or packet capture data is available in the current evidence bundle."
+          },
+          {
+            "claim_text": "RTMPS stream connection issues led to errors when closing the stream file and writing the trailer.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-142",
+              "PATTERN-227"
+            ],
+            "next_validation_question": "What specific network or server-side event caused the RTMPS connection to break?",
+            "operational_mechanism": "After TLS and IO errors, ffmpeg failed to properly close the RTMPS file handle, resulting in 'Input/output error' and 'Broken pipe' when writing the stream trailer.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "RTMPS connection instability causing ffmpeg to fail gracefully closing the stream.",
+            "why_it_matters": "This confirms that the RTMPS connection was unstable or broken, leading to an improper stream termination.",
+            "why_not_promoted": "This is a consequence of the TLS/IO errors, not the root cause."
+          },
+          {
+            "claim_text": "TLS errors in the RTMPS layer are causing the broken‑pipe failures.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-645",
+              "PATTERN-646",
+              "PATTERN-647",
+              "PATTERN-648",
+              "PATTERN-649",
+              "PATTERN-650",
+              "PATTERN-651"
+            ],
+            "next_validation_question": "Do the timestamps of the TLS errors align with the broken‑pipe error (PATTERN-227) for the same ffmpeg process?",
+            "operational_mechanism": "TLS errors (push/pull failures, IO errors) surface in the ffmpeg stderr and can terminate the RTMPS stream, resulting in broken‑pipe logs.",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "TLS handshake or data‑transfer failures interrupt the RTMPS connection used by ffmpeg.",
+            "why_it_matters": "Interrupted TLS sessions stop video delivery to YouTube, leading to service degradation.",
+            "why_not_promoted": "TLS errors may be unrelated background noise; a direct temporal link to the RTMPS broken‑pipe event is required."
+          },
+          {
+            "claim_text": "TLS errors occurred during the RTMPS stream, suggesting potential issues with the secure connection to YouTube.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-651",
+              "PATTERN-649",
+              "PATTERN-650",
+              "PATTERN-648",
+              "PATTERN-646",
+              "PATTERN-647",
+              "PATTERN-645"
+            ],
+            "next_validation_question": "Are there corresponding errors or timeouts on YouTube's side, or is there evidence of local certificate/configuration issues?",
+            "operational_mechanism": "ffmpeg's TLS module reported errors in both push and pull functions, followed by IO errors like 'Broken pipe' and 'End of file', indicating connection breakdowns.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "TLS handshake or data transfer failures in the RTMPS stream.",
+            "why_it_matters": "TLS errors can lead to stream interruption or failure to establish/maintain a connection with YouTube's ingest servers.",
+            "why_not_promoted": "TLS errors are symptomatic and could be caused by various underlying issues (network, server-side, local configuration)."
+          },
+          {
+            "claim_text": "The RTMPS/ffmpeg process experienced multiple broken pipe errors, indicating potential issues with the network transport or the YouTube ingest endpoint.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-227",
+              "PATTERN-142",
+              "PATTERN-648"
+            ],
+            "next_validation_question": "Are there any corresponding viewer complaints or drops in viewership during the times of these broken pipe errors?",
+            "operational_mechanism": "The ffmpeg process is responsible for encoding and sending the stream to the RTMPS endpoint. Broken pipe errors suggest that the connection to the endpoint was abruptly terminated.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "Broken pipe errors in the RTMPS/ffmpeg process",
+            "why_it_matters": "This could lead to interruptions in the stream, affecting the viewer experience. The user impact is unverified as there is no direct evidence of viewer complaints or drop in viewership.",
+            "why_not_promoted": "While the broken pipe errors are concerning, there is no direct evidence linking these errors to a specific user impact or a drop in stream quality."
+          },
+          {
+            "claim_text": "There were errors in the TLS push and pull functions, which could indicate issues with the secure transport layer.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-651",
+              "PATTERN-650",
+              "PATTERN-649"
+            ],
+            "next_validation_question": "Are there any corresponding viewer complaints or drops in viewership during the times of these TLS errors?",
+            "operational_mechanism": "The TLS layer is responsible for securing the data transport between the ffmpeg process and the YouTube ingest endpoint. Errors in the push/pull functions suggest issues with the secure transport layer.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "TLS push/pull function errors",
+            "why_it_matters": "These errors could lead to data corruption or loss during transport, affecting the stream quality. The user impact is unverified as there is no direct evidence of viewer complaints.",
+            "why_not_promoted": "While the TLS errors are concerning, there is no direct evidence linking these errors to a specific user impact or a drop in stream quality."
+          },
+          {
+            "claim_text": "Network connectivity appears healthy, weakening the hypothesis that network timeouts caused the RTMPS failures.",
+            "claim_type": "counter_evidence",
+            "evidence_refs": [
+              "PATTERN-009"
+            ],
+            "next_validation_question": "Are there any low‑level network error logs (e.g., packet loss, retransmissions) overlapping the broken‑pipe timestamps?",
+            "operational_mechanism": "The fast_recovery persistent‑tcp‑anchor observer logs successful DNS probes and established connections, indicating no packet loss or DNS failure at the time of the incident.",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Persistent TCP anchor observer reports successful connections, suggesting the network path is not the root cause.",
+            "why_it_matters": "If the network is healthy, focus should shift to other subsystems such as ffmpeg or TLS.",
+            "why_not_promoted": "While the probe succeeded, it does not rule out transient spikes that could affect RTMPS."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Insufficient upload bandwidth or network stall.",
+        "why_it_matters": "Low upload pressure directly degrades stream quality and can cause the ingest server to disconnect.",
+        "why_not_promoted": "Need to correlate with WAN link status."
+      },
+      "target_id": "cog-5cb47173f2a86bbe4712",
+      "title": "Review target requires validation: network_transport",
+      "why_it_matters": "Low upload pressure directly degrades stream quality and can cause the ingest server to disconnect.",
+      "why_not_promoted": "Need to correlate with WAN link status."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.6,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "3/5 schema-valid providers projected this review unit from the 11,399-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "youtube_health",
+      "caveats": [],
+      "claim": "3/5 schema-valid providers projected youtube_health with 3 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
+      "class": "validation_target",
+      "counter_evidence_summary": [
+        "Promotion blocker: user_impact_unverified."
+      ],
+      "evidence_refs": [
+        "PATTERN-652",
+        "PATTERN-654",
+        "PATTERN-142"
+      ],
+      "evidence_summary": [
+        "PATTERN-652 and PATTERN-654 show status degraded_public and watch page check skipped.",
+        "PATTERN-652: Health status log shows 'degraded_public' but 'watch page check skipped (no YTW_LIVE_URL)'.",
+        "PATTERN-654: Warning log confirms 'public degraded while availability is healthy' due to skipped checks.",
+        "PATTERN-142 shows degraded_public status with \"watch page check skipped (no YTW_LIVE_URL)\" while ingest_connected is true."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "YouTube API response logs for the subsequent checks.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Did the YouTube API eventually return a valid live URL after the ingest reconnected?",
+      "operational_mechanism": "The youtube_watchdog could not resolve the YTW_LIVE_URL, marking the public status as degraded while the ingest connection was still established.",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "3/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 3,
+      "provider_positions": [
+        {
+          "model_run_hash": "85c5007d9887",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "15b9a7c2e60d",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "glm-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "7d6545b637ef",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "e326892db848",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "1bafc80794be",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 0.975,
+        "canonical_group_key": "9c7d38ec2011cdf600213416",
+        "rollup_provider_ratio": 1.0,
+        "source_candidate_count": 2
+      },
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.86,
+      "review_reason": {
+        "factors": [
+          "3/5 schema-valid providers independently projected the normalized review unit `youtube_health`.",
+          "3 cited Evidence Item(s) tie the unit back to the 11,399-row sanitized corpus.",
+          "2 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 1.000).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `youtube_health` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `youtube_health` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-70326f86338c9039377d",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "youtube_health",
+      "suspected_issue": "YouTube live stream public availability degraded.",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "Promotion blocker: user_impact_unverified."
+        ],
+        "evidence_summary": [
+          "PATTERN-652 and PATTERN-654 show status degraded_public and watch page check skipped.",
+          "PATTERN-652: Health status log shows 'degraded_public' but 'watch page check skipped (no YTW_LIVE_URL)'.",
+          "PATTERN-654: Warning log confirms 'public degraded while availability is healthy' due to skipped checks.",
+          "PATTERN-142 shows degraded_public status with \"watch page check skipped (no YTW_LIVE_URL)\" while ingest_connected is true."
+        ],
+        "next_validation_question": "Did the YouTube API eventually return a valid live URL after the ingest reconnected?",
+        "operational_mechanism": "The youtube_watchdog could not resolve the YTW_LIVE_URL, marking the public status as degraded while the ingest connection was still established.",
+        "provider_explanations": [
+          {
+            "claim_text": "YouTube health monitor reported a degraded public status due to an unresolved video ID and skipped watch page check.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-652",
+              "PATTERN-654"
+            ],
+            "next_validation_question": "Did the YouTube API eventually return a valid live URL after the ingest reconnected?",
+            "operational_mechanism": "The youtube_watchdog could not resolve the YTW_LIVE_URL, marking the public status as degraded while the ingest connection was still established.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "YouTube live stream public availability degraded.",
+            "why_it_matters": "Viewers cannot access the live stream if the watch page is unresolved or degraded.",
+            "why_not_promoted": "Need to verify if the stream recovered automatically after ffmpeg restarted."
+          },
+          {
+            "claim_text": "YouTube ingest health status is ambiguous due to missing watch URL evidence, preventing confirmation of user impact.",
+            "claim_type": "caveat",
+            "evidence_refs": [
+              "PATTERN-652",
+              "PATTERN-654"
+            ],
+            "next_validation_question": "Was the stream actually watchable on YouTube during this period, and if not, what specific error did users encounter?",
+            "operational_mechanism": "Health checks reported 'degraded_public' status but skipped the watch page check due to a missing YTW_LIVE_URL, making it impossible to verify if the stream was actually watchable.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Potential YouTube ingest degradation without confirmed user impact.",
+            "why_it_matters": "Without confirmation of user impact, the incident's severity regarding end-user experience remains unclear.",
+            "why_not_promoted": "The lack of watch URL evidence prevents a definitive conclusion about user impact."
+          },
+          {
+            "claim_text": "The YouTube watch‑page URL is missing, causing the health contract to report a degraded public state.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-142"
+            ],
+            "next_validation_question": "Is the YTW_LIVE_URL environment variable set for the youtube‑monitor service during the incident window?",
+            "operational_mechanism": "adsb-streamnew-youtube-monitor reads the YTW_LIVE_URL environment variable; when absent it logs a watch‑page skip and sets degraded_public status.",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "The watchdog skips the watch‑page check because YTW_LIVE_URL is unset, marking the service as degraded_public even though ingest remains connected.",
+            "why_it_matters": "Health dashboards may show a degraded state while the stream is actually live, confusing operators and potentially delaying response.",
+            "why_not_promoted": "Ingest connection remains healthy; impact on actual viewer experience is unclear."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "YouTube live stream public availability degraded.",
+        "why_it_matters": "Viewers cannot access the live stream if the watch page is unresolved or degraded.",
+        "why_not_promoted": "Need to verify if the stream recovered automatically after ffmpeg restarted."
+      },
+      "target_id": "cog-70326f86338c9039377d",
+      "title": "Review target requires validation: youtube_health",
+      "why_it_matters": "Viewers cannot access the live stream if the watch page is unresolved or degraded.",
+      "why_not_promoted": "Need to verify if the stream recovered automatically after ffmpeg restarted."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.2,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "1/5 schema-valid providers projected this review unit from the 11,399-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "open",
+        "verdict": "single_source"
+      },
+      "canonical_review_unit": "job_configuration",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "counter_evidence_summary": [
+        "PATTERN-652: ingest_connected: true, stream_active: true, indicating the stream itself is running."
+      ],
+      "evidence_refs": [
+        "PATTERN-652",
+        "PATTERN-654"
+      ],
+      "evidence_summary": [
+        "PATTERN-652: status degraded_public, watch page check skipped (no YTW_LIVE_URL).",
+        "PATTERN-654: public degraded while availability is healthy, watch page check skipped (no YTW_LIVE_URL)."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Is the YTW_LIVE_URL intended to be set for this stream?",
+      "operational_mechanism": "Watchdog attempts to check public watch page; skips check due to missing URL; reports degraded_public status.",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "A single provider surfaced this target; it needs corroboration before promotion.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 1,
+      "provider_positions": [
+        {
+          "model_run_hash": "85c5007d9887",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "15b9a7c2e60d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "7d6545b637ef",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "e326892db848",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "1bafc80794be",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "silent"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 0.6,
+        "canonical_group_key": "a9dd14042f8896452e541890",
+        "rollup_provider_ratio": 0.0,
+        "source_candidate_count": 1
+      },
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.625,
+      "review_reason": {
+        "factors": [
+          "1/5 schema-valid providers independently projected the normalized review unit `job_configuration`.",
+          "2 cited Evidence Item(s) tie the unit back to the 11,399-row sanitized corpus.",
+          "1 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.000).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `job_configuration` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `job_configuration` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-d924be11f3e4f0035105",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "job_configuration",
+      "suspected_issue": "Missing or empty YTW_LIVE_URL environment variable preventing watch page verification.",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "PATTERN-652: ingest_connected: true, stream_active: true, indicating the stream itself is running."
+        ],
+        "evidence_summary": [
+          "PATTERN-652: status degraded_public, watch page check skipped (no YTW_LIVE_URL).",
+          "PATTERN-654: public degraded while availability is healthy, watch page check skipped (no YTW_LIVE_URL)."
+        ],
+        "next_validation_question": "Is the YTW_LIVE_URL intended to be set for this stream?",
+        "operational_mechanism": "Watchdog attempts to check public watch page; skips check due to missing URL; reports degraded_public status.",
+        "provider_explanations": [
+          {
+            "claim_text": "YouTube public status is degraded due to missing YTW_LIVE_URL configuration.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-652",
+              "PATTERN-654"
+            ],
+            "next_validation_question": "Is the YTW_LIVE_URL intended to be set for this stream?",
+            "operational_mechanism": "Watchdog attempts to check public watch page; skips check due to missing URL; reports degraded_public status.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "Missing or empty YTW_LIVE_URL environment variable preventing watch page verification.",
+            "why_it_matters": "Automated monitoring cannot verify public visibility; operators may be unaware if the stream is actually public or unlisted/private.",
+            "why_not_promoted": "The stream is active and connected; the issue is purely observability/configuration, not necessarily a runtime failure of the stream itself."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Missing or empty YTW_LIVE_URL environment variable preventing watch page verification.",
+        "why_it_matters": "Automated monitoring cannot verify public visibility; operators may be unaware if the stream is actually public or unlisted/private.",
+        "why_not_promoted": "The stream is active and connected; the issue is purely observability/configuration, not necessarily a runtime failure of the stream itself."
+      },
+      "target_id": "cog-d924be11f3e4f0035105",
+      "title": "Review target requires validation: job_configuration",
+      "why_it_matters": "Automated monitoring cannot verify public visibility; operators may be unaware if the stream is actually public or unlisted/private.",
+      "why_not_promoted": "The stream is active and connected; the issue is purely observability/configuration, not necessarily a runtime failure of the stream itself."
+    }
+  ],
+  "updated_at": "2026-06-30T10:09:03Z"
+}

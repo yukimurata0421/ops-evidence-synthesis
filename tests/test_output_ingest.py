@@ -7,7 +7,7 @@ from typing import Any
 
 from ops_evidence_synthesis.ai.base import ModelResponse
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
-from ops_evidence_synthesis.synthesis.output_ingest import parse_model_output
+from ops_evidence_synthesis.synthesis.output_ingest import merge_candidate_observations, parse_model_output
 from ops_evidence_synthesis.synthesis.pipeline import run_model_stage
 from ops_evidence_synthesis.synthesis.review_arbitration import resolve_canonical_review_graph_snapshot
 
@@ -221,3 +221,51 @@ def test_canonical_observation_groups_roll_up_transport_aliases(tmp_path: Path) 
     assert target["source_candidate_count"] == 2
     assert set(target["source_target_ids"]) == {"rtmps-target", "network-target"}
     assert target["canonical_review_unit"] == "transport_sender"
+
+
+def test_canonical_observation_groups_split_general_mixed_evidence_families() -> None:
+    candidates = [
+        {
+            "review_target_id": "network-general",
+            "title": "Review target requires validation: general",
+            "core_target_type": "general_review",
+            "subsystem": "general",
+            "suspected_issue": "Network connectivity interruptions to the upstream anchor service",
+            "operational_mechanism": "tcp anchor observer timeout while probing Cloudflare",
+            "evidence_refs": ["PATTERN-005"],
+            "providers": ["provider-a"],
+            "review_priority_score": 0.62,
+        },
+        {
+            "review_target_id": "exception-general",
+            "title": "Review target requires validation: general",
+            "core_target_type": "general_review",
+            "subsystem": "general",
+            "suspected_issue": "Exception occurred during request processing",
+            "operational_mechanism": "Traceback from request processing path",
+            "evidence_refs": ["PATTERN-098", "PATTERN-099"],
+            "providers": ["provider-b"],
+            "review_priority_score": 0.61,
+        },
+        {
+            "review_target_id": "memory-general",
+            "title": "Review target requires validation: general",
+            "core_target_type": "general_review",
+            "subsystem": "general",
+            "suspected_issue": "Memory pressure causing service instability",
+            "operational_mechanism": "stream_v3_memory_critical_count crossed a critical threshold",
+            "evidence_refs": ["PATTERN-1504"],
+            "providers": ["provider-c"],
+            "review_priority_score": 0.6,
+        },
+    ]
+
+    merged, groups = merge_candidate_observations(candidates, evidence_sha256="a" * 64)
+
+    assert len(merged) == 3
+    assert len(groups) == 3
+    assert {row["canonical_review_unit"] for row in merged} == {
+        "resource_pressure",
+        "runtime_exception",
+        "transport_sender",
+    }

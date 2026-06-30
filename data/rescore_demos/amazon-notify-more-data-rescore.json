@@ -4,8 +4,8 @@
   "title": "More data child bundle changed the promotion decision",
   "updated_at": "2026-06-29T00:00:00Z",
   "public_url": "https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore",
-  "source_review_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
-  "source_evidence_sha256": "7e95346cbf15de7f104631b72d784e02665d0cc1488e42a4ccf69b76fe47308d",
+  "source_review_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
+  "source_evidence_sha256": "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
   "control_plane": {
     "primary_provider": "gemini-enterprise-agent-platform",
     "baseline_provider": "gemini-enterprise-agent-platform",

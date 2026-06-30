@@ -1,6 +1,6 @@
 # Submission Checklist
 
-Status as of 2026-06-29 after the public Cloud Run deployment.
+Status as of 2026-06-30 after the public Cloud Run deployment.
 
 ## Official Sources Checked
 
@@ -35,8 +35,8 @@ is for a different event.
 - Cloud Run service: `ops-evidence-api`
 - Cloud Run region: `asia-northeast1`
 - Public custom domain: https://ops-evidence.yukimurata0421.dev/
-- Deployed revision: `ops-evidence-api-00136-xf5`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:3520027ce775ae779a7c8c262884392b0b8c7c66ac9b9e66c7eb919a0719b404`
+- Deployed revision: `ops-evidence-api-00150-d8d`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:fa1b4d17d42d5ddd329459f490fe053db75a022dd6e6347fdd8de1cc4df929dc`
 - Public smoke after deploy: passed
 - Cloud Run min instances: `1`
 - Billing budget alert: `Ops Evidence Hackathon Budget`, 3000 JPY/month, project-filtered to `ops-evidence-synthesis`

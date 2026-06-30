@@ -87,9 +87,9 @@ The current real-provider public cases use these bounded projections:
 
 | Case | Sanitized rows | Grouped Evidence Items | Prompt Evidence Items | Prompt occurrences | Coverage |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| amazon-notify real API | 6,506 | 1,639 | 140 | 4,939 | 75.9% |
-| stream_v3 Dell runtime | 8,011 | 654 | 140 | 7,383 | 92.2% |
-| stream_v3 arena-server monitoring | 5,055 | 1,680 | 140 | 496 | 9.8% |
+| amazon-notify real API | 23,400 | 2,759 | 140 | 19,649 | 84.0% |
+| stream_v3 Dell runtime | 11,399 | 654 | 140 | 10,771 | 94.5% |
+| stream_v3 arena-server monitoring | 4,747 | 1,520 | 140 | 496 | 10.4% |
 
 The difference in coverage is expected. Dell runtime had many repeated runtime
 patterns, so 140 selected items covered most occurrences. The arena-server

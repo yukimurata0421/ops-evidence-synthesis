@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -39,6 +40,7 @@ from ops_evidence_synthesis.timeutils import utc_now
 MODEL_RUN_SCHEMA_VERSION = "model_run.v1"
 MULTI_AI_SYNTHESIS_SCHEMA_VERSION = "multi_ai_synthesis.v1"
 SCORE_NOTE = "Score is review priority, not truth probability."
+_EVIDENCE_REF_RE = re.compile(r"\b(?:PATTERN|LOG|EV|EVIDENCE)-\d+\b")
 SUPPORTED_MODEL_STATUSES = {
     "ok",
     "failed",
@@ -562,6 +564,7 @@ def _run_single_provider(
     parsed_result = _empty_parsed_result()
     schema_valid = False
     schema_errors: tuple[str, ...] = ()
+    schema_repair_rules: tuple[str, ...] = ()
     output_parse = parse_model_output(response.raw_output)
     if status == "ok":
         if output_parse.parsed is None:
@@ -574,9 +577,12 @@ def _run_single_provider(
             }
             schema_errors = output_parse.parse_errors
         else:
-            schema_valid, schema_errors = validate_claim_result(output_parse.parsed)
-            parsed_payload = output_parse.parsed
-            parsed_result = _parsed_result_payload(output_parse.parsed)
+            parsed_payload, schema_repair_rules = _normalize_claim_result_payload(
+                output_parse.parsed,
+                known_refs=_known_evidence_refs(bundle),
+            )
+            schema_valid, schema_errors = validate_claim_result(parsed_payload)
+            parsed_result = _parsed_result_payload(parsed_payload)
     else:
         parsed_payload = _empty_parsed_result()
     artifact = _artifact_from_response(
@@ -593,6 +599,7 @@ def _run_single_provider(
         retry=provider_result.retry_metadata(),
         cost_estimate=cost_estimate_for_response(response),
         output_parse=output_parse,
+        schema_repair_rules=schema_repair_rules,
     )
     return _ArtifactEnvelope(
         artifact=artifact,
@@ -617,8 +624,13 @@ def _artifact_from_response(
     retry: dict[str, Any] | None = None,
     cost_estimate: dict[str, Any] | None = None,
     output_parse: Any | None = None,
+    schema_repair_rules: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     parsed_json_sha256 = sha256_json(parsed_payload) if parsed_payload else ""
+    repair_rules = [
+        *list(getattr(output_parse, "repair_rules", ()) or ()),
+        *list(schema_repair_rules),
+    ]
     return {
         "schema_version": MODEL_RUN_SCHEMA_VERSION,
         "run_id": f"run-{uuid.uuid4().hex[:16]}",
@@ -633,8 +645,8 @@ def _artifact_from_response(
         "raw_output_sha256": sha256_text(response.raw_output),
         "parsed_json_sha256": parsed_json_sha256,
         "parse_status": str(getattr(output_parse, "parse_status", "not_run") or "not_run"),
-        "repair_applied": bool(getattr(output_parse, "repair_applied", False)),
-        "repair_rules": list(getattr(output_parse, "repair_rules", ()) or ()),
+        "repair_applied": bool(getattr(output_parse, "repair_applied", False) or schema_repair_rules),
+        "repair_rules": repair_rules,
         "repaired_output_sha256": str(getattr(output_parse, "repaired_output_sha256", "") or ""),
         "schema_valid": bool(schema_valid),
         "schema_errors": list(schema_errors),
@@ -659,6 +671,55 @@ def _artifact_from_response(
         },
         "created_at": utc_now(),
     }
+
+
+def _normalize_claim_result_payload(
+    payload: dict[str, Any],
+    *,
+    known_refs: set[str],
+) -> tuple[dict[str, Any], tuple[str, ...]]:
+    claims = payload.get("claims")
+    if not isinstance(claims, list):
+        return payload, ()
+
+    changed = False
+    normalized_claims: list[Any] = []
+    rules: list[str] = []
+    for index, claim in enumerate(claims):
+        if not isinstance(claim, dict):
+            normalized_claims.append(claim)
+            continue
+        refs = _string_list(claim.get("evidence_refs"))
+        if refs:
+            normalized_claims.append(claim)
+            continue
+        inferred_refs = _extract_known_evidence_refs_from_claim(claim, known_refs=known_refs)
+        if not inferred_refs:
+            normalized_claims.append(claim)
+            continue
+        updated = dict(claim)
+        updated["evidence_refs"] = inferred_refs
+        normalized_claims.append(updated)
+        changed = True
+        rules.append(f"evidence_refs_from_summary:{index}:{len(inferred_refs)}")
+
+    if not changed:
+        return payload, ()
+    normalized = dict(payload)
+    normalized["claims"] = normalized_claims
+    return normalized, tuple(rules)
+
+
+def _extract_known_evidence_refs_from_claim(claim: dict[str, Any], *, known_refs: set[str]) -> list[str]:
+    texts: list[str] = [str(claim.get("claim_text") or "")]
+    for key in ("evidence_summary", "counter_evidence_summary", "missing_evidence", "caveats"):
+        texts.extend(_string_list(claim.get(key)))
+    refs: list[str] = []
+    for text in texts:
+        for match in _EVIDENCE_REF_RE.findall(text):
+            if match in known_refs and match not in refs:
+                refs.append(match)
+    return refs
 
 
 def _blocked_artifact(
@@ -991,6 +1052,7 @@ def _claim_groups(model_runs: list[dict[str, Any]], known_refs: set[str]) -> lis
             for claim in claims
         )
         claim_types = [str(claim.get("claim_type") or "support") for claim in claims]
+        target_explanation = _target_explanation_from_claims(claims, rows, review_mode="")
         group = {
             "group_id": f"cg-{key}",
             "core_target_type": _core_target_type(claims[0]),
@@ -1007,11 +1069,26 @@ def _claim_groups(model_runs: list[dict[str, Any]], known_refs: set[str]) -> lis
             "missing_evidence": _unique(
                 item for claim in claims for item in claim.get("missing_evidence") or [] if str(item).strip()
             ),
+            "target_explanation": target_explanation,
+            "suspected_issue": target_explanation.get("suspected_issue", ""),
+            "operational_mechanism": target_explanation.get("operational_mechanism", ""),
+            "why_it_matters": target_explanation.get("why_it_matters", ""),
+            "evidence_summary": target_explanation.get("evidence_summary", []),
+            "counter_evidence_summary": target_explanation.get("counter_evidence_summary", []),
+            "why_not_promoted": target_explanation.get("why_not_promoted", ""),
+            "next_validation_question": target_explanation.get("next_validation_question", ""),
             "claims": [
                 {
                     "provider_id": row["provider_id"],
                     "claim_type": str(row["claim"].get("claim_type") or "support"),
                     "claim_text": str(row["claim"].get("claim_text") or ""),
+                    "suspected_issue": str(row["claim"].get("suspected_issue") or ""),
+                    "operational_mechanism": str(row["claim"].get("operational_mechanism") or ""),
+                    "why_it_matters": str(row["claim"].get("why_it_matters") or ""),
+                    "evidence_summary": _string_list(row["claim"].get("evidence_summary")),
+                    "counter_evidence_summary": _string_list(row["claim"].get("counter_evidence_summary")),
+                    "why_not_promoted": str(row["claim"].get("why_not_promoted") or ""),
+                    "next_validation_question": str(row["claim"].get("next_validation_question") or ""),
                     "evidence_refs": _string_list(row["claim"].get("evidence_refs")),
                     "missing_evidence": _string_list(row["claim"].get("missing_evidence")),
                 }
@@ -1027,6 +1104,8 @@ def _claim_groups(model_runs: list[dict[str, Any]], known_refs: set[str]) -> lis
 def _candidate_from_group(group: dict[str, Any], review_mode: str) -> dict[str, Any]:
     title = _target_title(group)
     impact_summary = _target_impact_summary(group, review_mode)
+    target_explanation = dict(group.get("target_explanation") or {})
+    target_explanation.setdefault("review_mode", review_mode)
     return {
         "review_mode": review_mode,
         "group_id": group["group_id"],
@@ -1038,8 +1117,84 @@ def _candidate_from_group(group: dict[str, Any], review_mode: str) -> dict[str, 
         "missing_evidence": group["missing_evidence"],
         "title": title,
         "impact_summary": impact_summary,
+        "target_explanation": target_explanation,
+        "suspected_issue": str(group.get("suspected_issue") or target_explanation.get("suspected_issue") or ""),
+        "operational_mechanism": str(group.get("operational_mechanism") or target_explanation.get("operational_mechanism") or ""),
+        "why_it_matters": str(group.get("why_it_matters") or target_explanation.get("why_it_matters") or ""),
+        "evidence_summary": _string_list(group.get("evidence_summary") or target_explanation.get("evidence_summary")),
+        "counter_evidence_summary": _string_list(
+            group.get("counter_evidence_summary") or target_explanation.get("counter_evidence_summary")
+        ),
+        "why_not_promoted": str(group.get("why_not_promoted") or target_explanation.get("why_not_promoted") or ""),
+        "next_validation_question": str(
+            group.get("next_validation_question") or target_explanation.get("next_validation_question") or ""
+        ),
         "score_note": SCORE_NOTE,
     }
+
+
+def _target_explanation_from_claims(
+    claims: list[dict[str, Any]],
+    rows: list[dict[str, Any]],
+    *,
+    review_mode: str,
+) -> dict[str, Any]:
+    suspected_issue = _first_claim_text(claims, "suspected_issue") or _first_claim_text(claims, "claim_text")
+    operational_mechanism = _first_claim_text(claims, "operational_mechanism")
+    why_it_matters = _first_claim_text(claims, "why_it_matters")
+    why_not_promoted = _first_claim_text(claims, "why_not_promoted")
+    next_validation_question = _first_claim_text(claims, "next_validation_question")
+    evidence_summary = _unique(
+        item
+        for claim in claims
+        for item in _string_list(claim.get("evidence_summary"))
+    )
+    counter_evidence_summary = _unique(
+        item
+        for claim in claims
+        for item in _string_list(claim.get("counter_evidence_summary"))
+    )
+    if not evidence_summary:
+        evidence_summary = [
+            f"{ref}: cited by provider output; inspect the Evidence Item to confirm what it shows."
+            for ref in _unique(ref for claim in claims for ref in _string_list(claim.get("evidence_refs")))[:8]
+        ]
+    provider_explanations = []
+    for row in rows:
+        claim = row["claim"]
+        provider_explanations.append(
+            {
+                "provider_id": row["provider_id"],
+                "claim_type": str(claim.get("claim_type") or "support"),
+                "claim_text": str(claim.get("claim_text") or ""),
+                "suspected_issue": str(claim.get("suspected_issue") or ""),
+                "operational_mechanism": str(claim.get("operational_mechanism") or ""),
+                "why_it_matters": str(claim.get("why_it_matters") or ""),
+                "why_not_promoted": str(claim.get("why_not_promoted") or ""),
+                "next_validation_question": str(claim.get("next_validation_question") or ""),
+                "evidence_refs": _string_list(claim.get("evidence_refs")),
+            }
+        )
+    return {
+        "schema_version": "target_explanation.v1",
+        "review_mode": review_mode,
+        "suspected_issue": suspected_issue,
+        "operational_mechanism": operational_mechanism,
+        "why_it_matters": why_it_matters,
+        "evidence_summary": evidence_summary,
+        "counter_evidence_summary": counter_evidence_summary,
+        "why_not_promoted": why_not_promoted,
+        "next_validation_question": next_validation_question,
+        "provider_explanations": provider_explanations,
+    }
+
+
+def _first_claim_text(claims: list[dict[str, Any]], key: str) -> str:
+    for claim in claims:
+        text = str(claim.get(key) or "").strip()
+        if text:
+            return text
+    return ""
 
 
 def finding_impact_from_synthesis(synthesis: dict[str, Any]) -> dict[str, str]:

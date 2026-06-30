@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,11 @@ from ops_evidence_synthesis.agents.adk_investigator import build_adk_tool_contra
 from ops_evidence_synthesis.ai.prompts import compact_bundle_for_model
 from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.precomputed_review import SCORE_DEFINITION, stable_precomputed_review_json
+from ops_evidence_synthesis.timeutils import parse_timestamp
+from ops_evidence_synthesis.window_policy import (
+    DEFAULT_MIN_ANALYSIS_WINDOW_HOURS,
+    validate_minimum_analysis_window,
+)
 
 
 DEFAULT_SOURCE_NOTE = (
@@ -36,6 +42,17 @@ def main() -> int:
     parser.add_argument("--output-dir", default="data/precomputed_review_summaries")
     parser.add_argument("--source-note", default=DEFAULT_SOURCE_NOTE)
     parser.add_argument("--provider-mode", default=DEFAULT_PROVIDER_MODE)
+    parser.add_argument(
+        "--model-projection-policy",
+        default="",
+        help="Optional public-facing model projection policy text.",
+    )
+    parser.add_argument(
+        "--min-window-hours",
+        type=int,
+        default=DEFAULT_MIN_ANALYSIS_WINDOW_HOURS,
+        help="Minimum analysis window required for public real-provider payloads.",
+    )
     parser.add_argument(
         "--log-observation",
         action="append",
@@ -64,7 +81,9 @@ def main() -> int:
         updated_at=args.updated_at,
         source_note=args.source_note,
         provider_mode=args.provider_mode,
+        model_projection_policy=args.model_projection_policy,
         log_observations=args.log_observation,
+        min_window_hours=args.min_window_hours,
     )
     output_path = Path(args.output_dir) / f"{payload['evidence_sha256']}.json"
     generated = stable_precomputed_review_json(payload)
@@ -98,7 +117,9 @@ def build_payload(
     updated_at: str,
     source_note: str,
     provider_mode: str,
+    model_projection_policy: str,
     log_observations: list[str],
+    min_window_hours: int = DEFAULT_MIN_ANALYSIS_WINDOW_HOURS,
 ) -> dict[str, Any]:
     evidence_sha256 = str(api_response.get("evidence_sha256") or bundle.get("evidence_sha256") or "")
     if not evidence_sha256:
@@ -111,6 +132,12 @@ def build_payload(
     local_first = bundle.get("local_first_summary") if isinstance(bundle.get("local_first_summary"), dict) else {}
     source = bundle.get("source") if isinstance(bundle.get("source"), dict) else {}
     time_window = bundle.get("time_window") if isinstance(bundle.get("time_window"), dict) else {}
+    window = validate_minimum_analysis_window(
+        str(time_window.get("start") or ""),
+        str(time_window.get("end") or ""),
+        min_hours=min_window_hours,
+        context=f"public real-provider payload {evidence_sha256}",
+    )
     synthesis = api_response.get("multi_ai_synthesis") if isinstance(api_response.get("multi_ai_synthesis"), dict) else {}
     canonical_graph = (
         api_response.get("canonical_review_graph")
@@ -123,8 +150,22 @@ def build_payload(
     valid_provider_statuses = _schema_valid_provider_statuses(provider_statuses)
     invalid_provider_statuses = [row for row in provider_statuses if row not in valid_provider_statuses]
     valid_provider_count = len(valid_provider_statuses)
+    pipeline_status = _pipeline_status(
+        api_response,
+        valid_provider_count=valid_provider_count,
+        provider_count=provider_count,
+    )
     log_count = _int(local_first.get("sanitized_event_count"))
-    targets = _targets(api_response, provider_statuses=provider_statuses, log_count=log_count)
+    evidence_lookup = _evidence_lookup(bundle)
+    targets = _targets(
+        api_response,
+        provider_statuses=provider_statuses,
+        log_count=log_count,
+        evidence_lookup=evidence_lookup,
+        window_start=window.start,
+        window_end=window.end,
+    )
+    public_review_counts = _public_review_counts(targets, graph_summary=graph_summary)
     public_graph_summary = _review_graph_summary(
         api_response,
         targets=targets,
@@ -135,6 +176,10 @@ def build_payload(
     model_items = _int(corpus_summary.get("model_evidence_item_count"))
     model_occurrences = _int(corpus_summary.get("model_occurrence_count"))
     coverage = float(corpus_summary.get("occurrence_coverage_ratio") or 0.0)
+    projection_policy = model_projection_policy or (
+        "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; "
+        "row-level raw logs stayed out of provider prompts."
+    )
     source_context_sha = _source_context_sha(api_response, source_context)
     source_analysis_sha = _source_analysis_sha(api_response, source_analysis)
     provider_sentence = _provider_sentence(provider_statuses)
@@ -165,6 +210,7 @@ def build_payload(
             "real_api_evidence_sha256": evidence_sha256,
             "api_revision": api_revision,
             "pipeline_run_id": str(api_response.get("pipeline_run_id") or ""),
+            "min_analysis_window_hours": min_window_hours,
         },
         "summary": {
             "schema_version": "ui_summary.v1",
@@ -179,21 +225,21 @@ def build_payload(
                 ),
                 "impact": (
                     f"{provider_result_sentence} "
-                    f"{_int(graph_summary.get('primary_count'))} primary candidate and "
-                    f"{_int(graph_summary.get('validation_count'))} validation target(s) remain human-gated; "
+                    f"{public_review_counts['primary_targets']} primary candidate and "
+                    f"{public_review_counts['validation_targets']} validation target(s) remain human-gated; "
                     "incident promotion is not auto-accepted."
                 ),
             },
             "review": {
-                "primary_targets": _int(graph_summary.get("primary_count")),
-                "validation_targets": _int(graph_summary.get("validation_count")),
-                "monitor_only": _int(graph_summary.get("monitor_only_count")),
-                "auto_archived": _int(graph_summary.get("auto_archived_count")),
+                "primary_targets": public_review_counts["primary_targets"],
+                "validation_targets": public_review_counts["validation_targets"],
+                "monitor_only": public_review_counts["monitor_only"],
+                "auto_archived": public_review_counts["auto_archived"],
             },
             "providers": {
                 "success": valid_provider_count,
                 "total": provider_count,
-                "pipeline_status": str((api_response.get("pipeline_status") or {}).get("status") or api_response.get("canonical_graph_status") or "succeeded"),
+                "pipeline_status": pipeline_status,
             },
             "baselines": {
                 "technical": _technical_baseline_established(canonical_graph),
@@ -219,6 +265,8 @@ def build_payload(
             "environment": str(source.get("environment") or ""),
             "window_start": str(time_window.get("start") or ""),
             "window_end": str(time_window.get("end") or ""),
+            "analysis_window_hours": window.duration_hours,
+            "min_analysis_window_hours": min_window_hours,
             "pipeline_run_id": str(api_response.get("pipeline_run_id") or ""),
             "real_api_revision": api_revision,
             "profile_id": profile_id,
@@ -230,10 +278,7 @@ def build_payload(
             "model_projection_evidence_items": model_items,
             "model_projection_occurrence_count": model_occurrences,
             "model_projection_occurrence_coverage_ratio": coverage,
-            "model_projection_policy": (
-                "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; "
-                "row-level raw logs stayed out of provider prompts."
-            ),
+            "model_projection_policy": projection_policy,
             "raw_log_policy": str(bundle.get("raw_log_policy") or local_first.get("raw_log_policy") or "not_uploaded"),
             "raw_source_policy": str(source_context.get("raw_source_policy") or "not_uploaded"),
             "source_context_sha256": source_context_sha,
@@ -274,9 +319,9 @@ def build_payload(
                     invalid_provider_statuses=invalid_provider_statuses,
                 ),
                 (
-                    f"The canonical graph produced {_int(graph_summary.get('primary_count'))} primary candidate, "
-                    f"{_int(graph_summary.get('validation_count'))} validation target(s), and "
-                    f"{_int(graph_summary.get('monitor_only_count'))} monitor-only item(s)."
+                    f"The public graph exposes {public_review_counts['primary_targets']} primary candidate, "
+                    f"{public_review_counts['validation_targets']} validation target(s), and "
+                    f"{public_review_counts['monitor_only']} monitor-only item(s) after the analysis-window boundary is applied."
                 ),
                 _analysis_conclusion_impact(canonical_graph, targets),
             ],
@@ -328,11 +373,26 @@ def _provider_statuses(api_response: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: row["provider_id"])
 
 
+def _pipeline_status(api_response: dict[str, Any], *, valid_provider_count: int, provider_count: int) -> str:
+    pipeline = api_response.get("pipeline_status") if isinstance(api_response.get("pipeline_status"), dict) else {}
+    explicit = str(pipeline.get("status") or "")
+    if explicit:
+        return explicit
+    if provider_count > 0 and valid_provider_count == provider_count:
+        return "succeeded"
+    if valid_provider_count > 0:
+        return "partial"
+    return str(api_response.get("canonical_graph_status") or "unknown")
+
+
 def _targets(
     api_response: dict[str, Any],
     *,
     provider_statuses: list[dict[str, Any]],
     log_count: int,
+    evidence_lookup: dict[str, dict[str, Any]],
+    window_start: str,
+    window_end: str,
 ) -> list[dict[str, Any]]:
     provider_ids = [str(row["provider_id"]) for row in provider_statuses]
     run_hashes = {str(row["provider_id"]): str(row.get("raw_output_sha256") or "")[:12] for row in provider_statuses}
@@ -357,9 +417,27 @@ def _targets(
         ]
         provider_count = sum(1 for row in provider_positions if row["stance"] == "claimed")
         verdict = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
-        evidence_refs = list(target.get("evidence_refs") or [])
+        source_evidence_refs = list(target.get("evidence_refs") or [])
+        evidence_refs, excluded_evidence_refs = _filter_window_evidence_refs(
+            source_evidence_refs,
+            evidence_lookup=evidence_lookup,
+            window_start=window_start,
+            window_end=window_end,
+        )
+        if source_evidence_refs and not evidence_refs:
+            continue
         target_class = str(target.get("class") or "validation_target")
         promotion_state = "primary_candidate" if target_class == "primary_candidate" else "validation"
+        blocked_reason = _blocked_reason(target, provider_count=provider_count)
+        missing_evidence = _public_missing_evidence(target, blocked_reason=blocked_reason)
+        target_explanation = _public_target_explanation(
+            target,
+            evidence_refs=evidence_refs,
+            blocked_reason=blocked_reason,
+            evidence_lookup=evidence_lookup,
+            window_start=window_start,
+            window_end=window_end,
+        )
         targets.append(
             {
                 "target_id": str(target.get("target_id") or target.get("review_target_id") or ""),
@@ -379,6 +457,22 @@ def _targets(
                     valid_count=valid_count,
                     evidence_ref_count=len(evidence_refs),
                 ),
+                "review_reason": _review_reason_summary(
+                    target,
+                    provider_count=provider_count,
+                    valid_count=valid_count,
+                    evidence_ref_count=len(evidence_refs),
+                    blocked_reason=blocked_reason,
+                    log_count=log_count,
+                ),
+                "target_explanation": target_explanation,
+                "suspected_issue": str(target_explanation.get("suspected_issue") or ""),
+                "operational_mechanism": str(target_explanation.get("operational_mechanism") or ""),
+                "why_it_matters": str(target_explanation.get("why_it_matters") or ""),
+                "evidence_summary": list(target_explanation.get("evidence_summary") or []),
+                "counter_evidence_summary": list(target_explanation.get("counter_evidence_summary") or []),
+                "why_not_promoted": str(target_explanation.get("why_not_promoted") or ""),
+                "next_validation_question": str(target_explanation.get("next_validation_question") or ""),
                 "provider_positions": provider_positions,
                 "agreement": {
                     "verdict": verdict,
@@ -394,7 +488,7 @@ def _targets(
                 },
                 "promotion": {
                     "state": promotion_state,
-                    "blocked_reason": _blocked_reason(target, provider_count=provider_count),
+                    "blocked_reason": blocked_reason,
                     "explanation": _promotion_explanation(
                         state=promotion_state,
                         provider_count=provider_count,
@@ -404,7 +498,8 @@ def _targets(
                     "score_note": "Priority is review urgency, not truth probability.",
                 },
                 "evidence_refs": evidence_refs,
-                "missing_evidence": list(target.get("missing_evidence") or []),
+                "excluded_evidence_refs": excluded_evidence_refs,
+                "missing_evidence": missing_evidence,
                 "caveats": list(target.get("caveats") or []),
                 "raw": {
                     "baseline_support_score": target.get("baseline_support_score"),
@@ -415,6 +510,531 @@ def _targets(
             }
         )
     return targets
+
+
+def _review_reason_summary(
+    target: dict[str, Any],
+    *,
+    provider_count: int,
+    valid_count: int,
+    evidence_ref_count: int,
+    blocked_reason: str,
+    log_count: int,
+) -> dict[str, Any]:
+    canonical_unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "general")
+    source_candidates = _int(target.get("source_candidate_count")) or 1
+    rollup_ratio = target.get("rollup_provider_ratio")
+    try:
+        rollup_ratio_text = f"{float(rollup_ratio):.3f}"
+    except (TypeError, ValueError):
+        rollup_ratio_text = "unknown"
+    factors = [
+        (
+            f"{provider_count}/{valid_count} schema-valid providers independently projected "
+            f"the normalized review unit `{canonical_unit}`."
+        ),
+        (
+            f"{evidence_ref_count} cited Evidence Item(s) tie the unit back to the "
+            f"{log_count:,}-row sanitized corpus."
+        ),
+        (
+            f"{source_candidates} source candidate(s) were rolled up into this canonical unit "
+            f"(rollup provider ratio {rollup_ratio_text})."
+        ),
+        (
+            f"Promotion is still blocked by `{blocked_reason}`; this is review work, "
+            "not an accepted incident cause."
+        ),
+    ]
+    return {
+        "headline": (
+            f"Review target created because provider convergence and cited evidence made `{canonical_unit}` "
+            "worth human validation."
+        ),
+        "factors": factors,
+        "operator_question": _operator_question(target, blocked_reason=blocked_reason),
+    }
+
+
+def _public_review_counts(targets: list[dict[str, Any]], *, graph_summary: dict[str, Any]) -> dict[str, int]:
+    primary = sum(1 for target in targets if str(target.get("class") or "") == "primary_candidate")
+    validation = sum(1 for target in targets if str(target.get("class") or "") != "primary_candidate")
+    return {
+        "primary_targets": primary,
+        "validation_targets": validation,
+        "monitor_only": _int(graph_summary.get("monitor_only_count")),
+        "auto_archived": _int(graph_summary.get("auto_archived_count")),
+    }
+
+
+def _public_target_explanation(
+    target: dict[str, Any],
+    *,
+    evidence_refs: list[str],
+    blocked_reason: str,
+    evidence_lookup: dict[str, dict[str, Any]],
+    window_start: str,
+    window_end: str,
+) -> dict[str, Any]:
+    raw = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
+    canonical_unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
+    suspected_issue = (
+        _first_non_meta_text(
+            target.get("suspected_issue"),
+            raw.get("suspected_issue"),
+            target.get("impact_summary"),
+            target.get("title"),
+        )
+        or _fallback_suspected_issue(target, canonical_unit=canonical_unit)
+    )
+    operational_mechanism = (
+        str(target.get("operational_mechanism") or raw.get("operational_mechanism") or "").strip()
+        or _fallback_operational_mechanism(target, canonical_unit=canonical_unit)
+    )
+    why_it_matters = (
+        str(target.get("why_it_matters") or raw.get("why_it_matters") or "").strip()
+        or "This review unit may affect an operational outcome, but the current payload does not prove user impact."
+    )
+    evidence_summary = _hydrate_evidence_summary(
+        [
+            *_string_items(target.get("evidence_summary")),
+            *_string_items(raw.get("evidence_summary")),
+        ],
+        evidence_refs=evidence_refs,
+        evidence_lookup=evidence_lookup,
+    )
+    if not evidence_summary:
+        evidence_summary = [
+            _evidence_summary_for_ref(ref, evidence_lookup.get(ref))
+            for ref in evidence_refs[:8]
+        ]
+    evidence_summary = _filter_summary_entries_to_window(
+        evidence_summary,
+        evidence_lookup=evidence_lookup,
+        window_start=window_start,
+        window_end=window_end,
+    )
+    evidence_summary, inferred_counter_summary = _split_counter_like_support_summary(
+        evidence_summary,
+        canonical_unit=canonical_unit,
+        suspected_issue=suspected_issue,
+        operational_mechanism=operational_mechanism,
+        why_it_matters=why_it_matters,
+    )
+    counter_summary = _counter_summary_for_public_window(
+        [
+            *_string_items(target.get("counter_evidence_summary")),
+            *_string_items(raw.get("counter_evidence_summary")),
+            *inferred_counter_summary,
+        ],
+        evidence_lookup=evidence_lookup,
+        window_start=window_start,
+        window_end=window_end,
+    )
+    if not counter_summary and blocked_reason:
+        counter_summary = [f"Promotion blocker: {blocked_reason}."]
+    why_not_promoted = (
+        str(target.get("why_not_promoted") or raw.get("why_not_promoted") or "").strip()
+        or _why_not_promoted(blocked_reason)
+    )
+    next_validation_question = (
+        str(target.get("next_validation_question") or raw.get("next_validation_question") or "").strip()
+        or _operator_question(target, blocked_reason=blocked_reason)
+    )
+    return {
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": suspected_issue,
+        "operational_mechanism": operational_mechanism,
+        "why_it_matters": why_it_matters,
+        "evidence_summary": evidence_summary,
+        "counter_evidence_summary": counter_summary,
+        "why_not_promoted": why_not_promoted,
+        "next_validation_question": next_validation_question,
+        "provider_explanations": list(raw.get("provider_explanations") or []),
+    }
+
+
+def _public_missing_evidence(target: dict[str, Any], *, blocked_reason: str) -> list[str]:
+    missing = _unique_strings(target.get("missing_evidence") or [])
+    if "user_impact" in blocked_reason:
+        missing.append("User impact or operational outcome evidence tied to this review unit.")
+    if "cause" in blocked_reason or "baseline" in blocked_reason:
+        missing.append("Causal alignment evidence connecting this review unit to the incident window.")
+    if "support_without_evidence" in blocked_reason:
+        missing.append("Runtime Evidence Item IDs that support the claim.")
+    return _unique_strings(missing)
+
+
+def _evidence_lookup(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    evidence_refs = bundle.get("evidence_refs") if isinstance(bundle.get("evidence_refs"), dict) else {}
+    for key, value in evidence_refs.items():
+        if isinstance(value, dict):
+            lookup[str(key)] = value
+    for item in bundle.get("evidence_items") or []:
+        if not isinstance(item, dict):
+            continue
+        evidence_id = str(item.get("evidence_id") or item.get("id") or "")
+        if evidence_id:
+            lookup[evidence_id] = item
+    return lookup
+
+
+def _evidence_summary_for_ref(ref: str, item: dict[str, Any] | None) -> str:
+    if not isinstance(item, dict):
+        return f"{ref}: cited runtime evidence for this target; inspect the Evidence Item body before treating it as causal support."
+    event_type = str(item.get("event_type") or item.get("type") or "evidence").replace("_", " ")
+    component = str(item.get("component") or item.get("source") or "").strip()
+    count = _int(item.get("count") or item.get("occurrence_count") or 0)
+    first_seen = str(item.get("first_seen") or item.get("timestamp") or "").strip()
+    last_seen = str(item.get("last_seen") or item.get("timestamp") or "").strip()
+    template = str(item.get("message_template") or item.get("summary") or item.get("example_sanitized") or "").strip()
+    parts = [f"{ref}: {event_type}"]
+    if component:
+        parts.append(f"from {component}")
+    if count:
+        parts.append(f"observed {count} time(s)")
+    if first_seen or last_seen:
+        parts.append(f"between {first_seen or 'unknown'} and {last_seen or 'unknown'}")
+    sentence = " ".join(parts) + "."
+    if template:
+        sentence += f" Sanitized pattern: {template[:220]}"
+    return sentence
+
+
+def _hydrate_evidence_summary(
+    values: list[str],
+    *,
+    evidence_refs: list[str],
+    evidence_lookup: dict[str, dict[str, Any]],
+) -> list[str]:
+    hydrated: list[str] = []
+    covered_refs: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        refs = [ref for ref in _summary_ref_tokens(text) if ref in evidence_refs]
+        if _summary_ref_tokens(text) and not refs:
+            continue
+        if refs:
+            covered_refs.update(refs)
+            ref = refs[0]
+            if _is_bare_evidence_ref(text):
+                hydrated.append(_evidence_summary_for_ref(ref, evidence_lookup.get(ref)))
+                continue
+        hydrated.append(text)
+    for ref in evidence_refs:
+        if ref not in covered_refs:
+            hydrated.append(_evidence_summary_for_ref(ref, evidence_lookup.get(ref)))
+    return _unique_strings(hydrated)
+
+
+def _counter_summary_for_public_window(
+    values: list[str],
+    *,
+    evidence_lookup: dict[str, dict[str, Any]],
+    window_start: str,
+    window_end: str,
+) -> list[str]:
+    output: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        refs = _summary_ref_tokens(text)
+        if refs and not _summary_refs_overlap_window(
+            refs,
+            evidence_lookup=evidence_lookup,
+            window_start=window_start,
+            window_end=window_end,
+        ):
+            continue
+        if refs and _is_bare_evidence_ref(text):
+            output.append(_evidence_summary_for_ref(refs[0], evidence_lookup.get(refs[0])))
+            continue
+        output.append(text)
+    return _unique_strings(output)
+
+
+def _filter_summary_entries_to_window(
+    values: list[str],
+    *,
+    evidence_lookup: dict[str, dict[str, Any]],
+    window_start: str,
+    window_end: str,
+) -> list[str]:
+    output: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        refs = _summary_ref_tokens(text)
+        if refs and not _summary_refs_overlap_window(
+            refs,
+            evidence_lookup=evidence_lookup,
+            window_start=window_start,
+            window_end=window_end,
+        ):
+            continue
+        output.append(text)
+    return _unique_strings(output)
+
+
+def _summary_refs_overlap_window(
+    refs: list[str],
+    *,
+    evidence_lookup: dict[str, dict[str, Any]],
+    window_start: str,
+    window_end: str,
+) -> bool:
+    known_refs = [ref for ref in refs if ref in evidence_lookup]
+    if not known_refs:
+        return True
+    return all(
+        _evidence_item_overlaps_window(evidence_lookup.get(ref), window_start=window_start, window_end=window_end)
+        for ref in known_refs
+    )
+
+
+def _split_counter_like_support_summary(
+    values: list[str],
+    *,
+    canonical_unit: str,
+    suspected_issue: str,
+    operational_mechanism: str,
+    why_it_matters: str,
+) -> tuple[list[str], list[str]]:
+    if not _is_problem_review_context(
+        canonical_unit=canonical_unit,
+        suspected_issue=suspected_issue,
+        operational_mechanism=operational_mechanism,
+        why_it_matters=why_it_matters,
+    ):
+        return values, []
+    support: list[str] = []
+    counter: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if _looks_like_health_or_recovery_signal(text) and not _contains_problem_signal(text):
+            counter.append(text)
+        else:
+            support.append(text)
+    return _unique_strings(support), _unique_strings(counter)
+
+
+def _is_problem_review_context(
+    *,
+    canonical_unit: str,
+    suspected_issue: str,
+    operational_mechanism: str,
+    why_it_matters: str,
+) -> bool:
+    unit = canonical_unit.lower()
+    if unit in {"service_health", "observability_contract", "background_processing"}:
+        return False
+    context = " ".join([unit, suspected_issue, operational_mechanism, why_it_matters]).lower()
+    return any(token in context for token in _PROBLEM_SIGNAL_TOKENS)
+
+
+_HEALTH_OR_RECOVERY_SIGNAL_TOKENS = (
+    "no timeout",
+    "connected=true",
+    "healthy=true",
+    "status=ok",
+    "ok=true",
+    "successful",
+    "successfully",
+    "last_reason: healthy",
+    "stall_streak: 0",
+    "net_fail_streak: 0",
+)
+
+
+_PROBLEM_SIGNAL_TOKENS = (
+    "broken pipe",
+    "can't open file",
+    "critical",
+    "degraded",
+    "disconnect",
+    "error",
+    "exception",
+    "failed",
+    "failure",
+    "incident",
+    "invalidargument",
+    "low upload",
+    "missing",
+    "no such file",
+    "skipped",
+    "stall",
+    "timeout",
+    "traceback",
+    "unhealthy",
+)
+
+
+def _looks_like_health_or_recovery_signal(text: str) -> bool:
+    lower = text.lower()
+    return any(token in lower for token in _HEALTH_OR_RECOVERY_SIGNAL_TOKENS)
+
+
+def _contains_problem_signal(text: str) -> bool:
+    lower = text.lower()
+    lower = lower.replace("no timeout", "")
+    lower = lower.replace("without timeout", "")
+    return any(token in lower for token in _PROBLEM_SIGNAL_TOKENS)
+
+
+def _summary_ref_tokens(text: str) -> list[str]:
+    return re.findall(r"\b(?:PATTERN|LOG|EV|EVIDENCE|METRIC|OPS)-[A-Za-z0-9-]+\b", text)
+
+
+def _is_bare_evidence_ref(text: str) -> bool:
+    return bool(re.fullmatch(r"\s*(?:PATTERN|LOG|EV|EVIDENCE|METRIC|OPS)-[A-Za-z0-9-]+\s*\.?\s*", text))
+
+
+def _filter_window_evidence_refs(
+    evidence_refs: list[str],
+    *,
+    evidence_lookup: dict[str, dict[str, Any]],
+    window_start: str,
+    window_end: str,
+) -> tuple[list[str], list[dict[str, str]]]:
+    kept: list[str] = []
+    excluded: list[dict[str, str]] = []
+    for ref in _unique_strings(evidence_refs):
+        item = evidence_lookup.get(ref)
+        if _evidence_item_overlaps_window(item, window_start=window_start, window_end=window_end):
+            kept.append(ref)
+            continue
+        excluded.append(
+            {
+                "evidence_ref": ref,
+                "reason": "outside_analysis_window",
+                "first_seen": str((item or {}).get("first_seen") or (item or {}).get("timestamp") or ""),
+                "last_seen": str((item or {}).get("last_seen") or (item or {}).get("timestamp") or ""),
+            }
+        )
+    return kept, excluded
+
+
+def _evidence_item_overlaps_window(
+    item: dict[str, Any] | None,
+    *,
+    window_start: str,
+    window_end: str,
+) -> bool:
+    if not isinstance(item, dict):
+        return True
+    start_text = str(item.get("first_seen") or item.get("timestamp") or "").strip()
+    end_text = str(item.get("last_seen") or item.get("timestamp") or start_text).strip()
+    if not start_text and not end_text:
+        return True
+    try:
+        item_start = parse_timestamp(start_text or end_text)
+        item_end = parse_timestamp(end_text or start_text)
+        analysis_start = parse_timestamp(window_start)
+        analysis_end = parse_timestamp(window_end)
+    except Exception:
+        return True
+    return item_end >= analysis_start and item_start <= analysis_end
+
+
+def _first_non_meta_text(*values: object) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text and not _is_meta_summary(text):
+            return text
+    return ""
+
+
+def _is_meta_summary(text: str) -> bool:
+    lowered = text.casefold()
+    return any(
+        token in lowered
+        for token in (
+            "providers aligned",
+            "schema-valid providers projected",
+            "review target requires validation",
+            "this is not majority-vote truth",
+            "technical review support",
+        )
+    )
+
+
+def _fallback_operational_mechanism(target: dict[str, Any], *, canonical_unit: str) -> str:
+    text = " ".join(
+        str(target.get(key) or "")
+        for key in ("core_target_type", "canonical_target_type", "subsystem", "component", "title")
+    ).casefold()
+    if "job" in text or "config" in text or "deployment" in text:
+        return "Configuration, deployment, or scheduled-job behavior may be shaping the observed runtime signal."
+    if "runtime" in text or "restart" in text or "watchdog" in text:
+        return "Runtime recovery or watchdog orchestration may be shaping the observed state transitions."
+    if "external" in text or "dependency" in text or "youtube" in text:
+        return "An external dependency or downstream health signal may be involved, but it needs independent confirmation."
+    if "observability" in text or "instrument" in text or "metric" in text:
+        return "The instrumentation contract may be incomplete or inconsistent with runtime behavior."
+    return f"The `{canonical_unit}` review unit groups provider claims and cited evidence that need human operational interpretation."
+
+
+def _fallback_suspected_issue(target: dict[str, Any], *, canonical_unit: str) -> str:
+    request_type = str(target.get("recommended_request_type") or "")
+    text = " ".join(
+        str(target.get(key) or "")
+        for key in ("core_target_type", "canonical_target_type", "subsystem", "component", "title")
+    ).casefold()
+    if "job" in text or "config" in text or "deployment" in text or "deployment_correlation" in request_type:
+        return (
+            f"Review whether configuration, deployment timing, or scheduled-job behavior for `{canonical_unit}` "
+            "correlates with the cited runtime evidence."
+        )
+    if "runtime" in text or "restart" in text or "watchdog" in text:
+        return f"Review whether `{canonical_unit}` indicates a runtime recovery or watchdog behavior that needs validation."
+    if "external" in text or "dependency" in text or "youtube" in text:
+        return f"Review whether `{canonical_unit}` reflects an external dependency or downstream health issue."
+    if "observability" in text or "instrument" in text or "metric" in text:
+        return f"Review whether `{canonical_unit}` reflects an instrumentation or observability contract gap."
+    return f"Review what operational issue `{canonical_unit}` represents before promoting it."
+
+
+def _why_not_promoted(blocked_reason: str) -> str:
+    if "user_impact" in blocked_reason:
+        return "Not promoted because user impact or operational outcome evidence is not attached to this target."
+    if "context" in blocked_reason:
+        return "Not promoted because context can guide interpretation but cannot prove runtime incident support."
+    if "support_without_evidence" in blocked_reason:
+        return "Not promoted because runtime support is missing usable Evidence Item IDs."
+    if blocked_reason:
+        return f"Not promoted because the promotion gate is still open: {blocked_reason}."
+    return "Not promoted until a human reviews the cited evidence and confirms the operational outcome."
+
+
+def _string_items(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    text = str(value or "").strip()
+    return [text] if text else []
+
+
+def _unique_strings(values: object) -> list[str]:
+    if not isinstance(values, list):
+        values = _string_items(values)
+    output: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if text and text not in output:
+            output.append(text)
+    return output
+
+
+def _operator_question(target: dict[str, Any], *, blocked_reason: str) -> str:
+    request_type = str(target.get("recommended_request_type") or "")
+    canonical_unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "general")
+    if request_type:
+        return f"Run `{request_type}` to decide whether `{canonical_unit}` should remain a validation target or be promoted."
+    if "user_impact" in blocked_reason:
+        return f"Attach user-impact or operational outcome evidence before promoting `{canonical_unit}`."
+    return f"Review the cited Evidence Item IDs before changing the state of `{canonical_unit}`."
 
 
 def _review_graph_summary(
@@ -442,7 +1062,7 @@ def _review_graph_summary(
     )
     return {
         "targets_total": len(targets),
-        "primary_promoted_count": _int(summary.get("primary_count")),
+        "primary_promoted_count": sum(1 for target in targets if str(target.get("class") or "") == "primary_candidate"),
         "convergence_count": convergence_count,
         "single_source_count": single_source_count,
         "rule_or_context_count": sum(1 for target in targets if _int(target.get("provider_count")) == 0),

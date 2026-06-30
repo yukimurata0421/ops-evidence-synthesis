@@ -51,6 +51,19 @@ CLAIM_RESULT_SCHEMA: dict[str, Any] = {
                         "enum": _VALID_FINDING_STATUSES,
                     },
                     "claim_text": {"type": "string", "minLength": 1},
+                    "suspected_issue": {"type": "string"},
+                    "operational_mechanism": {"type": "string"},
+                    "why_it_matters": {"type": "string"},
+                    "evidence_summary": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "counter_evidence_summary": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "why_not_promoted": {"type": "string"},
+                    "next_validation_question": {"type": "string"},
                     "subsystem": {
                         "type": "string",
                     },
@@ -77,7 +90,20 @@ CLAIM_RESULT_SCHEMA: dict[str, Any] = {
                             "program": {"type": "string"},
                             "source": {"type": "string"},
                             "failure_signature": {"type": "string"},
-                            "time_window": {"type": "string"},
+                            "time_window": {
+                                "oneOf": [
+                                    {"type": "string"},
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": True,
+                                        "properties": {
+                                            "start": {"type": "string"},
+                                            "end": {"type": "string"},
+                                            "timezone": {"type": "string"},
+                                        },
+                                    },
+                                ],
+                            },
                         },
                     },
                     "temporary_action": {"type": "string"},
@@ -165,10 +191,25 @@ def _fallback_validate(payload: dict[str, Any]) -> tuple[bool, tuple[str, ...]]:
                 if not isinstance(identity, dict):
                     errors.append(f"$.claims.{index}.evidence_identity: must be object")
                 else:
-                    for key in ("program", "source", "failure_signature", "time_window"):
+                    for key in ("program", "source", "failure_signature"):
                         if key in identity and not isinstance(identity.get(key), str):
                             errors.append(f"$.claims.{index}.evidence_identity.{key}: must be string")
+                    if "time_window" in identity and not _valid_identity_time_window(identity.get("time_window")):
+                        errors.append(
+                            f"$.claims.{index}.evidence_identity.time_window: must be string or object"
+                        )
     return not errors, tuple(errors)
+
+
+def _valid_identity_time_window(value: Any) -> bool:
+    if isinstance(value, str):
+        return True
+    if not isinstance(value, dict):
+        return False
+    for key in ("start", "end", "timezone"):
+        if key in value and not isinstance(value.get(key), str):
+            return False
+    return True
 
 
 def valid_evidence_refs(bundle: dict[str, Any], refs: list[str] | tuple[str, ...]) -> bool:
