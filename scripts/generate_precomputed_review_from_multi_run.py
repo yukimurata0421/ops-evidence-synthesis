@@ -13,6 +13,7 @@ from ops_evidence_synthesis.agents.adk_investigator import build_adk_tool_contra
 from ops_evidence_synthesis.ai.prompts import compact_bundle_for_model
 from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.precomputed_review import SCORE_DEFINITION, stable_precomputed_review_json
+from ops_evidence_synthesis.profile_gate import build_profile_context_summary
 from ops_evidence_synthesis.timeutils import parse_timestamp
 from ops_evidence_synthesis.window_policy import (
     DEFAULT_MIN_ANALYSIS_WINDOW_HOURS,
@@ -173,12 +174,21 @@ def build_payload(
         log_count=_int(local_first.get("sanitized_event_count")),
     )
     updated = updated_at or str((api_response.get("pipeline_status") or {}).get("completed_at") or "")
+    full_items = _int(corpus_summary.get("full_evidence_item_count"))
     model_items = _int(corpus_summary.get("model_evidence_item_count"))
     model_occurrences = _int(corpus_summary.get("model_occurrence_count"))
     coverage = float(corpus_summary.get("occurrence_coverage_ratio") or 0.0)
     projection_policy = model_projection_policy or (
         "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; "
         "row-level raw logs stayed out of provider prompts."
+    )
+    projection_interpretation = _projection_coverage_interpretation(
+        service=str(source.get("service") or "service"),
+        log_count=log_count,
+        full_items=full_items,
+        model_items=model_items,
+        model_occurrences=model_occurrences,
+        coverage=coverage,
     )
     source_context_sha = _source_context_sha(api_response, source_context)
     source_analysis_sha = _source_analysis_sha(api_response, source_analysis)
@@ -194,6 +204,7 @@ def build_payload(
         approved_profile=approved_profile,
         source_context_sha=source_context_sha,
         source_analysis_sha=source_analysis_sha,
+        review_targets=targets,
     )
 
     payload: dict[str, Any] = {
@@ -274,11 +285,12 @@ def build_payload(
             "schema_valid_provider_count": valid_provider_count,
             "sanitized_log_count": log_count,
             "db_ingested_log_count": log_count,
-            "evidence_item_count": _int(corpus_summary.get("full_evidence_item_count")),
+            "evidence_item_count": full_items,
             "model_projection_evidence_items": model_items,
             "model_projection_occurrence_count": model_occurrences,
             "model_projection_occurrence_coverage_ratio": coverage,
             "model_projection_policy": projection_policy,
+            "model_projection_interpretation": projection_interpretation,
             "raw_log_policy": str(bundle.get("raw_log_policy") or local_first.get("raw_log_policy") or "not_uploaded"),
             "raw_source_policy": str(source_context.get("raw_source_policy") or "not_uploaded"),
             "source_context_sha256": source_context_sha,
@@ -290,13 +302,14 @@ def build_payload(
                     f"from {time_window.get('start')} to {time_window.get('end')}."
                 ),
                 (
-                    f"The local-first Evidence Bundle retained {_int(corpus_summary.get('full_evidence_item_count')):,} "
+                    f"The local-first Evidence Bundle retained {full_items:,} "
                     f"grouped evidence items and {len(bundle.get('signals') or []):,} deterministic signals."
                 ),
                 (
                     f"The provider prompt used {model_items:,} selected evidence items covering "
                     f"{model_occurrences:,} occurrences ({coverage:.1%} of the sanitized corpus)."
                 ),
+                projection_interpretation,
                 *(
                     log_observations
                     or [
@@ -1060,6 +1073,7 @@ def _review_graph_summary(
         for position in target.get("provider_positions") or []
         if isinstance(position, dict) and str(position.get("stance") or "") == "contradicted"
     )
+    incident_established = _incident_baseline_established(canonical_graph)
     return {
         "targets_total": len(targets),
         "primary_promoted_count": sum(1 for target in targets if str(target.get("class") or "") == "primary_candidate"),
@@ -1072,7 +1086,14 @@ def _review_graph_summary(
         "hidden_multi_provider_archived_count": 0,
         "incident_baseline_established_count": 0,
         "technical_baseline": "established" if _technical_baseline_established(canonical_graph) else "open",
-        "incident_baseline": "established" if _incident_baseline_established(canonical_graph) else "open",
+        "incident_baseline": "established" if incident_established else "open",
+        "incident_gate_signal": "signal_present" if incident_established else "not_established",
+        "incident_gate_scope": "graph_level_signal_not_target_promotion",
+        "target_promotion_policy": (
+            "Incident gate signal is a graph-level support signal. Each review target still has its own "
+            "promotion state, and promotion remains human-gated until impact and operational outcome evidence "
+            "are attached to that target."
+        ),
         "provider_detection_overlap": str((agreement.get("provider_detection_overlap") or {}).get("value") or ""),
         "review_unit_convergence": str((agreement.get("review_unit_convergence") or {}).get("value") or ""),
         "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
@@ -1087,6 +1108,33 @@ def _review_graph_summary(
             f"{convergence_count} review unit(s) had at least two provider positions while impact remains human-gated."
         ),
     }
+
+
+def _projection_coverage_interpretation(
+    *,
+    service: str,
+    log_count: int,
+    full_items: int,
+    model_items: int,
+    model_occurrences: int,
+    coverage: float,
+) -> str:
+    base = (
+        f"Projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized "
+        f"{service} bundle keeps {log_count:,} rows and {full_items:,} grouped Evidence Items, while "
+        f"provider prompts use {model_items:,} high-signal Evidence Items representing "
+        f"{model_occurrences:,} repeated occurrences."
+    )
+    if coverage and coverage < 0.25:
+        return (
+            f"{base} A low percentage means this corpus has a long tail of low-frequency state, "
+            "metric, or journal items; those items remain SHA-fixed in the Evidence Bundle for "
+            "traceability, but they are not all copied into the bounded provider prompt."
+        )
+    return (
+        f"{base} Remaining Evidence Items stay SHA-fixed in the Evidence Bundle for traceability "
+        "even when they are outside the bounded provider prompt."
+    )
 
 
 def _agent_trace(
@@ -1280,56 +1328,16 @@ def _profile_context(
     approved_profile: dict[str, Any],
     source_context_sha: str,
     source_analysis_sha: str,
+    review_targets: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    draft_profile = profile_draft.get("profile") if isinstance(profile_draft.get("profile"), dict) else {}
-    approved_id = str(approved_profile.get("profile_id") or "")
-    effective_profile_id = profile_id or approved_id
-    component_map = approved_profile.get("component_map") if isinstance(approved_profile.get("component_map"), dict) else {}
-    draft_components = draft_profile.get("components") if isinstance(draft_profile.get("components"), list) else []
-    metric_semantics = approved_profile.get("metric_semantics") or draft_profile.get("metric_semantics") or {}
-    collector_mappings = approved_profile.get("collector_mappings") or draft_profile.get("collector_mappings") or {}
-    required_decisions = profile_draft.get("required_human_decisions")
-    if not isinstance(required_decisions, list):
-        required_decisions = [
-            "Approve profile context before treating it as an explicit operational profile.",
-            "Keep source context separate from runtime evidence.",
-        ]
-    has_context = bool(profile_draft or approved_profile or effective_profile_id or source_context_sha or source_analysis_sha)
-    generation = profile_draft.get("profile_generation") if isinstance(profile_draft.get("profile_generation"), dict) else {}
-    llm_status = str(generation.get("llm_status") or profile_draft.get("llm_status") or ("persisted" if has_context else "not_run"))
-    return {
-        "schema_version": "profile_context_summary.v1",
-        "profile_id": effective_profile_id,
-        "generation_mode": (
-            "profile_draft_and_approved_profile"
-            if profile_draft and approved_profile
-            else "approved_profile_context"
-            if approved_profile or effective_profile_id
-            else "sanitized_source_context"
-            if has_context
-            else "not_run"
-        ),
-        "llm_status": llm_status,
-        "approved": bool(approved_profile or effective_profile_id),
-        "explicit_profile": bool(approved_profile or effective_profile_id),
-        "draft_schema_version": str(profile_draft.get("schema_version") or ""),
-        "source_discovery_sha256": str(profile_draft.get("source_discovery_sha256") or ""),
-        "source_context_sha256": source_context_sha,
-        "source_analysis_sha256": source_analysis_sha,
-        "system_type": str(approved_profile.get("system_type") or draft_profile.get("system_type") or ""),
-        "purpose": str(approved_profile.get("purpose") or draft_profile.get("purpose") or ""),
-        "component_count": len(component_map) if component_map else len(draft_components),
-        "metric_semantics_count": len(metric_semantics) if isinstance(metric_semantics, dict | list) else 0,
-        "collector_mapping_count": len(collector_mappings) if isinstance(collector_mappings, dict | list) else 0,
-        "required_human_decisions": [str(item) for item in required_decisions if str(item or "").strip()][:8],
-        "context_is_not_incident_evidence": True,
-        "summary": (
-            "Profile context was generated or approved from sanitized discovery; it constrains interpretation "
-            "but runtime claims still require Evidence Item IDs."
-            if has_context
-            else "No profile context was recorded for this payload."
-        ),
-    }
+    return build_profile_context_summary(
+        profile_id=profile_id,
+        profile_draft=profile_draft,
+        approved_profile=approved_profile,
+        source_context_sha=source_context_sha,
+        source_analysis_sha=source_analysis_sha,
+        review_targets=review_targets or [],
+    )
 
 
 def _profile_draft_generation(profile_context: dict[str, Any]) -> dict[str, Any]:
@@ -1343,6 +1351,13 @@ def _profile_draft_generation(profile_context: dict[str, Any]) -> dict[str, Any]
         "component_count": _int(profile_context.get("component_count")),
         "metric_semantics_count": _int(profile_context.get("metric_semantics_count")),
         "collector_mapping_count": _int(profile_context.get("collector_mapping_count")),
+        "profile_status": str(profile_context.get("profile_status") or ""),
+        "confidence_summary": dict(profile_context.get("confidence_summary") or {}),
+        "confidence_action": str(profile_context.get("confidence_action") or ""),
+        "confirmed_user_outcomes": list(profile_context.get("confirmed_user_outcomes") or []),
+        "provisional_user_outcomes": list(profile_context.get("provisional_user_outcomes") or []),
+        "human_questions": list(profile_context.get("human_questions") or []),
+        "profile_to_review_links": list(profile_context.get("profile_to_review_links") or []),
         "required_human_decisions": list(profile_context.get("required_human_decisions") or []),
     }
 

@@ -35,6 +35,10 @@ class VertexOpenAICompatProvider:
     temperature: float = 0.0
     max_output_tokens: int = DEFAULT_GPT_OSS_MAX_OUTPUT_TOKENS
     timeout_seconds: int = 240
+    max_evidence_items: int = 140
+    max_logs: int = 0
+    max_normalized_events: int = 0
+    max_text_chars: int = 480
     api_version: str = DEFAULT_VERTEX_API_VERSION
 
     @classmethod
@@ -52,6 +56,10 @@ class VertexOpenAICompatProvider:
             temperature=float(os.environ.get("OES_GPT_OSS_TEMPERATURE", "0")),
             max_output_tokens=int(os.environ.get("OES_GPT_OSS_MAX_OUTPUT_TOKENS", str(DEFAULT_GPT_OSS_MAX_OUTPUT_TOKENS))),
             timeout_seconds=int(os.environ.get("OES_GPT_OSS_TIMEOUT_SECONDS", "240")),
+            max_evidence_items=int(os.environ.get("OES_GPT_OSS_MAX_EVIDENCE_ITEMS", "140")),
+            max_logs=int(os.environ.get("OES_GPT_OSS_MAX_LOGS", "0")),
+            max_normalized_events=int(os.environ.get("OES_GPT_OSS_MAX_NORMALIZED_EVENTS", "0")),
+            max_text_chars=int(os.environ.get("OES_GPT_OSS_MAX_TEXT_CHARS", "480")),
         )
 
     def run(self, bundle: dict[str, Any]) -> ModelResponse:
@@ -59,7 +67,13 @@ class VertexOpenAICompatProvider:
             raise RuntimeError("OES_GPT_OSS_PROJECT, OES_VERTEX_PROJECT, or GOOGLE_CLOUD_PROJECT is required")
 
         started = time.perf_counter()
-        prompt = alternative_hypothesis_prompt(bundle)
+        prompt = alternative_hypothesis_prompt(
+            bundle,
+            max_evidence_items=self.max_evidence_items,
+            max_logs=self.max_logs,
+            max_normalized_events=self.max_normalized_events,
+            max_text_chars=self.max_text_chars,
+        )
         body = {
             "model": self._request_model_name(),
             "messages": [{"role": "user", "content": prompt}],
@@ -197,6 +211,10 @@ class VertexOpenModelProvider:
     temperature: float = 0.0
     max_output_tokens: int = 8192
     timeout_seconds: int = 240
+    max_evidence_items: int = 140
+    max_logs: int = 0
+    max_normalized_events: int = 0
+    max_text_chars: int = 480
     api_version: str = DEFAULT_VERTEX_API_VERSION
 
     @classmethod
@@ -210,6 +228,10 @@ class VertexOpenModelProvider:
             temperature=float(os.environ.get("OES_QWEN_TEMPERATURE", "0")),
             max_output_tokens=int(os.environ.get("OES_QWEN_MAX_OUTPUT_TOKENS", "8192")),
             timeout_seconds=int(os.environ.get("OES_QWEN_TIMEOUT_SECONDS", "240")),
+            max_evidence_items=int(os.environ.get("OES_QWEN_MAX_EVIDENCE_ITEMS", "140")),
+            max_logs=int(os.environ.get("OES_QWEN_MAX_LOGS", "0")),
+            max_normalized_events=int(os.environ.get("OES_QWEN_MAX_NORMALIZED_EVENTS", "0")),
+            max_text_chars=int(os.environ.get("OES_QWEN_MAX_TEXT_CHARS", "480")),
         )
 
     @classmethod
@@ -223,6 +245,10 @@ class VertexOpenModelProvider:
             temperature=float(os.environ.get("OES_GLM_TEMPERATURE", "0")),
             max_output_tokens=int(os.environ.get("OES_GLM_MAX_OUTPUT_TOKENS", "8192")),
             timeout_seconds=int(os.environ.get("OES_GLM_TIMEOUT_SECONDS", "240")),
+            max_evidence_items=int(os.environ.get("OES_GLM_MAX_EVIDENCE_ITEMS", "140")),
+            max_logs=int(os.environ.get("OES_GLM_MAX_LOGS", "0")),
+            max_normalized_events=int(os.environ.get("OES_GLM_MAX_NORMALIZED_EVENTS", "0")),
+            max_text_chars=int(os.environ.get("OES_GLM_MAX_TEXT_CHARS", "480")),
         )
 
     def run(self, bundle: dict[str, Any]) -> ModelResponse:
@@ -230,7 +256,13 @@ class VertexOpenModelProvider:
             raise RuntimeError("OES_VERTEX_PROJECT, GOOGLE_CLOUD_PROJECT, or provider-specific project is required")
 
         started = time.perf_counter()
-        prompt = alternative_hypothesis_prompt(bundle)
+        prompt = alternative_hypothesis_prompt(
+            bundle,
+            max_evidence_items=self.max_evidence_items,
+            max_logs=self.max_logs,
+            max_normalized_events=self.max_normalized_events,
+            max_text_chars=self.max_text_chars,
+        )
         body = {
             "model": self._request_model_name(),
             "messages": [{"role": "user", "content": prompt}],

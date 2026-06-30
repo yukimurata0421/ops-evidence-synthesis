@@ -1,124 +1,124 @@
 {
-  "api_revision": "real-api-7d-target-explanations-20260630-regrouped-mistral-budgeted-v2",
+  "api_revision": "real-api-7d-approved-profile-prompt-20260630",
   "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267",
-  "canonical_graph_sha256": "f2278f5b175c3081921122bfe9cff5b20c1025a72cd86580bc8790b4689a0efa",
+  "canonical_graph_sha256": "9c17b2fe314a39b2a93fae8ba399bcb360e6f02af7ca0a12bdc92b3122008ca2",
   "case_id": "stream_v3_arena_monitoring_real_api",
   "evidence_sha256": "a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267",
-  "input_fingerprint_sha256": "6ca49f85f5a105ed95df084b32c4c23bf57ad961cfe99804ae5c8e74ec3a15d1",
-  "payload_sha256": "60fd4bb4718bfb041b24a166db5860393dacf1f3736bb1e60ded3f9b02608d92",
+  "input_fingerprint_sha256": "2e807098f2436636faf75cceb655d572af2f49b96d9bc79133bf4f179a9efe12",
+  "payload_sha256": "2a58fd6a28f50203df786a24891f895eb3109156230081c348dcee75b423c04f",
   "pipeline_run_id": "",
   "precomputed_payload_path": "data/precomputed_review_summaries/a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267.json",
+  "profile_gate": {
+    "confidence_action": "candidate_only_requires_profile_review",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.67,
+      "metric_semantics_confidence": 0.72,
+      "overall_confidence": 0.69
+    },
+    "confirmed_user_outcomes": [],
+    "context_is_not_incident_evidence": true,
+    "human_questions": [
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?",
+      "Which logs indicate user impact rather than diagnostic noise?",
+      "Which discovered component roles are correct?",
+      "Which metric semantics should become explicit profile rules?",
+      "Confirm critical user outcomes."
+    ],
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [
+      {
+        "question": "What is the critical user outcome?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "resource_pressure",
+          "transport_sender",
+          "runtime_exception"
+        ]
+      },
+      {
+        "question": "Which logs indicate user impact rather than diagnostic noise?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "resource_pressure",
+          "transport_sender",
+          "runtime_exception"
+        ]
+      },
+      {
+        "question": "Confirm critical user outcomes.",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "resource_pressure",
+          "transport_sender",
+          "runtime_exception"
+        ]
+      }
+    ],
+    "provisional_user_outcomes": [
+      "Maintain YouTube stream uptime",
+      "Monitor ADSB stream health"
+    ]
+  },
   "provider_summary": {
     "pipeline_status": "succeeded",
     "provider_count": 5,
     "providers": [
       {
         "display_name": "Vertex Gemini",
-        "failure_reason": "",
-        "input_tokens": 156852,
-        "latency_ms": 44274,
+        "input_tokens": 173836,
         "model_name": "gemini-3.1-pro-preview",
-        "output_tokens": 1484,
-        "parsed_json_sha256": "9a85add413af202b424f340ad95b25e8cb5a1c9d1d02c5988bc63305541a5f16",
+        "output_tokens": 1344,
+        "parsed_json_sha256": "612a7b0b5cd74b995088cf70fd39e50469e87aaa21a52caeeded8f009f42c211",
         "provider_id": "gemini-enterprise-agent-platform",
-        "raw_output_sha256": "a32379697486f69fc5d153f37316df2315273db320aec6962180282929469fdd",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "189674c8ae7c445c7aba5108ba77c05a222dcafc08690e78c2c21679d1d649f8",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "GLM on Vertex MaaS",
-        "failure_reason": "",
-        "input_tokens": 120284,
-        "latency_ms": 72581,
+        "input_tokens": 133482,
         "model_name": "zai-org/glm-5-maas",
-        "output_tokens": 4307,
-        "parsed_json_sha256": "92dec8f2034cb35efc1fc4baa64c5842ca0ff2a556b1400b141d82990a44aa93",
+        "output_tokens": 4950,
+        "parsed_json_sha256": "a96d6ff3f681e931d873215bc48a73960b5ebe5b79891949eb9cd92dfd5e6053",
         "provider_id": "glm-agent-platform",
-        "raw_output_sha256": "c374d6e13ee660c5333433c6fd1b90b84cdb486a17ccc29c24b0c344234e60d1",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "38f6c9d7dfcbdc1535ccf8b5ab8cc05c3e9d25442e619d2cae3d6c513a22e019",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "Mistral on Vertex MaaS",
-        "failure_reason": "",
-        "input_tokens": 122039,
-        "latency_ms": 52248,
+        "input_tokens": 121624,
         "model_name": "mistral-medium-3",
-        "output_tokens": 1135,
-        "parsed_json_sha256": "07d0894aba0cf971e852d33cb4ac5def960caa37583ddc773400bc92224921df",
+        "output_tokens": 1349,
+        "parsed_json_sha256": "7956aeb7230888abe35612570d20cd53f4d4e4bf9b22363fe60456fb71cc812f",
         "provider_id": "mistral-agent-platform",
-        "raw_output_sha256": "741aed0dc33fbaee4ecbd35f1c92ba15c359cb561ee652fe65401c85914d0043",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "035980db1669cc36719b5a11ddbcdfa2501ff8c40b9998086df3c72c8778ccc8",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "gpt-oss on Vertex MaaS",
-        "failure_reason": "",
-        "input_tokens": 120072,
-        "latency_ms": 18535,
+        "input_tokens": 112516,
         "model_name": "gpt-oss-120b-maas",
-        "output_tokens": 1631,
-        "parsed_json_sha256": "cbba65454ee44d3ddf93a99bea9067f4cb95bac9297c1e287eea1875446a303a",
+        "output_tokens": 2574,
+        "parsed_json_sha256": "ca9b81d686440b98282e9ab4d660a8b43d93cfb70c29b86e5f7d9f87fbf375fb",
         "provider_id": "openai-gpt-oss-on-vertex",
-        "raw_output_sha256": "c19413b68dc0d01c0a712a7ccde33c6a5f98499126aa69bb395b0cf3bceb88ca",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "6cd12febc953d6870e425b375d6e72ba9c9485db974b3807bba0cc0e8dbcaff5",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "Qwen on Vertex MaaS",
-        "failure_reason": "",
-        "input_tokens": 130569,
-        "latency_ms": 28905,
+        "input_tokens": 143936,
         "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
-        "output_tokens": 1501,
-        "parsed_json_sha256": "3ff952fe73751801dbfac82b580a70c518d83782409e1f4fc0e275176121a12f",
+        "output_tokens": 1476,
+        "parsed_json_sha256": "5405a70aa1b93c00203c63542fac8c7612adb9edbb66e321358e3125f87d1ef6",
         "provider_id": "qwen-agent-platform",
-        "raw_output_sha256": "fa75fec3c2cd9c6fcd92eab1ce47e96a1062838c798567ef7d1013e4e23b1980",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "23e36348095066fc7db76a8ad4069b31e3e15e3ce5b29bcfa6d85a8c1808f1a4",
         "schema_valid": true,
         "status": "ok"
       }
@@ -130,16 +130,18 @@
     "profile_id": "stream_v3_arena_server_monitoring_source_approved",
     "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
     "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
-    "updated_at": "2026-06-30T10:09:03Z",
+    "updated_at": "2026-06-30T10:43:54Z",
     "window_selection_note": "2d, 5d, and 7d sanitized-log windows were evaluated against the stream_v3_monitoring arena_server scope; the longest valid 7d window was selected."
   },
   "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267",
   "review_summary": {
-    "auto_archived": 0,
+    "auto_archived": 2,
     "incident_baseline": "established",
+    "incident_gate_signal": "signal_present",
     "monitor_only": 2,
-    "primary_targets": 1,
+    "primary_targets": 0,
     "provider_detection_overlap": "5/5",
+    "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
     "technical_baseline": "established",
     "validation_targets": 3
   },
@@ -169,6 +171,7 @@
   "title": "stream_v3 arena monitoring real API source-aware review",
   "token_compression": {
     "evidence_item_count": 1520,
+    "interpretation": "Projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_monitoring bundle keeps 4,747 rows and 1,520 grouped Evidence Items, while provider prompts use 140 high-signal Evidence Items representing 496 repeated occurrences. A low percentage means this corpus has a long tail of low-frequency state, metric, or journal items; those items remain SHA-fixed in the Evidence Bundle for traceability, but they are not all copied into the bounded provider prompt.",
     "model_projection_evidence_items": 140,
     "model_projection_occurrence_count": 496,
     "model_projection_occurrence_coverage_ratio": 0.104487,

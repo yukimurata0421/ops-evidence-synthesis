@@ -6,6 +6,21 @@
   "public_url": "https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore",
   "source_review_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
   "source_evidence_sha256": "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
+  "source_trace": {
+    "schema_version": "rescore_source_trace.v1",
+    "status": "preserved_demo_snapshot",
+    "current_source_review_contains_before_target": false,
+    "note": "The linked source review is the current 7-day source-aware run for the same evidence family. The before target below is preserved in this read-only rescore fixture so the child-bundle state transition remains auditable after the public source review is regenerated.",
+    "before_target_identity": {
+      "title": "Restart loop requires validation",
+      "state": "validation_target",
+      "promotion_score": 0.69,
+      "blocked_reasons": [
+        "user_impact_unverified"
+      ],
+      "provider_stance": "gemini claimed / 4 silent"
+    }
+  },
   "control_plane": {
     "primary_provider": "gemini-enterprise-agent-platform",
     "baseline_provider": "gemini-enterprise-agent-platform",

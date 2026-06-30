@@ -35,13 +35,13 @@ providers schema-valid.
 | --- | --- | --- |
 | Evidence SHA256 | `aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778` | `a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267` |
 | Pipeline run | storeless CLI real-provider run | storeless CLI real-provider run |
-| API revision | `real-api-7d-target-explanations-20260630-regrouped-v2` | `real-api-7d-target-explanations-20260630-regrouped-mistral-budgeted-v2` |
-| Canonical graph SHA256 | `e281e51e08bea27f95071e7fe39a78376abf6b56d666f8de09136edb5b5ea5bb` | `f2278f5b175c3081921122bfe9cff5b20c1025a72cd86580bc8790b4689a0efa` |
-| Input fingerprint SHA256 | `e83991c8974951d4f348cddaee9b40ed3d55866b4ded46c5a0e169f1b2fef5d5` | `6ca49f85f5a105ed95df084b32c4c23bf57ad961cfe99804ae5c8e74ec3a15d1` |
+| API revision | `real-api-7d-approved-profile-prompt-20260630` | `real-api-7d-approved-profile-prompt-20260630` |
+| Canonical graph SHA256 | `55ca3d339c44f8384d9c0c38b9aca1062e670b3caedb55f393e533fed26fcc7e` | `9c17b2fe314a39b2a93fae8ba399bcb360e6f02af7ca0a12bdc92b3122008ca2` |
+| Input fingerprint SHA256 | `b249b6de9383cff6b0242097ccbc3edb25218405d290e3bc7115b3595993cb9a` | `2e807098f2436636faf75cceb655d572af2f49b96d9bc79133bf4f179a9efe12` |
 | Source context SHA256 | `669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2` | `669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2` |
 | Source analysis SHA256 | `451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5` | `451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5` |
 | Public payload | `data/precomputed_review_summaries/aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778.json` | `data/precomputed_review_summaries/a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267.json` |
-| Payload SHA256 | `5aa30b021f8b87ff3eea64e87c2bdaf253837b4a8d69e6d7e58b79cd4a2b52f6` | `60fd4bb4718bfb041b24a166db5860393dacf1f3736bb1e60ded3f9b02608d92` |
+| Payload SHA256 | `151aa69bd5e29f896c439d94e9cf9ac6a027c4b88d2c4d663e9c20b2e787e06e` | `2a58fd6a28f50203df786a24891f895eb3109156230081c348dcee75b423c04f` |
 
 ## Dell Runtime Window Selection
 
@@ -79,12 +79,30 @@ The source-aware path was:
 6. Build a SHA-fixed Evidence Bundle.
 7. Discover and approve a System Profile from sanitized source and evidence.
 8. Send only sanitized bundles, approved profile, source context, and source
-   analysis to the real-provider execution path.
+   analysis to the real-provider execution path, with the approved profile
+   explicitly present in each provider prompt as human-gated context.
 9. Persist provider runs and canonical review graph.
 10. Generate read-only public payloads under `data/precomputed_review_summaries/`.
 
 Source context is not incident evidence. Runtime and monitoring claims still
 have to cite Evidence Item IDs from the sanitized corpus.
+
+## Profile Gate
+
+Both stream_v3 profiles are generated from sanitized source/profile discovery
+context and are not incident evidence. They are intentionally treated as lower
+confidence routing context:
+
+| Corpus | Profile status | Confidence action | Overall confidence | Confirmed outcomes | Provisional outcomes |
+| --- | --- | --- | ---: | --- | --- |
+| Dell runtime | `approved_context_human_gated_outcomes` | `candidate_only_requires_profile_review` | 0.69 | none | Continuous YouTube streaming; ADSB data processing |
+| arena-server monitoring | `approved_context_human_gated_outcomes` | `candidate_only_requires_profile_review` | 0.69 | none | Maintain YouTube stream uptime; Monitor ADSB stream health |
+
+The provisional outcomes are not accepted facts. They create human-gated
+questions about user impact, metric semantics, and diagnostic noise. In the
+public payload, those questions are linked to review units whose promotion is
+blocked by `user_impact_unverified`, so profile uncertainty remains visible
+instead of being hidden behind a generic subsystem label.
 
 ## Input Evidence
 
@@ -115,9 +133,11 @@ Dell runtime had dense repeated runtime patterns, so 140 selected items covered
 most occurrences. arena-server monitoring had a wider set of one-off state,
 metric, and journal items; the selected prompt stayed bounded while the full
 sanitized corpus remained in the Evidence Bundle and public payload metadata.
-Mistral Medium 3 used a provider-budgeted top-80 projection for the arena run
-because the current Google Cloud Mistral Agent Platform context limit is 128k;
-Gemini, gpt-oss, Qwen, and GLM used the standard top-140 projection.
+Projection coverage is occurrence-weighted, not raw-row coverage, so a low
+percentage indicates a long-tail corpus rather than a missing raw-log window.
+For arena-server monitoring, gpt-oss used a provider-budgeted top-64 projection
+and Mistral Medium 3 used a top-40 projection to stay under their current MaaS
+context limits. Gemini, Qwen, and GLM used the standard top-140 projection.
 
 ## Provider Results
 
@@ -125,32 +145,34 @@ Gemini, gpt-oss, Qwen, and GLM used the standard top-140 projection.
 
 | Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens |
 | --- | --- | --- | --- | ---: | ---: | ---: |
-| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 40,135 | 105,276 | 1,402 |
-| `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 30,078 | 80,120 | 5,613 |
-| `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 54,265 | 94,401 | 1,609 |
-| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 31,272 | 87,275 | 3,384 |
-| `glm-agent-platform` | `zai-org/glm-5-maas` | ok | valid | 80,691 | 80,199 | 5,248 |
+| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 63,989 | 122,058 | 1,522 |
+| `glm-agent-platform` | `zai-org/glm-5-maas` | ok | valid | 92,623 | 93,253 | 4,795 |
+| `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 49,766 | 109,072 | 1,063 |
+| `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 28,734 | 93,245 | 2,958 |
+| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 42,243 | 100,498 | 3,017 |
 
 ### arena-server monitoring
 
 | Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens |
 | --- | --- | --- | --- | ---: | ---: | ---: |
-| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 44,274 | 156,852 | 1,484 |
-| `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 18,535 | 120,072 | 1,631 |
-| `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 52,248 | 122,039 | 1,135 |
-| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 28,905 | 130,569 | 1,501 |
-| `glm-agent-platform` | `zai-org/glm-5-maas` | ok | valid | 72,581 | 120,284 | 4,307 |
+| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 31,506 | 173,836 | 1,344 |
+| `glm-agent-platform` | `zai-org/glm-5-maas` | ok | valid | 98,079 | 133,482 | 4,950 |
+| `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 38,738 | 121,624 | 1,349 |
+| `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 35,639 | 112,516 | 2,574 |
+| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 17,562 | 143,936 | 1,476 |
 
 ## Review Outcome
 
 | Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived | Incident promotion gate |
 | --- | ---: | ---: | ---: | ---: | --- |
-| Dell runtime | 0 | 3 | 2 | 4 | 5/5 provider run succeeded; action remains human-gated |
-| arena-server monitoring | 1 | 3 | 2 | 0 | Open; primary candidate remains human-gated |
+| Dell runtime | 1 | 3 | 2 | 0 | 5/5 provider run succeeded; action remains human-gated |
+| arena-server monitoring | 0 | 3 | 2 | 2 | Open; all targets remain validation-gated |
 
 Both runs intentionally stop at human review. Provider convergence can create
 review targets and technical support, but it does not automatically authorize a
-final causal judgement or operational action.
+final causal judgement or operational action. The public UI separates a
+graph-level incident gate signal from each target's promotion state so
+"signal present" is not read as an accepted incident cause.
 
 The public payload builder also applies the same evidence-window boundary used
 for the 7-day bundle. Evidence Items outside the accepted analysis window are

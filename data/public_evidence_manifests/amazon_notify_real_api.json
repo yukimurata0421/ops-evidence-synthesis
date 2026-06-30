@@ -1,124 +1,139 @@
 {
-  "api_revision": "real-api-7d-target-explanations-20260630-regrouped-v2",
+  "api_revision": "real-api-7d-approved-profile-prompt-20260630",
   "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
-  "canonical_graph_sha256": "87c3d02ab1b0fad2e120e756477ec77dd6cd78eba1f83525b6d7af6128798aea",
+  "canonical_graph_sha256": "605b6f522cd82649bc911b3e7614d19b2347455a89c8873f95ff5646b56d6577",
   "case_id": "amazon_notify_real_api",
   "evidence_sha256": "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
-  "input_fingerprint_sha256": "875c8061b0e7a8bc13b6c7f2b806b4fe0eb6b10ffe786d66978a21c3dbb45fff",
-  "payload_sha256": "bfc4384341253c101d9d75a201432cbfeccbf4389fde948d30e739c2f951290e",
+  "input_fingerprint_sha256": "0b1bed34f2d56df225391311177107380dc4d7d0f16dd8e4160ad6245bf26408",
+  "payload_sha256": "ec7799b59261a7bea0d5c6f4b56fe623644e1038b4c83295d392e8c1c0c9b4b9",
   "pipeline_run_id": "",
   "precomputed_payload_path": "data/precomputed_review_summaries/7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb.json",
+  "profile_gate": {
+    "confidence_action": "use_for_subsystem_routing_human_gated",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.8,
+      "metric_semantics_confidence": 0.72,
+      "overall_confidence": 0.79
+    },
+    "confirmed_user_outcomes": [],
+    "context_is_not_incident_evidence": true,
+    "human_questions": [
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?",
+      "Which logs indicate user impact rather than diagnostic noise?",
+      "Which discovered component roles are correct?",
+      "Which metric semantics should become explicit profile rules?",
+      "Confirm critical user outcomes."
+    ],
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [
+      {
+        "question": "What is the critical user outcome?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "job_configuration",
+          "runtime_recovery",
+          "background_processing",
+          "service_health",
+          "deployment_regression"
+        ]
+      },
+      {
+        "question": "Which metrics are zero-is-good or zero-is-bad?",
+        "reason": "Zero-count metrics can mean healthy idle, disabled routing, or broken processing; linked review targets keep that ambiguity human-gated.",
+        "review_units": [
+          "runtime_recovery",
+          "background_processing",
+          "service_health"
+        ]
+      },
+      {
+        "question": "Which logs indicate user impact rather than diagnostic noise?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "job_configuration",
+          "runtime_recovery",
+          "background_processing",
+          "service_health",
+          "deployment_regression"
+        ]
+      },
+      {
+        "question": "Confirm critical user outcomes.",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "job_configuration",
+          "runtime_recovery",
+          "background_processing",
+          "service_health",
+          "deployment_regression"
+        ]
+      }
+    ],
+    "provisional_user_outcomes": [
+      "Ensure amazon-notify service processes notifications successfully",
+      "Ensure watchdog restarts failed services"
+    ]
+  },
   "provider_summary": {
     "pipeline_status": "succeeded",
     "provider_count": 5,
     "providers": [
       {
         "display_name": "Vertex Gemini",
-        "failure_reason": "",
-        "input_tokens": 99903,
-        "latency_ms": 54414,
+        "input_tokens": 103870,
         "model_name": "gemini-3.1-pro-preview",
-        "output_tokens": 1069,
-        "parsed_json_sha256": "a14fccbfe69415165de78328894414dd8886dca948d23774a631f352b80201ca",
+        "output_tokens": 1501,
+        "parsed_json_sha256": "f27a523d1a4601d7638d2c3edc6f0df1b0e9812838cde9e4295d906eaefa99a4",
         "provider_id": "gemini-enterprise-agent-platform",
-        "raw_output_sha256": "b71d98ea4694bfcea988410c736f7d6ca77509acd61d8c85452a11246247c9f5",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "83b1bd87dca25aaf7dacfdb330a4aaebec20f007a244cce8a557d6ec51528e7e",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "GLM on Vertex MaaS",
-        "failure_reason": "",
-        "input_tokens": 77858,
-        "latency_ms": 55239,
+        "input_tokens": 80982,
         "model_name": "zai-org/glm-5-maas",
-        "output_tokens": 4355,
-        "parsed_json_sha256": "f73cfe6149981a5cdcd96b13b198e996fa35b719a4811cc95bc72e308e4529fb",
+        "output_tokens": 5370,
+        "parsed_json_sha256": "4c8b45e96bdf0c5afd87118e823e74f42f1aefd7fd71eb28c5823b9dda7345c4",
         "provider_id": "glm-agent-platform",
-        "raw_output_sha256": "28904735b923f6bb3541f32e7079aba4a67a45d6652c9a155d03fad67976542e",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "be1261f2b1582ea0faca2cfa8f91ed3f39ddbfd8c18eb5db9cd00f9549ff4cc4",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "Mistral on Vertex MaaS",
-        "failure_reason": "",
-        "input_tokens": 96045,
-        "latency_ms": 53613,
+        "input_tokens": 99498,
         "model_name": "mistral-medium-3",
-        "output_tokens": 1487,
-        "parsed_json_sha256": "c9f2acd3f7842f49365f657f395d8bb2d887fc6c508353e6dcdb06a272ca7f1e",
+        "output_tokens": 2233,
+        "parsed_json_sha256": "f392cdb5755662890549e1496d7e6e2b61deaf320ee68e9c555ef6a8fd0b8a64",
         "provider_id": "mistral-agent-platform",
-        "raw_output_sha256": "bf910061a37d2601b28e23b85a154f33661275dfd415d218140e3cafbbbee4e0",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "2a8dde056d20de4d65dd81a99ae232eba58832a2774ebf73dbd271af1469df55",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "gpt-oss on Vertex MaaS",
-        "failure_reason": "",
-        "input_tokens": 75988,
-        "latency_ms": 23429,
+        "input_tokens": 79136,
         "model_name": "gpt-oss-120b-maas",
-        "output_tokens": 2998,
-        "parsed_json_sha256": "cba2294edfd37c73be21fb78caae3823d45bf2ca7e039fb6300f97e552c742a4",
+        "output_tokens": 3764,
+        "parsed_json_sha256": "9196352f83bddc67514cc18f6f8191f23f62362ebbcf8dee545b181aa2f31499",
         "provider_id": "openai-gpt-oss-on-vertex",
-        "raw_output_sha256": "8a62406cfa5cb3712620130ed7f790116bf13fc679f813968d5c0ad42e5b83e8",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "9dcd05b11f59d81a18c52773669cf53e909f9958f9a7a488eded396e5a679c9d",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "Qwen on Vertex MaaS",
-        "failure_reason": "",
-        "input_tokens": 89831,
-        "latency_ms": 25771,
+        "input_tokens": 92980,
         "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
-        "output_tokens": 1812,
-        "parsed_json_sha256": "0483739fe653af36d985eeb798a8339f0bab69e8e3e9a9b77426d225b6977f95",
+        "output_tokens": 2812,
+        "parsed_json_sha256": "a1f0d9f2eec75ef60bc3682525c863a5ef0e87edb6f79004143365f9d5ac925b",
         "provider_id": "qwen-agent-platform",
-        "raw_output_sha256": "39bd8c86be1fca1c9b2ddcfc8898b38586d002106ade49f2f1391745da7a2d2d",
-        "retry": {
-          "attempts": 1,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 2,
-          "retried": false,
-          "retryable": false
-        },
-        "schema_errors": [],
+        "raw_output_sha256": "c34db8dd2f886b785e7156fd4b96a88f68f4a3bd3ac6c5c472cec97d0fa746e9",
         "schema_valid": true,
         "status": "ok"
       }
@@ -130,18 +145,20 @@
     "profile_id": "amazon_notify_qwen_glm_full_corpus_approved",
     "source_analysis_sha256": "f482362f4ffa1a47cbc52f4eeb03724ab651edcfd3edc6efdd36007a363e5a84",
     "source_context_sha256": "58e8d81ff20222774a13969462853a7cafb548ac78b7e40d59b07dec1fe360f0",
-    "updated_at": "2026-06-30T10:09:03Z",
+    "updated_at": "2026-06-30T10:43:54Z",
     "window_selection_note": "2d, 5d, and 7d sanitized-log windows were evaluated locally from the original 14d input; the longest valid 7d window was selected."
   },
   "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
   "review_summary": {
-    "auto_archived": 2,
+    "auto_archived": 1,
     "incident_baseline": "established",
+    "incident_gate_signal": "signal_present",
     "monitor_only": 2,
     "primary_targets": 0,
     "provider_detection_overlap": "5/5",
+    "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
     "technical_baseline": "established",
-    "validation_targets": 4
+    "validation_targets": 5
   },
   "sanitized_corpus": {
     "analysis_window_hours": 168.0,
@@ -169,6 +186,7 @@
   "title": "amazon-notify real API source-aware review",
   "token_compression": {
     "evidence_item_count": 2759,
+    "interpretation": "Projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized amazon-notify bundle keeps 23,400 rows and 2,759 grouped Evidence Items, while provider prompts use 140 high-signal Evidence Items representing 19,649 repeated occurrences. Remaining Evidence Items stay SHA-fixed in the Evidence Bundle for traceability even when they are outside the bounded provider prompt.",
     "model_projection_evidence_items": 140,
     "model_projection_occurrence_count": 19649,
     "model_projection_occurrence_coverage_ratio": 0.839701,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -26,6 +27,7 @@ from ops_evidence_synthesis.pipeline_progress import (
     record_pipeline_event,
     start_pipeline_run,
 )
+from ops_evidence_synthesis.profile_gate import build_approved_profile_model_context, build_profile_context_summary
 from ops_evidence_synthesis.source_context import (
     source_analysis_model_context,
     source_context_model_context,
@@ -182,12 +184,21 @@ def run_multi_ai(
                 ),
             },
         )
+        profile_context = build_profile_context_summary(
+            profile_id=str((approved_profile or {}).get("profile_id") or ""),
+            profile_draft={},
+            approved_profile=approved_profile or {},
+            source_context_sha=str((source_context or {}).get("source_context_sha256") or ""),
+            source_analysis_sha=str((source_analysis or {}).get("analysis_sha256") or ""),
+            review_targets=review_targets,
+        )
         result = {
             "schema_version": "multi_ai_run.v1",
             "evidence_sha256": evidence_sha,
             "pipeline_run_id": pipeline_run_id or "",
             "provider_registry": provider_infos(),
             "context_inputs": _context_input_summary(bundle),
+            "profile_context": profile_context,
             "model_runs": model_runs,
             "multi_ai_synthesis": synthesis,
             "canonical_review_graph": canonical_review_graph,
@@ -256,6 +267,14 @@ def run_multi_ai(
 def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> None:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
+    (out / "multi_ai_run.json").write_text(
+        pretty_json(_public_multi_ai_run_result(result)) + "\n",
+        encoding="utf-8",
+    )
+    (out / "profile_context.json").write_text(
+        pretty_json(result.get("profile_context") or {}) + "\n",
+        encoding="utf-8",
+    )
     with (out / "model_runs.jsonl").open("w", encoding="utf-8") as handle:
         for run in result.get("model_runs") or []:
             handle.write(json.dumps(run, ensure_ascii=False, sort_keys=True) + "\n")
@@ -275,6 +294,32 @@ def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> No
         pretty_json(result.get("canonical_graph_snapshot") or {}) + "\n",
         encoding="utf-8",
     )
+
+
+def _public_multi_ai_run_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Persist a replayable run envelope without raw model response bodies."""
+    return {
+        key: value
+        for key, value in result.items()
+        if key
+        in {
+            "schema_version",
+            "evidence_sha256",
+            "pipeline_run_id",
+            "provider_registry",
+            "context_inputs",
+            "profile_context",
+            "model_runs",
+            "multi_ai_synthesis",
+            "canonical_review_graph",
+            "canonical_graph_status",
+            "canonical_graph_sha256",
+            "input_fingerprint_sha256",
+            "canonical_graph_snapshot",
+            "review_targets",
+            "persistence_warning",
+        }
+    }
 
 
 def safety_preflight(model_input: dict[str, Any]) -> SafetyPreflightResult:
@@ -490,7 +535,7 @@ def _run_model_artifacts(
         return [envelope.artifact for envelope in envelopes]
 
     by_index: dict[int, _ArtifactEnvelope] = {}
-    with ThreadPoolExecutor(max_workers=min(len(providers), 8), thread_name_prefix="oes-multi-ai") as executor:
+    with ThreadPoolExecutor(max_workers=_provider_worker_count(len(providers)), thread_name_prefix="oes-multi-ai") as executor:
         futures = {
             executor.submit(_run_single_provider, bundle, provider, preflight): index
             for index, provider in enumerate(providers)
@@ -501,6 +546,19 @@ def _run_model_artifacts(
     _persist_artifact_envelopes(store, envelopes)
     _record_multi_ai_provider_events(store, pipeline_run_id, [envelope.artifact for envelope in envelopes])
     return [envelope.artifact for envelope in envelopes]
+
+
+def _provider_worker_count(provider_count: int) -> int:
+    if provider_count <= 1:
+        return 1
+    raw = os.environ.get("OES_MULTI_AI_MAX_WORKERS", "").strip()
+    if not raw:
+        return min(provider_count, 8)
+    try:
+        requested = int(raw)
+    except ValueError:
+        return min(provider_count, 8)
+    return max(1, min(provider_count, requested))
 
 
 def _record_multi_ai_provider_events(store: Any | None, pipeline_run_id: str | None, artifacts: list[dict[str, Any]]) -> None:
@@ -662,6 +720,7 @@ def _artifact_from_response(
         },
         "cost_estimate": cost_estimate or cost_estimate_for_response(response),
         "parsed_result": parsed_result,
+        "model_input_context": _model_input_context_summary(bundle),
         "safety_preflight": {
             "passed": preflight.passed,
             "finding_types": list(preflight.finding_types),
@@ -670,6 +729,43 @@ def _artifact_from_response(
             "raw_logs_sent_to_providers": False,
         },
         "created_at": utc_now(),
+    }
+
+
+def _model_input_context_summary(bundle: dict[str, Any]) -> dict[str, Any]:
+    approved_context = (
+        bundle.get("approved_profile_context")
+        if isinstance(bundle.get("approved_profile_context"), dict)
+        else {}
+    )
+    source_context = (
+        bundle.get("source_context_context")
+        if isinstance(bundle.get("source_context_context"), dict)
+        else {}
+    )
+    source_analysis = (
+        bundle.get("source_analysis_context")
+        if isinstance(bundle.get("source_analysis_context"), dict)
+        else {}
+    )
+    return {
+        "schema_version": "multi_ai_model_input_context_summary.v1",
+        "model_input_sha256": sha256_json(_model_input(bundle)),
+        "approved_profile_context_included": bool(approved_context),
+        "approved_profile_context_sha256": sha256_json(approved_context) if approved_context else "",
+        "profile_id": str(approved_context.get("profile_id") or ""),
+        "profile_status": str(approved_context.get("profile_status") or ""),
+        "confidence_action": str(approved_context.get("confidence_action") or ""),
+        "confirmed_user_outcomes": list(approved_context.get("confirmed_user_outcomes") or []),
+        "provisional_user_outcomes": list(approved_context.get("provisional_user_outcomes") or []),
+        "human_questions": list(approved_context.get("human_questions") or [])[:8],
+        "source_context_included": bool(source_context),
+        "source_context_sha256": str(source_context.get("source_context_sha256") or ""),
+        "source_analysis_included": bool(source_analysis),
+        "source_analysis_sha256": str(source_analysis.get("analysis_sha256") or ""),
+        "raw_source_sent_to_providers": False,
+        "raw_logs_sent_to_providers": False,
+        "context_is_not_incident_evidence": True,
     }
 
 
@@ -964,20 +1060,7 @@ def _model_input_policy(bundle: dict[str, Any]) -> dict[str, Any]:
 
 
 def _approved_profile_context(profile: dict[str, Any]) -> dict[str, Any]:
-    if not profile:
-        return {"explicit_profile": False, "context_is_not_evidence": True}
-    return {
-        "profile_id": str(profile.get("profile_id") or ""),
-        "explicit_profile": bool(
-            profile.get("explicit_profile")
-            or ((profile.get("review_policy") or {}).get("profile_draft_approved") is True)
-        ),
-        "context_is_not_evidence": True,
-        "require_evidence_id_for_support": True,
-        "system_profile": profile.get("system_profile") if isinstance(profile.get("system_profile"), dict) else {},
-        "metric_semantics": profile.get("metric_semantics") if isinstance(profile.get("metric_semantics"), dict) else {},
-        "action_constraints": list(profile.get("action_constraints") or []),
-    }
+    return build_approved_profile_model_context(profile)
 
 
 def _patterns_from_evidence_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:

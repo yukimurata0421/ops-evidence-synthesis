@@ -7,6 +7,7 @@ from typing import Any
 from ops_evidence_synthesis.agents.adk_investigator import build_adk_tool_contract_trace
 from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.models import ModelRunRecord, ParsedResultRecord
+from ops_evidence_synthesis.profile_gate import build_profile_context_summary
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.timeutils import utc_now
 
@@ -68,6 +69,7 @@ def build_precomputed_review_summary(
         approved_profile=approved_profile,
         source_context_sha=source_context_sha,
         source_analysis_sha=source_analysis_sha,
+        review_targets=targets,
     )
     payload = {
         "schema_version": "precomputed_review_summary.v1",
@@ -560,56 +562,16 @@ def _profile_context(
     approved_profile: dict[str, Any],
     source_context_sha: str,
     source_analysis_sha: str,
+    review_targets: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    draft_profile = profile_draft.get("profile") if isinstance(profile_draft.get("profile"), dict) else {}
-    approved_id = str(approved_profile.get("profile_id") or "")
-    effective_profile_id = profile_id or approved_id
-    component_map = approved_profile.get("component_map") if isinstance(approved_profile.get("component_map"), dict) else {}
-    metric_semantics = approved_profile.get("metric_semantics") or draft_profile.get("metric_semantics") or {}
-    collector_mappings = approved_profile.get("collector_mappings") or draft_profile.get("collector_mappings") or {}
-    draft_components = draft_profile.get("components") if isinstance(draft_profile.get("components"), list) else []
-    generation = profile_draft.get("profile_generation") if isinstance(profile_draft.get("profile_generation"), dict) else {}
-    required_decisions = profile_draft.get("required_human_decisions")
-    if not isinstance(required_decisions, list):
-        required_decisions = [
-            "Approve profile context before treating it as an explicit operational profile.",
-            "Keep source context separate from runtime evidence.",
-        ]
-    has_context = bool(profile_draft or approved_profile or effective_profile_id or source_context_sha or source_analysis_sha)
-    llm_status = str(generation.get("llm_status") or profile_draft.get("llm_status") or ("persisted" if has_context else "not_run"))
-    return {
-        "schema_version": "profile_context_summary.v1",
-        "profile_id": effective_profile_id,
-        "generation_mode": (
-            "profile_draft_and_approved_profile"
-            if profile_draft and approved_profile
-            else "approved_profile_context"
-            if approved_profile or effective_profile_id
-            else "sanitized_source_context"
-            if has_context
-            else "not_run"
-        ),
-        "llm_status": llm_status,
-        "approved": bool(approved_profile or effective_profile_id),
-        "explicit_profile": bool(approved_profile or effective_profile_id),
-        "draft_schema_version": str(profile_draft.get("schema_version") or ""),
-        "source_discovery_sha256": str(profile_draft.get("source_discovery_sha256") or generation.get("source_discovery_sha256") or ""),
-        "source_context_sha256": source_context_sha,
-        "source_analysis_sha256": source_analysis_sha,
-        "system_type": str(approved_profile.get("system_type") or draft_profile.get("system_type") or ""),
-        "purpose": str(approved_profile.get("purpose") or draft_profile.get("purpose") or ""),
-        "component_count": len(component_map) if component_map else len(draft_components),
-        "metric_semantics_count": len(metric_semantics) if isinstance(metric_semantics, dict | list) else 0,
-        "collector_mapping_count": len(collector_mappings) if isinstance(collector_mappings, dict | list) else 0,
-        "required_human_decisions": [str(item) for item in required_decisions if str(item or "").strip()][:8],
-        "context_is_not_incident_evidence": True,
-        "summary": (
-            "Profile context was generated or approved from sanitized discovery; it constrains interpretation "
-            "but runtime claims still require Evidence Item IDs."
-            if has_context
-            else "No profile context was recorded for this payload."
-        ),
-    }
+    return build_profile_context_summary(
+        profile_id=profile_id,
+        profile_draft=profile_draft,
+        approved_profile=approved_profile,
+        source_context_sha=source_context_sha,
+        source_analysis_sha=source_analysis_sha,
+        review_targets=review_targets or [],
+    )
 
 
 def _profile_draft_generation(profile_context: dict[str, Any]) -> dict[str, Any]:
@@ -623,6 +585,13 @@ def _profile_draft_generation(profile_context: dict[str, Any]) -> dict[str, Any]
         "component_count": int(profile_context.get("component_count") or 0),
         "metric_semantics_count": int(profile_context.get("metric_semantics_count") or 0),
         "collector_mapping_count": int(profile_context.get("collector_mapping_count") or 0),
+        "profile_status": str(profile_context.get("profile_status") or ""),
+        "confidence_summary": dict(profile_context.get("confidence_summary") or {}),
+        "confidence_action": str(profile_context.get("confidence_action") or ""),
+        "confirmed_user_outcomes": list(profile_context.get("confirmed_user_outcomes") or []),
+        "provisional_user_outcomes": list(profile_context.get("provisional_user_outcomes") or []),
+        "human_questions": list(profile_context.get("human_questions") or []),
+        "profile_to_review_links": list(profile_context.get("profile_to_review_links") or []),
         "required_human_decisions": list(profile_context.get("required_human_decisions") or []),
     }
 

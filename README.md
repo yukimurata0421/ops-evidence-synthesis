@@ -46,9 +46,10 @@ Real API source-aware run:
 
 This run was generated through a 7-day storeless CLI real-provider path with a
 23,400-row sanitized log corpus, a bounded Evidence Bundle model projection,
-sanitized source context, and five schema-valid real provider outputs: Gemini,
-gpt-oss, Mistral, Qwen, and GLM. The 7-day window was selected after 2-day,
-5-day, and 7-day candidates were evaluated.
+sanitized source context, an approved profile explicitly included in provider
+prompts as human-gated interpretation context, and five schema-valid real
+provider outputs: Gemini, gpt-oss, Mistral, Qwen, and GLM. The 7-day window was
+selected after 2-day, 5-day, and 7-day candidates were evaluated.
 
 The production workflow is Gemini-led: `gemini-enterprise-agent-platform` is the
 required first provider and reference point for comparison, while gpt-oss,
@@ -67,7 +68,9 @@ stream_v3 real API source-aware runs:
 These runs used sanitized stream_v3 code context plus separate runtime and
 monitoring-plane log corpora. Dell retained 11,399 sanitized runtime rows over
 a 7-day analysis window; the arena-server monitoring run retained 4,747
-sanitized rows over a 7-day analysis window.
+sanitized rows over a 7-day analysis window. Both runs include the approved
+profile context in each provider prompt while keeping it separate from runtime
+incident evidence.
 
 The public data boundary is documented in
 [docs/data-boundary.md](docs/data-boundary.md). Full row-level sanitized

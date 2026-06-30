@@ -307,6 +307,13 @@ def draft_system_profile(profile_generation: dict[str, Any] | None = None) -> di
         for item in generation.get("required_human_decisions") or []
         if str(item or "").strip()
     ]
+    human_questions = [
+        str(item)
+        for item in generation.get("human_questions") or []
+        if str(item or "").strip()
+    ]
+    confidence_action = str(generation.get("confidence_action") or "")
+    confidence_summary = generation.get("confidence_summary") if isinstance(generation.get("confidence_summary"), dict) else {}
     if explicit:
         summary = (
             "Approved profile context is attached before review; it remains interpretation context "
@@ -330,6 +337,13 @@ def draft_system_profile(profile_generation: dict[str, Any] | None = None) -> di
         "component_count": int(generation.get("component_count") or 0),
         "metric_semantics_count": int(generation.get("metric_semantics_count") or 0),
         "collector_mapping_count": int(generation.get("collector_mapping_count") or 0),
+        "profile_status": str(generation.get("profile_status") or ""),
+        "confidence_summary": dict(confidence_summary),
+        "confidence_action": confidence_action,
+        "confirmed_user_outcomes": list(generation.get("confirmed_user_outcomes") or []),
+        "provisional_user_outcomes": list(generation.get("provisional_user_outcomes") or []),
+        "human_questions": human_questions[:8],
+        "profile_to_review_links": list(generation.get("profile_to_review_links") or [])[:6],
         "required_human_decisions": required_decisions[:8],
         "summary": summary,
     }
@@ -380,6 +394,11 @@ def build_adk_tool_contract_trace(payload: dict[str, Any]) -> list[dict[str, Any
         profile_context = payload.get("profile_context") if isinstance(payload.get("profile_context"), dict) else {}
         profile_id = str(analysis_context.get("profile_id") or profile_context.get("profile_id") or "")
         if profile_id:
+            confidence_summary = (
+                profile_context.get("confidence_summary")
+                if isinstance(profile_context.get("confidence_summary"), dict)
+                else {}
+            )
             profile_generation = {
                 "generation_mode": "approved_profile_context",
                 "llm_status": "persisted",
@@ -389,6 +408,13 @@ def build_adk_tool_contract_trace(payload: dict[str, Any]) -> list[dict[str, Any
                 "component_count": int(profile_context.get("component_count") or 0),
                 "metric_semantics_count": int(profile_context.get("metric_semantics_count") or 0),
                 "collector_mapping_count": int(profile_context.get("collector_mapping_count") or 0),
+                "profile_status": str(profile_context.get("profile_status") or ""),
+                "confidence_summary": dict(confidence_summary),
+                "confidence_action": str(profile_context.get("confidence_action") or ""),
+                "confirmed_user_outcomes": list(profile_context.get("confirmed_user_outcomes") or []),
+                "provisional_user_outcomes": list(profile_context.get("provisional_user_outcomes") or []),
+                "human_questions": list(profile_context.get("human_questions") or []),
+                "profile_to_review_links": list(profile_context.get("profile_to_review_links") or []),
                 "required_human_decisions": list(profile_context.get("required_human_decisions") or []),
             }
     tool_results = [

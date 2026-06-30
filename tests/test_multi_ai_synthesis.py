@@ -12,6 +12,7 @@ from ops_evidence_synthesis.profile_discovery import approve_profile_draft, disc
 from ops_evidence_synthesis.synthesis.multi_ai import (
     SCORE_NOTE,
     _normalize_claim_result_payload,
+    _provider_worker_count,
     finding_impact_from_synthesis,
     run_multi_ai,
     synthesize_multi_ai,
@@ -20,6 +21,17 @@ from ops_evidence_synthesis.synthesis.validation import validate_claim_result
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_provider_worker_count_can_be_limited_for_real_api_stability(monkeypatch) -> None:
+    monkeypatch.delenv("OES_MULTI_AI_MAX_WORKERS", raising=False)
+    assert _provider_worker_count(5) == 5
+
+    monkeypatch.setenv("OES_MULTI_AI_MAX_WORKERS", "1")
+    assert _provider_worker_count(5) == 1
+
+    monkeypatch.setenv("OES_MULTI_AI_MAX_WORKERS", "99")
+    assert _provider_worker_count(5) == 5
 
 
 def _bundle_and_profile(tmp_path: Path) -> tuple[dict[str, object], dict[str, object]]:
@@ -78,6 +90,8 @@ def test_run_multi_ai_cli_generates_artifacts_with_local_providers(tmp_path: Pat
     assert "local-gemini: ok schema_valid=true" in completed.stdout
     model_runs = [json.loads(line) for line in (out / "model_runs.jsonl").read_text(encoding="utf-8").splitlines()]
     synthesis = json.loads((out / "multi_ai_synthesis.json").read_text(encoding="utf-8"))
+    run_envelope = json.loads((out / "multi_ai_run.json").read_text(encoding="utf-8"))
+    profile_context = json.loads((out / "profile_context.json").read_text(encoding="utf-8"))
     review_targets = json.loads((out / "review_targets.json").read_text(encoding="utf-8"))
     canonical_graph = json.loads((out / "canonical_review_graph.json").read_text(encoding="utf-8"))
 
@@ -104,6 +118,13 @@ def test_run_multi_ai_cli_generates_artifacts_with_local_providers(tmp_path: Pat
     assert synthesis["token_usage"]["input_tokens"] >= 0
     assert synthesis["cost_estimate"]["pricing_source"] in {"env", "not_configured"}
     assert synthesis["score_note"] == SCORE_NOTE
+    assert run_envelope["profile_context"]["schema_version"] == "profile_context_summary.v2"
+    assert run_envelope["profile_context"]["context_is_not_incident_evidence"] is True
+    assert run_envelope["model_runs"][0]["model_input_context"]["approved_profile_context_included"] is True
+    assert run_envelope["model_runs"][0]["model_input_context"]["profile_status"]
+    assert run_envelope["model_runs"][0]["model_input_context"]["model_input_sha256"]
+    assert profile_context["schema_version"] == "profile_context_summary.v2"
+    assert profile_context["context_is_not_incident_evidence"] is True
     assert review_targets
     assert canonical_graph["schema_version"] == "canonical_review_graph.v1"
     assert "agreement_dimensions" in canonical_graph

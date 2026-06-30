@@ -18,7 +18,7 @@
       "summary": "Evidence Bundle 1be4a21441fe fixed 20 sanitized rows; raw_log_policy=not_uploaded.",
       "title": "Freeze Evidence Bundle",
       "tool": "freeze_evidence_bundle",
-      "trace_sha256": "988fe06f983a2943e8c0212fdc9284d6e7c431a93c6e2d77561315cc5c67aca5",
+      "trace_sha256": "b12d3d83da60fbfc408ab8166bfe0d0ea296e8a41ff6d1d65fe0488eeef3ee9e",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -41,7 +41,7 @@
       "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
       "title": "Attach Sanitized Source Context",
       "tool": "attach_sanitized_source_context",
-      "trace_sha256": "988fe06f983a2943e8c0212fdc9284d6e7c431a93c6e2d77561315cc5c67aca5",
+      "trace_sha256": "b12d3d83da60fbfc408ab8166bfe0d0ea296e8a41ff6d1d65fe0488eeef3ee9e",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -67,7 +67,7 @@
       "summary": "3/3 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
       "title": "Run Cross-Check Providers",
       "tool": "run_cross_check_providers",
-      "trace_sha256": "988fe06f983a2943e8c0212fdc9284d6e7c431a93c6e2d77561315cc5c67aca5",
+      "trace_sha256": "b12d3d83da60fbfc408ab8166bfe0d0ea296e8a41ff6d1d65fe0488eeef3ee9e",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -89,7 +89,7 @@
       "summary": "5 review target(s) cite 11 sanitized evidence ref(s); 13 missing-evidence item(s) remain.",
       "title": "Validate Citations",
       "tool": "validate_citations",
-      "trace_sha256": "988fe06f983a2943e8c0212fdc9284d6e7c431a93c6e2d77561315cc5c67aca5",
+      "trace_sha256": "b12d3d83da60fbfc408ab8166bfe0d0ea296e8a41ff6d1d65fe0488eeef3ee9e",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -111,7 +111,7 @@
       "summary": "Canonical Review Graph projected 5 target(s), 0 primary candidate(s), and 1 convergence group(s).",
       "title": "Compute Review Targets",
       "tool": "compute_review_targets",
-      "trace_sha256": "988fe06f983a2943e8c0212fdc9284d6e7c431a93c6e2d77561315cc5c67aca5",
+      "trace_sha256": "b12d3d83da60fbfc408ab8166bfe0d0ea296e8a41ff6d1d65fe0488eeef3ee9e",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -135,7 +135,7 @@
       "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
       "title": "Arbitrate Human Gate",
       "tool": "arbitrate_review_gate",
-      "trace_sha256": "988fe06f983a2943e8c0212fdc9284d6e7c431a93c6e2d77561315cc5c67aca5",
+      "trace_sha256": "b12d3d83da60fbfc408ab8166bfe0d0ea296e8a41ff6d1d65fe0488eeef3ee9e",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -160,7 +160,7 @@
       "summary": "Generated read-only follow-up plan with 4 request type(s) and 13 missing-evidence item(s).",
       "title": "Request More Evidence",
       "tool": "request_more_evidence",
-      "trace_sha256": "988fe06f983a2943e8c0212fdc9284d6e7c431a93c6e2d77561315cc5c67aca5",
+      "trace_sha256": "b12d3d83da60fbfc408ab8166bfe0d0ea296e8a41ff6d1d65fe0488eeef3ee9e",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -172,11 +172,56 @@
         "artifact": "profile_draft",
         "collector_mapping_count": 3,
         "component_count": 8,
+        "confidence_action": "use_for_subsystem_routing_human_gated",
+        "confidence_summary": {
+          "collector_mapping_confidence": 0.7,
+          "component_mapping_confidence": 0.76,
+          "metric_semantics_confidence": 0.72,
+          "overall_confidence": 0.75
+        },
+        "confirmed_user_outcomes": [],
         "explicit_profile": true,
         "generation_mode": "profile_draft_and_approved_profile",
+        "human_questions": [
+          "What is the critical user outcome?",
+          "Which component is the main service path?",
+          "Are restart failures expected or harmful?",
+          "Which metrics are zero-is-good or zero-is-bad?",
+          "Which logs indicate user impact rather than diagnostic noise?",
+          "Which discovered component roles are correct?",
+          "Which metric semantics should become explicit profile rules?",
+          "Confirm critical user outcomes."
+        ],
         "llm_status": "ok",
         "metric_semantics_count": 2,
         "profile_id": "payment_api_sample_source_approved",
+        "profile_status": "approved_context_human_gated_outcomes",
+        "profile_to_review_links": [
+          {
+            "question": "What is the critical user outcome?",
+            "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+            "review_units": [
+              "database_connection_pool"
+            ]
+          },
+          {
+            "question": "Which logs indicate user impact rather than diagnostic noise?",
+            "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+            "review_units": [
+              "database_connection_pool"
+            ]
+          },
+          {
+            "question": "Confirm critical user outcomes.",
+            "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+            "review_units": [
+              "database_connection_pool"
+            ]
+          }
+        ],
+        "provisional_user_outcomes": [
+          "Successful payment processing"
+        ],
         "required_human_decisions": [
           "Approve or edit component roles before using this as an explicit profile.",
           "Approve metric zero/increase/decrease semantics.",
@@ -196,7 +241,7 @@
       "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
       "title": "Draft System Profile",
       "tool": "draft_system_profile",
-      "trace_sha256": "988fe06f983a2943e8c0212fdc9284d6e7c431a93c6e2d77561315cc5c67aca5",
+      "trace_sha256": "b12d3d83da60fbfc408ab8166bfe0d0ea296e8a41ff6d1d65fe0488eeef3ee9e",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -217,7 +262,7 @@
       "summary": "Read-only review payload for 1be4a21441fe is served from precomputed JSON; page load does not invoke live model work.",
       "title": "Deliver Read-Only Review",
       "tool": "deliver_read_only_review",
-      "trace_sha256": "988fe06f983a2943e8c0212fdc9284d6e7c431a93c6e2d77561315cc5c67aca5",
+      "trace_sha256": "b12d3d83da60fbfc408ab8166bfe0d0ea296e8a41ff6d1d65fe0488eeef3ee9e",
       "trace_source": "adk_tool_contract"
     }
   ],
@@ -281,7 +326,7 @@
   "evidence_sha256": "1be4a21441fec7d2a4eafa95508badbe4a892bd61f3d9e08541893fba97c6731",
   "generation": {
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "58424897141672e1c5e0199d6d606cb31327a103420631ef2130d3be2dfbf09d",
+    "payload_sha256": "90258520dfa863ee4622454ca0a0e741ca94488d2cd1dcf9ba51066c28377c00",
     "provider_mode": "deterministic_local",
     "raw_log_policy": "not_uploaded",
     "schema_version": "precomputed_review_generation.v1",
@@ -292,13 +337,69 @@
     "approved": true,
     "collector_mapping_count": 3,
     "component_count": 8,
+    "confidence_action": "use_for_subsystem_routing_human_gated",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.76,
+      "metric_semantics_confidence": 0.72,
+      "overall_confidence": 0.75
+    },
+    "confidence_thresholds": {
+      "candidate_only_human_gate": 0.6,
+      "use_for_subsystem_routing": 0.75
+    },
+    "confirmed_user_outcomes": [],
     "context_is_not_incident_evidence": true,
     "draft_schema_version": "profile_draft.v1",
     "explicit_profile": true,
     "generation_mode": "profile_draft_and_approved_profile",
+    "human_questions": [
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?",
+      "Which logs indicate user impact rather than diagnostic noise?",
+      "Which discovered component roles are correct?",
+      "Which metric semantics should become explicit profile rules?",
+      "Confirm critical user outcomes."
+    ],
     "llm_status": "ok",
     "metric_semantics_count": 2,
     "profile_id": "payment_api_sample_source_approved",
+    "profile_review_policy": {
+      "confirmed_outcomes_required_for_promotion": true,
+      "context_is_not_incident_evidence": true,
+      "low_confidence_fields_require_human_review": true,
+      "provisional_outcomes_create_missing_evidence": true,
+      "runtime_support_must_cite_evidence_id": true
+    },
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [
+      {
+        "question": "What is the critical user outcome?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "database_connection_pool"
+        ]
+      },
+      {
+        "question": "Which logs indicate user impact rather than diagnostic noise?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "database_connection_pool"
+        ]
+      },
+      {
+        "question": "Confirm critical user outcomes.",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "database_connection_pool"
+        ]
+      }
+    ],
+    "provisional_user_outcomes": [
+      "Successful payment processing"
+    ],
     "purpose": "payment-api service",
     "required_human_decisions": [
       "Approve or edit component roles before using this as an explicit profile.",
@@ -310,22 +411,67 @@
       "Are restart failures expected or harmful?",
       "Which metrics are zero-is-good or zero-is-bad?"
     ],
-    "schema_version": "profile_context_summary.v1",
+    "schema_version": "profile_context_summary.v2",
     "source_analysis_sha256": "efaff3304c860d176a6fec219d364da7c67476ef90db7e7ba6a892e2ea09bba8",
     "source_context_sha256": "a49c49e8c6571777ecdc19d6a664dd608d6a76f07a8b799ed273f91dd5a201c4",
     "source_discovery_sha256": "129d9c4c10ef25734646b69b3d0f00b944190a8ee9fe530f1d9beb8b47d17c14",
-    "summary": "Profile context was generated or approved from sanitized discovery; it constrains interpretation but runtime claims still require Evidence Item IDs.",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains routing and questions, but runtime claims still require Evidence Item IDs and human-approved user outcomes.",
     "system_type": "python_project"
   },
   "profile_draft_generation": {
     "approved": true,
     "collector_mapping_count": 3,
     "component_count": 8,
+    "confidence_action": "use_for_subsystem_routing_human_gated",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.76,
+      "metric_semantics_confidence": 0.72,
+      "overall_confidence": 0.75
+    },
+    "confirmed_user_outcomes": [],
     "explicit_profile": true,
     "generation_mode": "profile_draft_and_approved_profile",
+    "human_questions": [
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?",
+      "Which logs indicate user impact rather than diagnostic noise?",
+      "Which discovered component roles are correct?",
+      "Which metric semantics should become explicit profile rules?",
+      "Confirm critical user outcomes."
+    ],
     "llm_status": "ok",
     "metric_semantics_count": 2,
     "profile_id": "payment_api_sample_source_approved",
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [
+      {
+        "question": "What is the critical user outcome?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "database_connection_pool"
+        ]
+      },
+      {
+        "question": "Which logs indicate user impact rather than diagnostic noise?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "database_connection_pool"
+        ]
+      },
+      {
+        "question": "Confirm critical user outcomes.",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "database_connection_pool"
+        ]
+      }
+    ],
+    "provisional_user_outcomes": [
+      "Successful payment processing"
+    ],
     "required_human_decisions": [
       "Approve or edit component roles before using this as an explicit profile.",
       "Approve metric zero/increase/decrease semantics.",

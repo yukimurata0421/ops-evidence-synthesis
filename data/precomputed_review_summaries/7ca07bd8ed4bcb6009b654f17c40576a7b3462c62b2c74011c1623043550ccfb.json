@@ -18,7 +18,7 @@
       "summary": "Evidence Bundle 7ca07bd8ed4b fixed 23,400 sanitized rows; raw_log_policy=not_uploaded.",
       "title": "Freeze Evidence Bundle",
       "tool": "freeze_evidence_bundle",
-      "trace_sha256": "6be7bb24e8cb264f138faebcb62480c88c5a63668634380cd278a806b02071a0",
+      "trace_sha256": "17d3f597b5e7b6e8aa3db397b7daa4dc37e3e08ea71b7568d8f925f3b62da577",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -41,7 +41,7 @@
       "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
       "title": "Attach Sanitized Source Context",
       "tool": "attach_sanitized_source_context",
-      "trace_sha256": "6be7bb24e8cb264f138faebcb62480c88c5a63668634380cd278a806b02071a0",
+      "trace_sha256": "17d3f597b5e7b6e8aa3db397b7daa4dc37e3e08ea71b7568d8f925f3b62da577",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -69,7 +69,7 @@
       "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
       "title": "Run Cross-Check Providers",
       "tool": "run_cross_check_providers",
-      "trace_sha256": "6be7bb24e8cb264f138faebcb62480c88c5a63668634380cd278a806b02071a0",
+      "trace_sha256": "17d3f597b5e7b6e8aa3db397b7daa4dc37e3e08ea71b7568d8f925f3b62da577",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -78,20 +78,20 @@
       "artifact": "adk:tool:validate_citations",
       "output": {
         "artifact": "citation_validation",
-        "cited_evidence_ref_count": 11,
-        "missing_evidence_count": 5,
+        "cited_evidence_ref_count": 13,
+        "missing_evidence_count": 13,
         "status": "completed",
-        "summary": "4 review target(s) cite 11 sanitized evidence ref(s); 5 missing-evidence item(s) remain.",
-        "target_count": 4,
+        "summary": "5 review target(s) cite 13 sanitized evidence ref(s); 13 missing-evidence item(s) remain.",
+        "target_count": 5,
         "uncited_target_ids": []
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "validate_citations",
-      "summary": "4 review target(s) cite 11 sanitized evidence ref(s); 5 missing-evidence item(s) remain.",
+      "summary": "5 review target(s) cite 13 sanitized evidence ref(s); 13 missing-evidence item(s) remain.",
       "title": "Validate Citations",
       "tool": "validate_citations",
-      "trace_sha256": "6be7bb24e8cb264f138faebcb62480c88c5a63668634380cd278a806b02071a0",
+      "trace_sha256": "17d3f597b5e7b6e8aa3db397b7daa4dc37e3e08ea71b7568d8f925f3b62da577",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -100,20 +100,20 @@
       "artifact": "adk:tool:compute_review_targets",
       "output": {
         "artifact": "canonical_review_graph",
-        "convergence_count": 1,
+        "convergence_count": 3,
         "primary_count": 0,
         "status": "completed",
-        "summary": "Canonical Review Graph projected 4 target(s), 0 primary candidate(s), and 1 convergence group(s).",
-        "targets_total": 4,
-        "validation_count": 4
+        "summary": "Canonical Review Graph projected 5 target(s), 0 primary candidate(s), and 3 convergence group(s).",
+        "targets_total": 5,
+        "validation_count": 5
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "compute_review_targets",
-      "summary": "Canonical Review Graph projected 4 target(s), 0 primary candidate(s), and 1 convergence group(s).",
+      "summary": "Canonical Review Graph projected 5 target(s), 0 primary candidate(s), and 3 convergence group(s).",
       "title": "Compute Review Targets",
       "tool": "compute_review_targets",
-      "trace_sha256": "6be7bb24e8cb264f138faebcb62480c88c5a63668634380cd278a806b02071a0",
+      "trace_sha256": "17d3f597b5e7b6e8aa3db397b7daa4dc37e3e08ea71b7568d8f925f3b62da577",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -123,6 +123,8 @@
       "output": {
         "artifact": "review_arbitration",
         "blocked_reasons": [
+          "incident_baseline_open; user_impact_or_business_output_unverified",
+          "single_metric_only; user_impact_unverified",
           "user_impact_unverified"
         ],
         "incident_baseline": "established",
@@ -136,7 +138,7 @@
       "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
       "title": "Arbitrate Human Gate",
       "tool": "arbitrate_review_gate",
-      "trace_sha256": "6be7bb24e8cb264f138faebcb62480c88c5a63668634380cd278a806b02071a0",
+      "trace_sha256": "17d3f597b5e7b6e8aa3db397b7daa4dc37e3e08ea71b7568d8f925f3b62da577",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -145,20 +147,21 @@
       "artifact": "adk:tool:request_more_evidence",
       "output": {
         "artifact": "evidence_request_plan",
-        "missing_evidence_count": 5,
+        "missing_evidence_count": 13,
         "request_types": [
+          "instrumentation_consistency_query",
           "user_impact_signal_query"
         ],
         "status": "completed",
-        "summary": "Generated read-only follow-up plan with 1 request type(s) and 5 missing-evidence item(s)."
+        "summary": "Generated read-only follow-up plan with 2 request type(s) and 13 missing-evidence item(s)."
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "request_more_evidence",
-      "summary": "Generated read-only follow-up plan with 1 request type(s) and 5 missing-evidence item(s).",
+      "summary": "Generated read-only follow-up plan with 2 request type(s) and 13 missing-evidence item(s).",
       "title": "Request More Evidence",
       "tool": "request_more_evidence",
-      "trace_sha256": "6be7bb24e8cb264f138faebcb62480c88c5a63668634380cd278a806b02071a0",
+      "trace_sha256": "17d3f597b5e7b6e8aa3db397b7daa4dc37e3e08ea71b7568d8f925f3b62da577",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -170,11 +173,78 @@
         "artifact": "profile_draft",
         "collector_mapping_count": 4,
         "component_count": 22,
+        "confidence_action": "use_for_subsystem_routing_human_gated",
+        "confidence_summary": {
+          "collector_mapping_confidence": 0.7,
+          "component_mapping_confidence": 0.8,
+          "metric_semantics_confidence": 0.72,
+          "overall_confidence": 0.79
+        },
+        "confirmed_user_outcomes": [],
         "explicit_profile": true,
         "generation_mode": "profile_draft_and_approved_profile",
+        "human_questions": [
+          "What is the critical user outcome?",
+          "Which component is the main service path?",
+          "Are restart failures expected or harmful?",
+          "Which metrics are zero-is-good or zero-is-bad?",
+          "Which logs indicate user impact rather than diagnostic noise?",
+          "Which discovered component roles are correct?",
+          "Which metric semantics should become explicit profile rules?",
+          "Confirm critical user outcomes."
+        ],
         "llm_status": "ok",
         "metric_semantics_count": 3,
         "profile_id": "amazon_notify_qwen_glm_full_corpus_approved",
+        "profile_status": "approved_context_human_gated_outcomes",
+        "profile_to_review_links": [
+          {
+            "question": "What is the critical user outcome?",
+            "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+            "review_units": [
+              "job_configuration",
+              "runtime_recovery",
+              "background_processing",
+              "service_health",
+              "deployment_regression"
+            ]
+          },
+          {
+            "question": "Which metrics are zero-is-good or zero-is-bad?",
+            "reason": "Zero-count metrics can mean healthy idle, disabled routing, or broken processing; linked review targets keep that ambiguity human-gated.",
+            "review_units": [
+              "runtime_recovery",
+              "background_processing",
+              "service_health"
+            ]
+          },
+          {
+            "question": "Which logs indicate user impact rather than diagnostic noise?",
+            "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+            "review_units": [
+              "job_configuration",
+              "runtime_recovery",
+              "background_processing",
+              "service_health",
+              "deployment_regression"
+            ]
+          },
+          {
+            "question": "Confirm critical user outcomes.",
+            "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+            "review_units": [
+              "job_configuration",
+              "runtime_recovery",
+              "background_processing",
+              "service_health",
+              "deployment_regression"
+            ]
+          }
+        ],
+        "provisional_user_outcomes": [
+          "Ensure amazon-notify service processes notifications successfully",
+          "Ensure watchdog restarts failed services"
+        ],
         "required_human_decisions": [
           "Approve or edit component roles before using this as an explicit profile.",
           "Approve metric zero/increase/decrease semantics.",
@@ -194,7 +264,7 @@
       "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
       "title": "Draft System Profile",
       "tool": "draft_system_profile",
-      "trace_sha256": "6be7bb24e8cb264f138faebcb62480c88c5a63668634380cd278a806b02071a0",
+      "trace_sha256": "17d3f597b5e7b6e8aa3db397b7daa4dc37e3e08ea71b7568d8f925f3b62da577",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -215,15 +285,15 @@
       "summary": "Read-only review payload for 7ca07bd8ed4b is served from precomputed JSON; page load does not invoke live model work.",
       "title": "Deliver Read-Only Review",
       "tool": "deliver_read_only_review",
-      "trace_sha256": "6be7bb24e8cb264f138faebcb62480c88c5a63668634380cd278a806b02071a0",
+      "trace_sha256": "17d3f597b5e7b6e8aa3db397b7daa4dc37e3e08ea71b7568d8f925f3b62da577",
       "trace_source": "adk_tool_contract"
     }
   ],
   "analysis_context": {
     "analysis_conclusion": [
       "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned status=ok and schema_valid=true.",
-      "The public graph exposes 0 primary candidate, 4 validation target(s), and 2 monitor-only item(s) after the analysis-window boundary is applied.",
-      "4 validation targets remain for human review."
+      "The public graph exposes 0 primary candidate, 5 validation target(s), and 2 monitor-only item(s) after the analysis-window boundary is applied.",
+      "5 validation targets remain for human review."
     ],
     "analysis_window_hours": 168.0,
     "db_ingested_log_count": 23400,
@@ -233,10 +303,12 @@
       "The run used all 23,400 sanitized amazon-notify rows from 2026-06-09T18:35:25Z to 2026-06-16T18:35:25Z.",
       "The local-first Evidence Bundle retained 2,759 grouped evidence items and 4 deterministic signals.",
       "The provider prompt used 140 selected evidence items covering 19,649 occurrences (84.0% of the sanitized corpus).",
+      "Projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized amazon-notify bundle keeps 23,400 rows and 2,759 grouped Evidence Items, while provider prompts use 140 high-signal Evidence Items representing 19,649 repeated occurrences. Remaining Evidence Items stay SHA-fixed in the Evidence Bundle for traceability even when they are outside the bounded provider prompt.",
       "Repeated RUN_ONCE/RUN_RESULT, systemd watchdog, token refresh, Pub/Sub idle, and status snapshot patterns were represented by evidence IDs rather than raw log bodies."
     ],
     "min_analysis_window_hours": 24,
     "model_projection_evidence_items": 140,
+    "model_projection_interpretation": "Projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized amazon-notify bundle keeps 23,400 rows and 2,759 grouped Evidence Items, while provider prompts use 140 high-signal Evidence Items representing 19,649 repeated occurrences. Remaining Evidence Items stay SHA-fixed in the Evidence Bundle for traceability even when they are outside the bounded provider prompt.",
     "model_projection_occurrence_count": 19649,
     "model_projection_occurrence_coverage_ratio": 0.839701,
     "model_projection_policy": "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; row-level raw logs stayed out of provider prompts.",
@@ -245,7 +317,7 @@
     "provider_count": 5,
     "raw_log_policy": "not_uploaded",
     "raw_source_policy": "not_uploaded",
-    "real_api_revision": "real-api-7d-target-explanations-20260630-regrouped-v2",
+    "real_api_revision": "real-api-7d-approved-profile-prompt-20260630",
     "sanitized_log_count": 23400,
     "schema_valid_provider_count": 5,
     "schema_version": "real_api_source_context_summary.v2",
@@ -258,8 +330,8 @@
       "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs from the sanitized corpus."
     ],
     "token_usage": {
-      "input_tokens": 439625,
-      "output_tokens": 11721
+      "input_tokens": 456466,
+      "output_tokens": 15680
     },
     "window_end": "2026-06-16T18:35:25Z",
     "window_start": "2026-06-09T18:35:25Z"
@@ -292,10 +364,10 @@
   },
   "evidence_sha256": "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb",
   "generation": {
-    "api_revision": "real-api-7d-target-explanations-20260630-regrouped-v2",
+    "api_revision": "real-api-7d-approved-profile-prompt-20260630",
     "generator": "ops_evidence_synthesis.precomputed_review",
     "min_analysis_window_hours": 24,
-    "payload_sha256": "bfc4384341253c101d9d75a201432cbfeccbf4389fde948d30e739c2f951290e",
+    "payload_sha256": "ec7799b59261a7bea0d5c6f4b56fe623644e1038b4c83295d392e8c1c0c9b4b9",
     "pipeline_run_id": "",
     "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
     "raw_log_policy": "not_uploaded",
@@ -308,13 +380,91 @@
     "approved": true,
     "collector_mapping_count": 4,
     "component_count": 22,
+    "confidence_action": "use_for_subsystem_routing_human_gated",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.8,
+      "metric_semantics_confidence": 0.72,
+      "overall_confidence": 0.79
+    },
+    "confidence_thresholds": {
+      "candidate_only_human_gate": 0.6,
+      "use_for_subsystem_routing": 0.75
+    },
+    "confirmed_user_outcomes": [],
     "context_is_not_incident_evidence": true,
     "draft_schema_version": "profile_draft.v1",
     "explicit_profile": true,
     "generation_mode": "profile_draft_and_approved_profile",
+    "human_questions": [
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?",
+      "Which logs indicate user impact rather than diagnostic noise?",
+      "Which discovered component roles are correct?",
+      "Which metric semantics should become explicit profile rules?",
+      "Confirm critical user outcomes."
+    ],
     "llm_status": "ok",
     "metric_semantics_count": 3,
     "profile_id": "amazon_notify_qwen_glm_full_corpus_approved",
+    "profile_review_policy": {
+      "confirmed_outcomes_required_for_promotion": true,
+      "context_is_not_incident_evidence": true,
+      "low_confidence_fields_require_human_review": true,
+      "provisional_outcomes_create_missing_evidence": true,
+      "runtime_support_must_cite_evidence_id": true
+    },
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [
+      {
+        "question": "What is the critical user outcome?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "job_configuration",
+          "runtime_recovery",
+          "background_processing",
+          "service_health",
+          "deployment_regression"
+        ]
+      },
+      {
+        "question": "Which metrics are zero-is-good or zero-is-bad?",
+        "reason": "Zero-count metrics can mean healthy idle, disabled routing, or broken processing; linked review targets keep that ambiguity human-gated.",
+        "review_units": [
+          "runtime_recovery",
+          "background_processing",
+          "service_health"
+        ]
+      },
+      {
+        "question": "Which logs indicate user impact rather than diagnostic noise?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "job_configuration",
+          "runtime_recovery",
+          "background_processing",
+          "service_health",
+          "deployment_regression"
+        ]
+      },
+      {
+        "question": "Confirm critical user outcomes.",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "job_configuration",
+          "runtime_recovery",
+          "background_processing",
+          "service_health",
+          "deployment_regression"
+        ]
+      }
+    ],
+    "provisional_user_outcomes": [
+      "Ensure amazon-notify service processes notifications successfully",
+      "Ensure watchdog restarts failed services"
+    ],
     "purpose": "amazon-notify service with watchdog and pubsub components",
     "required_human_decisions": [
       "Approve or edit component roles before using this as an explicit profile.",
@@ -326,22 +476,89 @@
       "Are restart failures expected or harmful?",
       "Which metrics are zero-is-good or zero-is-bad?"
     ],
-    "schema_version": "profile_context_summary.v1",
+    "schema_version": "profile_context_summary.v2",
     "source_analysis_sha256": "f482362f4ffa1a47cbc52f4eeb03724ab651edcfd3edc6efdd36007a363e5a84",
     "source_context_sha256": "58e8d81ff20222774a13969462853a7cafb548ac78b7e40d59b07dec1fe360f0",
     "source_discovery_sha256": "18b24fff836a14b4f986b4cf3064829442c6b369a84654cb623b9050c65df030",
-    "summary": "Profile context was generated or approved from sanitized discovery; it constrains interpretation but runtime claims still require Evidence Item IDs.",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains routing and questions, but runtime claims still require Evidence Item IDs and human-approved user outcomes.",
     "system_type": "systemd_service"
   },
   "profile_draft_generation": {
     "approved": true,
     "collector_mapping_count": 4,
     "component_count": 22,
+    "confidence_action": "use_for_subsystem_routing_human_gated",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.8,
+      "metric_semantics_confidence": 0.72,
+      "overall_confidence": 0.79
+    },
+    "confirmed_user_outcomes": [],
     "explicit_profile": true,
     "generation_mode": "profile_draft_and_approved_profile",
+    "human_questions": [
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?",
+      "Which logs indicate user impact rather than diagnostic noise?",
+      "Which discovered component roles are correct?",
+      "Which metric semantics should become explicit profile rules?",
+      "Confirm critical user outcomes."
+    ],
     "llm_status": "ok",
     "metric_semantics_count": 3,
     "profile_id": "amazon_notify_qwen_glm_full_corpus_approved",
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [
+      {
+        "question": "What is the critical user outcome?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "job_configuration",
+          "runtime_recovery",
+          "background_processing",
+          "service_health",
+          "deployment_regression"
+        ]
+      },
+      {
+        "question": "Which metrics are zero-is-good or zero-is-bad?",
+        "reason": "Zero-count metrics can mean healthy idle, disabled routing, or broken processing; linked review targets keep that ambiguity human-gated.",
+        "review_units": [
+          "runtime_recovery",
+          "background_processing",
+          "service_health"
+        ]
+      },
+      {
+        "question": "Which logs indicate user impact rather than diagnostic noise?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "job_configuration",
+          "runtime_recovery",
+          "background_processing",
+          "service_health",
+          "deployment_regression"
+        ]
+      },
+      {
+        "question": "Confirm critical user outcomes.",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "job_configuration",
+          "runtime_recovery",
+          "background_processing",
+          "service_health",
+          "deployment_regression"
+        ]
+      }
+    ],
+    "provisional_user_outcomes": [
+      "Ensure amazon-notify service processes notifications successfully",
+      "Ensure watchdog restarts failed services"
+    ],
     "required_human_decisions": [
       "Approve or edit component roles before using this as an explicit profile.",
       "Approve metric zero/increase/decrease semantics.",
@@ -358,13 +575,13 @@
     {
       "display_name": "Vertex Gemini",
       "failure_reason": "",
-      "input_tokens": 99903,
-      "latency_ms": 54414,
+      "input_tokens": 103870,
+      "latency_ms": 28808,
       "model_name": "gemini-3.1-pro-preview",
-      "output_tokens": 1069,
-      "parsed_json_sha256": "a14fccbfe69415165de78328894414dd8886dca948d23774a631f352b80201ca",
+      "output_tokens": 1501,
+      "parsed_json_sha256": "f27a523d1a4601d7638d2c3edc6f0df1b0e9812838cde9e4295d906eaefa99a4",
       "provider_id": "gemini-enterprise-agent-platform",
-      "raw_output_sha256": "b71d98ea4694bfcea988410c736f7d6ca77509acd61d8c85452a11246247c9f5",
+      "raw_output_sha256": "83b1bd87dca25aaf7dacfdb330a4aaebec20f007a244cce8a557d6ec51528e7e",
       "retry": {
         "attempts": 1,
         "exception_type": "",
@@ -380,13 +597,13 @@
     {
       "display_name": "GLM on Vertex MaaS",
       "failure_reason": "",
-      "input_tokens": 77858,
-      "latency_ms": 55239,
+      "input_tokens": 80982,
+      "latency_ms": 84036,
       "model_name": "zai-org/glm-5-maas",
-      "output_tokens": 4355,
-      "parsed_json_sha256": "f73cfe6149981a5cdcd96b13b198e996fa35b719a4811cc95bc72e308e4529fb",
+      "output_tokens": 5370,
+      "parsed_json_sha256": "4c8b45e96bdf0c5afd87118e823e74f42f1aefd7fd71eb28c5823b9dda7345c4",
       "provider_id": "glm-agent-platform",
-      "raw_output_sha256": "28904735b923f6bb3541f32e7079aba4a67a45d6652c9a155d03fad67976542e",
+      "raw_output_sha256": "be1261f2b1582ea0faca2cfa8f91ed3f39ddbfd8c18eb5db9cd00f9549ff4cc4",
       "retry": {
         "attempts": 1,
         "exception_type": "",
@@ -402,13 +619,13 @@
     {
       "display_name": "Mistral on Vertex MaaS",
       "failure_reason": "",
-      "input_tokens": 96045,
-      "latency_ms": 53613,
+      "input_tokens": 99498,
+      "latency_ms": 70366,
       "model_name": "mistral-medium-3",
-      "output_tokens": 1487,
-      "parsed_json_sha256": "c9f2acd3f7842f49365f657f395d8bb2d887fc6c508353e6dcdb06a272ca7f1e",
+      "output_tokens": 2233,
+      "parsed_json_sha256": "f392cdb5755662890549e1496d7e6e2b61deaf320ee68e9c555ef6a8fd0b8a64",
       "provider_id": "mistral-agent-platform",
-      "raw_output_sha256": "bf910061a37d2601b28e23b85a154f33661275dfd415d218140e3cafbbbee4e0",
+      "raw_output_sha256": "2a8dde056d20de4d65dd81a99ae232eba58832a2774ebf73dbd271af1469df55",
       "retry": {
         "attempts": 1,
         "exception_type": "",
@@ -424,13 +641,13 @@
     {
       "display_name": "gpt-oss on Vertex MaaS",
       "failure_reason": "",
-      "input_tokens": 75988,
-      "latency_ms": 23429,
+      "input_tokens": 79136,
+      "latency_ms": 49484,
       "model_name": "gpt-oss-120b-maas",
-      "output_tokens": 2998,
-      "parsed_json_sha256": "cba2294edfd37c73be21fb78caae3823d45bf2ca7e039fb6300f97e552c742a4",
+      "output_tokens": 3764,
+      "parsed_json_sha256": "9196352f83bddc67514cc18f6f8191f23f62362ebbcf8dee545b181aa2f31499",
       "provider_id": "openai-gpt-oss-on-vertex",
-      "raw_output_sha256": "8a62406cfa5cb3712620130ed7f790116bf13fc679f813968d5c0ad42e5b83e8",
+      "raw_output_sha256": "9dcd05b11f59d81a18c52773669cf53e909f9958f9a7a488eded396e5a679c9d",
       "retry": {
         "attempts": 1,
         "exception_type": "",
@@ -446,13 +663,13 @@
     {
       "display_name": "Qwen on Vertex MaaS",
       "failure_reason": "",
-      "input_tokens": 89831,
-      "latency_ms": 25771,
+      "input_tokens": 92980,
+      "latency_ms": 32465,
       "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
-      "output_tokens": 1812,
-      "parsed_json_sha256": "0483739fe653af36d985eeb798a8339f0bab69e8e3e9a9b77426d225b6977f95",
+      "output_tokens": 2812,
+      "parsed_json_sha256": "a1f0d9f2eec75ef60bc3682525c863a5ef0e87edb6f79004143365f9d5ac925b",
       "provider_id": "qwen-agent-platform",
-      "raw_output_sha256": "39bd8c86be1fca1c9b2ddcfc8898b38586d002106ade49f2f1391745da7a2d2d",
+      "raw_output_sha256": "c34db8dd2f886b785e7156fd4b96a88f68f4a3bd3ac6c5c472cec97d0fa746e9",
       "retry": {
         "attempts": 1,
         "exception_type": "",
@@ -467,22 +684,25 @@
     }
   ],
   "review_graph_summary": {
-    "auto_archived_count": 2,
+    "auto_archived_count": 1,
     "conflict_count": 0,
-    "convergence_count": 1,
+    "convergence_count": 3,
     "hidden_multi_provider_archived_count": 0,
     "incident_baseline": "established",
     "incident_baseline_established_count": 0,
+    "incident_gate_scope": "graph_level_signal_not_target_promotion",
+    "incident_gate_signal": "signal_present",
     "note": "Provider convergence is technical support only; causal and impact judgement remains human-gated. Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; it is not additive with target verdict counts.",
-    "partial_overlap_count": 1,
+    "partial_overlap_count": 3,
     "primary_promoted_count": 0,
     "provider_detection_overlap": "5/5",
     "review_unit_convergence": "strong",
     "rule_or_context_count": 0,
     "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
-    "single_source_count": 3,
-    "summary": "The e2e API analyzed a 23,400-row sanitized log corpus with 5 schema-valid real provider output(s); 1 review unit(s) had at least two provider positions while impact remains human-gated.",
-    "targets_total": 4,
+    "single_source_count": 2,
+    "summary": "The e2e API analyzed a 23,400-row sanitized log corpus with 5 schema-valid real provider output(s); 3 review unit(s) had at least two provider positions while impact remains human-gated.",
+    "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
+    "targets_total": 5,
     "technical_baseline": "established"
   },
   "schema_version": "precomputed_review_summary.v1",
@@ -491,13 +711,13 @@
       "incident": true,
       "technical": true
     },
-    "canonical_graph_sha256": "87c3d02ab1b0fad2e120e756477ec77dd6cd78eba1f83525b6d7af6128798aea",
+    "canonical_graph_sha256": "605b6f522cd82649bc911b3e7614d19b2347455a89c8873f95ff5646b56d6577",
     "canonical_graph_status": "computed_on_request",
     "finding": {
-      "impact": "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid outputs. 0 primary candidate and 4 validation target(s) remain human-gated; incident promotion is not auto-accepted.",
+      "impact": "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid outputs. 0 primary candidate and 5 validation target(s) remain human-gated; incident promotion is not auto-accepted.",
       "title": "Five real providers analyzed the 23,400-row amazon-notify corpus"
     },
-    "input_fingerprint_sha256": "875c8061b0e7a8bc13b6c7f2b806b4fe0eb6b10ffe786d66978a21c3dbb45fff",
+    "input_fingerprint_sha256": "0b1bed34f2d56df225391311177107380dc4d7d0f16dd8e4160ad6245bf26408",
     "log_count": 23400,
     "message": "",
     "providers": {
@@ -507,14 +727,14 @@
     },
     "raw_log_policy": "not_uploaded",
     "review": {
-      "auto_archived": 2,
+      "auto_archived": 1,
       "monitor_only": 2,
       "primary_targets": 0,
-      "validation_targets": 4
+      "validation_targets": 5
     },
     "schema_version": "ui_summary.v1",
     "status": "ok",
-    "updated_at": "2026-06-30T10:09:03Z"
+    "updated_at": "2026-06-30T11:28:23Z"
   },
   "targets": [
     {
@@ -528,46 +748,53 @@
       },
       "canonical_review_unit": "job_configuration",
       "caveats": [],
-      "claim": "4/5 schema-valid providers projected job_configuration with 6 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
+      "claim": "4/5 schema-valid providers projected job_configuration with 8 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
       "class": "validation_target",
       "counter_evidence_summary": [
-        "The pubsub service (PATTERN-001, PATTERN-002) appears to be running successfully, indicating the issue is isolated to the watchdog and renew services."
+        "No evidence of successful watch renewal.",
+        "No evidence suggests the script is present or that the service eventually starts successfully."
       ],
       "evidence_refs": [
+        "PATTERN-130",
+        "PATTERN-131",
+        "PATTERN-133",
         "PATTERN-004",
         "PATTERN-005",
         "PATTERN-007",
-        "PATTERN-130",
-        "PATTERN-131",
-        "PATTERN-133"
+        "PATTERN-132",
+        "PATTERN-006"
       ],
       "evidence_summary": [
-        "PATTERN-004: systemd reports 'can't open file' for the watchdog script with Errno 2 (No such file or directory), occurring 1915 times.",
-        "PATTERN-005: systemd reports 'Failed to start amazon-notify-main-watchdog.service' 1915 times.",
-        "PATTERN-007: The service exits with code=exited, status=2/INVALIDARGUMENT, indicating a problem with the command or arguments, 1915 times.",
-        "PATTERN-004 shows 'No such file or directory' for watchdog_restart_main.py",
-        "PATTERN-005 shows 'Failed to start amazon-notify-main-watchdog.service'",
-        "PATTERN-007 shows exit status 2/INVALIDARGUMENT due to the missing file.",
-        "PATTERN-130 shows that the systemd service cannot open the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/renew_watch.py' due to 'No such file or directory'.",
-        "PATTERN-131 indicates that the systemd init.scope failed to start the amazon-notify-watch-renew.service.",
-        "PATTERN-130 shows 'No such file or directory' for renew_watch.py",
-        "PATTERN-131 shows 'Failed to start amazon-notify-watch-renew.service'",
-        "PATTERN-130: systemd reports 'can't open file' for the renew watch script with Errno 2 (No such file or directory), occurring 7 times.",
-        "PATTERN-131: systemd reports 'Failed to start amazon-notify-watch-renew.service' 7 times.",
-        "PATTERN-133: The service exits with code=exited, status=2/INVALIDARGUMENT, indicating a problem with the command or arguments, 7 times.",
-        "PATTERN-004 shows the watchdog service failing to find watchdog_restart_main.py.",
-        "PATTERN-130 shows the watch-renew service failing to find renew_watch.py.",
-        "PATTERN-005, PATTERN-007, PATTERN-131, and PATTERN-133 confirm these missing files cause the services to fail to start with exit code 2.",
-        "PATTERN-004 shows that the systemd service cannot open the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/watchdog_restart_main.py' due to 'No such file or directory'.",
-        "PATTERN-005 indicates that the systemd init.scope failed to start the amazon-notify-main-watchdog.service."
+        "PATTERN-130 shows systemd reporting '[Errno 2] No such file or directory' for 'renew_watch.py'.",
+        "PATTERN-131 and PATTERN-133 show the amazon-notify-watch-renew.service failing to start.",
+        "PATTERN-130: Shows the specific 'No such file or directory' error for the watch-renew service script.",
+        "PATTERN-131: Logs the 'Failed to start' message for the watch-renew service.",
+        "PATTERN-133: Logs the 'Main process exited' error for the watch-renew service.",
+        "PATTERN-004 shows systemd reporting '[Errno 2] No such file or directory' for 'watchdog_restart_main.py'.",
+        "PATTERN-005 and PATTERN-007 show the amazon-notify-main-watchdog.service failing to start and exiting with status 2.",
+        "PATTERN-004: Shows the specific 'No such file or directory' error for the main watchdog service script.",
+        "PATTERN-005: Logs the 'Failed to start' message for the main watchdog service.",
+        "PATTERN-007: Logs the 'Main process exited' error for the main watchdog service.",
+        "PATTERN-004 shows that the systemd service is unable to open the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/watchdog_restart_main.py' due to a 'No such file or directory' error.",
+        "PATTERN-130: Shows 'can't open file... No such file or directory' for renew_watch.py.",
+        "PATTERN-131: Shows 'Failed to start amazon-notify-watch-renew.service'.",
+        "PATTERN-004: Shows 'can't open file... No such file or directory' for watchdog_restart_main.py.",
+        "PATTERN-005: Shows 'Failed to start amazon-notify-main-watchdog.service'.",
+        "PATTERN-007: Shows exit status 2/INVALIDARGUMENT.",
+        "PATTERN-007 shows that the amazon-notify-main-watchdog.service is exiting with a status of 2/INVALIDARGUMENT.",
+        "PATTERN-133 shows that the amazon-notify-watch-renew.service is exiting with a status of 2/INVALIDARGUMENT.",
+        "PATTERN-130 shows that the systemd service is unable to open the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/renew_watch.py' due to a 'No such file or directory' error.",
+        "PATTERN-132: service start failure from journalctl-json observed 7 time(s) between 2026-06-10T03:38:17Z and 2026-06-16T03:30:54Z. Sanitized pattern: systemd init.scope: amazon-notify-watch-renew.service: Failed with result 'exit-code'.",
+        "PATTERN-006: service start failure from journalctl-json observed 1915 time(s) between 2026-06-09T18:38:44Z and 2026-06-16T18:34:42Z. Sanitized pattern: systemd init.scope: amazon-notify-main-watchdog.service: Failed with result 'exit-code'."
       ],
       "excluded_evidence_refs": [],
       "missing_evidence": [
-        "Actual file system state on the host to confirm the correct location of the scripts.",
+        "Deployment logs or artifact contents.",
+        "Host file system state for the configured script path.",
         "User impact or operational outcome evidence tied to this review unit."
       ],
-      "next_validation_question": "Is the file path '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/watchdog_restart_main.py' correctly deployed and accessible to the systemd service?",
-      "operational_mechanism": "The systemd service unit 'amazon-notify-main-watchdog.service' attempts to execute a Python script that is not present on the filesystem, leading to a service start failure.",
+      "next_validation_question": "Was 'renew_watch.py' included in the latest deployment artifact?",
+      "operational_mechanism": "systemd attempts to run the oneshot watch renew service, but the target Python script is missing, leading to an immediate exit.",
       "promotion": {
         "blocked_reason": "user_impact_unverified",
         "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
@@ -578,31 +805,31 @@
       "provider_count": 4,
       "provider_positions": [
         {
-          "model_run_hash": "b71d98ea4694",
+          "model_run_hash": "83b1bd87dca2",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "gemini-enterprise-agent-platform",
           "stance": "claimed"
         },
         {
-          "model_run_hash": "28904735b923",
+          "model_run_hash": "be1261f2b158",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "glm-agent-platform",
           "stance": "claimed"
         },
         {
-          "model_run_hash": "bf910061a37d",
+          "model_run_hash": "2a8dde056d20",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "mistral-agent-platform",
           "stance": "claimed"
         },
         {
-          "model_run_hash": "8a62406cfa5c",
+          "model_run_hash": "9dcd05b11f59",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "openai-gpt-oss-on-vertex",
           "stance": "silent"
         },
         {
-          "model_run_hash": "39bd8c86be1f",
+          "model_run_hash": "c34db8dd2f88",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "qwen-agent-platform",
           "stance": "claimed"
@@ -611,110 +838,71 @@
       "raw": {
         "baseline_support_score": 1.0,
         "canonical_group_key": "b2527a47567c75ead4afeb85",
-        "rollup_provider_ratio": 0.8,
-        "source_candidate_count": 5
+        "rollup_provider_ratio": 0.5,
+        "source_candidate_count": 8
       },
       "recommended_request_type": "user_impact_signal_query",
       "review_priority_score": 0.86,
       "review_reason": {
         "factors": [
           "4/5 schema-valid providers independently projected the normalized review unit `job_configuration`.",
-          "6 cited Evidence Item(s) tie the unit back to the 23,400-row sanitized corpus.",
-          "5 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.800).",
+          "8 cited Evidence Item(s) tie the unit back to the 23,400-row sanitized corpus.",
+          "8 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.500).",
           "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
         ],
         "headline": "Review target created because provider convergence and cited evidence made `job_configuration` worth human validation.",
         "operator_question": "Run `user_impact_signal_query` to decide whether `job_configuration` should remain a validation target or be promoted."
       },
-      "review_target_id": "cog-69aacbeaddea6dca39fa",
+      "review_target_id": "cog-3ea328732914f94e0155",
       "state": "validation_target",
       "status": "pending",
       "subsystem": "job_configuration",
-      "suspected_issue": "Missing command file for the watchdog service.",
+      "suspected_issue": "Missing script 'renew_watch.py'",
       "target_explanation": {
         "counter_evidence_summary": [
-          "The pubsub service (PATTERN-001, PATTERN-002) appears to be running successfully, indicating the issue is isolated to the watchdog and renew services."
+          "No evidence of successful watch renewal.",
+          "No evidence suggests the script is present or that the service eventually starts successfully."
         ],
         "evidence_summary": [
-          "PATTERN-004: systemd reports 'can't open file' for the watchdog script with Errno 2 (No such file or directory), occurring 1915 times.",
-          "PATTERN-005: systemd reports 'Failed to start amazon-notify-main-watchdog.service' 1915 times.",
-          "PATTERN-007: The service exits with code=exited, status=2/INVALIDARGUMENT, indicating a problem with the command or arguments, 1915 times.",
-          "PATTERN-004 shows 'No such file or directory' for watchdog_restart_main.py",
-          "PATTERN-005 shows 'Failed to start amazon-notify-main-watchdog.service'",
-          "PATTERN-007 shows exit status 2/INVALIDARGUMENT due to the missing file.",
-          "PATTERN-130 shows that the systemd service cannot open the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/renew_watch.py' due to 'No such file or directory'.",
-          "PATTERN-131 indicates that the systemd init.scope failed to start the amazon-notify-watch-renew.service.",
-          "PATTERN-130 shows 'No such file or directory' for renew_watch.py",
-          "PATTERN-131 shows 'Failed to start amazon-notify-watch-renew.service'",
-          "PATTERN-130: systemd reports 'can't open file' for the renew watch script with Errno 2 (No such file or directory), occurring 7 times.",
-          "PATTERN-131: systemd reports 'Failed to start amazon-notify-watch-renew.service' 7 times.",
-          "PATTERN-133: The service exits with code=exited, status=2/INVALIDARGUMENT, indicating a problem with the command or arguments, 7 times.",
-          "PATTERN-004 shows the watchdog service failing to find watchdog_restart_main.py.",
-          "PATTERN-130 shows the watch-renew service failing to find renew_watch.py.",
-          "PATTERN-005, PATTERN-007, PATTERN-131, and PATTERN-133 confirm these missing files cause the services to fail to start with exit code 2.",
-          "PATTERN-004 shows that the systemd service cannot open the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/watchdog_restart_main.py' due to 'No such file or directory'.",
-          "PATTERN-005 indicates that the systemd init.scope failed to start the amazon-notify-main-watchdog.service."
+          "PATTERN-130 shows systemd reporting '[Errno 2] No such file or directory' for 'renew_watch.py'.",
+          "PATTERN-131 and PATTERN-133 show the amazon-notify-watch-renew.service failing to start.",
+          "PATTERN-130: Shows the specific 'No such file or directory' error for the watch-renew service script.",
+          "PATTERN-131: Logs the 'Failed to start' message for the watch-renew service.",
+          "PATTERN-133: Logs the 'Main process exited' error for the watch-renew service.",
+          "PATTERN-004 shows systemd reporting '[Errno 2] No such file or directory' for 'watchdog_restart_main.py'.",
+          "PATTERN-005 and PATTERN-007 show the amazon-notify-main-watchdog.service failing to start and exiting with status 2.",
+          "PATTERN-004: Shows the specific 'No such file or directory' error for the main watchdog service script.",
+          "PATTERN-005: Logs the 'Failed to start' message for the main watchdog service.",
+          "PATTERN-007: Logs the 'Main process exited' error for the main watchdog service.",
+          "PATTERN-004 shows that the systemd service is unable to open the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/watchdog_restart_main.py' due to a 'No such file or directory' error.",
+          "PATTERN-130: Shows 'can't open file... No such file or directory' for renew_watch.py.",
+          "PATTERN-131: Shows 'Failed to start amazon-notify-watch-renew.service'.",
+          "PATTERN-004: Shows 'can't open file... No such file or directory' for watchdog_restart_main.py.",
+          "PATTERN-005: Shows 'Failed to start amazon-notify-main-watchdog.service'.",
+          "PATTERN-007: Shows exit status 2/INVALIDARGUMENT.",
+          "PATTERN-007 shows that the amazon-notify-main-watchdog.service is exiting with a status of 2/INVALIDARGUMENT.",
+          "PATTERN-133 shows that the amazon-notify-watch-renew.service is exiting with a status of 2/INVALIDARGUMENT.",
+          "PATTERN-130 shows that the systemd service is unable to open the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/renew_watch.py' due to a 'No such file or directory' error.",
+          "PATTERN-132: service start failure from journalctl-json observed 7 time(s) between 2026-06-10T03:38:17Z and 2026-06-16T03:30:54Z. Sanitized pattern: systemd init.scope: amazon-notify-watch-renew.service: Failed with result 'exit-code'.",
+          "PATTERN-006: service start failure from journalctl-json observed 1915 time(s) between 2026-06-09T18:38:44Z and 2026-06-16T18:34:42Z. Sanitized pattern: systemd init.scope: amazon-notify-main-watchdog.service: Failed with result 'exit-code'."
         ],
-        "next_validation_question": "Is the file path '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/watchdog_restart_main.py' correctly deployed and accessible to the systemd service?",
-        "operational_mechanism": "The systemd service unit 'amazon-notify-main-watchdog.service' attempts to execute a Python script that is not present on the filesystem, leading to a service start failure.",
+        "next_validation_question": "Was 'renew_watch.py' included in the latest deployment artifact?",
+        "operational_mechanism": "systemd attempts to run the oneshot watch renew service, but the target Python script is missing, leading to an immediate exit.",
         "provider_explanations": [
           {
-            "claim_text": "The amazon-notify-main-watchdog.service is failing to start because the required Python script file is missing.",
-            "claim_type": "support",
-            "evidence_refs": [
-              "PATTERN-004",
-              "PATTERN-005",
-              "PATTERN-007"
-            ],
-            "next_validation_question": "Is the file path '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/watchdog_restart_main.py' correctly deployed and accessible to the systemd service?",
-            "operational_mechanism": "The systemd service unit 'amazon-notify-main-watchdog.service' attempts to execute a Python script that is not present on the filesystem, leading to a service start failure.",
-            "provider_id": "qwen-agent-platform",
-            "suspected_issue": "Missing command file for the watchdog service.",
-            "why_it_matters": "This prevents the watchdog from running, which means the main amazon-notify service may not be restarted if it fails, potentially leading to extended downtime or degraded service.",
-            "why_not_promoted": "This is a strong candidate for the root cause but requires confirmation that the file path in the service configuration matches the deployment environment."
-          },
-          {
-            "claim_text": "amazon-notify-main-watchdog.service fails to start because the configured executable path does not exist.",
-            "claim_type": "support",
-            "evidence_refs": [
-              "PATTERN-004",
-              "PATTERN-005",
-              "PATTERN-007"
-            ],
-            "next_validation_question": "Does the deployed systemd unit file content match the error log path or the source context path?",
-            "operational_mechanism": "Systemd invokes the python interpreter with the script path; the OS returns 'No such file or directory'.",
-            "provider_id": "glm-agent-platform",
-            "suspected_issue": "Missing file path in systemd ExecStart configuration.",
-            "why_it_matters": "The watchdog service is responsible for health monitoring and restarts; its failure degrades the self-healing capability of the system.",
-            "why_not_promoted": "While the root cause is clear, the discrepancy between the source context path (amazon-notify/src) and the error log path (discord-bots/amazon-mail-notifier/deployment/systemd) needs verification of the actual deployed unit file content."
-          },
-          {
-            "claim_text": "The amazon-notify-watch-renew service is also failing to start due to a missing command file.",
+            "claim_text": "The amazon-notify-watch-renew.service is failing to start because the 'renew_watch.py' script is missing.",
             "claim_type": "support",
             "evidence_refs": [
               "PATTERN-130",
-              "PATTERN-131"
+              "PATTERN-131",
+              "PATTERN-133"
             ],
-            "next_validation_question": "Are watches not being renewed correctly due to the watch renew service not running?",
-            "operational_mechanism": "The systemd service attempts to start the amazon-notify-watch-renew service but fails because the specified command file is missing.",
-            "provider_id": "mistral-agent-platform",
-            "suspected_issue": "Missing command file for amazon-notify-watch-renew service",
-            "why_it_matters": "This affects the reliability of the watch renew service, which could impact the timely renewal of watches. User impact is unverified but potential if watches are not renewed correctly.",
-            "why_not_promoted": "The exact impact on the watch renew process and user notifications is not clear from the evidence."
-          },
-          {
-            "claim_text": "amazon-notify-watch-renew.service fails to start due to a missing script file.",
-            "claim_type": "support",
-            "evidence_refs": [
-              "PATTERN-130",
-              "PATTERN-131"
-            ],
-            "next_validation_question": "Does the deployed systemd unit file for watch-renew match the error log path?",
-            "operational_mechanism": "Systemd invokes the python interpreter with the script path; the OS returns 'No such file or directory'.",
-            "provider_id": "glm-agent-platform",
-            "suspected_issue": "Missing file path in systemd ExecStart configuration.",
-            "why_it_matters": "The watch renew service likely handles Gmail API token refresh; failure may lead to authentication expiration.",
-            "why_not_promoted": "Same as Claim 1; requires verification of deployed configuration."
+            "next_validation_question": "Was 'renew_watch.py' included in the latest deployment artifact?",
+            "operational_mechanism": "systemd attempts to run the oneshot watch renew service, but the target Python script is missing, leading to an immediate exit.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Missing script 'renew_watch.py'",
+            "why_it_matters": "If the watch renewal fails, the service may stop receiving push notifications from Gmail, directly impacting the core user outcome of processing notifications.",
+            "why_not_promoted": "Requires verification of the deployment artifact to see if the script was omitted."
           },
           {
             "claim_text": "The amazon-notify-watch-renew.service is also failing to start due to a missing command file.",
@@ -724,55 +912,499 @@
               "PATTERN-131",
               "PATTERN-133"
             ],
-            "next_validation_question": "Is the file path '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/renew_watch.py' correctly deployed and accessible to the systemd service?",
-            "operational_mechanism": "The systemd service unit 'amazon-notify-watch-renew.service' attempts to execute a Python script that is not present on the filesystem, leading to a service start failure.",
+            "next_validation_question": "Does the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/renew_watch.py' exist on the host filesystem with the correct permissions?",
+            "operational_mechanism": "Similar to the main watchdog, this service's start failure is preceded by a 'No such file or directory' error for its configured script.",
             "provider_id": "qwen-agent-platform",
-            "suspected_issue": "Missing command file for the watch renew service.",
-            "why_it_matters": "This service is responsible for renewing the Gmail watch, and its failure could lead to missed notifications if the watch expires.",
-            "why_not_promoted": "This is a secondary issue but still impacts service functionality."
+            "suspected_issue": "A secondary systemd service, 'amazon-notify-watch-renew.service', is experiencing the same issue with a missing script file.",
+            "why_it_matters": "This indicates a potential broader configuration or deployment problem affecting multiple services within the 'amazon-notify' system. It may contribute to overall system instability or incomplete functionality.",
+            "why_not_promoted": "This is a related finding that reinforces the likelihood of a systemic issue but is secondary to the main watchdog failure."
           },
           {
-            "claim_text": "The amazon-notify watchdog and watch-renew services fail to start due to missing Python scripts at the configured systemd paths.",
+            "claim_text": "The amazon-notify-main-watchdog.service is failing to start because the configured Python script is missing.",
             "claim_type": "support",
             "evidence_refs": [
               "PATTERN-004",
-              "PATTERN-130",
               "PATTERN-005",
-              "PATTERN-007",
-              "PATTERN-131",
-              "PATTERN-133"
+              "PATTERN-007"
             ],
-            "next_validation_question": "What are the correct deployment paths for watchdog_restart_main.py and renew_watch.py on the production host?",
-            "operational_mechanism": "When systemd attempts to start the services, the Python interpreter cannot find the target scripts, resulting in an Errno 2 (No such file or directory) and a service failure with exit code 2.",
+            "next_validation_question": "Is the 'watchdog_restart_main.py' file present at the expected path on the host, or is the systemd unit misconfigured?",
+            "operational_mechanism": "systemd attempts to execute the watchdog script as defined in the unit file, but the file does not exist at the specified path, causing the process to exit with status 2 (INVALIDARGUMENT).",
             "provider_id": "gemini-enterprise-agent-platform",
-            "suspected_issue": "Systemd unit files are configured with incorrect or outdated file paths for the service scripts.",
-            "why_it_matters": "Without the watchdog and watch-renew services, the main application lacks automated recovery and credential/watch renewal, which can lead to prolonged silent downtime.",
-            "why_not_promoted": "Requires human confirmation to update the systemd unit files with the correct paths."
+            "suspected_issue": "Missing watchdog script 'watchdog_restart_main.py'",
+            "why_it_matters": "Without the watchdog service, the main amazon-notify service will not be automatically restarted if it fails, degrading system reliability.",
+            "why_not_promoted": "It is unclear whether the file was deleted, never deployed, or if the systemd unit contains an incorrect path."
+          },
+          {
+            "claim_text": "The amazon-notify-main-watchdog.service is failing to start because the configured Python script file cannot be found.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-004",
+              "PATTERN-005",
+              "PATTERN-007"
+            ],
+            "next_validation_question": "Does the file '<USER_HOME>/projects/discord-bots/amazon-mail-notifier/deployment/systemd/watchdog_restart_main.py' exist on the host filesystem with the correct permissions?",
+            "operational_mechanism": "The systemd unit 'amazon-notify-main-watchdog.service' is configured to execute a Python script. The service start failure is directly preceded by a 'No such file or directory' error from the system trying to execute this script.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "The watchdog service configuration points to a Python script that is missing on the filesystem.",
+            "why_it_matters": "This watchdog is responsible for monitoring and restarting the main 'amazon-notify' service. If it fails, the main service may not be automatically recovered from failures, leading to notification outages. User impact is unverified but service reliability is affected.",
+            "why_not_promoted": "This is a strong hypothesis based on clear error logs, but requires confirmation that the file path in the configuration is correct and that the file should indeed exist at that location."
           },
           {
             "claim_text": "The amazon-notify-main-watchdog service is failing to start due to a missing command file.",
             "claim_type": "support",
             "evidence_refs": [
-              "PATTERN-004",
-              "PATTERN-005"
+              "PATTERN-004"
             ],
-            "next_validation_question": "Is the main service failing to process notifications due to the watchdog service not running?",
-            "operational_mechanism": "The systemd service attempts to start the amazon-notify-main-watchdog service but fails because the specified command file is missing.",
+            "next_validation_question": "Is the missing file a result of a deployment issue or a configuration error?",
+            "operational_mechanism": "The systemd service is attempting to start the amazon-notify-main-watchdog service but cannot find the specified command file.",
             "provider_id": "mistral-agent-platform",
-            "suspected_issue": "Missing command file for amazon-notify-main-watchdog service",
-            "why_it_matters": "This affects the reliability of the watchdog service, which is responsible for monitoring and restarting the main service. User impact is unverified but potential if the main service fails and is not restarted.",
-            "why_not_promoted": "The exact impact on the main service and user notifications is not clear from the evidence."
+            "suspected_issue": "Missing command file for the amazon-notify-main-watchdog service.",
+            "why_it_matters": "This issue prevents the watchdog service from starting, which could lead to a failure in monitoring and restarting other services, potentially causing a cascading failure in the system.",
+            "why_not_promoted": "The evidence strongly supports the claim, but further investigation is needed to confirm the exact cause and impact of the missing file."
+          },
+          {
+            "claim_text": "The amazon-notify-watch-renew service is failing due to a missing script file.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-130",
+              "PATTERN-131",
+              "PATTERN-132",
+              "PATTERN-133"
+            ],
+            "next_validation_question": "Does the file 'renew_watch.py' exist at the specified path?",
+            "operational_mechanism": "Systemd unit 'amazon-notify-watch-renew.service' fails to find renew_watch.py, resulting in exit code 2/INVALIDARGUMENT.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "The ExecStart command references a file path that does not exist.",
+            "why_it_matters": "This service handles Gmail watch renewal. Failure may lead to expired notification subscriptions.",
+            "why_not_promoted": "Requires verification of the correct file path."
+          },
+          {
+            "claim_text": "The amazon-notify-main-watchdog service is failing repeatedly due to a missing script file.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-004",
+              "PATTERN-005",
+              "PATTERN-006",
+              "PATTERN-007"
+            ],
+            "next_validation_question": "Does the file 'watchdog_restart_main.py' exist at the path specified in the systemd unit, or does the unit file need to be updated?",
+            "operational_mechanism": "Systemd unit 'amazon-notify-main-watchdog.service' attempts to execute python3 with a script path; the file is absent, causing exit code 2/INVALIDARGUMENT.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "The ExecStart command references a file path that does not exist on the filesystem.",
+            "why_it_matters": "The watchdog component is responsible for restarting failed services. Its failure degrades system resilience and self-healing capabilities.",
+            "why_not_promoted": "Requires verification of the correct file path and deployment state to determine if the unit file or the file system is incorrect."
+          },
+          {
+            "claim_text": "The amazon-notify-main-watchdog service is failing with an invalid argument status.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-007"
+            ],
+            "next_validation_question": "What is the invalid argument being passed to the service, and why is it causing the service to fail?",
+            "operational_mechanism": "The systemd service is attempting to start the amazon-notify-main-watchdog service but fails due to an invalid argument.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "Invalid argument status in the amazon-notify-main-watchdog service.",
+            "why_it_matters": "This issue prevents the watchdog service from starting, which could lead to a failure in monitoring and restarting other services, potentially causing a cascading failure in the system.",
+            "why_not_promoted": "The evidence strongly supports the claim, but further investigation is needed to confirm the exact cause and impact of the invalid argument."
+          },
+          {
+            "claim_text": "The amazon-notify-watch-renew service is failing with an invalid argument status.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-133"
+            ],
+            "next_validation_question": "What is the invalid argument being passed to the service, and why is it causing the service to fail?",
+            "operational_mechanism": "The systemd service is attempting to start the amazon-notify-watch-renew service but fails due to an invalid argument.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "Invalid argument status in the amazon-notify-watch-renew service.",
+            "why_it_matters": "This issue prevents the watch-renew service from starting, which could lead to a failure in renewing watches, potentially causing a cascading failure in the system.",
+            "why_not_promoted": "The evidence strongly supports the claim, but further investigation is needed to confirm the exact cause and impact of the invalid argument."
+          },
+          {
+            "claim_text": "The amazon-notify-watch-renew service is failing to start due to a missing command file.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-130"
+            ],
+            "next_validation_question": "Is the missing file a result of a deployment issue or a configuration error?",
+            "operational_mechanism": "The systemd service is attempting to start the amazon-notify-watch-renew service but cannot find the specified command file.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "Missing command file for the amazon-notify-watch-renew service.",
+            "why_it_matters": "This issue prevents the watch-renew service from starting, which could lead to a failure in renewing watches, potentially causing a cascading failure in the system.",
+            "why_not_promoted": "The evidence strongly supports the claim, but further investigation is needed to confirm the exact cause and impact of the missing file."
           }
         ],
         "schema_version": "target_explanation.v1",
-        "suspected_issue": "Missing command file for the watchdog service.",
-        "why_it_matters": "This prevents the watchdog from running, which means the main amazon-notify service may not be restarted if it fails, potentially leading to extended downtime or degraded service.",
-        "why_not_promoted": "This is a strong candidate for the root cause but requires confirmation that the file path in the service configuration matches the deployment environment."
+        "suspected_issue": "Missing script 'renew_watch.py'",
+        "why_it_matters": "If the watch renewal fails, the service may stop receiving push notifications from Gmail, directly impacting the core user outcome of processing notifications.",
+        "why_not_promoted": "Requires verification of the deployment artifact to see if the script was omitted."
       },
-      "target_id": "cog-69aacbeaddea6dca39fa",
+      "target_id": "cog-3ea328732914f94e0155",
       "title": "Review target requires validation: job_configuration",
-      "why_it_matters": "This prevents the watchdog from running, which means the main amazon-notify service may not be restarted if it fails, potentially leading to extended downtime or degraded service.",
-      "why_not_promoted": "This is a strong candidate for the root cause but requires confirmation that the file path in the service configuration matches the deployment environment."
+      "why_it_matters": "If the watch renewal fails, the service may stop receiving push notifications from Gmail, directly impacting the core user outcome of processing notifications.",
+      "why_not_promoted": "Requires verification of the deployment artifact to see if the script was omitted."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.4,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "2/5 schema-valid providers projected this review unit from the 23,400-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "runtime_recovery",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "counter_evidence_summary": [
+        "Promotion blocker: incident_baseline_open; user_impact_or_business_output_unverified."
+      ],
+      "evidence_refs": [
+        "PATTERN-003",
+        "PATTERN-005",
+        "PATTERN-006",
+        "PATTERN-007",
+        "PATTERN-130",
+        "PATTERN-131",
+        "PATTERN-132",
+        "PATTERN-133",
+        "PATTERN-004"
+      ],
+      "evidence_summary": [
+        "PATTERN-003: Shows repeated 'Starting' messages for the main watchdog service.",
+        "PATTERN-005: Shows repeated 'Failed to start' messages for the main watchdog service.",
+        "PATTERN-006: Shows repeated 'Failed with result' messages for the main watchdog service.",
+        "PATTERN-007: Shows repeated 'Main process exited' messages for the main watchdog service.",
+        "PATTERN-130: systemd reports \"can't open file ...renew_watch.py\": No such file or directory.",
+        "PATTERN-131: systemd logs \"Failed to start amazon-notify-watch-renew.service\".",
+        "PATTERN-132: systemd logs \"amazon-notify-watch-renew.service: Failed with result 'exit-code'.\"",
+        "PATTERN-133: systemd logs \"amazon-notify-watch-renew.service: Main process exited, code=exited, status=2/INVALIDARGUMENT\"",
+        "PATTERN-004: systemd reports \"can't open file ...watchdog_restart_main.py\": No such file or directory.",
+        "PATTERN-005: systemd logs \"Failed to start amazon-notify-main-watchdog.service\".",
+        "PATTERN-006: systemd logs \"amazon-notify-main-watchdog.service: Failed with result 'exit-code'.\"",
+        "PATTERN-007: systemd logs \"amazon-notify-main-watchdog.service: Main process exited, code=exited, status=2/INVALIDARGUMENT\""
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "watchdog_heartbeat_count metric values",
+        "watchdog_heartbeat_count metric series",
+        "job_configuration_mismatch_count metric series",
+        "User impact or operational outcome evidence tied to this review unit.",
+        "Causal alignment evidence connecting this review unit to the incident window."
+      ],
+      "next_validation_question": "Is the restart loop for amazon-notify-main-watchdog.service stopping after the underlying configuration or file issue is resolved?",
+      "operational_mechanism": "The systemd unit is configured with 'Restart=on-failure'. The continuous logging of 'Starting', 'Failed to start', 'Main process exited', and 'Failed with result' indicates a cycle of start attempts and failures.",
+      "promotion": {
+        "blocked_reason": "incident_baseline_open; user_impact_or_business_output_unverified",
+        "explanation": "2/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 2,
+      "provider_positions": [
+        {
+          "model_run_hash": "83b1bd87dca2",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "be1261f2b158",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "glm-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "2a8dde056d20",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "9dcd05b11f59",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "c34db8dd2f88",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "a5c6bef4b2c3876bad79a798",
+        "rollup_provider_ratio": 0.5,
+        "source_candidate_count": 4
+      },
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.775,
+      "review_reason": {
+        "factors": [
+          "2/5 schema-valid providers independently projected the normalized review unit `runtime_recovery`.",
+          "9 cited Evidence Item(s) tie the unit back to the 23,400-row sanitized corpus.",
+          "4 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.500).",
+          "Promotion is still blocked by `incident_baseline_open; user_impact_or_business_output_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `runtime_recovery` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `runtime_recovery` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-cc8043efffcc99a220af",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "runtime_recovery",
+      "suspected_issue": "The systemd service is repeatedly attempting to start and failing, causing a restart loop.",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "Promotion blocker: incident_baseline_open; user_impact_or_business_output_unverified."
+        ],
+        "evidence_summary": [
+          "PATTERN-003: Shows repeated 'Starting' messages for the main watchdog service.",
+          "PATTERN-005: Shows repeated 'Failed to start' messages for the main watchdog service.",
+          "PATTERN-006: Shows repeated 'Failed with result' messages for the main watchdog service.",
+          "PATTERN-007: Shows repeated 'Main process exited' messages for the main watchdog service.",
+          "PATTERN-130: systemd reports \"can't open file ...renew_watch.py\": No such file or directory.",
+          "PATTERN-131: systemd logs \"Failed to start amazon-notify-watch-renew.service\".",
+          "PATTERN-132: systemd logs \"amazon-notify-watch-renew.service: Failed with result 'exit-code'.\"",
+          "PATTERN-133: systemd logs \"amazon-notify-watch-renew.service: Main process exited, code=exited, status=2/INVALIDARGUMENT\"",
+          "PATTERN-004: systemd reports \"can't open file ...watchdog_restart_main.py\": No such file or directory.",
+          "PATTERN-005: systemd logs \"Failed to start amazon-notify-main-watchdog.service\".",
+          "PATTERN-006: systemd logs \"amazon-notify-main-watchdog.service: Failed with result 'exit-code'.\"",
+          "PATTERN-007: systemd logs \"amazon-notify-main-watchdog.service: Main process exited, code=exited, status=2/INVALIDARGUMENT\""
+        ],
+        "next_validation_question": "Is the restart loop for amazon-notify-main-watchdog.service stopping after the underlying configuration or file issue is resolved?",
+        "operational_mechanism": "The systemd unit is configured with 'Restart=on-failure'. The continuous logging of 'Starting', 'Failed to start', 'Main process exited', and 'Failed with result' indicates a cycle of start attempts and failures.",
+        "provider_explanations": [
+          {
+            "claim_text": "The amazon-notify-main-watchdog.service is entering a restart loop due to the persistent failure to start.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-003",
+              "PATTERN-005",
+              "PATTERN-006",
+              "PATTERN-007"
+            ],
+            "next_validation_question": "Is the restart loop for amazon-notify-main-watchdog.service stopping after the underlying configuration or file issue is resolved?",
+            "operational_mechanism": "The systemd unit is configured with 'Restart=on-failure'. The continuous logging of 'Starting', 'Failed to start', 'Main process exited', and 'Failed with result' indicates a cycle of start attempts and failures.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "The systemd service is repeatedly attempting to start and failing, causing a restart loop.",
+            "why_it_matters": "A restart loop consumes system resources and prevents the service from performing its intended function of monitoring and restarting the main notification service. This can lead to extended downtime for the notification system.",
+            "why_not_promoted": "The restart loop is a consequence of the initial failure. Identifying and fixing the root cause (missing script) is the primary action."
+          },
+          {
+            "claim_text": "The amazon-notify-watch-renew.service also fails to start due to a missing script (renew_watch.py), resulting in similar service start failures.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-130",
+              "PATTERN-131",
+              "PATTERN-132",
+              "PATTERN-133"
+            ],
+            "next_validation_question": "Is renew_watch.py present at the configured location on the host?",
+            "operational_mechanism": "systemd unit amazon-notify-watch-renew.service references renew_watch.py; the file is absent, causing service_start_failure and restart attempts.",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Missing renew_watch.py script for amazon-notify-watch-renew.service",
+            "why_it_matters": "Failure of the watch‑renew service may prevent periodic Gmail watch renewal, leading to missed email notifications.",
+            "why_not_promoted": "While this explains the watch‑renew failures, it does not address the main watchdog issue; both may be symptoms of a broader deployment problem."
+          },
+          {
+            "claim_text": "Verify that the watchdog_heartbeat_count metric is being emitted and is non‑zero during the incident window.",
+            "claim_type": "validation_target",
+            "evidence_refs": [],
+            "next_validation_question": "",
+            "operational_mechanism": "",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "",
+            "why_it_matters": "A missing or zero heartbeat would confirm that the watchdog process is not running, strengthening the missing‑script hypothesis.",
+            "why_not_promoted": "Metric data was not included in the evidence bundle."
+          },
+          {
+            "claim_text": "Collect metric values for watchdog_heartbeat_count and job_configuration_mismatch_count for the period 2026-06-09 to 2026-06-16.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "",
+            "operational_mechanism": "",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "",
+            "why_it_matters": "These metrics indicate whether the watchdog is alive and whether job configuration mismatches are occurring, helping to confirm or refute the hypothesized cause.",
+            "why_not_promoted": ""
+          },
+          {
+            "claim_text": "The amazon-notify-main-watchdog.service fails to start because its ExecStart script (watchdog_restart_main.py) is missing, leading to repeated service start failures and a restart loop.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-004",
+              "PATTERN-005",
+              "PATTERN-006",
+              "PATTERN-007"
+            ],
+            "next_validation_question": "Is the file watchdog_restart_main.py present at the expected path on the host?",
+            "operational_mechanism": "systemd attempts to execute the ExecStart command defined in amazon-notify-main-watchdog.service; the referenced file does not exist, causing service_start_failure and restart attempts by the runtime_recovery supervisor.",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Missing watchdog_restart_main.py script for amazon-notify-main-watchdog.service",
+            "why_it_matters": "Without a functioning watchdog, the amazon-notify service cannot be monitored or automatically restarted, risking missed notifications and degraded system reliability.",
+            "why_not_promoted": "The hypothesis explains the watchdog failures but does not yet account for the overall system behavior; other components may also be affected."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "The systemd service is repeatedly attempting to start and failing, causing a restart loop.",
+        "why_it_matters": "A restart loop consumes system resources and prevents the service from performing its intended function of monitoring and restarting the main notification service. This can lead to extended downtime for the notification system.",
+        "why_not_promoted": "The restart loop is a consequence of the initial failure. Identifying and fixing the root cause (missing script) is the primary action."
+      },
+      "target_id": "cog-cc8043efffcc99a220af",
+      "title": "Restart loop requires validation: runtime_recovery",
+      "why_it_matters": "A restart loop consumes system resources and prevents the service from performing its intended function of monitoring and restarting the main notification service. This can lead to extended downtime for the notification system.",
+      "why_not_promoted": "The restart loop is a consequence of the initial failure. Identifying and fixing the root cause (missing script) is the primary action."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.4,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "2/5 schema-valid providers projected this review unit from the 23,400-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "background_processing",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "counter_evidence_summary": [
+        "No metric data is present in the provided evidence bundle to confirm or deny anomalies.",
+        "PATTERN-001 shows auth_status=READY and failure_kind=None, suggesting no explicit error."
+      ],
+      "evidence_refs": [
+        "PATTERN-001",
+        "PATTERN-002"
+      ],
+      "evidence_summary": [
+        "approved_profile_context: Defines 'job_configuration_mismatch_count' and 'watchdog_heartbeat_count' metrics with relevant semantics.",
+        "PATTERN-001: Shows 'processed=0 matched=0 notified=0'.",
+        "PATTERN-002: Shows 'RUN_ONCE_COMPLETE: amazon_notifications=0'."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "User confirmation on whether zero notifications is expected.",
+        "Logs indicating if the Gmail API query returned empty results.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Are there metric data points for 'job_configuration_mismatch_count' and 'watchdog_heartbeat_count' showing an increase or decrease, respectively, during the incident window?",
+      "operational_mechanism": "The approved profile defines 'job_configuration_mismatch_count' and 'watchdog_heartbeat_count' metrics. These metrics are semantically linked to the observed failures and could provide quantitative confirmation or reveal related issues.",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "2/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 2,
+      "provider_positions": [
+        {
+          "model_run_hash": "83b1bd87dca2",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "be1261f2b158",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "2a8dde056d20",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "9dcd05b11f59",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "c34db8dd2f88",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 0.8,
+        "canonical_group_key": "4a1833feb6077d431d25ba1c",
+        "rollup_provider_ratio": 1.0,
+        "source_candidate_count": 2
+      },
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.71,
+      "review_reason": {
+        "factors": [
+          "2/5 schema-valid providers independently projected the normalized review unit `background_processing`.",
+          "2 cited Evidence Item(s) tie the unit back to the 23,400-row sanitized corpus.",
+          "2 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 1.000).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `background_processing` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `background_processing` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-f2938d1b2b247091e693",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "background_processing",
+      "suspected_issue": "Potential increase in job configuration errors or decrease in watchdog activity.",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "No metric data is present in the provided evidence bundle to confirm or deny anomalies.",
+          "PATTERN-001 shows auth_status=READY and failure_kind=None, suggesting no explicit error."
+        ],
+        "evidence_summary": [
+          "approved_profile_context: Defines 'job_configuration_mismatch_count' and 'watchdog_heartbeat_count' metrics with relevant semantics.",
+          "PATTERN-001: Shows 'processed=0 matched=0 notified=0'.",
+          "PATTERN-002: Shows 'RUN_ONCE_COMPLETE: amazon_notifications=0'."
+        ],
+        "next_validation_question": "Are there metric data points for 'job_configuration_mismatch_count' and 'watchdog_heartbeat_count' showing an increase or decrease, respectively, during the incident window?",
+        "operational_mechanism": "The approved profile defines 'job_configuration_mismatch_count' and 'watchdog_heartbeat_count' metrics. These metrics are semantically linked to the observed failures and could provide quantitative confirmation or reveal related issues.",
+        "provider_explanations": [
+          {
+            "claim_text": "Metrics related to job configuration mismatches and watchdog heartbeats should be checked for anomalies.",
+            "claim_type": "validation_target",
+            "evidence_refs": [],
+            "next_validation_question": "Are there metric data points for 'job_configuration_mismatch_count' and 'watchdog_heartbeat_count' showing an increase or decrease, respectively, during the incident window?",
+            "operational_mechanism": "The approved profile defines 'job_configuration_mismatch_count' and 'watchdog_heartbeat_count' metrics. These metrics are semantically linked to the observed failures and could provide quantitative confirmation or reveal related issues.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Potential increase in job configuration errors or decrease in watchdog activity.",
+            "why_it_matters": "Metrics can offer a broader view of the system's health and confirm if the observed log errors are part of a larger trend or isolated incidents.",
+            "why_not_promoted": "This is a recommendation for further investigation, not a conclusion based on current evidence."
+          },
+          {
+            "claim_text": "The amazon-notify-pubsub service is running but processing zero notifications.",
+            "claim_type": "validation_target",
+            "evidence_refs": [
+              "PATTERN-001",
+              "PATTERN-002"
+            ],
+            "next_validation_question": "Is the zero notification count expected for the incident window?",
+            "operational_mechanism": "The service runs successfully (RUN_ONCE_COMPLETE) but reports processed=0.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "Potential logic error in filtering, empty inbox, or stale checkpoint; or expected behavior if no emails match criteria.",
+            "why_it_matters": "User outcome is to process notifications. Zero throughput might indicate a failure to fetch or process emails.",
+            "why_not_promoted": "Zero notifications may be valid if no matching emails exist; requires business logic context to confirm."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Potential increase in job configuration errors or decrease in watchdog activity.",
+        "why_it_matters": "Metrics can offer a broader view of the system's health and confirm if the observed log errors are part of a larger trend or isolated incidents.",
+        "why_not_promoted": "This is a recommendation for further investigation, not a conclusion based on current evidence."
+      },
+      "target_id": "cog-f2938d1b2b247091e693",
+      "title": "Review target requires validation: background_processing",
+      "why_it_matters": "Metrics can offer a broader view of the system's health and confirm if the observed log errors are part of a larger trend or isolated incidents.",
+      "why_not_promoted": "This is a recommendation for further investigation, not a conclusion based on current evidence."
     },
     {
       "agreement": {
@@ -788,165 +1420,24 @@
       "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
       "class": "validation_target",
       "counter_evidence_summary": [
-        "No error or failure logs for amazon-notify-pubsub.service during the same window"
-      ],
-      "evidence_refs": [
-        "PATTERN-001",
-        "PATTERN-002",
-        "PATTERN-008",
-        "PATTERN-012",
-        "PATTERN-014"
-      ],
-      "evidence_summary": [
-        "PATTERN-001: info log of amazon notify run with processed=0",
-        "PATTERN-002: info log of RUN_ONCE_COMPLETE for amazon-notify-pubsub.service",
-        "PATTERN-008: info log of PUBSUB_IDLE_TRIGGER_DONE ok=True",
-        "PATTERN-012: info log of RUN_ONCE_COMPLETE with zero notifications",
-        "PATTERN-014: info log of PUBSUB_IDLE_TRIGGER_DONE ok=True"
-      ],
-      "excluded_evidence_refs": [],
-      "missing_evidence": [
-        "User impact or operational outcome evidence tied to this review unit."
-      ],
-      "next_validation_question": "Are there downstream issues causing zero processed notifications despite successful runs?",
-      "operational_mechanism": "Pubsub component runs scheduled jobs; logs show runs completing successfully but processing zero items",
-      "promotion": {
-        "blocked_reason": "user_impact_unverified",
-        "explanation": "A single provider surfaced this target; it needs corroboration before promotion.",
-        "score_cap_applied": false,
-        "score_note": "Priority is review urgency, not truth probability.",
-        "state": "validation"
-      },
-      "provider_count": 1,
-      "provider_positions": [
-        {
-          "model_run_hash": "b71d98ea4694",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "gemini-enterprise-agent-platform",
-          "stance": "silent"
-        },
-        {
-          "model_run_hash": "28904735b923",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "glm-agent-platform",
-          "stance": "silent"
-        },
-        {
-          "model_run_hash": "bf910061a37d",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "mistral-agent-platform",
-          "stance": "silent"
-        },
-        {
-          "model_run_hash": "8a62406cfa5c",
-          "one_line": "Projected this canonical review unit from the real API run.",
-          "provider_id": "openai-gpt-oss-on-vertex",
-          "stance": "claimed"
-        },
-        {
-          "model_run_hash": "39bd8c86be1f",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "qwen-agent-platform",
-          "stance": "silent"
-        }
-      ],
-      "raw": {
-        "baseline_support_score": 0.675,
-        "canonical_group_key": "adb2586cb87441f2a047c52d",
-        "rollup_provider_ratio": 0.0,
-        "source_candidate_count": 1
-      },
-      "recommended_request_type": "user_impact_signal_query",
-      "review_priority_score": 0.64,
-      "review_reason": {
-        "factors": [
-          "1/5 schema-valid providers independently projected the normalized review unit `service_health`.",
-          "5 cited Evidence Item(s) tie the unit back to the 23,400-row sanitized corpus.",
-          "1 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.000).",
-          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
-        ],
-        "headline": "Review target created because provider convergence and cited evidence made `service_health` worth human validation.",
-        "operator_question": "Run `user_impact_signal_query` to decide whether `service_health` should remain a validation target or be promoted."
-      },
-      "review_target_id": "cog-419264b17d175bfd7e77",
-      "state": "validation_target",
-      "status": "pending",
-      "subsystem": "general",
-      "suspected_issue": "Potential lack of notification processing, but not a watchdog failure",
-      "target_explanation": {
-        "counter_evidence_summary": [
-          "No error or failure logs for amazon-notify-pubsub.service during the same window"
-        ],
-        "evidence_summary": [
-          "PATTERN-001: info log of amazon notify run with processed=0",
-          "PATTERN-002: info log of RUN_ONCE_COMPLETE for amazon-notify-pubsub.service",
-          "PATTERN-008: info log of PUBSUB_IDLE_TRIGGER_DONE ok=True",
-          "PATTERN-012: info log of RUN_ONCE_COMPLETE with zero notifications",
-          "PATTERN-014: info log of PUBSUB_IDLE_TRIGGER_DONE ok=True"
-        ],
-        "next_validation_question": "Are there downstream issues causing zero processed notifications despite successful runs?",
-        "operational_mechanism": "Pubsub component runs scheduled jobs; logs show runs completing successfully but processing zero items",
-        "provider_explanations": [
-          {
-            "claim_text": "The amazon-notify-pubsub service shows repeated successful RUN_ONCE_COMPLETE entries with zero processed notifications, indicating it is operating without errors.",
-            "claim_type": "counter_evidence",
-            "evidence_refs": [
-              "PATTERN-001",
-              "PATTERN-002",
-              "PATTERN-008",
-              "PATTERN-012",
-              "PATTERN-014"
-            ],
-            "next_validation_question": "Are there downstream issues causing zero processed notifications despite successful runs?",
-            "operational_mechanism": "Pubsub component runs scheduled jobs; logs show runs completing successfully but processing zero items",
-            "provider_id": "openai-gpt-oss-on-vertex",
-            "suspected_issue": "Potential lack of notification processing, but not a watchdog failure",
-            "why_it_matters": "If no notifications are processed, the service may be ineffective despite the watchdog running",
-            "why_not_promoted": "These logs are informational and do not indicate a failure of the watchdog or the overall system"
-          }
-        ],
-        "schema_version": "target_explanation.v1",
-        "suspected_issue": "Potential lack of notification processing, but not a watchdog failure",
-        "why_it_matters": "If no notifications are processed, the service may be ineffective despite the watchdog running",
-        "why_not_promoted": "These logs are informational and do not indicate a failure of the watchdog or the overall system"
-      },
-      "target_id": "cog-419264b17d175bfd7e77",
-      "title": "Review target requires validation: general",
-      "why_it_matters": "If no notifications are processed, the service may be ineffective despite the watchdog running",
-      "why_not_promoted": "These logs are informational and do not indicate a failure of the watchdog or the overall system"
-    },
-    {
-      "agreement": {
-        "convergence_score": 0.2,
-        "incident_baseline": "open",
-        "score_definition": "claimed successful providers / all successful providers",
-        "summary": "1/5 schema-valid providers projected this review unit from the 23,400-row corpus; incident promotion remains human-gated.",
-        "technical_baseline": "open",
-        "verdict": "single_source"
-      },
-      "canonical_review_unit": "background_processing",
-      "caveats": [],
-      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
-      "class": "validation_target",
-      "counter_evidence_summary": [
         "Promotion blocker: user_impact_unverified."
       ],
       "evidence_refs": [
-        "PATTERN-001",
         "PATTERN-002",
-        "PATTERN-008"
+        "PATTERN-008",
+        "PATTERN-009"
       ],
       "evidence_summary": [
-        "PATTERN-001 shows successful runs with auth_status=READY",
-        "PATTERN-002 shows RUN_ONCE_COMPLETE",
-        "PATTERN-008 shows PUBSUB_IDLE_TRIGGER_DONE"
+        "PATTERN-002: \"RUN_ONCE_COMPLETE\" logs from amazon-notify-pubsub.service.",
+        "PATTERN-008: \"PUBSUB_IDLE_TRIGGER_DONE: ok=True\" entries.",
+        "PATTERN-009: \"PUBSUB_IDLE_TRIGGER_START\" entries occurring regularly."
       ],
       "excluded_evidence_refs": [],
       "missing_evidence": [
         "User impact or operational outcome evidence tied to this review unit."
       ],
-      "next_validation_question": "Are there any errors in the pubsub logs indicating functional failures?",
-      "operational_mechanism": "The service runs, polls, and completes idle triggers.",
+      "next_validation_question": "Can `user_impact_signal_query` confirm whether `service_health` explains the observed runtime behavior?",
+      "operational_mechanism": "The `service_health` review unit groups provider claims and cited evidence that need a human operational interpretation.",
       "promotion": {
         "blocked_reason": "user_impact_unverified",
         "explanation": "A single provider surfaced this target; it needs corroboration before promotion.",
@@ -957,31 +1448,31 @@
       "provider_count": 1,
       "provider_positions": [
         {
-          "model_run_hash": "b71d98ea4694",
+          "model_run_hash": "83b1bd87dca2",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "gemini-enterprise-agent-platform",
           "stance": "silent"
         },
         {
-          "model_run_hash": "28904735b923",
-          "one_line": "Projected this canonical review unit from the real API run.",
+          "model_run_hash": "be1261f2b158",
+          "one_line": "Did not surface this normalized review target.",
           "provider_id": "glm-agent-platform",
-          "stance": "claimed"
+          "stance": "silent"
         },
         {
-          "model_run_hash": "bf910061a37d",
+          "model_run_hash": "2a8dde056d20",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "mistral-agent-platform",
           "stance": "silent"
         },
         {
-          "model_run_hash": "8a62406cfa5c",
-          "one_line": "Did not surface this normalized review target.",
+          "model_run_hash": "9dcd05b11f59",
+          "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "openai-gpt-oss-on-vertex",
-          "stance": "silent"
+          "stance": "claimed"
         },
         {
-          "model_run_hash": "39bd8c86be1f",
+          "model_run_hash": "c34db8dd2f88",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "qwen-agent-platform",
           "stance": "silent"
@@ -989,7 +1480,7 @@
       ],
       "raw": {
         "baseline_support_score": 0.625,
-        "canonical_group_key": "4a1833feb6077d431d25ba1c",
+        "canonical_group_key": "adb2586cb87441f2a047c52d",
         "rollup_provider_ratio": 0.0,
         "source_candidate_count": 1
       },
@@ -997,56 +1488,56 @@
       "review_priority_score": 0.63,
       "review_reason": {
         "factors": [
-          "1/5 schema-valid providers independently projected the normalized review unit `background_processing`.",
+          "1/5 schema-valid providers independently projected the normalized review unit `service_health`.",
           "3 cited Evidence Item(s) tie the unit back to the 23,400-row sanitized corpus.",
           "1 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.000).",
           "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
         ],
-        "headline": "Review target created because provider convergence and cited evidence made `background_processing` worth human validation.",
-        "operator_question": "Run `user_impact_signal_query` to decide whether `background_processing` should remain a validation target or be promoted."
+        "headline": "Review target created because provider convergence and cited evidence made `service_health` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `service_health` should remain a validation target or be promoted."
       },
-      "review_target_id": "cog-f679ef6254acc8d707a5",
+      "review_target_id": "cog-9437a66c207cfb26b576",
       "state": "validation_target",
       "status": "pending",
-      "subsystem": "background_processing",
-      "suspected_issue": "None; this indicates normal operation of the main listener.",
+      "subsystem": "general",
+      "suspected_issue": "The amazon-notify-pubsub service continues to emit regular RUN_ONCE_COMPLETE and PUBSUB_IDLE_TRIGGER logs with zero processed notifications, indicating that the pubsub component remains operational.",
       "target_explanation": {
         "counter_evidence_summary": [
           "Promotion blocker: user_impact_unverified."
         ],
         "evidence_summary": [
-          "PATTERN-001 shows successful runs with auth_status=READY",
-          "PATTERN-002 shows RUN_ONCE_COMPLETE",
-          "PATTERN-008 shows PUBSUB_IDLE_TRIGGER_DONE"
+          "PATTERN-002: \"RUN_ONCE_COMPLETE\" logs from amazon-notify-pubsub.service.",
+          "PATTERN-008: \"PUBSUB_IDLE_TRIGGER_DONE: ok=True\" entries.",
+          "PATTERN-009: \"PUBSUB_IDLE_TRIGGER_START\" entries occurring regularly."
         ],
-        "next_validation_question": "Are there any errors in the pubsub logs indicating functional failures?",
-        "operational_mechanism": "The service runs, polls, and completes idle triggers.",
+        "next_validation_question": "Can `user_impact_signal_query` confirm whether `service_health` explains the observed runtime behavior?",
+        "operational_mechanism": "The `service_health` review unit groups provider claims and cited evidence that need a human operational interpretation.",
         "provider_explanations": [
           {
-            "claim_text": "The amazon-notify-pubsub service is running and processing cycles successfully.",
+            "claim_text": "The amazon-notify-pubsub service continues to emit regular RUN_ONCE_COMPLETE and PUBSUB_IDLE_TRIGGER logs with zero processed notifications, indicating that the pubsub component remains operational.",
             "claim_type": "counter_evidence",
             "evidence_refs": [
-              "PATTERN-001",
               "PATTERN-002",
-              "PATTERN-008"
+              "PATTERN-008",
+              "PATTERN-009"
             ],
-            "next_validation_question": "Are there any errors in the pubsub logs indicating functional failures?",
-            "operational_mechanism": "The service runs, polls, and completes idle triggers.",
-            "provider_id": "glm-agent-platform",
-            "suspected_issue": "None; this indicates normal operation of the main listener.",
-            "why_it_matters": "Indicates the core notification logic and auth are functional, isolating the issue to the watchdog/renew services.",
-            "why_not_promoted": "This is a positive finding, not a root cause."
+            "next_validation_question": "",
+            "operational_mechanism": "",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "",
+            "why_it_matters": "Shows that the overall notification pipeline is not completely down; the issue appears isolated to watchdog components.",
+            "why_not_promoted": "These logs demonstrate continued operation of the pubsub service but do not negate the watchdog failures."
           }
         ],
         "schema_version": "target_explanation.v1",
-        "suspected_issue": "None; this indicates normal operation of the main listener.",
-        "why_it_matters": "Indicates the core notification logic and auth are functional, isolating the issue to the watchdog/renew services.",
-        "why_not_promoted": "This is a positive finding, not a root cause."
+        "suspected_issue": "The amazon-notify-pubsub service continues to emit regular RUN_ONCE_COMPLETE and PUBSUB_IDLE_TRIGGER logs with zero processed notifications, indicating that the pubsub component remains operational.",
+        "why_it_matters": "Shows that the overall notification pipeline is not completely down; the issue appears isolated to watchdog components.",
+        "why_not_promoted": "These logs demonstrate continued operation of the pubsub service but do not negate the watchdog failures."
       },
-      "target_id": "cog-f679ef6254acc8d707a5",
-      "title": "Review target requires validation: background_processing",
-      "why_it_matters": "Indicates the core notification logic and auth are functional, isolating the issue to the watchdog/renew services.",
-      "why_not_promoted": "This is a positive finding, not a root cause."
+      "target_id": "cog-9437a66c207cfb26b576",
+      "title": "Review target requires validation: general",
+      "why_it_matters": "Shows that the overall notification pipeline is not completely down; the issue appears isolated to watchdog components.",
+      "why_not_promoted": "These logs demonstrate continued operation of the pubsub service but do not negate the watchdog failures."
     },
     {
       "agreement": {
@@ -1057,29 +1548,29 @@
         "technical_baseline": "open",
         "verdict": "single_source"
       },
-      "canonical_review_unit": "general",
+      "canonical_review_unit": "deployment_regression",
       "caveats": [],
       "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
       "class": "validation_target",
       "counter_evidence_summary": [
+        "Promotion blocker: single_metric_only.",
         "Promotion blocker: user_impact_unverified."
       ],
       "evidence_refs": [
-        "PATTERN-001",
-        "PATTERN-002"
+        "PATTERN-004"
       ],
       "evidence_summary": [
-        "PATTERN-001: The amazon notify run log shows processed=0, matched=0, notified=0, occurring 2374 times.",
-        "PATTERN-002: The RUN_ONCE_COMPLETE log shows amazon_notifications=0, non_amazon_skipped=0, occurring 2126 times."
+        "PATTERN-004: Runtime path includes 'discord-bots/amazon-mail-notifier'.",
+        "Source Context: Systemd unit expects 'amazon-notify/src/watchdog_restart_main.py'."
       ],
       "excluded_evidence_refs": [],
       "missing_evidence": [
         "User impact or operational outcome evidence tied to this review unit."
       ],
-      "next_validation_question": "Are there any messages in the pubsub queue for the service to process, and is the service correctly configured to access the queue?",
-      "operational_mechanism": "The service runs periodically but logs show processed=0, matched=0, notified=0, indicating no work is being done.",
+      "next_validation_question": "Is the deployed service intended to run from the 'discord-bots' directory or the 'amazon-notify' directory?",
+      "operational_mechanism": "Logs reference 'discord-bots/amazon-mail-notifier' while source context implies 'amazon-notify' structure.",
       "promotion": {
-        "blocked_reason": "user_impact_unverified",
+        "blocked_reason": "single_metric_only; user_impact_unverified",
         "explanation": "A single provider surfaced this target; it needs corroboration before promotion.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
@@ -1088,95 +1579,95 @@
       "provider_count": 1,
       "provider_positions": [
         {
-          "model_run_hash": "b71d98ea4694",
+          "model_run_hash": "83b1bd87dca2",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "gemini-enterprise-agent-platform",
           "stance": "silent"
         },
         {
-          "model_run_hash": "28904735b923",
-          "one_line": "Did not surface this normalized review target.",
+          "model_run_hash": "be1261f2b158",
+          "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "glm-agent-platform",
-          "stance": "silent"
+          "stance": "claimed"
         },
         {
-          "model_run_hash": "bf910061a37d",
+          "model_run_hash": "2a8dde056d20",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "mistral-agent-platform",
           "stance": "silent"
         },
         {
-          "model_run_hash": "8a62406cfa5c",
+          "model_run_hash": "9dcd05b11f59",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "openai-gpt-oss-on-vertex",
           "stance": "silent"
         },
         {
-          "model_run_hash": "39bd8c86be1f",
-          "one_line": "Projected this canonical review unit from the real API run.",
+          "model_run_hash": "c34db8dd2f88",
+          "one_line": "Did not surface this normalized review target.",
           "provider_id": "qwen-agent-platform",
-          "stance": "claimed"
+          "stance": "silent"
         }
       ],
       "raw": {
-        "baseline_support_score": 0.6,
-        "canonical_group_key": "24388f441a78351c891562ab",
+        "baseline_support_score": 0.575,
+        "canonical_group_key": "448e6af499d052d879817d25",
         "rollup_provider_ratio": 0.0,
         "source_candidate_count": 1
       },
-      "recommended_request_type": "user_impact_signal_query",
-      "review_priority_score": 0.625,
+      "recommended_request_type": "instrumentation_consistency_query",
+      "review_priority_score": 0.62,
       "review_reason": {
         "factors": [
-          "1/5 schema-valid providers independently projected the normalized review unit `general`.",
-          "2 cited Evidence Item(s) tie the unit back to the 23,400-row sanitized corpus.",
+          "1/5 schema-valid providers independently projected the normalized review unit `deployment_regression`.",
+          "1 cited Evidence Item(s) tie the unit back to the 23,400-row sanitized corpus.",
           "1 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.000).",
-          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+          "Promotion is still blocked by `single_metric_only; user_impact_unverified`; this is review work, not an accepted incident cause."
         ],
-        "headline": "Review target created because provider convergence and cited evidence made `general` worth human validation.",
-        "operator_question": "Run `user_impact_signal_query` to decide whether `general` should remain a validation target or be promoted."
+        "headline": "Review target created because provider convergence and cited evidence made `deployment_regression` worth human validation.",
+        "operator_question": "Run `instrumentation_consistency_query` to decide whether `deployment_regression` should remain a validation target or be promoted."
       },
-      "review_target_id": "cog-6aacb4c1b45e1e127dee",
+      "review_target_id": "cog-990fd62cb75e39066046",
       "state": "validation_target",
       "status": "pending",
-      "subsystem": "general",
-      "suspected_issue": "The pubsub service is active but not receiving or processing messages.",
+      "subsystem": "deployment_regression",
+      "suspected_issue": "Deployment configuration drift between the running systemd unit and the provided source code.",
       "target_explanation": {
         "counter_evidence_summary": [
+          "Promotion blocker: single_metric_only.",
           "Promotion blocker: user_impact_unverified."
         ],
         "evidence_summary": [
-          "PATTERN-001: The amazon notify run log shows processed=0, matched=0, notified=0, occurring 2374 times.",
-          "PATTERN-002: The RUN_ONCE_COMPLETE log shows amazon_notifications=0, non_amazon_skipped=0, occurring 2126 times."
+          "PATTERN-004: Runtime path includes 'discord-bots/amazon-mail-notifier'.",
+          "Source Context: Systemd unit expects 'amazon-notify/src/watchdog_restart_main.py'."
         ],
-        "next_validation_question": "Are there any messages in the pubsub queue for the service to process, and is the service correctly configured to access the queue?",
-        "operational_mechanism": "The service runs periodically but logs show processed=0, matched=0, notified=0, indicating no work is being done.",
+        "next_validation_question": "Is the deployed service intended to run from the 'discord-bots' directory or the 'amazon-notify' directory?",
+        "operational_mechanism": "Logs reference 'discord-bots/amazon-mail-notifier' while source context implies 'amazon-notify' structure.",
         "provider_explanations": [
           {
-            "claim_text": "The amazon-notify-pubsub.service is running but not processing any notifications.",
-            "claim_type": "support",
+            "claim_text": "The file paths in the runtime errors do not match the source context paths.",
+            "claim_type": "caveat",
             "evidence_refs": [
-              "PATTERN-001",
-              "PATTERN-002"
+              "PATTERN-004"
             ],
-            "next_validation_question": "Are there any messages in the pubsub queue for the service to process, and is the service correctly configured to access the queue?",
-            "operational_mechanism": "The service runs periodically but logs show processed=0, matched=0, notified=0, indicating no work is being done.",
-            "provider_id": "qwen-agent-platform",
-            "suspected_issue": "The pubsub service is active but not receiving or processing messages.",
-            "why_it_matters": "If the pubsub service is not processing messages, users will not receive notifications, which is the core function of the service.",
-            "why_not_promoted": "This indicates a potential upstream issue or configuration problem but is a symptom rather than a root cause."
+            "next_validation_question": "Is the deployed service intended to run from the 'discord-bots' directory or the 'amazon-notify' directory?",
+            "operational_mechanism": "Logs reference 'discord-bots/amazon-mail-notifier' while source context implies 'amazon-notify' structure.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "Deployment configuration drift between the running systemd unit and the provided source code.",
+            "why_it_matters": "Fixing the file path requires identifying the correct deployed location or updating the unit file to match the actual deployment.",
+            "why_not_promoted": "This is a context observation, not a runtime failure itself, but explains the missing file error."
           }
         ],
         "schema_version": "target_explanation.v1",
-        "suspected_issue": "The pubsub service is active but not receiving or processing messages.",
-        "why_it_matters": "If the pubsub service is not processing messages, users will not receive notifications, which is the core function of the service.",
-        "why_not_promoted": "This indicates a potential upstream issue or configuration problem but is a symptom rather than a root cause."
+        "suspected_issue": "Deployment configuration drift between the running systemd unit and the provided source code.",
+        "why_it_matters": "Fixing the file path requires identifying the correct deployed location or updating the unit file to match the actual deployment.",
+        "why_not_promoted": "This is a context observation, not a runtime failure itself, but explains the missing file error."
       },
-      "target_id": "cog-6aacb4c1b45e1e127dee",
-      "title": "Review target requires validation: general",
-      "why_it_matters": "If the pubsub service is not processing messages, users will not receive notifications, which is the core function of the service.",
-      "why_not_promoted": "This indicates a potential upstream issue or configuration problem but is a symptom rather than a root cause."
+      "target_id": "cog-990fd62cb75e39066046",
+      "title": "Review target requires validation: deployment_regression",
+      "why_it_matters": "Fixing the file path requires identifying the correct deployed location or updating the unit file to match the actual deployment.",
+      "why_not_promoted": "This is a context observation, not a runtime failure itself, but explains the missing file error."
     }
   ],
-  "updated_at": "2026-06-30T10:09:03Z"
+  "updated_at": "2026-06-30T11:28:23Z"
 }

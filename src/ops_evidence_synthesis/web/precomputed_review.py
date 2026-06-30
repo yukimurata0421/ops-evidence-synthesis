@@ -395,6 +395,9 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
             "provider_detection_overlap": str(graph_summary.get("provider_detection_overlap") or ""),
             "technical_baseline_agreement": str(graph_summary.get("technical_baseline") or ""),
             "incident_baseline_agreement": str(graph_summary.get("incident_baseline") or ""),
+            "incident_gate_signal": _incident_gate_signal_text(
+                graph_summary.get("incident_gate_signal") or graph_summary.get("incident_baseline")
+            ),
             "score_note": "Priority is review urgency, not truth probability.",
         },
     }
@@ -443,18 +446,23 @@ def _precomputed_graph_nodes_edges(
             "detail": str(finding.get("impact") or ""),
         },
         {
-            "id": "support:technical",
+            "id": "baseline:technical",
             "type": "support_signal",
             "label": "Technical support",
             "state": "established" if baselines.get("technical") else "open",
             "detail": str(graph_summary.get("technical_baseline") or ""),
         },
         {
-            "id": "gate:incident",
+            "id": "baseline:incident",
             "type": "promotion_gate",
-            "label": "Incident promotion",
-            "state": "established" if baselines.get("incident") else "open",
-            "detail": str(graph_summary.get("incident_baseline") or ""),
+            "label": "Incident gate signal",
+            "state": _incident_gate_signal_text(
+                graph_summary.get("incident_gate_signal") or graph_summary.get("incident_baseline")
+            ),
+            "detail": str(
+                graph_summary.get("target_promotion_policy")
+                or "Graph-level incident signal; target promotion remains per-target and human-gated."
+            ),
         },
     ]
     edges: list[dict[str, Any]] = [
@@ -716,6 +724,10 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
             ("Projected occurrences", _human_count(_context_count(context.get("model_projection_occurrence_count")))),
             ("Projection coverage", _coverage_text(context.get("model_projection_occurrence_coverage_ratio"))),
         ]
+        projection_interpretation = str(context.get("model_projection_interpretation") or "").strip()
+        projection_interpretation_html = (
+            f"<p>{_html(projection_interpretation)}</p>" if projection_interpretation else ""
+        )
         context_cards = "".join(
             f"""
             <article class="context-cell">
@@ -775,6 +787,7 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
       <label>Review Graph</label>
       <h1>Nodes and edges for evidence {_html(evidence_sha256[:12])}</h1>
       <p>{int(graph_model.get("node_count") or 0)} nodes / {int(graph_model.get("edge_count") or 0)} edges. JSON source: <a href="/review/graph?evidence_sha256={_html(_url_quote(evidence_sha256))}">/review/graph</a></p>
+      {projection_interpretation_html if context else ""}
       <div class="context-grid">{context_cards}</div>
     </section>
     <section class="graph-map">{node_cards}</section>
@@ -1131,7 +1144,13 @@ def _precomputed_analysis_context_panel(payload: dict[str, Any]) -> str:
     conclusion_points = _context_points(context.get("analysis_conclusion"))
     profile_points = _profile_context_points(profile_context)
     projection_policy = str(context.get("model_projection_policy") or "")
-    projection_note = f"<p>{_html(projection_policy)}</p>" if projection_policy else ""
+    projection_interpretation = str(context.get("model_projection_interpretation") or "")
+    projection_notes = [
+        note
+        for note in (projection_policy, projection_interpretation)
+        if str(note).strip()
+    ]
+    projection_note = "".join(f"<p>{_html(note)}</p>" for note in projection_notes)
     return f"""
     <section class="panel secondary">
       <label>DB-to-model projection</label>
@@ -1161,6 +1180,15 @@ def _profile_context_points(profile_context: dict[str, Any]) -> list[str]:
         points.append(f"profile_id={profile_context.get('profile_id')}")
     if profile_context.get("generation_mode"):
         points.append(f"mode={profile_context.get('generation_mode')}")
+    if profile_context.get("profile_status"):
+        points.append(f"profile_status={profile_context.get('profile_status')}")
+    if profile_context.get("confidence_action"):
+        confidence = profile_context.get("confidence_summary") if isinstance(profile_context.get("confidence_summary"), dict) else {}
+        overall = confidence.get("overall_confidence")
+        confidence_text = f"confidence_action={profile_context.get('confidence_action')}"
+        if overall not in (None, ""):
+            confidence_text += f" (overall={overall})"
+        points.append(confidence_text)
     counts = []
     for key, label in (
         ("component_count", "components"),
@@ -1171,6 +1199,27 @@ def _profile_context_points(profile_context: dict[str, Any]) -> list[str]:
             counts.append(f"{label}={profile_context.get(key)}")
     if counts:
         points.append(", ".join(counts))
+    confirmed = [str(item) for item in profile_context.get("confirmed_user_outcomes") or [] if str(item).strip()]
+    provisional = [str(item) for item in profile_context.get("provisional_user_outcomes") or [] if str(item).strip()]
+    if confirmed:
+        points.append("confirmed_user_outcomes=" + "; ".join(confirmed[:3]))
+    if provisional:
+        points.append("provisional_user_outcomes_pending_approval=" + "; ".join(provisional[:3]))
+    human_questions = [str(item) for item in profile_context.get("human_questions") or [] if str(item).strip()]
+    if human_questions:
+        points.append("human_questions=" + " / ".join(human_questions[:3]))
+    profile_links = profile_context.get("profile_to_review_links")
+    if isinstance(profile_links, list):
+        link_points = []
+        for row in profile_links[:3]:
+            if not isinstance(row, dict):
+                continue
+            units = ", ".join(str(item) for item in row.get("review_units") or [] if str(item).strip())
+            question = str(row.get("question") or "").strip()
+            if question and units:
+                link_points.append(f"{question} -> {units}")
+        if link_points:
+            points.append("profile_questions_linked_to_review_units=" + " / ".join(link_points))
     if profile_context.get("summary"):
         points.append(str(profile_context.get("summary")))
     return points
@@ -1199,6 +1248,15 @@ def _coverage_text(value: object) -> str:
     return f"{ratio * 100:.1f}%"
 
 
+def _incident_gate_signal_text(value: object) -> str:
+    text = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if text in {"established", "signal_present", "present", "true", "1"}:
+        return "signal present"
+    if text in {"open", "not_established", "none", "false", "0", ""}:
+        return "no graph-level signal"
+    return text.replace("_", " ")
+
+
 def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     summary = payload.get("review_graph_summary")
     if not isinstance(summary, dict):
@@ -1211,7 +1269,11 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
         ("Partial overlap", str(int(summary.get("partial_overlap_count") or 0))),
         ("Explicit conflicts", str(int(summary.get("conflict_count") or 0))),
         ("Primary promoted", str(int(summary.get("primary_promoted_count") or 0))),
-        ("Incident promotion", str(summary.get("incident_baseline") or "open")),
+        (
+            "Incident gate signal",
+            _incident_gate_signal_text(summary.get("incident_gate_signal") or summary.get("incident_baseline")),
+        ),
+        ("Target promotion", "per-target human-gated"),
         ("Technical support", str(summary.get("technical_baseline") or "open")),
         ("Detection overlap", str(summary.get("provider_detection_overlap") or "unknown")),
         ("Auto-archived", str(int(summary.get("auto_archived_count") or 0))),
@@ -1233,6 +1295,8 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
         "<p>Converged, single-source, and rule/context are target verdict counts. "
         "Partial overlap is an overlay for converged targets with one or more silent providers.</p>"
     )
+    promotion_policy = str(summary.get("target_promotion_policy") or "")
+    promotion_policy_html = f"<p>{_html(promotion_policy)}</p>" if promotion_policy else ""
     return f"""
     <section class="panel secondary">
       <label>Review Graph Arbitration</label>
@@ -1240,6 +1304,7 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
       {note_html}
       {score_definition_html}
       {overlay_note}
+      {promotion_policy_html}
       <div class="graph-summary-grid">{cell_html}</div>
     </section>"""
 
@@ -1869,6 +1934,7 @@ def _render_rescore_demo_page(demo_id: str) -> str:
     after_provider_positions = _rescore_provider_positions_html(after.get("provider_positions"))
     source_evidence_sha = str(payload.get("source_evidence_sha256") or "")
     action_links = _public_action_links_html(source_evidence_sha) if source_evidence_sha else ""
+    source_trace_html = _rescore_source_trace_html(payload)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1906,6 +1972,7 @@ def _render_rescore_demo_page(demo_id: str) -> str:
       <h2>{_html(str(payload.get("title") or "More data child bundle changed the promotion decision"))}</h2>
       <p>Shows the AI improvement cycle judges can inspect without starting model runs from the public URL.</p>
       <p>Source review: <a href="{_html(str(payload.get("source_review_url") or "#"))}">{_html(str(payload.get("source_evidence_sha256") or ""))}</a></p>
+      {source_trace_html}
     </section>
     <section class="panel">
       <label>Gemini-led control plane</label>
@@ -1948,6 +2015,37 @@ def _render_rescore_demo_page(demo_id: str) -> str:
   </main>
 </body>
 </html>"""
+
+
+def _rescore_source_trace_html(payload: dict[str, Any]) -> str:
+    trace = payload.get("source_trace") if isinstance(payload.get("source_trace"), dict) else {}
+    if not trace:
+        return ""
+    identity = trace.get("before_target_identity") if isinstance(trace.get("before_target_identity"), dict) else {}
+    blocked_reasons = ", ".join(str(item) for item in identity.get("blocked_reasons") or []) or "none"
+    contained = "yes" if trace.get("current_source_review_contains_before_target") else "no"
+    identity_html = ""
+    if identity:
+        score = identity.get("promotion_score")
+        try:
+            score_text = f"{float(score):.2f}"
+        except (TypeError, ValueError):
+            score_text = str(score or "")
+        identity_html = f"""
+        <div class="grid">
+          <article class="cell"><label>Before target</label><strong>{_html(str(identity.get("title") or ""))}</strong><p>{_html(str(identity.get("state") or ""))}</p></article>
+          <article class="cell"><label>Stored score</label><strong>{_html(score_text)}</strong><p>{_html(blocked_reasons)}</p></article>
+          <article class="cell"><label>Stored stance</label><strong>{_html(str(identity.get("provider_stance") or ""))}</strong><p>Fixture-level trace, not a live write path.</p></article>
+        </div>
+        """
+    return f"""
+      <div class="cell">
+        <label>Source trace</label>
+        <strong>{_html(str(trace.get("status") or "recorded"))}</strong>
+        <p>Before target present in current source review: {_html(contained)}. {_html(str(trace.get("note") or ""))}</p>
+      </div>
+      {identity_html}
+    """
 
 
 def _rescore_provider_positions_html(positions: object) -> str:

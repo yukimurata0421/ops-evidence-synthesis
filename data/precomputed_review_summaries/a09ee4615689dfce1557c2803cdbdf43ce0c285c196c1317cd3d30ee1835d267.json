@@ -18,7 +18,7 @@
       "summary": "Evidence Bundle a09ee4615689 fixed 4,747 sanitized rows; raw_log_policy=not_uploaded.",
       "title": "Freeze Evidence Bundle",
       "tool": "freeze_evidence_bundle",
-      "trace_sha256": "f742e5f7b715b70cb9d75667c31c74b4137af822c7b726cd67db1284a66dda28",
+      "trace_sha256": "c170f3e10abd9edc5beea743455cf0acd71324607d91bb5263151f2cdd809166",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -41,7 +41,7 @@
       "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
       "title": "Attach Sanitized Source Context",
       "tool": "attach_sanitized_source_context",
-      "trace_sha256": "f742e5f7b715b70cb9d75667c31c74b4137af822c7b726cd67db1284a66dda28",
+      "trace_sha256": "c170f3e10abd9edc5beea743455cf0acd71324607d91bb5263151f2cdd809166",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -69,7 +69,7 @@
       "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
       "title": "Run Cross-Check Providers",
       "tool": "run_cross_check_providers",
-      "trace_sha256": "f742e5f7b715b70cb9d75667c31c74b4137af822c7b726cd67db1284a66dda28",
+      "trace_sha256": "c170f3e10abd9edc5beea743455cf0acd71324607d91bb5263151f2cdd809166",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -78,20 +78,20 @@
       "artifact": "adk:tool:validate_citations",
       "output": {
         "artifact": "citation_validation",
-        "cited_evidence_ref_count": 12,
-        "missing_evidence_count": 10,
+        "cited_evidence_ref_count": 13,
+        "missing_evidence_count": 11,
         "status": "completed",
-        "summary": "4 review target(s) cite 12 sanitized evidence ref(s); 10 missing-evidence item(s) remain.",
-        "target_count": 4,
+        "summary": "3 review target(s) cite 13 sanitized evidence ref(s); 11 missing-evidence item(s) remain.",
+        "target_count": 3,
         "uncited_target_ids": []
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "validate_citations",
-      "summary": "4 review target(s) cite 12 sanitized evidence ref(s); 10 missing-evidence item(s) remain.",
+      "summary": "3 review target(s) cite 13 sanitized evidence ref(s); 11 missing-evidence item(s) remain.",
       "title": "Validate Citations",
       "tool": "validate_citations",
-      "trace_sha256": "f742e5f7b715b70cb9d75667c31c74b4137af822c7b726cd67db1284a66dda28",
+      "trace_sha256": "c170f3e10abd9edc5beea743455cf0acd71324607d91bb5263151f2cdd809166",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -101,19 +101,19 @@
       "output": {
         "artifact": "canonical_review_graph",
         "convergence_count": 2,
-        "primary_count": 1,
+        "primary_count": 0,
         "status": "completed",
-        "summary": "Canonical Review Graph projected 4 target(s), 1 primary candidate(s), and 2 convergence group(s).",
-        "targets_total": 4,
+        "summary": "Canonical Review Graph projected 3 target(s), 0 primary candidate(s), and 2 convergence group(s).",
+        "targets_total": 3,
         "validation_count": 3
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "compute_review_targets",
-      "summary": "Canonical Review Graph projected 4 target(s), 1 primary candidate(s), and 2 convergence group(s).",
+      "summary": "Canonical Review Graph projected 3 target(s), 0 primary candidate(s), and 2 convergence group(s).",
       "title": "Compute Review Targets",
       "tool": "compute_review_targets",
-      "trace_sha256": "f742e5f7b715b70cb9d75667c31c74b4137af822c7b726cd67db1284a66dda28",
+      "trace_sha256": "c170f3e10abd9edc5beea743455cf0acd71324607d91bb5263151f2cdd809166",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -123,7 +123,6 @@
       "output": {
         "artifact": "review_arbitration",
         "blocked_reasons": [
-          "primary_candidate_only; incident_baseline_not_auto_accepted; human_review_required",
           "user_impact_unverified"
         ],
         "incident_baseline": "established",
@@ -137,7 +136,7 @@
       "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
       "title": "Arbitrate Human Gate",
       "tool": "arbitrate_review_gate",
-      "trace_sha256": "f742e5f7b715b70cb9d75667c31c74b4137af822c7b726cd67db1284a66dda28",
+      "trace_sha256": "c170f3e10abd9edc5beea743455cf0acd71324607d91bb5263151f2cdd809166",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -146,20 +145,21 @@
       "artifact": "adk:tool:request_more_evidence",
       "output": {
         "artifact": "evidence_request_plan",
-        "missing_evidence_count": 10,
+        "missing_evidence_count": 11,
         "request_types": [
+          "instrumentation_consistency_query",
           "user_impact_signal_query"
         ],
         "status": "completed",
-        "summary": "Generated read-only follow-up plan with 1 request type(s) and 10 missing-evidence item(s)."
+        "summary": "Generated read-only follow-up plan with 2 request type(s) and 11 missing-evidence item(s)."
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "request_more_evidence",
-      "summary": "Generated read-only follow-up plan with 1 request type(s) and 10 missing-evidence item(s).",
+      "summary": "Generated read-only follow-up plan with 2 request type(s) and 11 missing-evidence item(s).",
       "title": "Request More Evidence",
       "tool": "request_more_evidence",
-      "trace_sha256": "f742e5f7b715b70cb9d75667c31c74b4137af822c7b726cd67db1284a66dda28",
+      "trace_sha256": "c170f3e10abd9edc5beea743455cf0acd71324607d91bb5263151f2cdd809166",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -171,11 +171,63 @@
         "artifact": "profile_draft",
         "collector_mapping_count": 4,
         "component_count": 396,
+        "confidence_action": "candidate_only_requires_profile_review",
+        "confidence_summary": {
+          "collector_mapping_confidence": 0.7,
+          "component_mapping_confidence": 0.67,
+          "metric_semantics_confidence": 0.72,
+          "overall_confidence": 0.69
+        },
+        "confirmed_user_outcomes": [],
         "explicit_profile": true,
         "generation_mode": "profile_draft_and_approved_profile",
+        "human_questions": [
+          "What is the critical user outcome?",
+          "Which component is the main service path?",
+          "Are restart failures expected or harmful?",
+          "Which metrics are zero-is-good or zero-is-bad?",
+          "Which logs indicate user impact rather than diagnostic noise?",
+          "Which discovered component roles are correct?",
+          "Which metric semantics should become explicit profile rules?",
+          "Confirm critical user outcomes."
+        ],
         "llm_status": "ok",
         "metric_semantics_count": 367,
         "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+        "profile_status": "approved_context_human_gated_outcomes",
+        "profile_to_review_links": [
+          {
+            "question": "What is the critical user outcome?",
+            "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+            "review_units": [
+              "resource_pressure",
+              "transport_sender",
+              "runtime_exception"
+            ]
+          },
+          {
+            "question": "Which logs indicate user impact rather than diagnostic noise?",
+            "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+            "review_units": [
+              "resource_pressure",
+              "transport_sender",
+              "runtime_exception"
+            ]
+          },
+          {
+            "question": "Confirm critical user outcomes.",
+            "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+            "review_units": [
+              "resource_pressure",
+              "transport_sender",
+              "runtime_exception"
+            ]
+          }
+        ],
+        "provisional_user_outcomes": [
+          "Maintain YouTube stream uptime",
+          "Monitor ADSB stream health"
+        ],
         "required_human_decisions": [
           "Approve or edit component roles before using this as an explicit profile.",
           "Approve metric zero/increase/decrease semantics.",
@@ -195,7 +247,7 @@
       "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
       "title": "Draft System Profile",
       "tool": "draft_system_profile",
-      "trace_sha256": "f742e5f7b715b70cb9d75667c31c74b4137af822c7b726cd67db1284a66dda28",
+      "trace_sha256": "c170f3e10abd9edc5beea743455cf0acd71324607d91bb5263151f2cdd809166",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -216,15 +268,15 @@
       "summary": "Read-only review payload for a09ee4615689 is served from precomputed JSON; page load does not invoke live model work.",
       "title": "Deliver Read-Only Review",
       "tool": "deliver_read_only_review",
-      "trace_sha256": "f742e5f7b715b70cb9d75667c31c74b4137af822c7b726cd67db1284a66dda28",
+      "trace_sha256": "c170f3e10abd9edc5beea743455cf0acd71324607d91bb5263151f2cdd809166",
       "trace_source": "adk_tool_contract"
     }
   ],
   "analysis_context": {
     "analysis_conclusion": [
       "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned status=ok and schema_valid=true.",
-      "The public graph exposes 1 primary candidate, 3 validation target(s), and 2 monitor-only item(s) after the analysis-window boundary is applied.",
-      "5/5 schema-valid providers projected transport_sender with 5 cited Evidence Item(s); this is technical review support, not majority-vote truth."
+      "The public graph exposes 0 primary candidate, 3 validation target(s), and 2 monitor-only item(s) after the analysis-window boundary is applied.",
+      "3 validation targets remain for human review."
     ],
     "analysis_window_hours": 168.0,
     "db_ingested_log_count": 4747,
@@ -234,10 +286,12 @@
       "The run used all 4,747 sanitized stream_v3_monitoring rows from 2026-06-10T00:12:45Z to 2026-06-17T00:12:45Z.",
       "The local-first Evidence Bundle retained 1,520 grouped evidence items and 7 deterministic signals.",
       "The provider prompt used 140 selected evidence items covering 496 occurrences (10.4% of the sanitized corpus).",
+      "Projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_monitoring bundle keeps 4,747 rows and 1,520 grouped Evidence Items, while provider prompts use 140 high-signal Evidence Items representing 496 repeated occurrences. A low percentage means this corpus has a long tail of low-frequency state, metric, or journal items; those items remain SHA-fixed in the Evidence Bundle for traceability, but they are not all copied into the bounded provider prompt.",
       "Repeated RUN_ONCE/RUN_RESULT, systemd watchdog, token refresh, Pub/Sub idle, and status snapshot patterns were represented by evidence IDs rather than raw log bodies."
     ],
     "min_analysis_window_hours": 24,
     "model_projection_evidence_items": 140,
+    "model_projection_interpretation": "Projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_monitoring bundle keeps 4,747 rows and 1,520 grouped Evidence Items, while provider prompts use 140 high-signal Evidence Items representing 496 repeated occurrences. A low percentage means this corpus has a long tail of low-frequency state, metric, or journal items; those items remain SHA-fixed in the Evidence Bundle for traceability, but they are not all copied into the bounded provider prompt.",
     "model_projection_occurrence_count": 496,
     "model_projection_occurrence_coverage_ratio": 0.104487,
     "model_projection_policy": "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; row-level raw logs stayed out of provider prompts.",
@@ -246,7 +300,7 @@
     "provider_count": 5,
     "raw_log_policy": "not_uploaded",
     "raw_source_policy": "not_uploaded",
-    "real_api_revision": "real-api-7d-target-explanations-20260630-regrouped-mistral-budgeted-v2",
+    "real_api_revision": "real-api-7d-approved-profile-prompt-20260630",
     "sanitized_log_count": 4747,
     "schema_valid_provider_count": 5,
     "schema_version": "real_api_source_context_summary.v2",
@@ -259,8 +313,8 @@
       "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs from the sanitized corpus."
     ],
     "token_usage": {
-      "input_tokens": 649816,
-      "output_tokens": 10058
+      "input_tokens": 685394,
+      "output_tokens": 11693
     },
     "window_end": "2026-06-17T00:12:45Z",
     "window_start": "2026-06-10T00:12:45Z"
@@ -293,10 +347,10 @@
   },
   "evidence_sha256": "a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267",
   "generation": {
-    "api_revision": "real-api-7d-target-explanations-20260630-regrouped-mistral-budgeted-v2",
+    "api_revision": "real-api-7d-approved-profile-prompt-20260630",
     "generator": "ops_evidence_synthesis.precomputed_review",
     "min_analysis_window_hours": 24,
-    "payload_sha256": "60fd4bb4718bfb041b24a166db5860393dacf1f3736bb1e60ded3f9b02608d92",
+    "payload_sha256": "2a58fd6a28f50203df786a24891f895eb3109156230081c348dcee75b423c04f",
     "pipeline_run_id": "",
     "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
     "raw_log_policy": "not_uploaded",
@@ -309,13 +363,76 @@
     "approved": true,
     "collector_mapping_count": 4,
     "component_count": 396,
+    "confidence_action": "candidate_only_requires_profile_review",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.67,
+      "metric_semantics_confidence": 0.72,
+      "overall_confidence": 0.69
+    },
+    "confidence_thresholds": {
+      "candidate_only_human_gate": 0.6,
+      "use_for_subsystem_routing": 0.75
+    },
+    "confirmed_user_outcomes": [],
     "context_is_not_incident_evidence": true,
     "draft_schema_version": "profile_draft.v1",
     "explicit_profile": true,
     "generation_mode": "profile_draft_and_approved_profile",
+    "human_questions": [
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?",
+      "Which logs indicate user impact rather than diagnostic noise?",
+      "Which discovered component roles are correct?",
+      "Which metric semantics should become explicit profile rules?",
+      "Confirm critical user outcomes."
+    ],
     "llm_status": "ok",
     "metric_semantics_count": 367,
     "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+    "profile_review_policy": {
+      "confirmed_outcomes_required_for_promotion": true,
+      "context_is_not_incident_evidence": true,
+      "low_confidence_fields_require_human_review": true,
+      "provisional_outcomes_create_missing_evidence": true,
+      "runtime_support_must_cite_evidence_id": true
+    },
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [
+      {
+        "question": "What is the critical user outcome?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "resource_pressure",
+          "transport_sender",
+          "runtime_exception"
+        ]
+      },
+      {
+        "question": "Which logs indicate user impact rather than diagnostic noise?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "resource_pressure",
+          "transport_sender",
+          "runtime_exception"
+        ]
+      },
+      {
+        "question": "Confirm critical user outcomes.",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "resource_pressure",
+          "transport_sender",
+          "runtime_exception"
+        ]
+      }
+    ],
+    "provisional_user_outcomes": [
+      "Maintain YouTube stream uptime",
+      "Monitor ADSB stream health"
+    ],
     "purpose": "stream_v3_monitoring",
     "required_human_decisions": [
       "Approve or edit component roles before using this as an explicit profile.",
@@ -327,22 +444,74 @@
       "Are restart failures expected or harmful?",
       "Which metrics are zero-is-good or zero-is-bad?"
     ],
-    "schema_version": "profile_context_summary.v1",
+    "schema_version": "profile_context_summary.v2",
     "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
     "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
     "source_discovery_sha256": "457f35eb1be42e7214a3eb71b3db33cbd9c0ca17695e159f32b4a3706b560a37",
-    "summary": "Profile context was generated or approved from sanitized discovery; it constrains interpretation but runtime claims still require Evidence Item IDs.",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains routing and questions, but runtime claims still require Evidence Item IDs and human-approved user outcomes.",
     "system_type": "systemd_service"
   },
   "profile_draft_generation": {
     "approved": true,
     "collector_mapping_count": 4,
     "component_count": 396,
+    "confidence_action": "candidate_only_requires_profile_review",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.67,
+      "metric_semantics_confidence": 0.72,
+      "overall_confidence": 0.69
+    },
+    "confirmed_user_outcomes": [],
     "explicit_profile": true,
     "generation_mode": "profile_draft_and_approved_profile",
+    "human_questions": [
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?",
+      "Which logs indicate user impact rather than diagnostic noise?",
+      "Which discovered component roles are correct?",
+      "Which metric semantics should become explicit profile rules?",
+      "Confirm critical user outcomes."
+    ],
     "llm_status": "ok",
     "metric_semantics_count": 367,
     "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [
+      {
+        "question": "What is the critical user outcome?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "resource_pressure",
+          "transport_sender",
+          "runtime_exception"
+        ]
+      },
+      {
+        "question": "Which logs indicate user impact rather than diagnostic noise?",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "resource_pressure",
+          "transport_sender",
+          "runtime_exception"
+        ]
+      },
+      {
+        "question": "Confirm critical user outcomes.",
+        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
+        "review_units": [
+          "resource_pressure",
+          "transport_sender",
+          "runtime_exception"
+        ]
+      }
+    ],
+    "provisional_user_outcomes": [
+      "Maintain YouTube stream uptime",
+      "Monitor ADSB stream health"
+    ],
     "required_human_decisions": [
       "Approve or edit component roles before using this as an explicit profile.",
       "Approve metric zero/increase/decrease semantics.",
@@ -359,13 +528,13 @@
     {
       "display_name": "Vertex Gemini",
       "failure_reason": "",
-      "input_tokens": 156852,
-      "latency_ms": 44274,
+      "input_tokens": 173836,
+      "latency_ms": 31506,
       "model_name": "gemini-3.1-pro-preview",
-      "output_tokens": 1484,
-      "parsed_json_sha256": "9a85add413af202b424f340ad95b25e8cb5a1c9d1d02c5988bc63305541a5f16",
+      "output_tokens": 1344,
+      "parsed_json_sha256": "612a7b0b5cd74b995088cf70fd39e50469e87aaa21a52caeeded8f009f42c211",
       "provider_id": "gemini-enterprise-agent-platform",
-      "raw_output_sha256": "a32379697486f69fc5d153f37316df2315273db320aec6962180282929469fdd",
+      "raw_output_sha256": "189674c8ae7c445c7aba5108ba77c05a222dcafc08690e78c2c21679d1d649f8",
       "retry": {
         "attempts": 1,
         "exception_type": "",
@@ -381,13 +550,13 @@
     {
       "display_name": "GLM on Vertex MaaS",
       "failure_reason": "",
-      "input_tokens": 120284,
-      "latency_ms": 72581,
+      "input_tokens": 133482,
+      "latency_ms": 98079,
       "model_name": "zai-org/glm-5-maas",
-      "output_tokens": 4307,
-      "parsed_json_sha256": "92dec8f2034cb35efc1fc4baa64c5842ca0ff2a556b1400b141d82990a44aa93",
+      "output_tokens": 4950,
+      "parsed_json_sha256": "a96d6ff3f681e931d873215bc48a73960b5ebe5b79891949eb9cd92dfd5e6053",
       "provider_id": "glm-agent-platform",
-      "raw_output_sha256": "c374d6e13ee660c5333433c6fd1b90b84cdb486a17ccc29c24b0c344234e60d1",
+      "raw_output_sha256": "38f6c9d7dfcbdc1535ccf8b5ab8cc05c3e9d25442e619d2cae3d6c513a22e019",
       "retry": {
         "attempts": 1,
         "exception_type": "",
@@ -403,18 +572,18 @@
     {
       "display_name": "Mistral on Vertex MaaS",
       "failure_reason": "",
-      "input_tokens": 122039,
-      "latency_ms": 52248,
+      "input_tokens": 121624,
+      "latency_ms": 38738,
       "model_name": "mistral-medium-3",
-      "output_tokens": 1135,
-      "parsed_json_sha256": "07d0894aba0cf971e852d33cb4ac5def960caa37583ddc773400bc92224921df",
+      "output_tokens": 1349,
+      "parsed_json_sha256": "7956aeb7230888abe35612570d20cd53f4d4e4bf9b22363fe60456fb71cc812f",
       "provider_id": "mistral-agent-platform",
-      "raw_output_sha256": "741aed0dc33fbaee4ecbd35f1c92ba15c359cb561ee652fe65401c85914d0043",
+      "raw_output_sha256": "035980db1669cc36719b5a11ddbcdfa2501ff8c40b9998086df3c72c8778ccc8",
       "retry": {
         "attempts": 1,
         "exception_type": "",
         "failure_reason": "",
-        "max_attempts": 2,
+        "max_attempts": 4,
         "retried": false,
         "retryable": false
       },
@@ -425,13 +594,13 @@
     {
       "display_name": "gpt-oss on Vertex MaaS",
       "failure_reason": "",
-      "input_tokens": 120072,
-      "latency_ms": 18535,
+      "input_tokens": 112516,
+      "latency_ms": 35639,
       "model_name": "gpt-oss-120b-maas",
-      "output_tokens": 1631,
-      "parsed_json_sha256": "cbba65454ee44d3ddf93a99bea9067f4cb95bac9297c1e287eea1875446a303a",
+      "output_tokens": 2574,
+      "parsed_json_sha256": "ca9b81d686440b98282e9ab4d660a8b43d93cfb70c29b86e5f7d9f87fbf375fb",
       "provider_id": "openai-gpt-oss-on-vertex",
-      "raw_output_sha256": "c19413b68dc0d01c0a712a7ccde33c6a5f98499126aa69bb395b0cf3bceb88ca",
+      "raw_output_sha256": "6cd12febc953d6870e425b375d6e72ba9c9485db974b3807bba0cc0e8dbcaff5",
       "retry": {
         "attempts": 1,
         "exception_type": "",
@@ -447,13 +616,13 @@
     {
       "display_name": "Qwen on Vertex MaaS",
       "failure_reason": "",
-      "input_tokens": 130569,
-      "latency_ms": 28905,
+      "input_tokens": 143936,
+      "latency_ms": 17562,
       "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
-      "output_tokens": 1501,
-      "parsed_json_sha256": "3ff952fe73751801dbfac82b580a70c518d83782409e1f4fc0e275176121a12f",
+      "output_tokens": 1476,
+      "parsed_json_sha256": "5405a70aa1b93c00203c63542fac8c7612adb9edbb66e321358e3125f87d1ef6",
       "provider_id": "qwen-agent-platform",
-      "raw_output_sha256": "fa75fec3c2cd9c6fcd92eab1ce47e96a1062838c798567ef7d1013e4e23b1980",
+      "raw_output_sha256": "23e36348095066fc7db76a8ad4069b31e3e15e3ce5b29bcfa6d85a8c1808f1a4",
       "retry": {
         "attempts": 1,
         "exception_type": "",
@@ -468,22 +637,25 @@
     }
   ],
   "review_graph_summary": {
-    "auto_archived_count": 0,
+    "auto_archived_count": 2,
     "conflict_count": 0,
     "convergence_count": 2,
     "hidden_multi_provider_archived_count": 0,
     "incident_baseline": "established",
     "incident_baseline_established_count": 0,
+    "incident_gate_scope": "graph_level_signal_not_target_promotion",
+    "incident_gate_signal": "signal_present",
     "note": "Provider convergence is technical support only; causal and impact judgement remains human-gated. Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; it is not additive with target verdict counts.",
-    "partial_overlap_count": 1,
-    "primary_promoted_count": 1,
+    "partial_overlap_count": 0,
+    "primary_promoted_count": 0,
     "provider_detection_overlap": "5/5",
     "review_unit_convergence": "strong",
     "rule_or_context_count": 0,
     "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
-    "single_source_count": 2,
+    "single_source_count": 1,
     "summary": "The e2e API analyzed a 4,747-row sanitized log corpus with 5 schema-valid real provider output(s); 2 review unit(s) had at least two provider positions while impact remains human-gated.",
-    "targets_total": 4,
+    "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
+    "targets_total": 3,
     "technical_baseline": "established"
   },
   "schema_version": "precomputed_review_summary.v1",
@@ -492,13 +664,13 @@
       "incident": true,
       "technical": true
     },
-    "canonical_graph_sha256": "f2278f5b175c3081921122bfe9cff5b20c1025a72cd86580bc8790b4689a0efa",
+    "canonical_graph_sha256": "9c17b2fe314a39b2a93fae8ba399bcb360e6f02af7ca0a12bdc92b3122008ca2",
     "canonical_graph_status": "computed_on_request",
     "finding": {
-      "impact": "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid outputs. 1 primary candidate and 3 validation target(s) remain human-gated; incident promotion is not auto-accepted.",
+      "impact": "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid outputs. 0 primary candidate and 3 validation target(s) remain human-gated; incident promotion is not auto-accepted.",
       "title": "Five real providers analyzed the 4,747-row stream_v3_monitoring corpus"
     },
-    "input_fingerprint_sha256": "6ca49f85f5a105ed95df084b32c4c23bf57ad961cfe99804ae5c8e74ec3a15d1",
+    "input_fingerprint_sha256": "2e807098f2436636faf75cceb655d572af2f49b96d9bc79133bf4f179a9efe12",
     "log_count": 4747,
     "message": "",
     "providers": {
@@ -508,14 +680,14 @@
     },
     "raw_log_policy": "not_uploaded",
     "review": {
-      "auto_archived": 0,
+      "auto_archived": 2,
       "monitor_only": 2,
-      "primary_targets": 1,
+      "primary_targets": 0,
       "validation_targets": 3
     },
     "schema_version": "ui_summary.v1",
     "status": "ok",
-    "updated_at": "2026-06-30T10:09:03Z"
+    "updated_at": "2026-06-30T11:28:23Z"
   },
   "targets": [
     {
@@ -527,82 +699,312 @@
         "technical_baseline": "established",
         "verdict": "convergence"
       },
+      "canonical_review_unit": "resource_pressure",
+      "caveats": [],
+      "claim": "5/5 schema-valid providers projected resource_pressure with 1 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
+      "class": "validation_target",
+      "counter_evidence_summary": [
+        "No OOM kill events or process termination logs are present in the evidence bundle.",
+        "No explicit restart_loop or service_start_failure patterns are directly linked to memory exhaustion.",
+        "Watchdog reports indicate normal operation (PATTERN-001)"
+      ],
+      "evidence_refs": [
+        "PATTERN-001"
+      ],
+      "evidence_summary": [
+        "PATTERN-001: info from stream_watchdog_state observed 500 time(s) between 2026-06-16T13:32:19Z and 2026-06-17T00:09:59Z. Sanitized pattern: watchdog entry_type=watchdog_ok stream_service_substate=running ffmpeg_count=<NUM> runtime_status=running runtime_restart_count=<NUM> youtube_fail_count=<NUM> reason=rtmp_count=<NUM> dj_count=<NUM> overlay=ok aircraft=ok"
+      ],
+      "excluded_evidence_refs": [
+        {
+          "evidence_ref": "PATTERN-1504",
+          "first_seen": "2026-06-28T15:18:13Z",
+          "last_seen": "2026-06-28T15:18:13Z",
+          "reason": "outside_analysis_window"
+        },
+        {
+          "evidence_ref": "PATTERN-1505",
+          "first_seen": "2026-06-28T15:18:21Z",
+          "last_seen": "2026-06-28T15:18:21Z",
+          "reason": "outside_analysis_window"
+        },
+        {
+          "evidence_ref": "PATTERN-1506",
+          "first_seen": "2026-06-28T15:18:17Z",
+          "last_seen": "2026-06-28T15:18:17Z",
+          "reason": "outside_analysis_window"
+        }
+      ],
+      "missing_evidence": [
+        "Process-level memory metrics (RSS/VSZ) for stream_v3 components.",
+        "OOM killer logs from the kernel ring buffer.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Which specific process (e.g., ffmpeg, python observers) is responsible for the memory growth?",
+      "operational_mechanism": "A process is consuming memory continuously, triggering the stream_v3_memory_critical_count metric over 1h, 8h, and 24h rolling windows.",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "5/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 5,
+      "provider_positions": [
+        {
+          "model_run_hash": "189674c8ae7c",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "38f6c9d7dfcb",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "035980db1669",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "6cd12febc953",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "23e363480950",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "48ddf242e20bdb0cf3b3056b",
+        "rollup_provider_ratio": 1.0,
+        "source_candidate_count": 2
+      },
+      "recommended_request_type": "instrumentation_consistency_query",
+      "review_priority_score": 0.86,
+      "review_reason": {
+        "factors": [
+          "5/5 schema-valid providers independently projected the normalized review unit `resource_pressure`.",
+          "1 cited Evidence Item(s) tie the unit back to the 4,747-row sanitized corpus.",
+          "2 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 1.000).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `resource_pressure` worth human validation.",
+        "operator_question": "Run `instrumentation_consistency_query` to decide whether `resource_pressure` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-b4ea3220988dcc493ed2",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "resource_pressure",
+      "suspected_issue": "Memory leak or insufficient memory provisioning for stream_v3 components.",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "No OOM kill events or process termination logs are present in the evidence bundle.",
+          "No explicit restart_loop or service_start_failure patterns are directly linked to memory exhaustion.",
+          "Watchdog reports indicate normal operation (PATTERN-001)"
+        ],
+        "evidence_summary": [
+          "PATTERN-001: info from stream_watchdog_state observed 500 time(s) between 2026-06-16T13:32:19Z and 2026-06-17T00:09:59Z. Sanitized pattern: watchdog entry_type=watchdog_ok stream_service_substate=running ffmpeg_count=<NUM> runtime_status=running runtime_restart_count=<NUM> youtube_fail_count=<NUM> reason=rtmp_count=<NUM> dj_count=<NUM> overlay=ok aircraft=ok"
+        ],
+        "next_validation_question": "Which specific process (e.g., ffmpeg, python observers) is responsible for the memory growth?",
+        "operational_mechanism": "A process is consuming memory continuously, triggering the stream_v3_memory_critical_count metric over 1h, 8h, and 24h rolling windows.",
+        "provider_explanations": [
+          {
+            "claim_text": "The system is experiencing critical memory pressure over rolling windows.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-1504",
+              "PATTERN-1505",
+              "PATTERN-1506"
+            ],
+            "next_validation_question": "Which specific process (e.g., ffmpeg, python observers) is responsible for the memory growth?",
+            "operational_mechanism": "A process is consuming memory continuously, triggering the stream_v3_memory_critical_count metric over 1h, 8h, and 24h rolling windows.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Memory leak or insufficient memory provisioning for stream_v3 components.",
+            "why_it_matters": "Could lead to OOM kills of the stream engine or watchdog, causing stream instability.",
+            "why_not_promoted": "The specific process consuming the memory is not identified in the provided evidence."
+          },
+          {
+            "claim_text": "The system is experiencing critical memory pressure as indicated by the stream_v3_memory_critical_count metrics.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-1504",
+              "PATTERN-1506",
+              "PATTERN-1505"
+            ],
+            "next_validation_question": "Which specific component is responsible for the high memory usage?",
+            "operational_mechanism": "The memory pressure could be due to the adsb_streamnew_auto_dj or adsb_streamnew_youtube_stream components consuming excessive resources.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "High memory usage leading to critical thresholds being breached.",
+            "why_it_matters": "Critical memory pressure can lead to service degradation or crashes, affecting the reliability of the ADS-B and YouTube streams.",
+            "why_not_promoted": "The exact component responsible for the memory pressure is not identified."
+          },
+          {
+            "claim_text": "Memory pressure is indicated by critical memory metrics exceeding thresholds in the rolling windows.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-1504",
+              "PATTERN-1505",
+              "PATTERN-1506"
+            ],
+            "next_validation_question": "Are there corresponding service restarts or performance issues during the periods of high memory critical count?",
+            "operational_mechanism": "The memory status service (adsb-streamnew-memory-status.service) reports critical memory usage through metrics like stream_v3_memory_critical_count.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Memory pressure affecting system stability",
+            "why_it_matters": "High memory usage can lead to system instability, performance degradation, or unexpected service restarts, potentially impacting stream uptime.",
+            "why_not_promoted": "Requires confirmation if memory pressure directly correlates with service degradation or restarts."
+          },
+          {
+            "claim_text": "Memory critical threshold has been crossed repeatedly across multiple rolling windows, indicating sustained memory pressure on the stream_v3 service.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-1504",
+              "PATTERN-1505",
+              "PATTERN-1506"
+            ],
+            "next_validation_question": "Are there any OOM kill events, systemd service restarts, or memory-related service terminations in the systemd journal during the incident window?",
+            "operational_mechanism": "The stream_v3_memory_critical_count metric is incremented by the memory_status or resource_memory components when host memory availability falls below critical thresholds, tracked across 1h, 8h, and 24h rolling windows.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "The stream_v3 service is experiencing sustained memory pressure that may be approaching or exceeding configured critical thresholds.",
+            "why_it_matters": "Sustained memory pressure can lead to OOM kills, service degradation, or forced restarts, potentially impacting YouTube stream uptime and ADSB stream health as noted in provisional user outcomes.",
+            "why_not_promoted": "While memory critical counts are elevated, there is no evidence of actual service failure, OOM kills, or user-facing impact. The metric indicates threshold crossings but not necessarily service disruption."
+          },
+          {
+            "claim_text": "Multiple memory critical alerts (stream_v3_memory_critical_count) were recorded, indicating memory pressure on the stream_v3 service.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-1504",
+              "PATTERN-1505",
+              "PATTERN-1506",
+              "PATTERN-001"
+            ],
+            "next_validation_question": "Did any YouTube stream restarts or failures occur concurrently with spikes in stream_v3_memory_critical_count?",
+            "operational_mechanism": "The stream_v3 memory monitoring component reports critical counts; high counts trigger alerts.",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Memory pressure on stream_v3 may cause performance degradation or restarts.",
+            "why_it_matters": "Memory exhaustion can lead to service instability, potentially affecting YouTube stream uptime.",
+            "why_not_promoted": "No direct correlation with observed YouTube stream failures is present."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Memory leak or insufficient memory provisioning for stream_v3 components.",
+        "why_it_matters": "Could lead to OOM kills of the stream engine or watchdog, causing stream instability.",
+        "why_not_promoted": "The specific process consuming the memory is not identified in the provided evidence."
+      },
+      "target_id": "cog-b4ea3220988dcc493ed2",
+      "title": "Review target requires validation: resource_pressure",
+      "why_it_matters": "Could lead to OOM kills of the stream engine or watchdog, causing stream instability.",
+      "why_not_promoted": "The specific process consuming the memory is not identified in the provided evidence."
+    },
+    {
+      "agreement": {
+        "convergence_score": 1.0,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "5/5 schema-valid providers projected this review unit from the 4,747-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
       "canonical_review_unit": "transport_sender",
       "caveats": [],
-      "claim": "5/5 schema-valid providers projected transport_sender with 5 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
-      "class": "primary_candidate",
+      "claim": "5/5 schema-valid providers projected transport_sender with 10 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
+      "class": "validation_target",
       "counter_evidence_summary": [
-        "PATTERN-002 shows youtube_watchdog status=ok healthy=True ingest_connected=True stream_active=True",
-        "PATTERN-006 and PATTERN-007 show status=ok cause=ok affected=none",
-        "PATTERN-009 shows 80 events from systemd_journal with similar successful probe results",
-        "PATTERN-010 shows 78 additional successful probe events"
+        "The probe results show 'ok\":true' in the example_sanitized output, indicating some probes succeeded despite the timeout classification.",
+        "No explicit network interface down or routing failure logs are present.",
+        "Some logs show status=ok (PATTERN-020, PATTERN-006, PATTERN-007), indicating the issue might be intermittent or recovered.",
+        "PATTERN-002 shows 496 youtube_watchdog events with 'status=ok healthy=True' indicating the YouTube stream was healthy during most of the observation window.",
+        "No explicit stream termination or ffmpeg crash logs are present in the evidence bundle.",
+        "Overall watchdog status remains OK (PATTERN-001)",
+        "PATTERN-053 and PATTERN-054 show RTMPS connection failures flagged as incident_candidates.",
+        "Memory critical counts indicate sustained resource pressure.",
+        "The BrokenPipeError events are from different time windows (June 11 and June 17), suggesting intermittent rather than continuous issues.",
+        "No direct correlation with service crashes or restart events is present in the evidence.",
+        "PATTERN-002 shows 496 youtube_watchdog events with 'status=ok healthy=True local_ok=True public_ok=True api_ok=True oauth_ok=True ingest_connected=True stream_active=True' between 2026-06-15T04:49:03Z and 2026-06-17T00:05:34Z."
       ],
       "evidence_refs": [
         "PATTERN-005",
         "PATTERN-009",
         "PATTERN-010",
         "PATTERN-053",
-        "PATTERN-054"
+        "PATTERN-054",
+        "PATTERN-001",
+        "PATTERN-002",
+        "PATTERN-020",
+        "PATTERN-051",
+        "PATTERN-052"
       ],
       "evidence_summary": [
-        "PATTERN-005, PATTERN-009, PATTERN-010: The anchor observer logs show timeouts when probing 'cloudflare_v4' on port 443.",
-        "PATTERN-005 shows multiple timeout events with the message template indicating stream_v3_persistent_tcp_anchor_observer timeouts.",
-        "PATTERN-009 and PATTERN-010 also show similar timeout events.",
-        "PATTERN-005: 160 timeout events in persistent TCP anchor observer",
-        "PATTERN-009: 80 timeout events in network observer",
-        "PATTERN-010: 78 timeout events showing repeated connection problems",
-        "PATTERN-053, PATTERN-054: Logs indicate 'status=incident_candidate cause=rtmps_connect_failure_all_families affected=rtmps'.",
-        "PATTERN-053 shows 6 occurrences of status=incident_candidate cause=rtmps_connect_failure_all_families affected=rtmps between 2026-06-16T23:12:38Z and 2026-06-16T23:13:10Z",
-        "PATTERN-054 shows 6 additional occurrences between 2026-06-17T00:12:13Z and 2026-06-17T00:12:18Z",
-        "PATTERN-005: 160 occurrences of timeout events in persistent TCP anchor observer indicating network connectivity issues that may trigger restarts",
-        "PATTERN-009: 80 timeout events in network observer showing repeated connection problems",
-        "PATTERN-010: 78 timeout events further supporting network instability",
-        "PATTERN-005: timeout from unknown observed 160 time(s) between 2026-06-17T00:10:37Z and 2026-06-17T00:13:16Z. Sanitized pattern: <TIMESTAMP> yuki python3[<NUM>]: {\"schema\":\"stream_v3_persistent_tcp_anchor_observer/v1\",\"ts_utc\":\"<TIMESTAMP>\",\"ts_jst\":\"<TIMESTAMP>\",\"interval_sec\":<NUM>,\"timeout_sec\":<NUM>,\"probes\":[{\"name\":\"cloudflare_v4\",\"address\":",
-        "PATTERN-005 shows 160 events with ok:true phase:request_on_existing_connection connected:true"
+        "PATTERN-005 shows multiple timeout events from the persistent TCP anchor observer.",
+        "PATTERN-009 and PATTERN-010 show similar timeout patterns.",
+        "PATTERN-005: Multiple timeout events in stream_v3_persistent_tcp_anchor_observer logs",
+        "PATTERN-009: Timeout events in network observer probe results",
+        "PATTERN-010: Timeout events in network observer probe results",
+        "PATTERN-005 shows 160 timeout events from stream_v3_persistent_tcp_anchor_observer between 2026-06-17T00:10:37Z and 2026-06-17T00:13:16Z.",
+        "PATTERN-009 shows 80 timeout events from systemd_journal component between 2026-06-16T23:30:45Z and 2026-06-17T00:10:15Z.",
+        "PATTERN-010 shows 78 additional timeout events between 2026-06-16T23:31:01Z and 2026-06-17T00:10:31Z.",
+        "PATTERN-005, PATTERN-009, PATTERN-010 show stream_v3_persistent_tcp_anchor_observer timing out to cloudflare-dns.com.",
+        "PATTERN-053, PATTERN-054 show incident_candidate with cause=rtmps_connect_failure_all_families.",
+        "PATTERN-053 shows 6 occurrences of 'status=incident_candidate cause=rtmps_connect_failure_all_families affected=rtmps' between 2026-06-16T23:12:38Z and 2026-06-16T23:13:10Z.",
+        "PATTERN-054 shows 6 additional occurrences between 2026-06-17T00:12:13Z and 2026-06-17T00:12:18Z, indicating a recurring pattern.",
+        "Timeout logs from persistent TCP anchor observer (PATTERN-005)",
+        "PATTERN-020 shows 10 evt-ytw events with 'status=ok healthy=True failure_kind=none action=none' between 2026-06-15T09:51:53Z and 2026-06-16T20:41:22Z.",
+        "PATTERN-051 shows 6 BrokenPipeError events from systemd_journal between 2026-06-11T11:09:50Z and 2026-06-11T12:36:52Z.",
+        "PATTERN-052 shows 6 BrokenPipeError events between 2026-06-17T00:10:38Z and 2026-06-17T00:12:48Z.",
+        "PATTERN-001: info from stream_watchdog_state observed 500 time(s) between 2026-06-16T13:32:19Z and 2026-06-17T00:09:59Z. Sanitized pattern: watchdog entry_type=watchdog_ok stream_service_substate=running ffmpeg_count=<NUM> runtime_status=running runtime_restart_count=<NUM> youtube_fail_count=<NUM> reason=rtmp_count=<NUM> dj_count=<NUM> overlay=ok aircraft=ok"
       ],
       "excluded_evidence_refs": [],
       "missing_evidence": [
-        "Link state logs from the WAN interface or router.",
-        "Packet captures or firewall logs showing dropped outbound packets to YouTube ingest IPs.",
-        "Causal alignment evidence connecting this review unit to the incident window."
+        "Host-level network interface metrics (e.g., dropped packets, carrier status).",
+        "Traceroute or MTR logs during the incident window.",
+        "Process ID to service unit mapping for the BrokenPipeError events",
+        "Service state changes correlated with BrokenPipeError timestamps",
+        "User impact or operational outcome evidence tied to this review unit."
       ],
-      "next_validation_question": "Is the host's default gateway reachable, and is the ISP link up?",
-      "operational_mechanism": "The stream_v3_persistent_tcp_anchor_observer script attempts to probe Cloudflare (1.1.1.1) on port 443 to verify network health, but the requests are timing out.",
+      "next_validation_question": "What is causing the network timeouts in the persistent TCP anchor observer?",
+      "operational_mechanism": "The persistent TCP anchor observer is failing to connect to external endpoints, possibly due to network issues or service unavailability.",
       "promotion": {
-        "blocked_reason": "primary_candidate_only; incident_baseline_not_auto_accepted; human_review_required",
-        "explanation": "Primary candidacy is based on review priority, subsystem relevance, and unresolved operational risk, not on having the highest provider convergence. Incident promotion remains human-gated.",
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "5/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
-        "state": "primary_candidate"
+        "state": "validation"
       },
       "provider_count": 5,
       "provider_positions": [
         {
-          "model_run_hash": "a32379697486",
+          "model_run_hash": "189674c8ae7c",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "gemini-enterprise-agent-platform",
           "stance": "claimed"
         },
         {
-          "model_run_hash": "c374d6e13ee6",
+          "model_run_hash": "38f6c9d7dfcb",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "glm-agent-platform",
           "stance": "claimed"
         },
         {
-          "model_run_hash": "741aed0dc33f",
+          "model_run_hash": "035980db1669",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "mistral-agent-platform",
           "stance": "claimed"
         },
         {
-          "model_run_hash": "c19413b68dc0",
+          "model_run_hash": "6cd12febc953",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "openai-gpt-oss-on-vertex",
           "stance": "claimed"
         },
         {
-          "model_run_hash": "fa75fec3c2cd",
+          "model_run_hash": "23e363480950",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "qwen-agent-platform",
           "stance": "claimed"
@@ -619,318 +1021,182 @@
       "review_reason": {
         "factors": [
           "5/5 schema-valid providers independently projected the normalized review unit `transport_sender`.",
-          "5 cited Evidence Item(s) tie the unit back to the 4,747-row sanitized corpus.",
+          "10 cited Evidence Item(s) tie the unit back to the 4,747-row sanitized corpus.",
           "6 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.833).",
-          "Promotion is still blocked by `primary_candidate_only; incident_baseline_not_auto_accepted; human_review_required`; this is review work, not an accepted incident cause."
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
         ],
         "headline": "Review target created because provider convergence and cited evidence made `transport_sender` worth human validation.",
         "operator_question": "Run `user_impact_signal_query` to decide whether `transport_sender` should remain a validation target or be promoted."
       },
-      "review_target_id": "cog-51d6eaa279be4cb16df2",
-      "state": "primary_candidate",
-      "status": "pending",
-      "subsystem": "network_transport",
-      "suspected_issue": "General outbound HTTPS (TCP port 443) connectivity is degraded or failing.",
-      "target_explanation": {
-        "counter_evidence_summary": [
-          "PATTERN-002 shows youtube_watchdog status=ok healthy=True ingest_connected=True stream_active=True",
-          "PATTERN-006 and PATTERN-007 show status=ok cause=ok affected=none",
-          "PATTERN-009 shows 80 events from systemd_journal with similar successful probe results",
-          "PATTERN-010 shows 78 additional successful probe events"
-        ],
-        "evidence_summary": [
-          "PATTERN-005, PATTERN-009, PATTERN-010: The anchor observer logs show timeouts when probing 'cloudflare_v4' on port 443.",
-          "PATTERN-005 shows multiple timeout events with the message template indicating stream_v3_persistent_tcp_anchor_observer timeouts.",
-          "PATTERN-009 and PATTERN-010 also show similar timeout events.",
-          "PATTERN-005: 160 timeout events in persistent TCP anchor observer",
-          "PATTERN-009: 80 timeout events in network observer",
-          "PATTERN-010: 78 timeout events showing repeated connection problems",
-          "PATTERN-053, PATTERN-054: Logs indicate 'status=incident_candidate cause=rtmps_connect_failure_all_families affected=rtmps'.",
-          "PATTERN-053 shows 6 occurrences of status=incident_candidate cause=rtmps_connect_failure_all_families affected=rtmps between 2026-06-16T23:12:38Z and 2026-06-16T23:13:10Z",
-          "PATTERN-054 shows 6 additional occurrences between 2026-06-17T00:12:13Z and 2026-06-17T00:12:18Z",
-          "PATTERN-005: 160 occurrences of timeout events in persistent TCP anchor observer indicating network connectivity issues that may trigger restarts",
-          "PATTERN-009: 80 timeout events in network observer showing repeated connection problems",
-          "PATTERN-010: 78 timeout events further supporting network instability",
-          "PATTERN-005: timeout from unknown observed 160 time(s) between 2026-06-17T00:10:37Z and 2026-06-17T00:13:16Z. Sanitized pattern: <TIMESTAMP> yuki python3[<NUM>]: {\"schema\":\"stream_v3_persistent_tcp_anchor_observer/v1\",\"ts_utc\":\"<TIMESTAMP>\",\"ts_jst\":\"<TIMESTAMP>\",\"interval_sec\":<NUM>,\"timeout_sec\":<NUM>,\"probes\":[{\"name\":\"cloudflare_v4\",\"address\":",
-          "PATTERN-005 shows 160 events with ok:true phase:request_on_existing_connection connected:true"
-        ],
-        "next_validation_question": "Is the host's default gateway reachable, and is the ISP link up?",
-        "operational_mechanism": "The stream_v3_persistent_tcp_anchor_observer script attempts to probe Cloudflare (1.1.1.1) on port 443 to verify network health, but the requests are timing out.",
-        "provider_explanations": [
-          {
-            "claim_text": "The persistent TCP anchor observer is experiencing timeouts connecting to Cloudflare.",
-            "claim_type": "support",
-            "evidence_refs": [
-              "PATTERN-005",
-              "PATTERN-009",
-              "PATTERN-010"
-            ],
-            "next_validation_question": "Is the host's default gateway reachable, and is the ISP link up?",
-            "operational_mechanism": "The stream_v3_persistent_tcp_anchor_observer script attempts to probe Cloudflare (1.1.1.1) on port 443 to verify network health, but the requests are timing out.",
-            "provider_id": "gemini-enterprise-agent-platform",
-            "suspected_issue": "General outbound HTTPS (TCP port 443) connectivity is degraded or failing.",
-            "why_it_matters": "This confirms the network issue is not isolated to YouTube RTMPS ingest, but affects general outbound internet connectivity, impacting all external API calls and streams.",
-            "why_not_promoted": "It is unclear if the timeouts are due to packet loss, complete link failure, or DNS resolution issues (though the probe uses an IP)."
-          },
-          {
-            "claim_text": "Multiple timeout events related to the stream_v3_persistent_tcp_anchor_observer component suggest potential network issues.",
-            "claim_type": "support",
-            "evidence_refs": [
-              "PATTERN-005",
-              "PATTERN-009",
-              "PATTERN-010"
-            ],
-            "next_validation_question": "Are the network issues directly causing the observed system instability?",
-            "operational_mechanism": "The stream_v3_persistent_tcp_anchor_observer component is responsible for monitoring network connections, and timeouts indicate potential network problems.",
-            "provider_id": "mistral-agent-platform",
-            "suspected_issue": "Network connectivity or performance issues",
-            "why_it_matters": "Network issues can lead to degraded performance, connectivity problems, and potential service disruptions.",
-            "why_not_promoted": "Further investigation is needed to determine if the network issues are the root cause of the observed system instability."
-          },
-          {
-            "claim_text": "Network timeout events may be contributing to service instability but lack specific impact correlation",
-            "claim_type": "caveat",
-            "evidence_refs": [
-              "PATTERN-005",
-              "PATTERN-009",
-              "PATTERN-010"
-            ],
-            "next_validation_question": "Do network timeout events directly precede service restarts or health check failures?",
-            "operational_mechanism": "Persistent TCP anchor observer monitoring cloudflare DNS connectivity experiencing timeouts",
-            "provider_id": "qwen-agent-platform",
-            "suspected_issue": "Network connectivity issues causing service disruptions",
-            "why_it_matters": "Network timeouts can cause service interruptions and trigger restart mechanisms",
-            "why_not_promoted": "No direct correlation established between timeouts and service restarts or user impact"
-          },
-          {
-            "claim_text": "The system is failing to establish RTMPS connections across all IP families.",
-            "claim_type": "support",
-            "evidence_refs": [
-              "PATTERN-053",
-              "PATTERN-054"
-            ],
-            "next_validation_question": "Are there corresponding network interface errors, dropped packets in iptables/nftables, or upstream routing changes?",
-            "operational_mechanism": "The stream engine or watchdog attempts to connect to YouTube's RTMPS ingest servers but fails, triggering an incident candidate status.",
-            "provider_id": "gemini-enterprise-agent-platform",
-            "suspected_issue": "Outbound RTMPS traffic (TCP port 443 or 1935) is failing or being blocked.",
-            "why_it_matters": "Without RTMPS connectivity, the live stream cannot be published to YouTube, resulting in a complete outage of the primary user-facing service.",
-            "why_not_promoted": "Need to determine if the issue is local to the host (e.g., firewall, routing) or an upstream ISP/network issue."
-          },
-          {
-            "claim_text": "RTMPS connectivity failures triggered incident candidate status",
-            "claim_type": "support",
-            "evidence_refs": [
-              "PATTERN-053",
-              "PATTERN-054"
-            ],
-            "next_validation_question": "What is the RTMPS connection success rate and latency over the past 24 hours, and were there any YouTube ingest endpoint issues during the incident windows?",
-            "operational_mechanism": "The fast_recovery or stream_watchdog components detect RTMPS connectivity issues and escalate to incident_candidate status when all address families fail to connect",
-            "provider_id": "glm-agent-platform",
-            "suspected_issue": "RTMPS connection failures to YouTube ingest endpoints caused the system to declare incident_candidate status with cause rtmps_connect_failure_all_families",
-            "why_it_matters": "RTMPS connectivity is essential for YouTube Live streaming; failures can cause stream interruption or complete broadcast loss",
-            "why_not_promoted": "The incident_candidate events are clustered in brief windows and followed by recovery; current watchdog status shows healthy operation"
-          },
-          {
-            "claim_text": "Restart loop behavior detected through watchdog and fast recovery restart counts",
-            "claim_type": "support",
-            "evidence_refs": [
-              "PATTERN-005",
-              "PATTERN-009",
-              "PATTERN-010"
-            ],
-            "next_validation_question": "What specific error conditions are causing the watchdog to trigger restarts?",
-            "operational_mechanism": "Stream watchdog supervisor (adsb-streamnew-watchdog.service) and fast recovery service triggering restarts when health checks fail",
-            "provider_id": "qwen-agent-platform",
-            "suspected_issue": "Service instability causing repeated restarts",
-            "why_it_matters": "Restart loops can cause service unavailability and impact user experience",
-            "why_not_promoted": "Need to correlate restart events with specific error conditions"
-          },
-          {
-            "claim_text": "Repeated timeout events from the persistent TCP anchor observer indicate intermittent network connectivity problems that trigger fast‑recovery actions.",
-            "claim_type": "support",
-            "evidence_refs": [
-              "PATTERN-005"
-            ],
-            "next_validation_question": "Are there spikes in stream latency or error rates that align with the timestamps of the timeout logs?",
-            "operational_mechanism": "The persistent_tcp_anchor_observer (systemd_journal) logs timeout patterns (PATTERN-005) when probes to cloudflare fail; these timeouts feed into the fast_recovery component, generating fast_recovery events (PATTERN-004).",
-            "provider_id": "openai-gpt-oss-on-vertex",
-            "suspected_issue": "Network connectivity interruptions to the upstream anchor service",
-            "why_it_matters": "Network timeouts can cause stream degradation, increased latency, and unnecessary fast‑recovery cycles, impacting stream reliability.",
-            "why_not_promoted": "While timeouts are evident, it is not yet confirmed whether they lead to observable service impact; additional correlation with stream health metrics is required."
-          },
-          {
-            "claim_text": "TCP anchor observer timeout events show successful probes despite timeout classification",
-            "claim_type": "caveat",
-            "evidence_refs": [
-              "PATTERN-005",
-              "PATTERN-009",
-              "PATTERN-010"
-            ],
-            "next_validation_question": "Why are successful TCP probe results classified as timeout event_type?",
-            "operational_mechanism": "The persistent_tcp_anchor_observer probes cloudflare-dns.com:443 with a 2-second timeout; successful probes are logged with ok:true but the event_type is classified as timeout",
-            "provider_id": "glm-agent-platform",
-            "suspected_issue": "The persistent_tcp_anchor_observer logs show ok:true and connected:true but are classified as timeout events, suggesting the timeout_sec=2.0 may be too aggressive or the classification is misleading",
-            "why_it_matters": "Misclassified timeout events could obscure real connectivity issues or generate false-positive alerts",
-            "why_not_promoted": "This is an instrumentation classification issue rather than a runtime incident"
-          }
-        ],
-        "schema_version": "target_explanation.v1",
-        "suspected_issue": "General outbound HTTPS (TCP port 443) connectivity is degraded or failing.",
-        "why_it_matters": "This confirms the network issue is not isolated to YouTube RTMPS ingest, but affects general outbound internet connectivity, impacting all external API calls and streams.",
-        "why_not_promoted": "It is unclear if the timeouts are due to packet loss, complete link failure, or DNS resolution issues (though the probe uses an IP)."
-      },
-      "target_id": "cog-51d6eaa279be4cb16df2",
-      "title": "Review target requires validation: network_transport",
-      "why_it_matters": "This confirms the network issue is not isolated to YouTube RTMPS ingest, but affects general outbound internet connectivity, impacting all external API calls and streams.",
-      "why_not_promoted": "It is unclear if the timeouts are due to packet loss, complete link failure, or DNS resolution issues (though the probe uses an IP)."
-    },
-    {
-      "agreement": {
-        "convergence_score": 0.4,
-        "incident_baseline": "open",
-        "score_definition": "claimed successful providers / all successful providers",
-        "summary": "2/5 schema-valid providers projected this review unit from the 4,747-row corpus; incident promotion remains human-gated.",
-        "technical_baseline": "established",
-        "verdict": "convergence"
-      },
-      "canonical_review_unit": "network_transport",
-      "caveats": [],
-      "claim": "2/5 schema-valid providers projected network_transport with 2 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
-      "class": "validation_target",
-      "counter_evidence_summary": [
-        "PATTERN-001 shows 500 watchdog_ok events indicating stable operation",
-        "No corresponding error spikes in other components during BrokenPipeError windows"
-      ],
-      "evidence_refs": [
-        "PATTERN-051",
-        "PATTERN-052"
-      ],
-      "evidence_summary": [
-        "PATTERN-051, PATTERN-052: Logs show 'BrokenPipeError: [Errno 32] Broken pipe' in the yuki python3 process.",
-        "PATTERN-051 shows 6 BrokenPipeError events from systemd_journal between 2026-06-11T11:09:50Z and 2026-06-11T12:36:52Z",
-        "PATTERN-052 shows 6 BrokenPipeError events between 2026-06-17T00:10:38Z and 2026-06-17T00:12:48Z"
-      ],
-      "excluded_evidence_refs": [],
-      "missing_evidence": [
-        "Socket traces or debug logs showing the remote endpoint associated with the broken pipe.",
-        "User impact or operational outcome evidence tied to this review unit."
-      ],
-      "next_validation_question": "Which specific connections (IPs/ports) are experiencing the broken pipes?",
-      "operational_mechanism": "When the application tries to write to a socket that has been closed at the other end (e.g., due to a stateful firewall dropping the session or the remote server resetting it), a BrokenPipeError is raised.",
-      "promotion": {
-        "blocked_reason": "user_impact_unverified",
-        "explanation": "2/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
-        "score_cap_applied": false,
-        "score_note": "Priority is review urgency, not truth probability.",
-        "state": "validation"
-      },
-      "provider_count": 2,
-      "provider_positions": [
-        {
-          "model_run_hash": "a32379697486",
-          "one_line": "Projected this canonical review unit from the real API run.",
-          "provider_id": "gemini-enterprise-agent-platform",
-          "stance": "claimed"
-        },
-        {
-          "model_run_hash": "c374d6e13ee6",
-          "one_line": "Projected this canonical review unit from the real API run.",
-          "provider_id": "glm-agent-platform",
-          "stance": "claimed"
-        },
-        {
-          "model_run_hash": "741aed0dc33f",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "mistral-agent-platform",
-          "stance": "silent"
-        },
-        {
-          "model_run_hash": "c19413b68dc0",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "openai-gpt-oss-on-vertex",
-          "stance": "silent"
-        },
-        {
-          "model_run_hash": "fa75fec3c2cd",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "qwen-agent-platform",
-          "stance": "silent"
-        }
-      ],
-      "raw": {
-        "baseline_support_score": 0.75,
-        "canonical_group_key": "68bdc8f2deef73003d9ba0cb",
-        "rollup_provider_ratio": 0.0,
-        "source_candidate_count": 1
-      },
-      "recommended_request_type": "user_impact_signal_query",
-      "review_priority_score": 0.72,
-      "review_reason": {
-        "factors": [
-          "2/5 schema-valid providers independently projected the normalized review unit `network_transport`.",
-          "2 cited Evidence Item(s) tie the unit back to the 4,747-row sanitized corpus.",
-          "1 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.000).",
-          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
-        ],
-        "headline": "Review target created because provider convergence and cited evidence made `network_transport` worth human validation.",
-        "operator_question": "Run `user_impact_signal_query` to decide whether `network_transport` should remain a validation target or be promoted."
-      },
-      "review_target_id": "cog-18fe5ce8fe6957bda4b8",
+      "review_target_id": "cog-b83d1e6e350d08a6b052",
       "state": "validation_target",
       "status": "pending",
       "subsystem": "network_transport",
-      "suspected_issue": "Established TCP connections are being abruptly closed by the remote peer or intermediate network equipment.",
+      "suspected_issue": "Network connectivity issues or external service unavailability.",
       "target_explanation": {
         "counter_evidence_summary": [
-          "PATTERN-001 shows 500 watchdog_ok events indicating stable operation",
-          "No corresponding error spikes in other components during BrokenPipeError windows"
+          "The probe results show 'ok\":true' in the example_sanitized output, indicating some probes succeeded despite the timeout classification.",
+          "No explicit network interface down or routing failure logs are present.",
+          "Some logs show status=ok (PATTERN-020, PATTERN-006, PATTERN-007), indicating the issue might be intermittent or recovered.",
+          "PATTERN-002 shows 496 youtube_watchdog events with 'status=ok healthy=True' indicating the YouTube stream was healthy during most of the observation window.",
+          "No explicit stream termination or ffmpeg crash logs are present in the evidence bundle.",
+          "Overall watchdog status remains OK (PATTERN-001)",
+          "PATTERN-053 and PATTERN-054 show RTMPS connection failures flagged as incident_candidates.",
+          "Memory critical counts indicate sustained resource pressure.",
+          "The BrokenPipeError events are from different time windows (June 11 and June 17), suggesting intermittent rather than continuous issues.",
+          "No direct correlation with service crashes or restart events is present in the evidence.",
+          "PATTERN-002 shows 496 youtube_watchdog events with 'status=ok healthy=True local_ok=True public_ok=True api_ok=True oauth_ok=True ingest_connected=True stream_active=True' between 2026-06-15T04:49:03Z and 2026-06-17T00:05:34Z."
         ],
         "evidence_summary": [
-          "PATTERN-051, PATTERN-052: Logs show 'BrokenPipeError: [Errno 32] Broken pipe' in the yuki python3 process.",
-          "PATTERN-051 shows 6 BrokenPipeError events from systemd_journal between 2026-06-11T11:09:50Z and 2026-06-11T12:36:52Z",
-          "PATTERN-052 shows 6 BrokenPipeError events between 2026-06-17T00:10:38Z and 2026-06-17T00:12:48Z"
+          "PATTERN-005 shows multiple timeout events from the persistent TCP anchor observer.",
+          "PATTERN-009 and PATTERN-010 show similar timeout patterns.",
+          "PATTERN-005: Multiple timeout events in stream_v3_persistent_tcp_anchor_observer logs",
+          "PATTERN-009: Timeout events in network observer probe results",
+          "PATTERN-010: Timeout events in network observer probe results",
+          "PATTERN-005 shows 160 timeout events from stream_v3_persistent_tcp_anchor_observer between 2026-06-17T00:10:37Z and 2026-06-17T00:13:16Z.",
+          "PATTERN-009 shows 80 timeout events from systemd_journal component between 2026-06-16T23:30:45Z and 2026-06-17T00:10:15Z.",
+          "PATTERN-010 shows 78 additional timeout events between 2026-06-16T23:31:01Z and 2026-06-17T00:10:31Z.",
+          "PATTERN-005, PATTERN-009, PATTERN-010 show stream_v3_persistent_tcp_anchor_observer timing out to cloudflare-dns.com.",
+          "PATTERN-053, PATTERN-054 show incident_candidate with cause=rtmps_connect_failure_all_families.",
+          "PATTERN-053 shows 6 occurrences of 'status=incident_candidate cause=rtmps_connect_failure_all_families affected=rtmps' between 2026-06-16T23:12:38Z and 2026-06-16T23:13:10Z.",
+          "PATTERN-054 shows 6 additional occurrences between 2026-06-17T00:12:13Z and 2026-06-17T00:12:18Z, indicating a recurring pattern.",
+          "Timeout logs from persistent TCP anchor observer (PATTERN-005)",
+          "PATTERN-020 shows 10 evt-ytw events with 'status=ok healthy=True failure_kind=none action=none' between 2026-06-15T09:51:53Z and 2026-06-16T20:41:22Z.",
+          "PATTERN-051 shows 6 BrokenPipeError events from systemd_journal between 2026-06-11T11:09:50Z and 2026-06-11T12:36:52Z.",
+          "PATTERN-052 shows 6 BrokenPipeError events between 2026-06-17T00:10:38Z and 2026-06-17T00:12:48Z.",
+          "PATTERN-001: info from stream_watchdog_state observed 500 time(s) between 2026-06-16T13:32:19Z and 2026-06-17T00:09:59Z. Sanitized pattern: watchdog entry_type=watchdog_ok stream_service_substate=running ffmpeg_count=<NUM> runtime_status=running runtime_restart_count=<NUM> youtube_fail_count=<NUM> reason=rtmp_count=<NUM> dj_count=<NUM> overlay=ok aircraft=ok"
         ],
-        "next_validation_question": "Which specific connections (IPs/ports) are experiencing the broken pipes?",
-        "operational_mechanism": "When the application tries to write to a socket that has been closed at the other end (e.g., due to a stateful firewall dropping the session or the remote server resetting it), a BrokenPipeError is raised.",
+        "next_validation_question": "What is causing the network timeouts in the persistent TCP anchor observer?",
+        "operational_mechanism": "The persistent TCP anchor observer is failing to connect to external endpoints, possibly due to network issues or service unavailability.",
         "provider_explanations": [
           {
-            "claim_text": "Python processes are encountering Broken Pipe errors.",
+            "claim_text": "There are network timeouts affecting the persistent TCP anchor observer.",
             "claim_type": "support",
             "evidence_refs": [
-              "PATTERN-051",
-              "PATTERN-052"
+              "PATTERN-005",
+              "PATTERN-009",
+              "PATTERN-010"
             ],
-            "next_validation_question": "Which specific connections (IPs/ports) are experiencing the broken pipes?",
-            "operational_mechanism": "When the application tries to write to a socket that has been closed at the other end (e.g., due to a stateful firewall dropping the session or the remote server resetting it), a BrokenPipeError is raised.",
-            "provider_id": "gemini-enterprise-agent-platform",
-            "suspected_issue": "Established TCP connections are being abruptly closed by the remote peer or intermediate network equipment.",
-            "why_it_matters": "This indicates instability in established connections, which can disrupt ongoing streams or API interactions even if initial connection succeeds.",
-            "why_not_promoted": "The exact destination of the broken pipes is not specified in the log pattern."
+            "next_validation_question": "What is causing the network timeouts in the persistent TCP anchor observer?",
+            "operational_mechanism": "The persistent TCP anchor observer is failing to connect to external endpoints, possibly due to network issues or service unavailability.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "Network connectivity issues or external service unavailability.",
+            "why_it_matters": "Network timeouts can disrupt the streaming service, leading to potential downtime or degraded performance.",
+            "why_not_promoted": "The root cause of the network timeouts is not identified."
           },
           {
-            "claim_text": "BrokenPipeError events indicate connection termination during request processing",
+            "claim_text": "Network connectivity issues are observed through timeout events in persistent TCP anchor observer.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-005",
+              "PATTERN-009",
+              "PATTERN-010"
+            ],
+            "next_validation_question": "Do these network timeouts correlate with stream quality degradation or restart triggers?",
+            "operational_mechanism": "The persistent TCP anchor observer (stream_v3_persistent_anchor_observer) performs periodic connectivity checks that are timing out.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Network connectivity instability",
+            "why_it_matters": "Network timeouts can lead to stream interruptions, degraded quality, or inability to reach dependent services.",
+            "why_not_promoted": "Need to determine if timeouts are causing user-observable stream issues or internal recovery actions."
+          },
+          {
+            "claim_text": "TCP anchor observer probes to cloudflare-dns.com are experiencing timeouts, indicating potential network connectivity or DNS resolution issues.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-005",
+              "PATTERN-009",
+              "PATTERN-010"
+            ],
+            "next_validation_question": "What percentage of TCP anchor observer probes are succeeding vs timing out? Is there a pattern correlating these timeouts with the RTMPS connection failures?",
+            "operational_mechanism": "The stream_v3_persistent_tcp_anchor_observer performs periodic TCP probes to external endpoints (cloudflare-dns.com:443) to verify network connectivity. Timeouts are logged when probes exceed the configured timeout_sec (2.0 seconds).",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "The persistent_tcp_anchor_observer component is encountering timeouts when probing cloudflare-dns.com:443, which may indicate network path issues or external service unavailability.",
+            "why_it_matters": "Network connectivity issues to external endpoints can impact the service's ability to verify network health and may correlate with broader connectivity problems affecting RTMPS streaming.",
+            "why_not_promoted": "The evidence shows timeout events but the sanitized output also shows 'ok\":true', suggesting partial connectivity. The relationship between these timeouts and actual service impact is unclear."
+          },
+          {
+            "claim_text": "Outbound network connectivity is experiencing timeouts and failures, affecting RTMPS and TCP anchor probes.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-005",
+              "PATTERN-009",
+              "PATTERN-010",
+              "PATTERN-053",
+              "PATTERN-054"
+            ],
+            "next_validation_question": "Are there corresponding host-level network interface errors or ISP outage reports during the 2026-06-16 to 2026-06-17 window?",
+            "operational_mechanism": "The host's network interface, local firewall, or upstream ISP is dropping packets or experiencing high latency, causing the persistent TCP anchor observer to timeout when reaching cloudflare-dns.com and the stream engine to report RTMPS connect failures.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Network transport failure or severe degradation for outbound traffic.",
+            "why_it_matters": "Directly causes YouTube stream downtime as the RTMPS connection cannot be established or maintained.",
+            "why_not_promoted": "Needs confirmation if the network issue is local to the host, a configuration issue, or an upstream ISP outage."
+          },
+          {
+            "claim_text": "RTMPS connection failures to YouTube ingest endpoints have been detected and flagged as incident candidates by the fast_recovery component.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-053",
+              "PATTERN-054"
+            ],
+            "next_validation_question": "What was the duration and recovery action for each RTMPS connection failure incident? Did the stream recover automatically or require manual intervention?",
+            "operational_mechanism": "The fast_recovery or youtube_monitor component detects RTMPS connection failures and emits incident_candidate status with cause=rtmps_connect_failure_all_families when connection attempts fail on both IPv4 and IPv6.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "The RTMPS (secure RTMP) connection to YouTube ingest servers is failing across all address families, potentially disrupting the YouTube live stream.",
+            "why_it_matters": "RTMPS connectivity is critical for YouTube live streaming. Failures here directly threaten the 'Maintain YouTube stream uptime' provisional user outcome.",
+            "why_not_promoted": "The incident_candidate events are brief (spanning seconds) and the youtube_watchdog shows overall healthy status. The connection failures may be transient and recovered automatically."
+          },
+          {
+            "claim_text": "Frequent timeout errors from the persistent TCP anchor observer were logged, indicating network connectivity issues.",
+            "claim_type": "counter_evidence",
+            "evidence_refs": [
+              "PATTERN-005",
+              "PATTERN-001"
+            ],
+            "next_validation_question": "Are there any correlation between timeout events and YouTube stream quality degradation?",
+            "operational_mechanism": "stream_v3_persistent_tcp_anchor_observer logs timeout events when probes fail.",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Network timeouts may affect stream reliability.",
+            "why_it_matters": "Network connectivity problems can disrupt data flow and affect stream health.",
+            "why_not_promoted": "No evidence linking these timeouts to YouTube stream outages."
+          },
+          {
+            "claim_text": "YouTube watchdog reports healthy status for the majority of the observation window, contradicting a hypothesis of sustained stream failure.",
+            "claim_type": "counter_evidence",
+            "evidence_refs": [
+              "PATTERN-002",
+              "PATTERN-020"
+            ],
+            "next_validation_question": "What is the latency between RTMPS connection failure detection and recovery? Are there any stream quality degradation metrics (bitrate drops, frame drops) during the incident windows?",
+            "operational_mechanism": "The youtube_watchdog component periodically checks YouTube stream health (local_ok, public_ok, api_ok, oauth_ok, ingest_connected, stream_active) and reports status=ok when all checks pass.",
+            "provider_id": "glm-agent-platform",
+            "suspected_issue": "The YouTube stream appears to be healthy according to the youtube_watchdog component, despite intermittent RTMPS connection failures.",
+            "why_it_matters": "This counter-evidence suggests that the RTMPS connection failures may be transient and automatically recovered, not causing sustained user impact.",
+            "why_not_promoted": "While the watchdog reports healthy status, this does not rule out brief interruptions or degraded quality that may not trigger health check failures."
+          },
+          {
+            "claim_text": "BrokenPipeError exceptions are occurring in the python3 process, indicating abrupt connection terminations.",
             "claim_type": "support",
             "evidence_refs": [
               "PATTERN-051",
               "PATTERN-052"
             ],
-            "next_validation_question": "What services are listening on the ports where BrokenPipeError occurred, and what is the request latency distribution during the error windows?",
-            "operational_mechanism": "The prometheus_exporter or network_observer services handle incoming requests; BrokenPipeError indicates the remote end closed the connection before the response completed",
+            "next_validation_question": "Which specific component (ffmpeg, youtube_stream, auto_dj) is generating the BrokenPipeError? What is the process ID and service unit associated with these errors?",
+            "operational_mechanism": "BrokenPipeError (errno 32) occurs when a process attempts to write to a pipe or socket that has been closed by the remote end. In a streaming context, this typically indicates the remote server (YouTube ingest) closed the connection.",
             "provider_id": "glm-agent-platform",
-            "suspected_issue": "BrokenPipeError exceptions occurred during request processing, suggesting clients or downstream services disconnected unexpectedly",
-            "why_it_matters": "Connection termination during processing can indicate client timeouts, network instability, or resource exhaustion affecting response latency",
-            "why_not_promoted": "BrokenPipeError count is low (12 total) compared to successful operations; events are clustered and may be benign client disconnections"
+            "suspected_issue": "The python3 process (likely the stream engine or a watcher component) is experiencing BrokenPipeError exceptions, suggesting connections are being terminated unexpectedly.",
+            "why_it_matters": "Broken pipe errors can cause stream interruptions and may correlate with the RTMPS connection failures observed in other evidence.",
+            "why_not_promoted": "BrokenPipeError events are present but sparse (6 occurrences each in two separate windows). Without process context or service state changes, the impact is unclear."
           }
         ],
         "schema_version": "target_explanation.v1",
-        "suspected_issue": "Established TCP connections are being abruptly closed by the remote peer or intermediate network equipment.",
-        "why_it_matters": "This indicates instability in established connections, which can disrupt ongoing streams or API interactions even if initial connection succeeds.",
-        "why_not_promoted": "The exact destination of the broken pipes is not specified in the log pattern."
+        "suspected_issue": "Network connectivity issues or external service unavailability.",
+        "why_it_matters": "Network timeouts can disrupt the streaming service, leading to potential downtime or degraded performance.",
+        "why_not_promoted": "The root cause of the network timeouts is not identified."
       },
-      "target_id": "cog-18fe5ce8fe6957bda4b8",
+      "target_id": "cog-b83d1e6e350d08a6b052",
       "title": "Review target requires validation: network_transport",
-      "why_it_matters": "This indicates instability in established connections, which can disrupt ongoing streams or API interactions even if initial connection succeeds.",
-      "why_not_promoted": "The exact destination of the broken pipes is not specified in the log pattern."
+      "why_it_matters": "Network timeouts can disrupt the streaming service, leading to potential downtime or degraded performance.",
+      "why_not_promoted": "The root cause of the network timeouts is not identified."
     },
     {
       "agreement": {
@@ -943,10 +1209,11 @@
       },
       "canonical_review_unit": "runtime_exception",
       "caveats": [],
-      "claim": "Provider claims diverged and require validation; 3 missing-evidence prompts remain.",
+      "claim": "Provider claims diverged and require validation; 2 missing-evidence prompts remain.",
       "class": "validation_target",
       "counter_evidence_summary": [
-        "Promotion blocker: user_impact_unverified."
+        "The exception events are limited to a single time window on June 11, not recurring throughout the observation period.",
+        "No service crash or restart events are correlated with these exceptions."
       ],
       "evidence_refs": [
         "PATTERN-098",
@@ -954,19 +1221,18 @@
         "PATTERN-100"
       ],
       "evidence_summary": [
-        "PATTERN-098 shows 5 Exception occurred during processing of request from ('<ip>', 37472)",
-        "PATTERN-099 shows 5 Traceback (most recent call last) entries",
-        "PATTERN-100 shows 5 Exception occurred events from systemd_journal"
+        "PATTERN-100 shows 5 'Exception occurred during processing of request from' events between 2026-06-11T11:12:50Z and 2026-06-11T12:36:52Z.",
+        "PATTERN-099 shows 5 'Traceback (most recent call last)' events in the same window.",
+        "PATTERN-098: unknown from unknown observed 5 time(s) between 2026-06-11T11:12:50Z and 2026-06-11T12:36:52Z. Sanitized pattern: +<NUM>:<NUM> yuki python3[<NUM>]: Exception occurred during processing of request from ('<IP>', <NUM>)"
       ],
       "excluded_evidence_refs": [],
       "missing_evidence": [
-        "Exception type and message",
-        "Stack trace leading to exception",
-        "Request payload that triggered exception",
+        "Full exception traceback with exception type",
+        "Service component identification for the request handler",
         "User impact or operational outcome evidence tied to this review unit."
       ],
-      "next_validation_question": "What is the exception type and stack trace for the request processing failures?",
-      "operational_mechanism": "The prometheus_exporter or another service encountered an exception while handling a request; the traceback was logged but sanitized",
+      "next_validation_question": "What is the full exception type and message in the traceback? Which service component is handling these requests?",
+      "operational_mechanism": "The python3 process is logging 'Exception occurred during processing of request' with traceback, indicating unhandled or logged exceptions in a request handler.",
       "promotion": {
         "blocked_reason": "user_impact_unverified",
         "explanation": "A single provider surfaced this target; it needs corroboration before promotion.",
@@ -977,31 +1243,31 @@
       "provider_count": 1,
       "provider_positions": [
         {
-          "model_run_hash": "a32379697486",
+          "model_run_hash": "189674c8ae7c",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "gemini-enterprise-agent-platform",
           "stance": "silent"
         },
         {
-          "model_run_hash": "c374d6e13ee6",
+          "model_run_hash": "38f6c9d7dfcb",
           "one_line": "Projected this canonical review unit from the real API run.",
           "provider_id": "glm-agent-platform",
           "stance": "claimed"
         },
         {
-          "model_run_hash": "741aed0dc33f",
+          "model_run_hash": "035980db1669",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "mistral-agent-platform",
           "stance": "silent"
         },
         {
-          "model_run_hash": "c19413b68dc0",
+          "model_run_hash": "6cd12febc953",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "openai-gpt-oss-on-vertex",
           "stance": "silent"
         },
         {
-          "model_run_hash": "fa75fec3c2cd",
+          "model_run_hash": "23e363480950",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "qwen-agent-platform",
           "stance": "silent"
@@ -1029,174 +1295,46 @@
       "state": "validation_target",
       "status": "pending",
       "subsystem": "general",
-      "suspected_issue": "Exception occurred during processing of request from external IP, but the exception type and stack trace are not captured in the evidence",
+      "suspected_issue": "Exceptions are occurring during request processing, but the affected service and request type cannot be determined from sanitized evidence.",
       "target_explanation": {
         "counter_evidence_summary": [
-          "Promotion blocker: user_impact_unverified."
+          "The exception events are limited to a single time window on June 11, not recurring throughout the observation period.",
+          "No service crash or restart events are correlated with these exceptions."
         ],
         "evidence_summary": [
-          "PATTERN-098 shows 5 Exception occurred during processing of request from ('<ip>', 37472)",
-          "PATTERN-099 shows 5 Traceback (most recent call last) entries",
-          "PATTERN-100 shows 5 Exception occurred events from systemd_journal"
+          "PATTERN-100 shows 5 'Exception occurred during processing of request from' events between 2026-06-11T11:12:50Z and 2026-06-11T12:36:52Z.",
+          "PATTERN-099 shows 5 'Traceback (most recent call last)' events in the same window.",
+          "PATTERN-098: unknown from unknown observed 5 time(s) between 2026-06-11T11:12:50Z and 2026-06-11T12:36:52Z. Sanitized pattern: +<NUM>:<NUM> yuki python3[<NUM>]: Exception occurred during processing of request from ('<IP>', <NUM>)"
         ],
-        "next_validation_question": "What is the exception type and stack trace for the request processing failures?",
-        "operational_mechanism": "The prometheus_exporter or another service encountered an exception while handling a request; the traceback was logged but sanitized",
+        "next_validation_question": "What is the full exception type and message in the traceback? Which service component is handling these requests?",
+        "operational_mechanism": "The python3 process is logging 'Exception occurred during processing of request' with traceback, indicating unhandled or logged exceptions in a request handler.",
         "provider_explanations": [
           {
-            "claim_text": "Exception processing errors require traceback context for diagnosis",
-            "claim_type": "validation_target",
+            "claim_text": "Exception handling errors in request processing suggest potential service instability but lack context to determine impact.",
+            "claim_type": "caveat",
             "evidence_refs": [
               "PATTERN-098",
               "PATTERN-099",
               "PATTERN-100"
             ],
-            "next_validation_question": "What is the exception type and stack trace for the request processing failures?",
-            "operational_mechanism": "The prometheus_exporter or another service encountered an exception while handling a request; the traceback was logged but sanitized",
+            "next_validation_question": "What is the full exception type and message in the traceback? Which service component is handling these requests?",
+            "operational_mechanism": "The python3 process is logging 'Exception occurred during processing of request' with traceback, indicating unhandled or logged exceptions in a request handler.",
             "provider_id": "glm-agent-platform",
-            "suspected_issue": "Exception occurred during processing of request from external IP, but the exception type and stack trace are not captured in the evidence",
-            "why_it_matters": "Unhandled exceptions during request processing can indicate code bugs, resource exhaustion, or malicious input",
-            "why_not_promoted": "Exception type and root cause cannot be determined from sanitized evidence"
+            "suspected_issue": "Exceptions are occurring during request processing, but the affected service and request type cannot be determined from sanitized evidence.",
+            "why_it_matters": "Unhandled exceptions can indicate service instability, but without knowing the request type and frequency, impact assessment is not possible.",
+            "why_not_promoted": "The exceptions are isolated to a specific time window and lack context about the affected service or user impact."
           }
         ],
         "schema_version": "target_explanation.v1",
-        "suspected_issue": "Exception occurred during processing of request from external IP, but the exception type and stack trace are not captured in the evidence",
-        "why_it_matters": "Unhandled exceptions during request processing can indicate code bugs, resource exhaustion, or malicious input",
-        "why_not_promoted": "Exception type and root cause cannot be determined from sanitized evidence"
+        "suspected_issue": "Exceptions are occurring during request processing, but the affected service and request type cannot be determined from sanitized evidence.",
+        "why_it_matters": "Unhandled exceptions can indicate service instability, but without knowing the request type and frequency, impact assessment is not possible.",
+        "why_not_promoted": "The exceptions are isolated to a specific time window and lack context about the affected service or user impact."
       },
       "target_id": "cog-5516f4e8dcb4cffbf5bf",
       "title": "Review target requires validation: general",
-      "why_it_matters": "Unhandled exceptions during request processing can indicate code bugs, resource exhaustion, or malicious input",
-      "why_not_promoted": "Exception type and root cause cannot be determined from sanitized evidence"
-    },
-    {
-      "agreement": {
-        "convergence_score": 0.2,
-        "incident_baseline": "open",
-        "score_definition": "claimed successful providers / all successful providers",
-        "summary": "1/5 schema-valid providers projected this review unit from the 4,747-row corpus; incident promotion remains human-gated.",
-        "technical_baseline": "open",
-        "verdict": "single_source"
-      },
-      "canonical_review_unit": "observability_contract",
-      "caveats": [],
-      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
-      "class": "validation_target",
-      "counter_evidence_summary": [
-        "Promotion blocker: user_impact_unverified."
-      ],
-      "evidence_refs": [
-        "PATTERN-001",
-        "PATTERN-002"
-      ],
-      "evidence_summary": [
-        "PATTERN-001 shows 500 watchdog_ok events with stream_service_substate=running ffmpeg_count=<NUM> runtime_status=running",
-        "PATTERN-002 shows 496 youtube_watchdog events with status=ok healthy=True local_ok=True public_ok=True api_ok=True oauth_ok=True ingest_connected=True stream_active=True"
-      ],
-      "excluded_evidence_refs": [],
-      "missing_evidence": [
-        "User impact or operational outcome evidence tied to this review unit."
-      ],
-      "next_validation_question": "Does the watchdog configuration include memory threshold checks, and what are the current memory thresholds for critical status?",
-      "operational_mechanism": "The stream_watchdog and youtube_watchdog components emit periodic health status; their healthy=True status indicates no detected anomalies in their monitored subsystems",
-      "promotion": {
-        "blocked_reason": "user_impact_unverified",
-        "explanation": "A single provider surfaced this target; it needs corroboration before promotion.",
-        "score_cap_applied": false,
-        "score_note": "Priority is review urgency, not truth probability.",
-        "state": "validation"
-      },
-      "provider_count": 1,
-      "provider_positions": [
-        {
-          "model_run_hash": "a32379697486",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "gemini-enterprise-agent-platform",
-          "stance": "silent"
-        },
-        {
-          "model_run_hash": "c374d6e13ee6",
-          "one_line": "Projected this canonical review unit from the real API run.",
-          "provider_id": "glm-agent-platform",
-          "stance": "claimed"
-        },
-        {
-          "model_run_hash": "741aed0dc33f",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "mistral-agent-platform",
-          "stance": "silent"
-        },
-        {
-          "model_run_hash": "c19413b68dc0",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "openai-gpt-oss-on-vertex",
-          "stance": "silent"
-        },
-        {
-          "model_run_hash": "fa75fec3c2cd",
-          "one_line": "Did not surface this normalized review target.",
-          "provider_id": "qwen-agent-platform",
-          "stance": "silent"
-        }
-      ],
-      "raw": {
-        "baseline_support_score": 0.6,
-        "canonical_group_key": "2cdb603591a560f307054745",
-        "rollup_provider_ratio": 0.0,
-        "source_candidate_count": 1
-      },
-      "recommended_request_type": "user_impact_signal_query",
-      "review_priority_score": 0.625,
-      "review_reason": {
-        "factors": [
-          "1/5 schema-valid providers independently projected the normalized review unit `observability_contract`.",
-          "2 cited Evidence Item(s) tie the unit back to the 4,747-row sanitized corpus.",
-          "1 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.000).",
-          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
-        ],
-        "headline": "Review target created because provider convergence and cited evidence made `observability_contract` worth human validation.",
-        "operator_question": "Run `user_impact_signal_query` to decide whether `observability_contract` should remain a validation target or be promoted."
-      },
-      "review_target_id": "cog-a0560f106ed9b82e1170",
-      "state": "validation_target",
-      "status": "pending",
-      "subsystem": "observability_contract",
-      "suspected_issue": "The contradiction between critical memory counts and healthy watchdog status suggests either memory pressure is within acceptable bounds or watchdog checks do not validate memory state",
-      "target_explanation": {
-        "counter_evidence_summary": [
-          "Promotion blocker: user_impact_unverified."
-        ],
-        "evidence_summary": [
-          "PATTERN-001 shows 500 watchdog_ok events with stream_service_substate=running ffmpeg_count=<NUM> runtime_status=running",
-          "PATTERN-002 shows 496 youtube_watchdog events with status=ok healthy=True local_ok=True public_ok=True api_ok=True oauth_ok=True ingest_connected=True stream_active=True"
-        ],
-        "next_validation_question": "Does the watchdog configuration include memory threshold checks, and what are the current memory thresholds for critical status?",
-        "operational_mechanism": "The stream_watchdog and youtube_watchdog components emit periodic health status; their healthy=True status indicates no detected anomalies in their monitored subsystems",
-        "provider_explanations": [
-          {
-            "claim_text": "Watchdog health checks report normal operation despite memory pressure signals",
-            "claim_type": "counter_evidence",
-            "evidence_refs": [
-              "PATTERN-001",
-              "PATTERN-002"
-            ],
-            "next_validation_question": "Does the watchdog configuration include memory threshold checks, and what are the current memory thresholds for critical status?",
-            "operational_mechanism": "The stream_watchdog and youtube_watchdog components emit periodic health status; their healthy=True status indicates no detected anomalies in their monitored subsystems",
-            "provider_id": "glm-agent-platform",
-            "suspected_issue": "The contradiction between critical memory counts and healthy watchdog status suggests either memory pressure is within acceptable bounds or watchdog checks do not validate memory state",
-            "why_it_matters": "If memory pressure is real but watchdogs do not detect it, there may be a monitoring gap that could allow degraded operation to go undetected",
-            "why_not_promoted": "Healthy watchdog status does not disprove memory pressure; it only indicates the watchdog's monitored conditions are satisfied"
-          }
-        ],
-        "schema_version": "target_explanation.v1",
-        "suspected_issue": "The contradiction between critical memory counts and healthy watchdog status suggests either memory pressure is within acceptable bounds or watchdog checks do not validate memory state",
-        "why_it_matters": "If memory pressure is real but watchdogs do not detect it, there may be a monitoring gap that could allow degraded operation to go undetected",
-        "why_not_promoted": "Healthy watchdog status does not disprove memory pressure; it only indicates the watchdog's monitored conditions are satisfied"
-      },
-      "target_id": "cog-a0560f106ed9b82e1170",
-      "title": "Review target requires validation: observability_contract",
-      "why_it_matters": "If memory pressure is real but watchdogs do not detect it, there may be a monitoring gap that could allow degraded operation to go undetected",
-      "why_not_promoted": "Healthy watchdog status does not disprove memory pressure; it only indicates the watchdog's monitored conditions are satisfied"
+      "why_it_matters": "Unhandled exceptions can indicate service instability, but without knowing the request type and frequency, impact assessment is not possible.",
+      "why_not_promoted": "The exceptions are isolated to a specific time window and lack context about the affected service or user impact."
     }
   ],
-  "updated_at": "2026-06-30T10:09:03Z"
+  "updated_at": "2026-06-30T11:28:23Z"
 }

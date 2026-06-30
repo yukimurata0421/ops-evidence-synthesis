@@ -319,6 +319,10 @@ def _prompt(
         "Do not reveal raw secrets or identifiers; preserve only sanitized evidence references.\n\n"
         "The compacted evidence bundle may be provider-budgeted; use its corpus summary "
         "to understand omitted lower-signal evidence counts. "
+        "Approved profile context is sanitized code/config interpretation, not incident evidence: "
+        "use confirmed profile fields only for routing and vocabulary, treat provisional_user_outcomes "
+        "as human-gated assumptions, and convert unanswered human_questions into missing_evidence "
+        "or next_validation_question entries instead of promoting root cause. "
         f"Evidence bundle:\n{pretty_json(compact_bundle_for_model(bundle, max_evidence_items=max_evidence_items, max_logs=max_logs, max_normalized_events=max_normalized_events, max_text_chars=max_text_chars))}"
     )
 
@@ -654,14 +658,27 @@ def _compact_profile_context(
     max_text_chars: int,
 ) -> dict[str, Any]:
     metric_names = {str(row.get("metric_name") or "") for row in metric_windows if row.get("metric_name")}
+    approved_context = bundle.get("approved_profile_context") if isinstance(bundle.get("approved_profile_context"), dict) else {}
     return _drop_empty(
         {
-        "profile": bundle.get("profile") or {},
-        "profile_confidence": bundle.get("profile_confidence") or (bundle.get("source") or {}).get("profile_confidence"),
-        "required_profile_questions": bundle.get("required_profile_questions") or [],
-        "analysis_policy": bundle.get("analysis_policy") or {},
-        "prompt_rules": bundle.get("prompt_rules") or bundle.get("ai_prompt_rules") or ai_evidence_rules(),
-        "system_profile": _truncate_nested(bundle.get("system_profile") or {}, max_text_chars),
+            "profile": bundle.get("profile") or {},
+            "approved_profile_context": _truncate_nested(approved_context, max_text_chars),
+            "profile_status": approved_context.get("profile_status") or bundle.get("profile_status"),
+            "profile_confidence": (
+                approved_context.get("confidence_summary")
+                or bundle.get("profile_confidence")
+                or (bundle.get("source") or {}).get("profile_confidence")
+            ),
+            "profile_confidence_action": approved_context.get("confidence_action") or bundle.get("profile_confidence_action"),
+            "confidence_thresholds": approved_context.get("confidence_thresholds") or {},
+            "confirmed_user_outcomes": approved_context.get("confirmed_user_outcomes") or bundle.get("confirmed_user_outcomes") or [],
+            "provisional_user_outcomes": approved_context.get("provisional_user_outcomes") or bundle.get("provisional_user_outcomes") or [],
+            "human_questions": approved_context.get("human_questions") or bundle.get("human_questions") or [],
+            "profile_review_policy": approved_context.get("profile_review_policy") or bundle.get("profile_review_policy") or {},
+            "required_profile_questions": bundle.get("required_profile_questions") or [],
+            "analysis_policy": bundle.get("analysis_policy") or {},
+            "prompt_rules": bundle.get("prompt_rules") or bundle.get("ai_prompt_rules") or ai_evidence_rules(),
+            "system_profile": _truncate_nested(bundle.get("system_profile") or {}, max_text_chars),
             "operational_contract": _truncate_nested(bundle.get("operational_contract") or {}, max_text_chars),
             "log_sources": _truncate_nested(bundle.get("log_sources") or [], max_text_chars),
             "metric_semantics": _compact_metric_semantics(bundle.get("metric_semantics") or {}, metric_names=metric_names),

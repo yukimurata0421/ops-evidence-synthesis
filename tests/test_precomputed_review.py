@@ -66,6 +66,9 @@ def test_public_rescore_demo_is_renderable() -> None:
     assert "validation_target" in html
     assert "primary_candidate" in html
     assert "user_impact_unverified" in html
+    assert "Source trace" in html
+    assert "preserved_demo_snapshot" in html
+    assert "Before target present in current source review: no" in html
     assert "test_more_data_child_bundle_rescores_parent_graph_and_promotion" in html
 
 
@@ -166,6 +169,7 @@ def test_precomputed_detail_page_renders_provider_mode() -> None:
                 "model_projection_occurrence_count": 5041,
                 "model_projection_occurrence_coverage_ratio": 0.774823,
                 "model_projection_policy": "Top high-signal evidence items were selected from the persisted sanitized corpus.",
+                "model_projection_interpretation": "Projection coverage is occurrence-weighted, not raw-row coverage.",
                 "log_observations": ["Sanitized log corpus was persisted before model analysis."],
                 "source_observations": ["Sanitized source context was attached."],
                 "analysis_conclusion": ["Human review remains required."],
@@ -183,6 +187,7 @@ def test_precomputed_detail_page_renders_provider_mode() -> None:
     assert "140" in html
     assert "5,041" in html
     assert "77.5%" in html
+    assert "Projection coverage is occurrence-weighted" in html
 
 
 def test_precomputed_graph_renders_analysis_context() -> None:
@@ -204,6 +209,7 @@ def test_precomputed_graph_renders_analysis_context() -> None:
             "model_projection_evidence_items": 140,
             "model_projection_occurrence_count": 5041,
             "model_projection_occurrence_coverage_ratio": 0.774823,
+            "model_projection_interpretation": "Projection coverage is occurrence-weighted, not raw-row coverage.",
         },
         "provider_statuses": [
             {"provider_id": "gemini", "status": "ok", "schema_valid": True},
@@ -229,8 +235,10 @@ def test_precomputed_graph_renders_analysis_context() -> None:
     assert "140" in html
     assert "5,041" in html
     assert "77.5%" in html
+    assert "Projection coverage is occurrence-weighted" in html
     assert graph["analysis_context"]["model_projection_evidence_items"] == 140
     assert graph["canonical_review_graph"]["analysis_context"]["db_ingested_log_count"] == 6506
+    assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "no graph-level signal"
 
 
 def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
@@ -244,10 +252,10 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
         "pipeline_status": "succeeded",
     }
     assert payload["summary"]["review"] == {
-        "auto_archived": 2,
+        "auto_archived": 1,
         "monitor_only": 2,
         "primary_targets": 0,
-        "validation_targets": 4,
+        "validation_targets": 5,
     }
     assert payload["generation"]["payload_sha256"] == sha256_json(
         {
@@ -271,8 +279,23 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
     assert payload["analysis_context"]["model_projection_evidence_items"] == 140
     assert payload["analysis_context"]["model_projection_occurrence_count"] == 19649
     assert payload["analysis_context"]["model_projection_occurrence_coverage_ratio"] == 0.839701
+    assert payload["analysis_context"]["model_projection_interpretation"].startswith(
+        "Projection coverage is occurrence-weighted"
+    )
     assert payload["profile_context"]["profile_id"] == "amazon_notify_qwen_glm_full_corpus_approved"
     assert payload["profile_draft_generation"]["llm_status"] == "ok"
+    assert payload["profile_context"]["schema_version"] == "profile_context_summary.v2"
+    assert payload["profile_context"]["profile_status"] == "approved_context_human_gated_outcomes"
+    assert payload["profile_context"]["confidence_action"] == "use_for_subsystem_routing_human_gated"
+    assert payload["profile_context"]["confirmed_user_outcomes"] == []
+    assert "Ensure amazon-notify service processes notifications successfully" in payload["profile_context"]["provisional_user_outcomes"]
+    assert "assumed_critical_outcomes" not in json.dumps(payload["profile_context"])
+    zero_link = next(
+        row
+        for row in payload["profile_context"]["profile_to_review_links"]
+        if row["question"] == "Which metrics are zero-is-good or zero-is-bad?"
+    )
+    assert {"runtime_recovery", "service_health", "background_processing"} <= set(zero_link["review_units"])
     assert payload["analysis_context"]["source_context_sha256"]
     assert payload["analysis_context"]["source_analysis_sha256"]
     assert all("review_reason" in target for target in payload["targets"])
@@ -299,11 +322,18 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
     assert "qwen-agent-platform" in detail_html
     assert "glm-agent-platform" in detail_html
     assert "19,649" in detail_html
+    assert "Incident gate signal" in detail_html
+    assert "Target promotion" in detail_html
+    assert "confidence_action=use_for_subsystem_routing_human_gated" in detail_html
+    assert "provisional_user_outcomes_pending_approval" in detail_html
+    assert "profile_questions_linked_to_review_units" in detail_html
     assert "qwen-agent-platform" in graph_html
+    assert "Incident gate signal" in graph_html
     assert graph["canonical_review_graph"]["summary"]["primary_count"] == 0
-    assert graph["canonical_review_graph"]["summary"]["validation_count"] == 4
+    assert graph["canonical_review_graph"]["summary"]["validation_count"] == 5
     assert graph["canonical_review_graph"]["review_graph_summary"]["provider_detection_overlap"] == "5/5"
     assert graph["analysis_context"]["model_projection_occurrence_count"] == 19649
+    assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "signal present"
 
 
 def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
@@ -315,9 +345,9 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "log_count": 11399,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 4,
+                "auto_archived": 0,
                 "monitor_only": 2,
-                "primary_targets": 0,
+                "primary_targets": 1,
                 "validation_targets": 3,
             },
             "occurrences": 10771,
@@ -331,9 +361,9 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "log_count": 4747,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 0,
+                "auto_archived": 2,
                 "monitor_only": 2,
-                "primary_targets": 1,
+                "primary_targets": 0,
                 "validation_targets": 3,
             },
             "occurrences": 496,
@@ -358,6 +388,9 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert payload["analysis_context"]["model_projection_evidence_items"] == 140
         assert payload["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]
         assert payload["analysis_context"]["model_projection_occurrence_coverage_ratio"] == case["coverage"]
+        assert payload["analysis_context"]["model_projection_interpretation"].startswith(
+            "Projection coverage is occurrence-weighted"
+        )
         assert payload["generation"]["payload_sha256"] == sha256_json(
             {
                 "evidence_sha256": payload["evidence_sha256"],
@@ -370,6 +403,13 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         )
         assert payload["profile_draft_generation"]["llm_status"] == "ok"
         assert payload["profile_context"]["profile_id"]
+        assert payload["profile_context"]["schema_version"] == "profile_context_summary.v2"
+        assert payload["profile_context"]["profile_status"] == "approved_context_human_gated_outcomes"
+        assert payload["profile_context"]["confidence_action"] == "candidate_only_requires_profile_review"
+        assert payload["profile_context"]["confirmed_user_outcomes"] == []
+        assert payload["profile_context"]["provisional_user_outcomes"]
+        assert "assumed_critical_outcomes" not in json.dumps(payload["profile_context"])
+        assert payload["profile_context"]["profile_to_review_links"]
         assert payload["analysis_context"]["source_context_sha256"]
         assert payload["analysis_context"]["source_analysis_sha256"]
         assert all("review_reason" in target for target in payload["targets"])
@@ -411,6 +451,7 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
                 "PATTERN-099",
                 "PATTERN-100",
             }
+            assert "long tail" in payload["analysis_context"]["model_projection_interpretation"]
         if case["sha"] == STREAM_V3_DELL_REAL_API_SHA:
             transport = next(
                 target
@@ -421,8 +462,7 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             transport_counter_text = "\n".join(transport["target_explanation"]["counter_evidence_summary"])
             assert "no timeout" not in transport_support_text
             assert "connected=true" not in transport_support_text
-            assert "no timeout" in transport_counter_text
-            assert "connected=true" in transport_counter_text
+            assert "No connection_reset_count evidence is present" in transport_counter_text
 
         provider_rows = {row["provider_id"]: row for row in payload["provider_statuses"]}
         assert provider_rows["qwen-agent-platform"]["schema_valid"] is True
@@ -442,10 +482,14 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert "qwen-agent-platform" in detail_html
         assert "glm-agent-platform" in detail_html
         assert "DB-to-model projection" in detail_html
+        assert "Projection coverage is occurrence-weighted" in detail_html
+        assert "Incident gate signal" in detail_html
         assert str(case["occurrences"]) in detail_html.replace(",", "")
         assert "qwen-agent-platform" in graph_html
+        assert "Incident gate signal" in graph_html
         assert graph["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]
         assert graph["canonical_review_graph"]["summary"]["validation_count"] == case["review"]["validation_targets"]
+        assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "signal present"
 
 
 def test_flagship_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_path: Path) -> None:

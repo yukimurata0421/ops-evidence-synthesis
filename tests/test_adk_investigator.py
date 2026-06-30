@@ -91,6 +91,47 @@ def test_adk_tool_contract_trace_records_real_gates_without_raw_payload() -> Non
     assert "Bearer " not in rendered
 
 
+def test_adk_tool_contract_trace_carries_profile_gate_fields() -> None:
+    payload = _payload()
+    payload["profile_context"] = {
+        "profile_id": "generic_profile",
+        "profile_status": "approved_context_human_gated_outcomes",
+        "generation_mode": "profile_draft_and_approved_profile",
+        "llm_status": "ok",
+        "approved": True,
+        "explicit_profile": True,
+        "component_count": 3,
+        "metric_semantics_count": 2,
+        "collector_mapping_count": 1,
+        "confidence_summary": {"overall_confidence": 0.78},
+        "confidence_action": "use_for_subsystem_routing_human_gated",
+        "confirmed_user_outcomes": [],
+        "provisional_user_outcomes": ["Notifications are delivered"],
+        "human_questions": ["Which logs indicate user impact rather than diagnostic noise?"],
+        "profile_to_review_links": [
+            {
+                "question": "Which logs indicate user impact rather than diagnostic noise?",
+                "review_units": ["runtime_recovery"],
+                "reason": "Targets blocked on user impact need operational outcome evidence.",
+            }
+        ],
+        "required_human_decisions": ["Confirm critical user outcomes."],
+    }
+
+    trace = build_adk_tool_contract_trace(payload)
+    profile_step = next(step for step in trace if step["tool"] == "draft_system_profile")
+
+    assert profile_step["status"] == "human_gate"
+    assert profile_step["output"]["profile_status"] == "approved_context_human_gated_outcomes"
+    assert profile_step["output"]["confidence_summary"] == {"overall_confidence": 0.78}
+    assert profile_step["output"]["confidence_action"] == "use_for_subsystem_routing_human_gated"
+    assert profile_step["output"]["provisional_user_outcomes"] == ["Notifications are delivered"]
+    assert profile_step["output"]["human_questions"] == [
+        "Which logs indicate user impact rather than diagnostic noise?"
+    ]
+    assert profile_step["output"]["profile_to_review_links"][0]["review_units"] == ["runtime_recovery"]
+
+
 def test_trace_from_adk_events_extracts_function_call_and_response() -> None:
     events = [
         {

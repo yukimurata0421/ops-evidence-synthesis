@@ -7,7 +7,7 @@ from ops_evidence_synthesis.ai.prompts import (
     root_cause_prompt,
 )
 from ops_evidence_synthesis.ai.provider_registry import build_multi_ai_providers, provider_infos
-from ops_evidence_synthesis.ai.maas import VertexOpenModelProvider
+from ops_evidence_synthesis.ai.maas import VertexOpenAICompatProvider, VertexOpenModelProvider
 from ops_evidence_synthesis.ai.vertex import VertexGeminiProvider
 from ops_evidence_synthesis.profiles import available_profile_ids, load_profile
 
@@ -72,6 +72,27 @@ def test_provider_registry_can_disable_provider_by_policy(monkeypatch) -> None:
     assert "disabled_by_policy" in response.raw_output
 
 
+def test_vertex_open_providers_accept_prompt_budget_env(monkeypatch) -> None:
+    monkeypatch.setenv("OES_VERTEX_PROJECT", "ops-evidence-synthesis")
+    monkeypatch.setenv("OES_GPT_OSS_MAX_EVIDENCE_ITEMS", "96")
+    monkeypatch.setenv("OES_GPT_OSS_MAX_TEXT_CHARS", "360")
+    monkeypatch.setenv("OES_QWEN_MAX_EVIDENCE_ITEMS", "104")
+    monkeypatch.setenv("OES_QWEN_MAX_TEXT_CHARS", "420")
+    monkeypatch.setenv("OES_GLM_MAX_EVIDENCE_ITEMS", "112")
+    monkeypatch.setenv("OES_GLM_MAX_TEXT_CHARS", "440")
+
+    gpt_oss = VertexOpenAICompatProvider.from_env()
+    qwen = VertexOpenModelProvider.from_qwen_env()
+    glm = VertexOpenModelProvider.from_glm_env()
+
+    assert gpt_oss.max_evidence_items == 96
+    assert gpt_oss.max_text_chars == 360
+    assert qwen.max_evidence_items == 104
+    assert qwen.max_text_chars == 420
+    assert glm.max_evidence_items == 112
+    assert glm.max_text_chars == 440
+
+
 def test_root_cause_prompt_and_schema_are_generic_for_sanitized_inputs() -> None:
     bundle = {
         "evidence_sha256": "e" * 64,
@@ -93,6 +114,8 @@ def test_root_cause_prompt_and_schema_are_generic_for_sanitized_inputs() -> None
     assert "Do not translate missing evidence into ad hoc local commands" in prompt
     assert "caveats, missing_evidence, and linked_claim_hints must never contain objects" in prompt
     assert "For next_data_needed claims, set temporary_action, permanent_action, and required_authority to empty strings" in prompt
+    assert "Approved profile context is sanitized code/config interpretation, not incident evidence" in prompt
+    assert "provisional_user_outcomes" in prompt
     assert "job_configuration" in subsystem_enum
     assert "downstream_dependency" in subsystem_enum
     assert "database_connection_pool" in subsystem_enum
@@ -136,6 +159,18 @@ def test_compact_bundle_for_model_keeps_high_signal_refs_and_drops_bulk_payload(
         "operational_contract": {"expected_normal": ["configured commands exist"]},
         "metric_semantics": {"error_count": {"zero_behavior": "healthy"}},
         "component_map": {"job_configuration": "systemd unit"},
+        "approved_profile_context": {
+            "profile_status": "approved_context_human_gated_outcomes",
+            "confidence_summary": {"overall_confidence": 0.78},
+            "confidence_action": "use_for_subsystem_routing_human_gated",
+            "confirmed_user_outcomes": [],
+            "provisional_user_outcomes": ["Payment processing succeeds"],
+            "human_questions": ["Which logs indicate user impact rather than diagnostic noise?"],
+            "profile_review_policy": {
+                "context_is_not_incident_evidence": True,
+                "runtime_support_must_cite_evidence_id": True,
+            },
+        },
         "action_constraints": ["Profile context is not evidence."],
         "window_start": "2026-06-16T00:00:00Z",
         "window_end": "2026-06-16T01:00:00Z",
@@ -217,6 +252,12 @@ def test_compact_bundle_for_model_keeps_high_signal_refs_and_drops_bulk_payload(
 
     assert compact_default["source_counts"]["full_logs"] == 2
     assert compact_default["system_profile"]["system_type"] == "notification_workflow"
+    assert compact_default["approved_profile_context"]["profile_status"] == "approved_context_human_gated_outcomes"
+    assert compact_default["profile_confidence"] == {"overall_confidence": 0.78}
+    assert compact_default["profile_confidence_action"] == "use_for_subsystem_routing_human_gated"
+    assert compact_default["provisional_user_outcomes"] == ["Payment processing succeeds"]
+    assert compact_default["human_questions"] == ["Which logs indicate user impact rather than diagnostic noise?"]
+    assert compact_default["profile_review_policy"]["runtime_support_must_cite_evidence_id"] is True
     assert compact_default["operational_contract"]["expected_normal"] == ["configured commands exist"]
     assert compact_default["component_map"]["job_configuration"] == "systemd unit"
     assert compact_default["source_counts"]["model_logs"] == 0

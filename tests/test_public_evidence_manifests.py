@@ -79,6 +79,10 @@ def test_public_evidence_manifests_match_precomputed_payloads() -> None:
             == analysis_context["model_projection_occurrence_coverage_ratio"]
         )
         assert manifest["token_compression"]["policy"] == analysis_context["model_projection_policy"]
+        assert (
+            manifest["token_compression"]["interpretation"]
+            == analysis_context["model_projection_interpretation"]
+        )
 
         assert manifest["provider_summary"]["provider_count"] == analysis_context["provider_count"]
         assert (
@@ -117,6 +121,14 @@ def test_public_evidence_manifests_match_precomputed_payloads() -> None:
             == payload["review_graph_summary"]["incident_baseline"]
         )
         assert (
+            manifest["review_summary"]["incident_gate_signal"]
+            == payload["review_graph_summary"]["incident_gate_signal"]
+        )
+        assert (
+            manifest["review_summary"]["target_promotion_policy"]
+            == payload["review_graph_summary"]["target_promotion_policy"]
+        )
+        assert (
             manifest["review_summary"]["technical_baseline"]
             == payload["review_graph_summary"]["technical_baseline"]
         )
@@ -124,6 +136,17 @@ def test_public_evidence_manifests_match_precomputed_payloads() -> None:
             manifest["review_summary"]["provider_detection_overlap"]
             == payload["review_graph_summary"]["provider_detection_overlap"]
         )
+
+        profile_gate = manifest["profile_gate"]
+        profile_context = payload["profile_context"]
+        assert profile_gate["profile_status"] == profile_context["profile_status"]
+        assert profile_gate["confidence_action"] == profile_context["confidence_action"]
+        assert profile_gate["confidence_summary"] == profile_context["confidence_summary"]
+        assert profile_gate["confirmed_user_outcomes"] == profile_context["confirmed_user_outcomes"]
+        assert profile_gate["provisional_user_outcomes"] == profile_context["provisional_user_outcomes"]
+        assert profile_gate["human_questions"] == profile_context["human_questions"]
+        assert profile_gate["profile_to_review_links"] == profile_context["profile_to_review_links"]
+        assert profile_gate["context_is_not_incident_evidence"] is True
 
 
 def test_public_evidence_manifests_do_not_publish_local_artifact_paths() -> None:
