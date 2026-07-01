@@ -1,14 +1,17 @@
 {
-  "api_revision": "real-api-7d-approved-profile-prompt-20260630",
-  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778",
-  "canonical_graph_sha256": "55ca3d339c44f8384d9c0c38b9aca1062e670b3caedb55f393e533fed26fcc7e",
+  "api_revision": "real-api-stream-v3-dell-45k-5p-20260701T122915Z",
+  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6",
+  "canonical_graph_sha256": "39882a3aeeb9805a815164e99b9cd62bc3219d70b454db0c3572b3789e15a034",
   "case_id": "stream_v3_dell_runtime_real_api",
-  "evidence_sha256": "aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778",
-  "input_fingerprint_sha256": "b249b6de9383cff6b0242097ccbc3edb25218405d290e3bc7115b3595993cb9a",
-  "payload_sha256": "151aa69bd5e29f896c439d94e9cf9ac6a027c4b88d2c4d663e9c20b2e787e06e",
+  "evidence_sha256": "345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6",
+  "input_fingerprint_sha256": "7d5b76bd2af38e20635b26db50d351f82f509ff17698710c2aa78e24b4f98c79",
+  "payload_sha256": "ce66bd31e246e9f8b2acea28e448c67579b3a49e3d15105c38b9c3faca5ca498",
   "pipeline_run_id": "",
-  "precomputed_payload_path": "data/precomputed_review_summaries/aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778.json",
+  "precomputed_payload_path": "data/precomputed_review_summaries/345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6.json",
   "profile_gate": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 384,
     "confidence_action": "candidate_only_requires_profile_review",
     "confidence_summary": {
       "collector_mapping_confidence": 0.7,
@@ -16,8 +19,15 @@
       "metric_semantics_confidence": 0.72,
       "overall_confidence": 0.69
     },
+    "confidence_thresholds": {
+      "candidate_only_human_gate": 0.6,
+      "use_for_subsystem_routing": 0.75
+    },
     "confirmed_user_outcomes": [],
     "context_is_not_incident_evidence": true,
+    "draft_schema_version": "profile_draft.v1",
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
     "human_questions": [
       "What is the critical user outcome?",
       "Which component is the main service path?",
@@ -28,40 +38,88 @@
       "Which metric semantics should become explicit profile rules?",
       "Confirm critical user outcomes."
     ],
+    "llm_status": "ok",
+    "metric_semantics_count": 352,
+    "profile_id": "stream_v3_dell_runtime_source_approved",
+    "profile_review_policy": {
+      "confirmed_outcomes_required_for_promotion": true,
+      "context_is_not_incident_evidence": true,
+      "low_confidence_fields_require_human_review": true,
+      "provisional_outcomes_create_missing_evidence": true,
+      "runtime_support_must_cite_evidence_id": true
+    },
     "profile_status": "approved_context_human_gated_outcomes",
     "profile_to_review_links": [
       {
         "question": "What is the critical user outcome?",
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
-          "transport_sender",
+          "job_configuration",
+          "resource_pressure",
+          "deployment_regression",
+          "service_liveness",
+          "service_health",
+          "user_experience"
+        ]
+      },
+      {
+        "question": "Which metrics are zero-is-good or zero-is-bad?",
+        "reason": "Zero-count metrics can mean healthy idle, disabled routing, or broken processing; linked review targets keep that ambiguity human-gated.",
+        "review_units": [
+          "audio_energy",
+          "youtube_health",
+          "chromium_capture",
           "runtime_recovery",
-          "observability_contract"
+          "transport_sender",
+          "deployment_regression"
         ]
       },
       {
         "question": "Which logs indicate user impact rather than diagnostic noise?",
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
-          "transport_sender",
-          "runtime_recovery",
-          "observability_contract"
+          "job_configuration",
+          "resource_pressure",
+          "deployment_regression",
+          "service_liveness",
+          "service_health",
+          "user_experience"
         ]
       },
       {
         "question": "Confirm critical user outcomes.",
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
-          "transport_sender",
-          "runtime_recovery",
-          "observability_contract"
+          "job_configuration",
+          "resource_pressure",
+          "deployment_regression",
+          "service_liveness",
+          "service_health",
+          "user_experience"
         ]
       }
     ],
     "provisional_user_outcomes": [
       "Continuous YouTube streaming",
       "ADSB data processing"
-    ]
+    ],
+    "purpose": "Streaming service for ADSB and YouTube with watchdog and recovery mechanisms.",
+    "required_human_decisions": [
+      "Approve or edit component roles before using this as an explicit profile.",
+      "Approve metric zero/increase/decrease semantics.",
+      "Confirm critical user outcomes.",
+      "Confirm read-only collector mappings before collection.",
+      "What is the critical user outcome?",
+      "Which component is the main service path?",
+      "Are restart failures expected or harmful?",
+      "Which metrics are zero-is-good or zero-is-bad?"
+    ],
+    "schema_version": "profile_context_summary.v2",
+    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
+    "source_discovery_sha256": "38250bb07613e11b87239fec3e384547a9d4bfc582e4431e574b885234fc28f4",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains routing and questions, but runtime claims still require Evidence Item IDs and human-approved user outcomes.",
+    "system_type": "systemd_service"
   },
   "provider_summary": {
     "pipeline_status": "succeeded",
@@ -69,96 +127,108 @@
     "providers": [
       {
         "display_name": "Vertex Gemini",
-        "input_tokens": 122058,
-        "model_name": "gemini-3.1-pro-preview",
-        "output_tokens": 1522,
-        "parsed_json_sha256": "e3bb1e4726df00247a106f2efc7a3ae57d0403a29763d3b4ce359c7d20139204",
+        "input_tokens": 2816851,
+        "latency_ms": 356969,
+        "model_name": "gemini-3.1-flash-lite",
+        "output_tokens": 27282,
+        "parsed_json_sha256": "459decfc1cb5c809da902745987f1139a988cc478fe1c29f6508c91d72515b8b",
         "provider_id": "gemini-enterprise-agent-platform",
-        "raw_output_sha256": "87e7d5c8bb2f17784483afb2f8f297b9e57f8029e153bf79a230eb5070263e94",
+        "raw_output_sha256": "a7d6d024b4ae6ca6ba29621c8dbab5ce1cc90ada0b15061bbc80afc14c541872",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "GLM on Vertex MaaS",
-        "input_tokens": 93253,
+        "input_tokens": 2126674,
+        "latency_ms": 2047860,
         "model_name": "zai-org/glm-5-maas",
-        "output_tokens": 4795,
-        "parsed_json_sha256": "7dcacd17832297ead0afb58afb4287c5d1a19c59f2cf6cdb89b2352e7958a43c",
+        "output_tokens": 131652,
+        "parsed_json_sha256": "cf1928a2fb478eba0871a651e5cd323b7c29797a49a58caee8a3823a179909b7",
         "provider_id": "glm-agent-platform",
-        "raw_output_sha256": "b9909560c14c2977e07eb72f29412b6d42da76d7a99fd7673a8bca3657e32ffe",
+        "raw_output_sha256": "f1d59b376ab7f210315d31b8350a5ce9291233093225c2e4682ae662ac275b4d",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "Mistral on Vertex MaaS",
-        "input_tokens": 109072,
+        "input_tokens": 993715,
+        "latency_ms": 463430,
         "model_name": "mistral-medium-3",
-        "output_tokens": 1063,
-        "parsed_json_sha256": "8cbc865c486e3613c813219835776d140efedbc32af954d5a6935bcce9c76628",
+        "output_tokens": 12543,
+        "parsed_json_sha256": "f4c924f225fd332b36656b5bbe70ae39f95a50cdca6b38c3145584c2ead17c39",
         "provider_id": "mistral-agent-platform",
-        "raw_output_sha256": "4e237f1df94df0486ca84cdfb6315784b1459de3c9b8a146e0857e7c18f4c066",
+        "raw_output_sha256": "5c9b757db5dc36cf014003d84be3c19161ed9e40b53af4a3c930d42ae822e14c",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "gpt-oss on Vertex MaaS",
-        "input_tokens": 93245,
+        "input_tokens": 2194793,
+        "latency_ms": 951467,
         "model_name": "gpt-oss-120b-maas",
-        "output_tokens": 2958,
-        "parsed_json_sha256": "fdeb1f71f8405baac9eb30441ae838bcd8ef117bdf47f40d2115d296635ea848",
+        "output_tokens": 90872,
+        "parsed_json_sha256": "2a79bae3e27bb6fd8bbc8cbd9d8b47845695d5e60dff385d2ffc26ee43e82eaa",
         "provider_id": "openai-gpt-oss-on-vertex",
-        "raw_output_sha256": "da9f0af591556cad49f22706d16f3645a48ead0b70d6e5b392626aa273669a65",
+        "raw_output_sha256": "4fe812e291c8eb0fa14611eaf92782a2659abe8f57f585840acf3082c8931780",
         "schema_valid": true,
         "status": "ok"
       },
       {
         "display_name": "Qwen on Vertex MaaS",
-        "input_tokens": 100498,
+        "input_tokens": 2211909,
+        "latency_ms": 658227,
         "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
-        "output_tokens": 3017,
-        "parsed_json_sha256": "e251789916c842d9600b176cd79c5c0b2473e1660563699928ff54e86c7c6d1c",
+        "output_tokens": 54521,
+        "parsed_json_sha256": "df635c1f82fca0f9fc30aef2b6b7782f65e1ece7ab57e91d86e0cc60c0626d32",
         "provider_id": "qwen-agent-platform",
-        "raw_output_sha256": "a16164f674a61be15f45dc60f2d28b60830ab5c217185197de9f0e8c50d0984c",
+        "raw_output_sha256": "9cd3b791f46a4dc36cf5e01da73e6ea09c5a130f89b0b307eef4309894aa7a35",
         "schema_valid": true,
         "status": "ok"
       }
     ],
     "schema_valid_provider_count": 5
   },
-  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778",
+  "public_positioning": {
+    "landing_rank": 10,
+    "landing_role": "primary_review",
+    "note": "Strongest first impression: 45,000 sanitized runtime rows, 5/5 providers, 100% provider item coverage, and 3 human-gated primary candidates.",
+    "title": "Primary review: stream_v3 runtime 45k, 3 primary candidates"
+  },
+  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6",
   "public_verification": {
     "profile_id": "stream_v3_dell_runtime_source_approved",
     "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
     "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
-    "updated_at": "2026-06-30T10:43:54Z",
-    "window_selection_note": "The stream_v3 Dell runtime public review was expanded from the prior 14h07m corpus to a 7d corpus after 2d, 5d, and 7d candidates were evaluated; the longest valid window was selected."
+    "updated_at": "2026-07-01T13:00:00Z",
+    "window_selection_note": "The public stream_v3 Dell runtime review was refreshed from a locally staged 14-day sanitized BigQuery corpus. The accepted public run uses the latest 45,000 double-sanitized rows, covering 24.7 hours and satisfying the minimum 24-hour analysis policy while keeping row-level data out of the public repo."
   },
-  "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778",
+  "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6",
   "review_summary": {
-    "auto_archived": 0,
+    "auto_archived": 2,
     "incident_baseline": "established",
     "incident_gate_signal": "signal_present",
     "monitor_only": 2,
-    "primary_targets": 1,
+    "primary_targets": 3,
     "provider_detection_overlap": "5/5",
     "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
     "technical_baseline": "established",
-    "validation_targets": 3
+    "validation_targets": 13
   },
   "sanitized_corpus": {
-    "analysis_window_hours": 168.0,
-    "db_ingested_log_count": 11399,
-    "environment": "dell_runtime",
+    "analysis_window_hours": 24.733889,
+    "db_ingested_log_count": 45000,
+    "environment": "stream_v3",
     "min_analysis_window_hours": 24,
     "public_note": "The full row-level sanitized corpus was not committed; the public repo carries this manifest, the SHA-fixed review payload, and the public URL for reviewer inspection.",
     "public_row_level_file": null,
-    "sanitized_row_count": 11399,
+    "sanitized_row_count": 45000,
     "service": "stream_v3_runtime",
-    "window_end": "2026-06-26T19:44:54Z",
-    "window_start": "2026-06-19T19:44:54Z"
+    "window_end": "2026-06-15T23:59:52Z",
+    "window_start": "2026-06-14T23:15:50Z"
   },
   "schema_version": "public_evidence_manifest.v1",
   "source_boundary": {
+    "model_projection_policy": "Gemini, GPT OSS, Mistral, Qwen, and GLM analyzed chunked sanitized Evidence Items, not raw logs; every sanitized DB row in the current stream_v3_runtime window remains assigned through the coverage ledger.",
     "public_artifact_type": "manifest_and_precomputed_review",
     "raw_log_policy": "not_uploaded",
     "raw_logs_committed": false,
@@ -166,15 +236,21 @@
     "raw_source_committed": false,
     "raw_source_policy": "not_uploaded",
     "raw_source_uploaded_to_model": false,
-    "row_level_sanitized_events_committed": false
+    "row_level_sanitized_events_committed": false,
+    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2"
   },
-  "title": "stream_v3 Dell runtime real API source-aware review",
+  "title": "stream_v3 Dell runtime 45k real API source-aware review",
   "token_compression": {
-    "evidence_item_count": 654,
-    "interpretation": "Projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_runtime bundle keeps 11,399 rows and 654 grouped Evidence Items, while provider prompts use 140 high-signal Evidence Items representing 10,771 repeated occurrences. Remaining Evidence Items stay SHA-fixed in the Evidence Bundle for traceability even when they are outside the bounded provider prompt.",
+    "evidence_item_count": 1012,
+    "interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_runtime bundle keeps 45,000 rows and 1,012 grouped Evidence Items, while the bounded projection tracks 140 high-signal Evidence Items representing 107,160 repeated occurrences. Multi-provider synthesis then covered 1,012/1,012 grouped Evidence Items through chunked provider calls across up to 33 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency.",
     "model_projection_evidence_items": 140,
-    "model_projection_occurrence_count": 10771,
-    "model_projection_occurrence_coverage_ratio": 0.944907,
-    "policy": "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; row-level raw logs stayed out of provider prompts."
+    "model_projection_occurrence_count": 107160,
+    "model_projection_occurrence_coverage_ratio": 0.991928,
+    "policy": "Gemini, GPT OSS, Mistral, Qwen, and GLM analyzed chunked sanitized Evidence Items, not raw logs; every sanitized DB row in the current stream_v3_runtime window remains assigned through the coverage ledger.",
+    "provider_full_corpus_analyzed_evidence_items": 1012,
+    "provider_full_corpus_chunk_count": 33,
+    "provider_full_corpus_coverage_ratio": 1.0,
+    "provider_full_corpus_unassigned_evidence_items": 0
   }
 }

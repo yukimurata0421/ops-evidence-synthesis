@@ -30,9 +30,11 @@ The system turns local sanitized logs into a SHA-fixed Evidence Bundle, assigns
 every sanitized row to a coverage ledger, runs a chunked real-provider review,
 validates cited claims, and projects the result into a Canonical Review Graph.
 
-The current public flagship run uses Gemini, GPT OSS, Mistral, Qwen, and GLM
-real API outputs over provider-specific chunks. Provider support is review
-work, not truth.
+The primary public reviewer path uses Gemini, GPT OSS, Mistral, Qwen, and GLM
+real API outputs over provider-specific chunks. The entry page shows the
+stream_v3 runtime run first because it has active human-gated primary
+candidates, while the amazon-notify run demonstrates guarded suppression and
+the More Data improvement loop. Provider support is review work, not truth.
 Unresolved impact and operational-outcome questions remain validation targets.
 Score is review priority, not truth probability.
 
@@ -58,21 +60,21 @@ human-gated.
 
 ## Make
 
-The main review page shows a five-provider source-aware run over the
-amazon-notify public payload:
+The main review page shows a five-provider source-aware run over the stream_v3
+runtime payload:
 
-- Evidence SHA256: `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec`
-- Sanitized log count: 44,944
+- Evidence SHA256: `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6`
+- Sanitized log count: 45,000
 - Raw log policy: `not_uploaded`
 - Providers: Gemini, GPT OSS, Mistral, Qwen, and GLM
-- Maximum chunked provider calls: 105
-- Output state: 5/5 schema-valid provider outputs with human-gated review targets
+- Maximum chunked provider calls: 33
+- Output state: 5/5 schema-valid provider outputs with 3 human-gated primary candidates
 
 Live URL:
-https://ops-evidence.yukimurata0421.dev/?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
 Detail URL:
-https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
 ## Run
 
@@ -105,8 +107,8 @@ decision only after the evidence boundary is satisfied.
 The public product path is deployed to Cloud Run behind a custom domain:
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- Visual graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Visual graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
 The release path runs:
 

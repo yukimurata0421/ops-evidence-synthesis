@@ -21,29 +21,30 @@ https://ops-evidence.yukimurata0421.dev/
 Open the main summary URL.
 
 URL:
-https://ops-evidence.yukimurata0421.dev/?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
 Show:
 
 - Raw log policy: `not_uploaded`
-- 44,944-row sanitized corpus
-- 51 Mistral chunks
+- 45,000-row sanitized runtime corpus
+- 33 provider-specific chunks
+- 3 human-gated primary candidates
 - Agent Trace
 - Review Graph Arbitration
 
 Narration:
 The investigation loop is autonomous up to the evidence boundary. Raw rows stay
-local. Every sanitized row is assigned to the coverage ledger, then Mistral
-analyzes all grouped Evidence Items through 51 rate-paced chunks. The provider
-sees the SHA-fixed sanitized bundle and source context, and every claim must
-point back to evidence.
+local. Every sanitized row is assigned to the coverage ledger, then five real
+providers analyze grouped Evidence Items through provider-specific chunks. Each
+provider sees the SHA-fixed sanitized bundle and source context, and every claim
+must point back to evidence.
 
 ## 0:55-1:35 Evidence And Disagreement
 
 Open the detail page.
 
 URL:
-https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
 Show:
 
@@ -51,6 +52,7 @@ Show:
 - provider support
 - Agreement and promotion gates
 - Promotion gate
+- Queue rank and tie-breaks when priority scores are equal
 
 Narration:
 The product does not turn model output into truth. Provider support
@@ -85,8 +87,8 @@ Open the API view or review graph.
 
 URLs:
 
-- https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
 Narration:
 The delivered surface is read-only, fast, and deployed on Cloud Run. Public

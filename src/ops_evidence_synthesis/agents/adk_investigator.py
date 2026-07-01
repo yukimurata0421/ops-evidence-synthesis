@@ -229,6 +229,10 @@ def validate_citations(targets: list[dict[str, Any]]) -> dict[str, Any]:
             if str(ref or "").strip()
         }
     )
+    chunk_tracked_total = sum(
+        max(_safe_int(row.get("evidence_ref_total_count")), len(row.get("evidence_refs") or []))
+        for row in rows
+    )
     missing_count = sum(len(row.get("missing_evidence") or []) for row in rows)
     uncited_targets = [
         str(row.get("review_target_id") or row.get("target_id") or "")
@@ -240,13 +244,23 @@ def validate_citations(targets: list[dict[str, Any]]) -> dict[str, Any]:
         "artifact": "citation_validation",
         "target_count": len(rows),
         "cited_evidence_ref_count": len(cited_refs),
+        "directly_cited_evidence_ref_count": len(cited_refs),
+        "chunk_tracked_evidence_ref_total_count": chunk_tracked_total,
         "missing_evidence_count": missing_count,
         "uncited_target_ids": [target_id for target_id in uncited_targets if target_id][:20],
         "summary": (
-            f"{len(rows)} review target(s) cite {len(cited_refs)} sanitized evidence ref(s); "
+            f"{len(rows)} review target(s) directly show {len(cited_refs)} unique cited Evidence Item(s); "
+            f"chunk manifests track {chunk_tracked_total} target evidence association(s); "
             f"{missing_count} missing-evidence item(s) remain."
         ),
     }
+
+
+def _safe_int(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def compute_review_targets(
@@ -329,7 +343,7 @@ def request_more_evidence(targets: list[dict[str, Any]]) -> dict[str, Any]:
         "missing_evidence_count": len(missing),
         "summary": (
             f"Generated read-only follow-up plan with {len(request_types)} request type(s) "
-            f"and {len(missing)} missing-evidence item(s)."
+            f"and {len(missing)} missing-evidence item(s), grouped for top-N human review."
         ),
     }
 

@@ -355,7 +355,7 @@ def build_payload(
                     f"The local-first Evidence Bundle retained {full_items:,} "
                     f"grouped evidence items, including {db_corpus_coverage.get('singleton_pattern_count', 0):,} "
                     f"singleton pattern(s), {db_corpus_coverage.get('low_frequency_pattern_count', 0):,} "
-                    f"low-frequency pattern(s), and {len(bundle.get('signals') or []):,} deterministic signals."
+                    f"low-frequency pattern(s), and {len(bundle.get('signals') or []):,} pre-AI route signal(s)."
                 ),
                 _evidence_item_accounting_observation(evidence_item_accounting),
                 (
@@ -752,10 +752,12 @@ def _keyword_score(text: str, keywords: tuple[str, ...]) -> int:
 def _public_target_title(target: dict[str, Any], *, canonical_review_unit: str) -> str:
     title = str(target.get("title") or "").strip()
     unit = str(canonical_review_unit or target.get("subsystem") or "review unit").strip() or "review unit"
+    title_key = title.casefold()
     generic_title = (
         not title
-        or title.casefold() == "review target requires validation"
-        or title.casefold().endswith(": general")
+        or title_key == "review target requires validation"
+        or title_key.startswith("review target requires validation:")
+        or title_key.endswith(": general")
     )
     if title and not generic_title:
         return title
@@ -875,7 +877,7 @@ def _review_reason_summary(
             f"the normalized review unit `{canonical_unit}`."
         ),
         (
-            f"{evidence_ref_count} cited Evidence Item(s) tie the unit back to the "
+            f"{evidence_ref_count} chunk-tracked Evidence Item association(s) tie the unit back to the "
             f"{log_count:,}-row sanitized corpus."
         ),
         (
@@ -1774,7 +1776,11 @@ def _target_claim(
     if text and "providers aligned on a review signal" not in text:
         return text
     unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
-    refs = f"{evidence_ref_count} cited Evidence Item(s)" if evidence_ref_count else "cited Evidence Items unavailable"
+    refs = (
+        f"{evidence_ref_count} chunk-tracked Evidence Item association(s)"
+        if evidence_ref_count
+        else "chunk-tracked Evidence Items unavailable"
+    )
     if provider_count >= 2:
         return (
             f"{provider_count}/{max(valid_count, 1)} schema-valid providers projected {unit} with {refs}; "

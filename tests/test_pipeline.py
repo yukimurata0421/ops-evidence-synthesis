@@ -9,7 +9,8 @@ from typing import Any
 from ops_evidence_synthesis.ai.base import ModelResponse
 from ops_evidence_synthesis.bundle import EvidenceBundleBuilder
 from ops_evidence_synthesis.ingest import ingest_jsonl
-from ops_evidence_synthesis.models import IncidentWindow, ModelRunRecord
+from ops_evidence_synthesis.models import IncidentWindow, ModelRunRecord, RawLog
+from ops_evidence_synthesis.sanitizer import sanitize_log
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.synthesis.pipeline import run_model_stage, run_pipeline
 
@@ -172,6 +173,34 @@ def test_sqlite_bundle_assigns_every_db_row_to_evidence_item_including_singleton
     assert {item["coverage_class"] for item in bundle["evidence_items"] if item["type"] == "log_pattern"} == {
         "singleton"
     }
+
+
+def test_sanitizer_redacts_nested_label_values() -> None:
+    sanitized = sanitize_log(
+        RawLog(
+            timestamp="2026-06-26T00:00:00Z",
+            service="stream_v3_runtime",
+            environment="stream_v3",
+            severity="INFO",
+            message="socket observer ok",
+            labels={
+                "sockets": [
+                    {
+                        "local": "10.1.2.3:1935",
+                        "peer": "192.0.2.10:443",
+                        "paths": ["/home/example/stream_v3/config.yaml"],
+                    }
+                ]
+            },
+        )
+    )
+
+    socket = sanitized.labels_json["sockets"][0]
+    assert "10.1.2.3" not in socket["local"]
+    assert "192.0.2.10" not in socket["peer"]
+    assert "/home/example" not in socket["paths"][0]
+    assert "<IP>" in socket["local"]
+    assert "<LOCAL_PATH>" in socket["paths"][0]
 
 
 @dataclass(frozen=True, slots=True)

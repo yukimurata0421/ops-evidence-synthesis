@@ -21,7 +21,7 @@ def test_projection_coverage_interpretation_explains_long_tail_low_coverage() ->
 
     text = module._projection_coverage_interpretation(
         service="stream_v3_monitoring",
-        log_count=4747,
+        log_count=50000,
         full_items=1520,
         model_items=140,
         model_occurrences=496,
@@ -29,7 +29,7 @@ def test_projection_coverage_interpretation_explains_long_tail_low_coverage() ->
     )
 
     assert "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage" in text
-    assert "4,747 rows and 1,520 grouped Evidence Items" in text
+    assert "50,000 rows and 1,520 grouped Evidence Items" in text
     assert "140 high-signal Evidence Items" in text
     assert "496 repeated occurrences" in text
     assert "long tail" in text
@@ -41,11 +41,11 @@ def test_projection_coverage_interpretation_for_dense_corpus_avoids_low_coverage
 
     text = module._projection_coverage_interpretation(
         service="stream_v3_runtime",
-        log_count=11399,
-        full_items=654,
+        log_count=45000,
+        full_items=1012,
         model_items=140,
-        model_occurrences=10771,
-        coverage=0.944907,
+        model_occurrences=107160,
+        coverage=0.991928,
     )
 
     assert "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage" in text
@@ -67,7 +67,7 @@ def test_projection_interpretation_prefers_provider_full_corpus_coverage_when_re
     }
     text = module._projection_coverage_interpretation(
         service="stream_v3_monitoring",
-        log_count=4747,
+        log_count=50000,
         full_items=1520,
         model_items=140,
         model_occurrences=496,
@@ -79,6 +79,17 @@ def test_projection_interpretation_prefers_provider_full_corpus_coverage_when_re
     assert "covered 1,520/1,520 grouped Evidence Items" in text
     assert "through chunked provider calls" in text
     assert "low-frequency Evidence Items are analyzed" in text
+
+
+def test_public_target_title_regenerates_generic_title_after_canonical_unit_changes() -> None:
+    module = _generator_module()
+
+    title = module._public_target_title(
+        {"title": "Review target requires validation: observability_contract"},
+        canonical_review_unit="transport_sender",
+    )
+
+    assert title == "Review target requires validation: transport_sender"
 
 
 def test_provider_full_corpus_coverage_uses_weakest_schema_valid_provider() -> None:

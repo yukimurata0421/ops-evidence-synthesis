@@ -1,7 +1,7 @@
 {
-  "api_revision": "real-api-5p-no-llama-claude-20260701T101731Z",
-  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api-view?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
-  "canonical_graph_sha256": "61800f9ffbda2914ba8ee12fff584ebcf31e0bedc7ca77a3e5281a07decd73c4",
+  "api_revision": "real-api-5p-no-llama-claude-fresh-mistral-20260701T114127Z",
+  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
+  "canonical_graph_sha256": "657eb44204cdcd616c8d7c4cdf4065b2080150f1ba65b0b6d775c0276994f643",
   "case_id": "amazon_notify_real_api",
   "evidence_sha256": "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
   "full_corpus_review": {
@@ -27,12 +27,14 @@
     "provider_full_corpus_unassigned_evidence_items": 0,
     "schema_valid_provider_count": 5
   },
-  "input_fingerprint_sha256": "6978d0c2593784ccf313a6d546e7270146f8644d2772490bb6c6ce46f407a19f",
-  "payload_sha256": "6bb4e4e6301fa2eed9b605f3026c6a583cea500b3975f0c8e4134ae3a828257d",
-  "pipeline_run_id": "real-api-5p-no-llama-claude-combined-20260701",
+  "input_fingerprint_sha256": "73f4c0957d7864624e331f75ffa651e98a27a5e7c6b65c6103fe0f9f72dc0858",
+  "payload_sha256": "b53506032e07130f47f0ee12a19b8e11eee914bed86fb14f2e76f0932e86b478",
+  "pipeline_run_id": "real-api-5p-no-llama-claude-fresh-mistral-20260701",
   "precomputed_payload_path": "data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json",
   "profile_gate": {
     "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 16,
     "confidence_action": "candidate_only_requires_profile_review",
     "confidence_summary": {
       "collector_mapping_confidence": null,
@@ -40,14 +42,30 @@
       "metric_semantics_confidence": 0.7,
       "overall_confidence": 0.724
     },
+    "confidence_thresholds": {
+      "candidate_only_human_gate": 0.6,
+      "use_for_subsystem_routing": 0.75
+    },
     "confirmed_user_outcomes": [],
     "context_is_not_incident_evidence": true,
+    "draft_schema_version": "focused_operational_profile.v1",
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
     "human_questions": [
       "What is the critical user outcome?",
       "Which metrics are zero-is-good or zero-is-bad?",
       "Which logs indicate user impact rather than diagnostic noise?"
     ],
+    "llm_status": "persisted",
+    "metric_semantics_count": 9,
     "profile_id": "amazon_notify_e2e_20260701t003045z_approved",
+    "profile_review_policy": {
+      "confirmed_outcomes_required_for_promotion": true,
+      "context_is_not_incident_evidence": true,
+      "low_confidence_fields_require_human_review": true,
+      "provisional_outcomes_create_missing_evidence": true,
+      "runtime_support_must_cite_evidence_id": true
+    },
     "profile_status": "approved_context_human_gated_outcomes",
     "profile_to_review_links": [
       {
@@ -82,8 +100,19 @@
       }
     ],
     "provisional_user_outcomes": [
-      "Amazon notify service processes notifications successfully (Assumption)"
-    ]
+      "Amazon notify service processes notifications successfully pending human approval"
+    ],
+    "purpose": "monitoring",
+    "required_human_decisions": [
+      "Approve profile context before treating it as an explicit operational profile.",
+      "Keep source context separate from runtime evidence."
+    ],
+    "schema_version": "profile_context_summary.v2",
+    "source_analysis_sha256": "ff03ba3c897a183683fc2fa318b1ef44e043bf9d7e1592cbedc433b1634e0657",
+    "source_context_sha256": "d5232d61ce08835bd048ddf611880c644d1eaba60e045029fcdb80da82690be4",
+    "source_discovery_sha256": "8c2b24fee89a5e4366c508cc3ab728c286321500735253cfd43d796ff744aace",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains routing and questions, but runtime claims still require Evidence Item IDs and human-approved user outcomes.",
+    "system_type": "generic"
   },
   "provider_summary": {
     "pipeline_status": "succeeded",
@@ -167,10 +196,10 @@
         "display_name": "Mistral on Vertex MaaS",
         "failure_reason": "",
         "input_tokens": 5029427,
-        "latency_ms": 2062799,
+        "latency_ms": 2042828,
         "model_name": "mistral-medium-3",
-        "output_tokens": 50728,
-        "parsed_json_sha256": "eeaeff829c47c6d966f010067006ec6c125d9ce3fccaca7eee43decd5462670c",
+        "output_tokens": 51204,
+        "parsed_json_sha256": "fe7a04445589796da1e483ede4e627294cd8a25a6827d20e96de11f21118f31d",
         "partial_chunk_result": {
           "failure_count": 0,
           "min_success_ratio": 0.8,
@@ -181,7 +210,7 @@
           "usable": true
         },
         "provider_id": "mistral-agent-platform",
-        "raw_output_sha256": "12426ee5cee1f8e1dc95e0384bcd06c595f12fd76371b92cb58eb88f8ca8ad2c",
+        "raw_output_sha256": "99b270565c108c809c3b805d8ed954f1023526dce814b1e01fd9baee5f842c28",
         "retry": {
           "attempts": 51,
           "exception_type": "",
@@ -267,12 +296,19 @@
     ],
     "schema_valid_provider_count": 5
   },
+  "public_positioning": {
+    "landing_rank": 20,
+    "landing_role": "guarded_review",
+    "note": "Shows restraint: 5/5 providers and 100% ledger coverage still stop at validation until profile outcomes and user impact are approved. The More Data Loop shows how new evidence can change promotion.",
+    "title": "Guarded review: amazon-notify 44,944 rows, 0 auto-promoted causes"
+  },
   "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
   "public_verification": {
     "profile_id": "amazon_notify_e2e_20260701t003045z_approved",
     "source_analysis_sha256": "ff03ba3c897a183683fc2fa318b1ef44e043bf9d7e1592cbedc433b1634e0657",
     "source_context_sha256": "d5232d61ce08835bd048ddf611880c644d1eaba60e045029fcdb80da82690be4",
-    "window_selection_note": "14-day sanitized DB corpus selected from the amazon-notify input; chunk classification was rebuilt from the public-side sanitized DB coverage ledger before real provider API execution. The latest public payload uses five schema-valid real providers: Gemini, GPT OSS, Mistral, Qwen, and GLM; Llama and Claude are excluded."
+    "updated_at": "",
+    "window_selection_note": "14-day sanitized DB corpus selected from the amazon-notify input; chunk classification was rebuilt from the public-side sanitized DB coverage ledger before real provider API execution. The latest public payload uses five schema-valid real providers: Gemini, GPT OSS, fresh Mistral, Qwen, and GLM; Llama and Claude are excluded."
   },
   "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
   "review_summary": {

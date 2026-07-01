@@ -1,9 +1,12 @@
 # Real API Source-Aware Five-Provider Run
 
-This document records the current public read-only amazon-notify artifact
+This document records the guarded public read-only amazon-notify artifact
 generated from schema-valid Gemini, GPT OSS, Mistral, Qwen, and GLM real API
 outputs. Llama and Claude are excluded because they were not available in this
-environment.
+environment. The public entry page shows the stream_v3 runtime run first because
+that run has active human-gated primary candidates; this amazon-notify run is
+kept as the restraint example where 5/5 provider support still stops at
+validation.
 
 ## Public URLs
 
@@ -17,17 +20,17 @@ environment.
 | Artifact | Value |
 | --- | --- |
 | Evidence SHA256 | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` |
-| Pipeline run | `real-api-5p-no-llama-claude-combined-20260701` |
-| API revision | `real-api-5p-no-llama-claude-20260701T101731Z` |
-| Canonical graph SHA256 | `61800f9ffbda2914ba8ee12fff584ebcf31e0bedc7ca77a3e5281a07decd73c4` |
-| Input fingerprint SHA256 | `6978d0c2593784ccf313a6d546e7270146f8644d2772490bb6c6ce46f407a19f` |
+| Pipeline run | `real-api-5p-no-llama-claude-fresh-mistral-20260701` |
+| API revision | `real-api-5p-no-llama-claude-fresh-mistral-20260701T114127Z` |
+| Canonical graph SHA256 | `657eb44204cdcd616c8d7c4cdf4065b2080150f1ba65b0b6d775c0276994f643` |
+| Input fingerprint SHA256 | `73f4c0957d7864624e331f75ffa651e98a27a5e7c6b65c6103fe0f9f72dc0858` |
 | Public payload | `data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json` |
-| Payload SHA256 | `6bb4e4e6301fa2eed9b605f3026c6a583cea500b3975f0c8e4134ae3a828257d` |
+| Payload SHA256 | `b53506032e0741d2a31c6c43db463d0bec152f441b6ebf05b4b37469266f6894` |
 
 ## Window Selection
 
 Public real-provider reviews must cover at least 24 hours. For amazon-notify,
-the current flagship run uses the full available 14-day sanitized DB corpus.
+the current guarded run uses the full available 14-day sanitized DB corpus.
 Earlier 2-day, 5-day, and 7-day candidates were superseded because they were
 shorter than the available evidence window.
 
@@ -79,7 +82,7 @@ manifests.
 | --- | --- | --- | --- | ---: | ---: | ---: |
 | `gemini-enterprise-agent-platform` | `gemini-3.1-flash-lite` | ok | valid | 86 | 7,135,493 | 97,655 |
 | `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 105 | 5,679,336 | 310,980 |
-| `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 51 | 5,029,427 | 50,728 |
+| `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 51 | 5,029,427 | 51,204 |
 | `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 86 | 6,138,445 | 144,896 |
 | `glm-agent-platform` | `zai-org/glm-5-maas` | ok | valid | 86 | 5,525,534 | 397,825 |
 
@@ -108,14 +111,14 @@ response and the matching 14-day Evidence Bundle:
 
 ```bash
 PYTHONPATH=src python scripts/generate_precomputed_review_from_multi_run.py \
-  --multi-run-json workspace/e2e_real_api_source_sanitize_20260701T003045Z/multi_ai_real_5p_no_llama_claude_combined_20260701T101731Z/multi_ai_run.json \
+  --multi-run-json workspace/e2e_real_api_source_sanitize_20260701T003045Z/multi_ai_real_5p_no_llama_claude_combined_fresh_mistral_20260701T114127Z/multi_ai_run.json \
   --evidence-bundle workspace/e2e_real_api_source_sanitize_20260701T003045Z/evidence_bundle.json \
   --source-context workspace/e2e_real_api_source_sanitize_20260701T003045Z/source_context/source_context_bundle.json \
   --source-analysis workspace/e2e_real_api_source_sanitize_20260701T003045Z/source_analysis/source_analysis_bundle.json \
   --profile-draft workspace/e2e_real_api_source_sanitize_20260701T003045Z/profile_draft.json \
   --approved-profile workspace/e2e_real_api_source_sanitize_20260701T003045Z/approved_profile.json \
   --profile-id amazon_notify_e2e_20260701t003045z_approved \
-  --api-revision real-api-5p-no-llama-claude-20260701T101731Z \
+  --api-revision real-api-5p-no-llama-claude-fresh-mistral-20260701T114127Z \
   --provider-mode real_api_vertex_gemini_gpt_oss_mistral_qwen_glm_chunked_full_corpus \
   --min-window-hours 24 \
   --output-dir data/precomputed_review_summaries

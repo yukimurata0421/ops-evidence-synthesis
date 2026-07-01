@@ -39,7 +39,8 @@ The following artifacts stay in the operator environment:
 - raw logs,
 - raw source trees,
 - local `workspace/` outputs,
-- local SQLite/BigQuery staging databases,
+- local SQLite/PostgreSQL staging databases,
+- private cloud staging stores such as GCS objects and BigQuery audit exports,
 - full row-level `sanitized_events.jsonl` corpora for private systems,
 - API credentials and provider runtime configuration.
 
@@ -56,11 +57,12 @@ The source-aware real-provider path is:
 3. generate sanitized source context and source-analysis bundles,
 4. discover or approve a System Profile,
 5. persist the sanitized corpus in the analysis store,
-6. group the corpus into Evidence Items,
-7. project only a bounded high-signal slice into provider prompts,
-8. validate provider JSON against schema,
-9. arbitrate provider claims into a canonical review graph,
-10. publish a read-only payload and manifest.
+6. assign every sanitized row to the coverage ledger,
+7. group the corpus into Evidence Items,
+8. build provider-specific Evidence Chunks,
+9. run provider x chunk jobs and validate JSON against schema,
+10. deterministically merge chunk claims into a canonical review graph,
+11. publish a read-only payload and manifest.
 
 This means the public URL is not a live model execution page. It is a stable
 review surface for a completed analysis. The provider outputs, graph summary,
@@ -83,19 +85,27 @@ runtime state, recovery markers, and evidence needed to test competing claims.
 Low-signal tail patterns remain in the stored sanitized corpus and are reflected
 through corpus-level counts, not by copying row bodies into model prompts.
 
-The current real-provider public cases use these bounded projections:
+The chunked provider pass is broader than the prompt projection. Every grouped
+Evidence Item is assigned to at least one provider chunk, including rare,
+singleton, temporal, state-transition, and tail-summary evidence. This keeps
+the review boundary row-complete without forcing every sanitized row body into
+every model prompt.
 
-| Case | Sanitized rows | Grouped Evidence Items | Prompt Evidence Items | Prompt occurrences | Coverage |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| amazon-notify real API | 23,400 | 2,759 | 140 | 19,649 | 84.0% |
-| stream_v3 Dell runtime | 11,399 | 654 | 140 | 10,771 | 94.5% |
-| stream_v3 arena-server monitoring | 4,747 | 1,520 | 140 | 496 | 10.4% |
+The current real-provider public cases separate the single-prompt projection
+from the chunked full-corpus provider pass:
 
-The difference in coverage is expected. Dell runtime had many repeated runtime
-patterns, so 140 selected items covered most occurrences. The arena-server
-monitoring corpus had a wider set of one-off metrics, journals, state snapshots,
-and monitoring records, so the prompt remained bounded and the wider tail stayed
-outside direct prompt text.
+| Case | Sanitized rows | Grouped Evidence Items | Prompt Evidence Items | Prompt occurrences | Prompt coverage | Provider chunks | Provider item coverage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| amazon-notify real API | 44,944 | 8,519 | 140 | 19,649 | 84.0% | 105 | 100.0% |
+| stream_v3 Dell runtime | 45,000 | 1,012 | 140 | 107,160 | 99.2% | 33 | 100.0% |
+| stream_v3 arena-server monitoring | 50,000 | 21 | 21 | 63,056 | 100.0% | 18 | 100.0% |
+
+The prompt coverage column is an inspection metric, not an analysis cutoff.
+Provider calls run over chunked Evidence Corpora and retain source Evidence
+Item IDs through the merge step. Evidence that is outside the bounded projection
+is still assigned to the ledger and covered by a chunk unless it is explicitly
+recorded as unassigned; the public cases above have zero unassigned Evidence
+Items.
 
 ## Public Proof Without Publishing Private Rows
 

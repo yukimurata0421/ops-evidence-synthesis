@@ -194,6 +194,23 @@ def _public_action_links_html(evidence_sha256: str, *, include_detail: bool = Tr
     )
 
 
+def _public_global_action_links_html() -> str:
+    links: list[tuple[str, str, str]] = [
+        ("GitHub", _public_repo_url(), "repository"),
+        ("Architecture", _public_architecture_url(), "system diagram"),
+        ("Demo Script", _public_demo_script_url(), "3 minute walkthrough"),
+    ]
+    for demo_id in _public_rescore_demo_ids():
+        links.append(("More Data Loop", f"/ui/rescore-demo?id={quote(demo_id)}", demo_id))
+    video_url = _public_demo_video_url()
+    if video_url:
+        links.append(("Demo Video", video_url, "recorded walkthrough"))
+    return "".join(
+        f'<a class="button" href="{_html(url)}" title="{_html(title)}">{_html(label)}</a>'
+        for label, url, title in links
+    )
+
+
 def _precomputed_summary(payload: dict[str, Any] | None, evidence_sha256: str) -> dict[str, Any] | None:
     if not isinstance(payload, dict):
         return None
@@ -218,7 +235,90 @@ def _precomputed_summary(payload: dict[str, Any] | None, evidence_sha256: str) -
     }
 
 
-def _public_precomputed_landing_page() -> str:
+def _public_manifest_index_path() -> Path:
+    return Path(os.environ.get("OES_PUBLIC_MANIFEST_INDEX", "data/public_evidence_manifests/index.json"))
+
+
+def _public_manifest_entries() -> list[dict[str, Any]]:
+    index_path = _public_manifest_index_path()
+    try:
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    entries: list[dict[str, Any]] = []
+    for raw_path in index.get("manifests") or []:
+        manifest_path = Path(str(raw_path))
+        if not manifest_path.is_absolute() and not manifest_path.exists():
+            candidate = index_path.parent / manifest_path.name
+            if candidate.exists():
+                manifest_path = candidate
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(manifest, dict):
+            continue
+        evidence_sha = str(manifest.get("evidence_sha256") or "").strip()
+        if not evidence_sha:
+            continue
+        payload = _precomputed_review_payload(evidence_sha) or {}
+        summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+        finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
+        review_summary = manifest.get("review_summary") if isinstance(manifest.get("review_summary"), dict) else {}
+        sanitized_corpus = (
+            manifest.get("sanitized_corpus") if isinstance(manifest.get("sanitized_corpus"), dict) else {}
+        )
+        token = manifest.get("token_compression") if isinstance(manifest.get("token_compression"), dict) else {}
+        provider_summary = (
+            manifest.get("provider_summary") if isinstance(manifest.get("provider_summary"), dict) else {}
+        )
+        positioning = manifest.get("public_positioning") if isinstance(manifest.get("public_positioning"), dict) else {}
+        case_id = str(manifest.get("case_id") or "")
+        landing_role = str(positioning.get("landing_role") or manifest.get("landing_role") or "").strip()
+        if not landing_role:
+            if case_id == "stream_v3_dell_runtime_real_api":
+                landing_role = "primary_review"
+            elif case_id == "amazon_notify_real_api":
+                landing_role = "guarded_review"
+            elif case_id == "stream_v3_arena_monitoring_real_api":
+                landing_role = "observation_gap"
+            else:
+                landing_role = "scale_validation"
+        category = {
+            "primary_review": "Primary Review",
+            "guarded_review": "Guarded Review",
+            "observation_gap": "Observation Gap Validation",
+            "scale_validation": "Cross-Domain Scale Validation",
+        }.get(landing_role, "Cross-Domain Scale Validation")
+        entries.append(
+            {
+                "case_id": case_id,
+                "category": category,
+                "landing_role": landing_role,
+                "landing_rank": int(positioning.get("landing_rank") or manifest.get("landing_rank") or 100),
+                "evidence_sha": evidence_sha,
+                "title": str(positioning.get("title") or manifest.get("title") or finding.get("title") or "Precomputed review"),
+                "finding": str(finding.get("title") or manifest.get("title") or "Precomputed review"),
+                "landing_note": str(positioning.get("note") or ""),
+                "updated_at": str(payload.get("updated_at") or summary.get("updated_at") or ""),
+                "service": str(sanitized_corpus.get("service") or ""),
+                "environment": str(sanitized_corpus.get("environment") or ""),
+                "row_count": int(sanitized_corpus.get("sanitized_row_count") or summary.get("log_count") or 0),
+                "window_hours": float(sanitized_corpus.get("analysis_window_hours") or 0.0),
+                "evidence_items": int(token.get("evidence_item_count") or 0),
+                "projected_occurrences": int(token.get("model_projection_occurrence_count") or 0),
+                "chunk_count": int(token.get("provider_full_corpus_chunk_count") or 0),
+                "full_coverage": float(token.get("provider_full_corpus_coverage_ratio") or 0.0),
+                "provider_count": int(provider_summary.get("provider_count") or 0),
+                "schema_valid_count": int(provider_summary.get("schema_valid_provider_count") or 0),
+                "primary_targets": int(review_summary.get("primary_targets") or 0),
+                "validation_targets": int(review_summary.get("validation_targets") or 0),
+            }
+        )
+    return entries
+
+
+def _archived_real_api_rows(curated_shas: set[str]) -> list[tuple[str, str, str, str]]:
     rows: list[tuple[str, str, str, str]] = []
     seen: set[str] = set()
     for directory in _precomputed_review_dirs():
@@ -234,7 +334,7 @@ def _public_precomputed_landing_page() -> str:
             if not isinstance(payload, dict):
                 continue
             evidence_sha = str(payload.get("evidence_sha256") or path.stem)
-            if not evidence_sha or evidence_sha in seen:
+            if not evidence_sha or evidence_sha in seen or evidence_sha in curated_shas:
                 continue
             generation = payload.get("generation") if isinstance(payload.get("generation"), dict) else {}
             provider_mode = str(generation.get("provider_mode") or "")
@@ -276,6 +376,65 @@ def _public_precomputed_landing_page() -> str:
                     context_note,
                 )
             )
+    rows.sort(key=lambda row: row[2], reverse=True)
+    return rows
+
+
+def _review_card_html(entry: dict[str, Any], *, featured: bool = False) -> str:
+    evidence_sha = str(entry.get("evidence_sha") or "")
+    evidence = quote(evidence_sha)
+    detail_url = f"/ui/full-review-page?evidence_sha256={evidence}"
+    api_url = f"/ui/api?evidence_sha256={evidence}"
+    graph_url = f"/ui/review-graph?evidence_sha256={evidence}"
+    row_count = _human_count(int(entry.get("row_count") or 0))
+    evidence_items = _human_count(int(entry.get("evidence_items") or 0))
+    chunk_count = int(entry.get("chunk_count") or 0)
+    coverage = f"{float(entry.get('full_coverage') or 0.0) * 100:.1f}%"
+    window_hours = float(entry.get("window_hours") or 0.0)
+    window_label = f"{window_hours:.1f}h" if window_hours else "fixed window"
+    target_count = int(entry.get("primary_targets") or 0) + int(entry.get("validation_targets") or 0)
+    provider_count = int(entry.get("provider_count") or 0)
+    schema_valid_count = int(entry.get("schema_valid_count") or 0)
+    primary_count = int(entry.get("primary_targets") or 0)
+    projected_occurrences = int(entry.get("projected_occurrences") or 0)
+    occurrence_note = (
+        f"{_human_count(projected_occurrences)} counted occurrence(s) represented"
+        if projected_occurrences
+        else ""
+    )
+    note = str(entry.get("landing_note") or "").strip()
+    note_html = f"<p>{_html(note)}</p>" if note else ""
+    occurrence_html = f"<small>{_html(occurrence_note)}</small>" if occurrence_note else ""
+    badge = "Flagship" if featured else str(entry.get("category") or "Review")
+    return f"""
+      <article class="review-card{' featured' if featured else ''}">
+        <div class="card-topline">
+          <span class="badge">{_html(badge)}</span>
+          <span class="sha">{_html(evidence_sha[:12])}</span>
+        </div>
+        <h3><a href="{_html(detail_url)}">{_html(str(entry.get("title") or "Precomputed review"))}</a></h3>
+        <p>{_html(str(entry.get("finding") or ""))}</p>
+        {note_html}
+        <dl class="metrics">
+          <div><dt>Rows</dt><dd>{row_count}</dd></div>
+          <div><dt>Window</dt><dd>{_html(window_label)}</dd></div>
+          <div><dt>Evidence Items</dt><dd>{evidence_items}</dd>{occurrence_html}</div>
+          <div><dt>Chunks</dt><dd>{chunk_count}</dd></div>
+          <div><dt>Coverage</dt><dd>{coverage}</dd></div>
+          <div><dt>Providers</dt><dd>{schema_valid_count}/{provider_count}</dd></div>
+          <div><dt>Primary</dt><dd>{primary_count}</dd></div>
+          <div><dt>Review Targets</dt><dd>{target_count}</dd></div>
+        </dl>
+        <div class="actions">
+          <a href="{_html(detail_url)}">Detail</a>
+          <a href="{_html(api_url)}">API</a>
+          <a href="{_html(graph_url)}">Graph</a>
+        </div>
+      </article>
+    """
+
+
+def _archived_links_html(rows: list[tuple[str, str, str, str]]) -> str:
     links = "\n".join(
         (
             "<li>"
@@ -289,17 +448,52 @@ def _public_precomputed_landing_page() -> str:
     )
     if not links:
         links = "<li><span>No precomputed review is available.</span></li>"
+    return links
+
+
+def _public_precomputed_landing_page() -> str:
+    manifest_entries = _public_manifest_entries()
+    manifest_entries.sort(key=lambda row: (int(row.get("landing_rank") or 100), str(row.get("title") or "")))
+    curated_shas = {str(row.get("evidence_sha") or "") for row in manifest_entries}
+    archived_rows = _archived_real_api_rows(curated_shas)
+    primary_entries = [row for row in manifest_entries if row.get("category") == "Primary Review"]
+    guarded_entries = [row for row in manifest_entries if row.get("category") == "Guarded Review"]
+    observation_entries = [row for row in manifest_entries if row.get("category") == "Observation Gap Validation"]
+    scale_entries = [
+        row
+        for row in manifest_entries
+        if row.get("category") not in {"Primary Review", "Guarded Review", "Observation Gap Validation"}
+    ]
+    primary_cards = "\n".join(_review_card_html(row, featured=True) for row in primary_entries)
+    guarded_cards = "\n".join(_review_card_html(row) for row in guarded_entries)
+    observation_cards = "\n".join(_review_card_html(row) for row in observation_entries)
+    scale_cards = "\n".join(_review_card_html(row) for row in scale_entries)
+    if not primary_cards:
+        primary_cards = "<p>No primary review is available.</p>"
+    if not guarded_cards:
+        guarded_cards = "<p>No guarded review is available.</p>"
+    if not observation_cards:
+        observation_cards = "<p>No observation gap review is available.</p>"
+    if not scale_cards:
+        scale_cards = "<p>No scale validation review is available.</p>"
     demo_links = "\n".join(
         (
-            "<li>"
-            f"<a href='/ui/rescore-demo?id={quote(demo_id)}'>More data rescore demo</a>"
+            f"<a class='loop-link' href='/ui/rescore-demo?id={quote(demo_id)}'>"
+            "<strong>More data rescore demo</strong>"
             f"<span>{_html(demo_id)}</span>"
-            "<small>read-only before/after loop</small>"
-            "</li>"
+            "<small>needs_more_data -&gt; evidence_collected</small>"
+            "</a>"
         )
         for demo_id in _public_rescore_demo_ids()
     )
-    demo_section = f"<h2>Improvement loops</h2><ul>{demo_links}</ul>" if demo_links else ""
+    demo_section = f"<section><h2>Improvement Loop</h2><div class='loop-grid'>{demo_links}</div></section>" if demo_links else ""
+    archive_section = (
+        "<details class='archive'><summary>Archived recorded runs</summary>"
+        f"<ul>{_archived_links_html(archived_rows)}</ul>"
+        "</details>"
+        if archived_rows
+        else ""
+    )
     return f"""
     <!doctype html>
     <html>
@@ -308,23 +502,72 @@ def _public_precomputed_landing_page() -> str:
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Ops Evidence Synthesis</title>
         <style>
-          body {{ font-family: Inter, system-ui, sans-serif; margin: 0; color: #17202a; background: #f6f8fb; }}
-          main {{ max-width: 760px; margin: 0 auto; padding: 48px 20px; }}
-          h1 {{ font-size: 30px; margin: 0 0 12px; }}
-          h2 {{ font-size: 18px; margin: 30px 0 0; }}
-          p {{ color: #4a5565; line-height: 1.6; }}
-          ul {{ list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 10px; }}
-          li {{ display: grid; gap: 4px; padding: 14px 16px; border: 1px solid #d9e2ec; border-radius: 8px; background: #fff; }}
-          a {{ color: #0b5cad; font-weight: 700; text-decoration: none; }}
-          span, small {{ color: #627083; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
+          :root {{ color-scheme: light; --ink:#17202a; --muted:#586579; --line:#d9e2ec; --panel:#fff; --bg:#f6f8fb; --blue:#0b5cad; }}
+          * {{ box-sizing: border-box; }}
+          body {{ font-family: Inter, system-ui, sans-serif; margin: 0; color: var(--ink); background: var(--bg); }}
+          main {{ max-width: 1080px; margin: 0 auto; padding: 42px 20px 64px; }}
+          header {{ display: grid; gap: 14px; margin-bottom: 30px; }}
+          h1 {{ font-size: 32px; line-height: 1.15; margin: 0; }}
+          h2 {{ font-size: 18px; margin: 0 0 14px; }}
+          h3 {{ font-size: 18px; line-height: 1.35; margin: 8px 0; }}
+          p {{ color: var(--muted); line-height: 1.6; margin: 0; }}
+          a {{ color: var(--blue); font-weight: 700; text-decoration: none; }}
+          section {{ margin-top: 30px; }}
+          .hero-copy {{ max-width: 760px; }}
+          .hero-stats {{ display: flex; flex-wrap: wrap; gap: 10px; }}
+          .hero-stats span, .badge {{ border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: #fff; color: #364152; font-size: 12px; font-weight: 700; }}
+          .review-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }}
+          .review-card {{ display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }}
+          .review-card.featured {{ grid-column: 1 / -1; border-color: #b7cbe1; }}
+          .card-topline {{ display: flex; justify-content: space-between; gap: 12px; align-items: center; }}
+          .sha, small {{ color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }}
+          .metrics {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }}
+          .metrics div {{ border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }}
+          dt {{ color: var(--muted); font-size: 11px; text-transform: uppercase; }}
+          dd {{ margin: 2px 0 0; font-weight: 800; overflow-wrap: anywhere; }}
+          .actions {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+          .actions a, .loop-link {{ display: inline-grid; gap: 3px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: #fbfdff; }}
+          .hero-actions {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }}
+          .hero-actions .button {{ border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: #fff; }}
+          .loop-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }}
+          .archive {{ margin-top: 28px; border-top: 1px solid var(--line); padding-top: 18px; }}
+          summary {{ cursor: pointer; color: var(--muted); font-weight: 700; }}
+          ul {{ list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }}
+          li {{ display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }}
+          @media (max-width: 760px) {{ .review-grid, .loop-grid {{ grid-template-columns: 1fr; }} .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} main {{ padding-top: 30px; }} }}
         </style>
       </head>
       <body>
         <main>
-          <h1>Ops Evidence Synthesis</h1>
-          <p>This public surface serves read-only precomputed reviews over sanitized logs, sanitized source context, and approved system profiles. Raw bundles, raw source, and write APIs are not exposed here.</p>
-          <ul>{links}</ul>
+          <header>
+            <h1>Ops Evidence Synthesis</h1>
+            <p class="hero-copy">This public surface serves read-only precomputed reviews over sanitized logs, sanitized source context, and approved system profiles. Raw bundles, raw source, and write APIs are not exposed here.</p>
+            <div class="hero-stats">
+              <span>Cloud Run read-only UI</span>
+              <span>5 provider recorded runs</span>
+              <span>100% ledger coverage on curated cases</span>
+              <span>Human-gated promotion</span>
+            </div>
+            <div class="hero-actions">{_public_global_action_links_html()}</div>
+          </header>
+          <section>
+            <h2>Primary Review</h2>
+            <div class="review-grid">{primary_cards}</div>
+          </section>
+          <section>
+            <h2>Guarded Review</h2>
+            <div class="review-grid">{guarded_cards}</div>
+          </section>
+          <section>
+            <h2>Observation Gap Validation</h2>
+            <div class="review-grid">{observation_cards}</div>
+          </section>
+          <section>
+            <h2>Cross-Domain Scale Validation</h2>
+            <div class="review-grid">{scale_cards}</div>
+          </section>
           {demo_section}
+          {archive_section}
         </main>
       </body>
     </html>
@@ -714,7 +957,7 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
     <section class="readable">
       <label>Review targets</label>
       <table>
-        <thead><tr><th>#</th><th>Target</th><th>Claim</th><th>Agreement</th><th>Evidence refs</th></tr></thead>
+        <thead><tr><th>#</th><th>Target</th><th>Claim</th><th>Agreement</th><th>Displayed refs</th></tr></thead>
         <tbody>{target_rows or '<tr><td colspan="5">No review targets were projected.</td></tr>'}</tbody>
       </table>
     </section>
@@ -1118,6 +1361,8 @@ def _trace_output_facts_html(step: dict[str, Any]) -> str:
         ("chunk_manifest_count", "manifests"),
         ("unassigned_evidence_items", "unassigned"),
         ("failed_chunk_count", "failed chunks"),
+        ("directly_cited_evidence_ref_count", "directly cited refs"),
+        ("chunk_tracked_evidence_ref_total_count", "chunk-tracked refs"),
         ("missing_evidence_count", "missing evidence"),
     ):
         if output.get(key) not in (None, "", 0):
@@ -1250,7 +1495,7 @@ def _profile_context_points(profile_context: dict[str, Any]) -> list[str]:
         overall = confidence.get("overall_confidence")
         confidence_text = f"confidence_action={profile_context.get('confidence_action')}"
         if overall not in (None, ""):
-            confidence_text += f" (overall={overall})"
+            confidence_text += f" (overall={overall}; {_confidence_action_explanation(str(profile_context.get('confidence_action') or ''), overall)})"
         points.append(confidence_text)
     counts = []
     for key, label in (
@@ -1318,12 +1563,37 @@ def _determinism_scope_points(context: dict[str, Any]) -> list[str]:
     chunk_merge = str(scope.get("chunk_merge") or "").strip()
     local_fixture = str(scope.get("local_fixture") or "").strip()
     if provider_outputs:
-        points.append(f"Provider outputs: {provider_outputs}.")
+        if provider_outputs == "recorded_and_hashed":
+            points.append("Provider outputs: recorded and hashed; live model responses are not byte-regenerated.")
+        else:
+            points.append(f"Provider outputs: {provider_outputs}.")
     if chunk_merge:
-        points.append(f"Chunk merge: {chunk_merge}.")
+        if chunk_merge == "deterministic_sort_dedup_over_recorded_chunk_outputs":
+            points.append("Chunk merge: deterministic sort and de-dup over recorded chunk outputs.")
+        else:
+            points.append(f"Chunk merge: {chunk_merge}.")
     if local_fixture:
-        points.append(f"Fixture regeneration: {local_fixture}.")
+        if local_fixture == "deterministic_local_provider_ci":
+            points.append("Fixture regeneration: byte-equal CI applies to deterministic local fixtures.")
+        else:
+            points.append(f"Fixture regeneration: {local_fixture}.")
     return points
+
+
+def _confidence_action_explanation(action: str, overall: object) -> str:
+    try:
+        score = float(overall)
+    except (TypeError, ValueError):
+        score = None
+    if action == "use_for_subsystem_routing_human_gated":
+        return ">=0.75 can route subsystems but still needs human-gated outcomes"
+    if action == "candidate_only_requires_profile_review":
+        if score is not None and score < 0.75:
+            return "<0.75 keeps profile output candidate-only until profile review"
+        return "profile output stays candidate-only until profile review"
+    if action == "discovery_required_before_routing":
+        return "<0.60 requires more discovery before routing"
+    return "confidence controls routing strictness"
 
 
 def _show_context_cell(label: str, value: str) -> bool:
@@ -1640,14 +1910,15 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     subsystem = str(target.get("subsystem") or target.get("component") or target.get("canonical_review_unit") or "general")
     evidence_refs = target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else []
     evidence_ref_total_count = _target_evidence_ref_total_count(target, evidence_refs)
+    evidence_ref_display_count = len(evidence_refs)
     evidence_ref_overflow_count = max(0, int(target.get("evidence_ref_overflow_count") or 0))
     evidence_ref_count_label = (
-        f"{evidence_ref_total_count} total / {len(evidence_refs)} shown"
-        if evidence_ref_total_count != len(evidence_refs)
-        else str(len(evidence_refs))
+        f"{evidence_ref_display_count} displayed / {evidence_ref_total_count} chunk-tracked"
+        if evidence_ref_total_count != evidence_ref_display_count
+        else f"{evidence_ref_display_count} displayed"
     )
     evidence_ref_overflow_note = (
-        f" ({evidence_ref_overflow_count} more tracked in chunk evidence)"
+        f" ({evidence_ref_overflow_count} more chunk-tracked ref(s) not printed on this card)"
         if evidence_ref_overflow_count
         else ""
     )
@@ -1663,6 +1934,12 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     promotion_text = _target_promotion_text(target)
     review_reason = _target_review_reason_html(target)
     target_explanation = _target_explanation_html(target)
+    tie_breaker = _priority_tie_breaker_text(target, index=index, evidence_ref_total_count=evidence_ref_total_count)
+    missing_total = len(missing)
+    missing_label = "Top missing evidence" if missing_total > 4 else "Missing evidence"
+    missing_text = "; ".join(str(item) for item in missing[:4]) or "none"
+    if missing_total > 4:
+        missing_text = f"{missing_text} ({missing_total - 4} more grouped follow-up item(s) not shown)"
     return f"""
 <article class="target">
   <div class="target-head">
@@ -1675,10 +1952,10 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
         <span class="pill">Subsystem: {_html(subsystem)}</span>
         <span class="pill">Agreement: {_html(agreement_verdict)}</span>
         <span class="pill">Provider stance: {_html(provider_summary)}</span>
-        <span class="pill">Evidence refs: {_html(evidence_ref_count_label)}</span>
+        <span class="pill">Evidence tracking: {_html(evidence_ref_count_label)}</span>
       </div>
     </div>
-    <div class="score">{score:.3f}<span>Priority</span></div>
+    <div class="score">{score:.3f}<span>Priority</span><small>{_html(tie_breaker)}</small></div>
   </div>
   <div class="target-grid">
     <div class="field full"><label>What this target means operationally</label>{target_explanation}</div>
@@ -1688,11 +1965,27 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     <div class="field full"><label>Agreement and promotion gates</label><p>{_html(agreement_text)}</p></div>
     <div class="field full"><label>Promotion gate</label><p>{_html(promotion_text)}</p></div>
     <div class="field"><label>Next check</label><p>{_html(action or "Review cited evidence and missing signals.")}</p></div>
-    <div class="field"><label>Missing evidence</label><p>{_html("; ".join(str(item) for item in missing[:4]) or "none")}</p></div>
-    <div class="field"><label>Evidence refs</label><p>{_html((", ".join(str(item) for item in evidence_refs[:8]) or "none") + evidence_ref_overflow_note)}</p></div>
+    <div class="field"><label>{_html(missing_label)}</label><p>{_html(missing_text)}</p></div>
+    <div class="field"><label>Displayed evidence refs</label><p>{_html((", ".join(str(item) for item in evidence_refs[:8]) or "none") + evidence_ref_overflow_note)}</p></div>
     <div class="field"><label>Caveats</label><p>{_html("; ".join(str(item) for item in caveats[:4]) or "none")}</p></div>
   </div>
 </article>"""
+
+
+def _priority_tie_breaker_text(target: dict[str, Any], *, index: int, evidence_ref_total_count: int) -> str:
+    provider_count = int(target.get("provider_count") or 0)
+    missing = target.get("missing_evidence") if isinstance(target.get("missing_evidence"), list) else []
+    source_candidates = 0
+    raw = target.get("raw") if isinstance(target.get("raw"), dict) else {}
+    try:
+        source_candidates = int(raw.get("source_candidate_count") or 0)
+    except (TypeError, ValueError):
+        source_candidates = 0
+    return (
+        f"Queue rank #{index}; tie-break uses provider count {provider_count}, "
+        f"chunk-tracked refs {evidence_ref_total_count}, missing items {len(missing)}, "
+        f"source candidates {source_candidates}."
+    )
 
 
 def _target_evidence_ref_total_count(target: dict[str, Any], evidence_refs: list[Any]) -> int:

@@ -1,17 +1,17 @@
 PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 PYTEST_ARGS ?=
 PUBLIC_BASE_URL ?= https://ops-evidence.yukimurata0421.dev
-PUBLIC_EVIDENCE_SHA ?= b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+PUBLIC_EVIDENCE_SHA ?= 345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 RETIRED_EVIDENCE_SHA ?= 5d0b5a918de1f99852498da2c8558d14993fe33b2259d23ac0ece59a900b48d9
-SAMPLE_EVIDENCE_SHA ?= 60c453b79abad184a668bf35a3faede725aee15875c01ae8b11a9b6ff9c0ff5f
-FLAGSHIP_DETERMINISTIC_EVIDENCE_SHA ?= 5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079
+SAMPLE_EVIDENCE_SHA ?= a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f46208
+FLAGSHIP_DETERMINISTIC_EVIDENCE_SHA ?= 3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d
 FLAGSHIP_INPUT ?= data/amazon_notify_flagship_logs.jsonl
 FLAGSHIP_START ?= 2026-06-26T22:30:00Z
 FLAGSHIP_END ?= 2026-06-26T23:32:21Z
 SAMPLE_PROFILE_DIR ?= data/public_profile_contexts/payment_api_sample
 FLAGSHIP_PROFILE_DIR ?= data/public_profile_contexts/amazon_notify_sample
 PUBLIC_ARCHIVE ?= /tmp/ops-evidence-synthesis-public.zip
-PUBLIC_SMOKE_EXTRA_ARGS ?= --expect-provider mistral-agent-platform --expect-text "schema-valid provider"
+PUBLIC_SMOKE_EXTRA_ARGS ?= --expect-provider gemini-enterprise-agent-platform --expect-provider openai-gpt-oss-on-vertex --expect-provider mistral-agent-platform --expect-provider qwen-agent-platform --expect-provider glm-agent-platform
 
 .PHONY: demo demo-flagship demo-sample verify-precomputed verify-flagship verify-sample test ci smoke-public deploy-public archive-public
 

@@ -10,14 +10,15 @@ human-reviewable targets.
 ## Demo
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- Primary summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Primary visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Guarded amazon-notify detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
 Submission URLs:
 
@@ -48,20 +49,26 @@ API outputs over all 8,519 grouped Evidence Items. The 14-day window uses the
 full available amazon-notify sanitized DB corpus after shorter candidate
 windows were superseded.
 
-The current public flagship run is a five-provider review. Llama and Claude are
-excluded because they were not available in this environment. Provider support
-is treated as review work, not truth; cited runtime evidence and promotion
-gates still control what can move forward.
+The public entry uses stream_v3 Dell runtime as the primary reviewer path
+because it has active human-gated primary candidates. The amazon-notify run is
+kept as the guarded-review example: even with 5/5 providers and 100% full-corpus
+ledger coverage, it does not auto-promote a cause until profile outcomes and
+user impact are approved. Llama and Claude are excluded because they were not
+available in this environment. Provider support is treated as review work, not
+truth; cited runtime evidence and promotion gates still control what can move
+forward.
 
 Additional stream_v3 source-aware real API runs:
 
-- Dell runtime detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778
-- arena-server monitoring detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267
+- Dell runtime detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- arena-server monitoring detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
 - Run notes: [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
 
-These runs use sanitized stream_v3 code context and separate 11,399-row Dell
-runtime / 4,747-row arena-server monitoring corpora. Both stream_v3 reviews use
-7-day windows selected after 2-day, 5-day, and 7-day candidate checks.
+These runs use sanitized stream_v3 code context and separate 45,000-row Dell
+runtime / 50,000-row arena-server monitoring corpora. Both stream_v3 reviews
+meet the minimum 24-hour analysis policy and send every grouped Evidence Item
+through chunked full-corpus provider review while keeping raw rows and raw
+source local.
 
 Data boundary and compression details:
 [docs/data-boundary.md](docs/data-boundary.md). Full row-level sanitized
@@ -92,8 +99,9 @@ payload, manifest, provider output hashes, and model-projection statistics.
   dropped by count alone.
 - Convergence score is defined as claimed successful providers divided by all
   successful providers.
-- The current public run keeps all Mistral-supported targets in validation;
-  incident and user-impact promotion remains open.
+- The public primary path shows stream_v3 runtime targets with 5/5 providers
+  and human-gated primary candidates; amazon-notify shows the restrained case
+  where 5/5 provider support still remains validation work.
 - The More data rescore demo shows the AI improvement cycle without public write
   access or live model execution.
 - The Agent Trace is backed by an ADK-compatible tool contract; the same tools

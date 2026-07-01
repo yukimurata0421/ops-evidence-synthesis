@@ -12,8 +12,8 @@ SANITIZER_VERSION = "regex-2026-06-15"
 _EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
 _IPV4_RE = re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b")
 _JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")
-_AUTH_RE = re.compile(r"(?i)\b(authorization\s*[:=]\s*)(?:bearer|basic)\s+[A-Za-z0-9._~+/\-]+=*")
-_COOKIE_RE = re.compile(r"(?i)\b(cookie\s*[:=]\s*)[^,\n]+")
+_AUTH_RE = re.compile(r"(?i)\bauthorization\s*[:=]\s*(?:bearer|basic)\s+[A-Za-z0-9._~+/\-]+=*")
+_COOKIE_RE = re.compile(r"(?i)\b(?:set-cookie|cookie)\s*[:=]\s*[^,\n]+")
 _SECRET_RE = re.compile(
     r"(?i)\b(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?[A-Za-z0-9_.:/=+\-]{10,}['\"]?"
 )
@@ -36,11 +36,11 @@ _NON_EMPTY_FAILURE_KIND_RE = re.compile(r"\bfailure_kind=(?!none\b|null\b|false\
 
 
 def sanitize_text(message: str) -> str:
-    sanitized = _AUTH_RE.sub(r"\1<AUTH_HEADER>", message)
-    sanitized = _COOKIE_RE.sub(r"\1<COOKIE>", sanitized)
+    sanitized = _AUTH_RE.sub("<AUTH_HEADER>", message)
+    sanitized = _COOKIE_RE.sub("<COOKIE>", sanitized)
     sanitized = _JWT_RE.sub("<JWT>", sanitized)
     sanitized = _RTMPS_STREAM_KEY_RE.sub(r"\1<STREAM_KEY>", sanitized)
-    sanitized = _SECRET_RE.sub(lambda match: f"{match.group(1)}=<SECRET>", sanitized)
+    sanitized = _SECRET_RE.sub("<SECRET>", sanitized)
     sanitized = _USER_HOME_PATH_RE.sub(_local_path_replacement, sanitized)
     sanitized = _WINDOWS_USER_PATH_RE.sub(_local_path_replacement, sanitized)
     sanitized = _EMAIL_RE.sub("<EMAIL>", sanitized)
@@ -114,14 +114,19 @@ def stack_hash(message: str) -> str:
 
 
 def sanitize_labels(labels: dict[str, Any]) -> dict[str, Any]:
-    clean: dict[str, Any] = {}
-    for key, value in labels.items():
-        key_text = str(key)
-        if isinstance(value, str):
-            clean[key_text] = sanitize_text(value)
-        else:
-            clean[key_text] = value
-    return clean
+    return {str(key): _sanitize_label_value(value) for key, value in labels.items()}
+
+
+def _sanitize_label_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _sanitize_label_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_label_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_sanitize_label_value(item) for item in value]
+    if isinstance(value, str):
+        return sanitize_text(value)
+    return value
 
 
 def sanitize_log(raw: RawLog) -> SanitizedLog:

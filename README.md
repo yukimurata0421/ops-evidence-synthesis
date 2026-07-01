@@ -15,14 +15,15 @@ incident tools sound confident before they have enough evidence.
 Live read-only demo:
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- Primary summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Primary API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Primary visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Guarded amazon-notify detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
 Current hackathon submission surfaces:
 
@@ -37,7 +38,7 @@ Current hackathon submission surfaces:
 - ProtoPedia Japanese entry draft: [docs/protopedia-entry-japanese.md](docs/protopedia-entry-japanese.md)
 - X post draft: [docs/x-post-draft.md](docs/x-post-draft.md)
 
-Real API source-aware run:
+Guarded amazon-notify source-aware run:
 
 - Evidence SHA256: `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec`
 - Public payload: `data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json`
@@ -54,25 +55,30 @@ IDs while keeping direct raw-row prompt count at zero. The 14-day window uses
 the full available amazon-notify sanitized DB corpus. Earlier 2-day, 5-day, and
 7-day candidates were superseded by the longer evidence window.
 
-The public flagship path is a five-provider real API run. Llama and Claude are
-excluded because they were not available in this environment; provider support
-is still treated as review work, not proof. Runtime claims need cited evidence
-IDs and promotion gates before they can move past human-gated validation.
+The public entry highlights the stream_v3 runtime run first because it has
+active human-gated primary candidates. The amazon-notify run remains a guarded
+review example: 5/5 providers and 100% full-corpus ledger coverage still produce
+0 auto-promoted causes until profile outcomes and user impact are approved.
+Provider support is treated as review work, not proof. Runtime claims need
+cited evidence IDs and promotion gates before they can move past human-gated
+validation.
 
 stream_v3 real API source-aware runs:
 
-- Dell runtime detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778
-- Dell runtime API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778
-- arena-server monitoring detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267
-- arena-server monitoring API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267
+- Dell runtime detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Dell runtime API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- arena-server monitoring detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
+- arena-server monitoring API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
 - Run notes: [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
 
 These runs used sanitized stream_v3 code context plus separate runtime and
-monitoring-plane log corpora. Dell retained 11,399 sanitized runtime rows over
-a 7-day analysis window; the arena-server monitoring run retained 4,747
-sanitized rows over a 7-day analysis window. Both runs include the approved
-profile context in each provider prompt while keeping it separate from runtime
-incident evidence.
+monitoring-plane log corpora. Dell retained 45,000 double-sanitized runtime
+rows over a 24.7-hour analysis window; the arena-server monitoring run retained
+50,000 double-sanitized rows over a 24.9-hour analysis window. Both runs include
+the approved profile context in each provider prompt while keeping it separate
+from runtime incident evidence. Provider prompts covered every grouped Evidence
+Item through chunked full-corpus review, while raw rows and raw source stayed
+out of provider input.
 
 The public data boundary is documented in
 [docs/data-boundary.md](docs/data-boundary.md). Full row-level sanitized
@@ -82,9 +88,9 @@ read-only UI.
 
 Deterministic local fixture:
 
-- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079
-- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079
+- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d
+- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d
+- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d
 
 ## What You Can Run Now
 
@@ -144,7 +150,7 @@ python -m uvicorn ops_evidence_synthesis.api:app --host 127.0.0.1 --port 8080
 Open the generated local review page:
 
 ```text
-http://127.0.0.1:8080/?evidence_sha256=5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079
+http://127.0.0.1:8080/?evidence_sha256=3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d
 ```
 
 What to look for:
@@ -272,7 +278,7 @@ Optional ADK / Agent Runtime check:
 ```bash
 pip install -e ".[agent]"
 ops-evidence adk-trace \
-  --precomputed-payload data/precomputed_review_summaries/5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079.json \
+  --precomputed-payload data/precomputed_review_summaries/3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d.json \
   --check-runtime
 ```
 
@@ -282,12 +288,12 @@ Committed public assets:
 
 - `data/amazon_notify_flagship_logs.jsonl` - public-safe 6,506-line flagship fixture.
 - `data/public_evidence_manifests/*.json` - compact public manifests for real API reviews, including URLs, evidence hashes, provider hashes, data-boundary flags, and token-compression statistics.
-- `data/precomputed_review_summaries/5b9dbe...1c079.json` - live demo cache regenerated by `make demo` and checked by CI.
+- `data/precomputed_review_summaries/3ee1f9...df19d.json` - live demo cache regenerated by `make demo` and checked by CI.
 - `data/precomputed_review_summaries/b99da9...414ec.json` - real API full-corpus ledger review cache generated from a 44,944-row sanitized 14-day DB corpus, sanitized source context, and five schema-valid provider runs: Gemini, GPT OSS, Mistral, Qwen, and GLM.
-- `data/precomputed_review_summaries/aba039f...c778.json` - stream_v3 Dell runtime real API review cache with 11,399 sanitized runtime rows over a 7-day analysis window.
-- `data/precomputed_review_summaries/a09ee4...d267.json` - stream_v3 arena-server monitoring real API review cache with 4,747 sanitized monitoring rows.
+- `data/precomputed_review_summaries/345430...b1d6.json` - stream_v3 Dell runtime real API review cache with 45,000 double-sanitized runtime rows over a 24.7-hour analysis window.
+- `data/precomputed_review_summaries/6b7dad...b3d3.json` - stream_v3 arena-server monitoring real API review cache with 50,000 double-sanitized monitoring rows over a 24.9-hour analysis window.
 - `data/sample_logs.jsonl` - compact public-safe sample fixture.
-- `data/precomputed_review_summaries/60c453...0ff5f.json` - compact sample cache regenerated by `make demo-sample`.
+- `data/precomputed_review_summaries/a7da50...6208.json` - compact sample cache regenerated by `make demo-sample`.
 - `sample_projects/profile_discovery_sample/` - small profile-discovery fixture.
 - `schemas/` - public JSON contracts for claim results and Evidence Bundles.
 

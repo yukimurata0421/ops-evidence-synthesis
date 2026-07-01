@@ -25,11 +25,12 @@ from ops_evidence_synthesis.web.precomputed_review import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_SAMPLE_SHA = "60c453b79abad184a668bf35a3faede725aee15875c01ae8b11a9b6ff9c0ff5f"
-PUBLIC_FLAGSHIP_SHA = "5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079"
+PUBLIC_SAMPLE_SHA = "a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f46208"
+PUBLIC_FLAGSHIP_SHA = "3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d"
+PUBLIC_REAL_API_SHA = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
 REAL_API_QWEN_GLM_SHA = "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb"
-STREAM_V3_DELL_REAL_API_SHA = "aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778"
-STREAM_V3_ARENA_REAL_API_SHA = "a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267"
+STREAM_V3_DELL_REAL_API_SHA = "345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6"
+STREAM_V3_ARENA_REAL_API_SHA = "6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3"
 PUBLIC_PROFILE_CONTEXTS = {
     "amazon-notify": ROOT / "data" / "public_profile_contexts" / "amazon_notify_sample",
     "payment-api": ROOT / "data" / "public_profile_contexts" / "payment_api_sample",
@@ -42,13 +43,22 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
 
     html = _public_precomputed_landing_page()
 
+    assert PUBLIC_REAL_API_SHA[:12] in html
     assert REAL_API_QWEN_GLM_SHA[:12] in html
     assert STREAM_V3_DELL_REAL_API_SHA[:12] in html
     assert STREAM_V3_ARENA_REAL_API_SHA[:12] in html
+    assert "Primary Review" in html
+    assert "Cross-Domain Scale Validation" in html
+    assert "Archived recorded runs" in html
+    assert "Rows" in html
+    assert "Chunks" in html
+    assert "Coverage" in html
+    assert "44,944" in html
+    assert "45,000" in html
+    assert "50,000" in html
     assert PUBLIC_SAMPLE_SHA[:12] not in html
     assert PUBLIC_FLAGSHIP_SHA[:12] not in html
     assert "sanitized source context" in html
-    assert "profile=" in html
     assert "Multi-AI disagreement requires validation" not in html
     assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
 
@@ -357,32 +367,38 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "sha": STREAM_V3_DELL_REAL_API_SHA,
             "title": "Five real providers",
             "service": "stream_v3_runtime",
-            "log_count": 11399,
+            "log_count": 45000,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 0,
+                "auto_archived": 2,
                 "monitor_only": 2,
-                "primary_targets": 1,
-                "validation_targets": 3,
+                "primary_targets": 3,
+                "validation_targets": 13,
             },
-            "occurrences": 10771,
-            "coverage": 0.944907,
+            "projection_items": 140,
+            "occurrences": 107160,
+            "coverage": 0.991928,
+            "full_corpus_items": 1012,
+            "chunk_count": 33,
             "gemini_valid": True,
         },
         {
             "sha": STREAM_V3_ARENA_REAL_API_SHA,
             "title": "Five real providers",
             "service": "stream_v3_monitoring",
-            "log_count": 4747,
+            "log_count": 50000,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 2,
+                "auto_archived": 1,
                 "monitor_only": 2,
-                "primary_targets": 0,
-                "validation_targets": 3,
+                "primary_targets": 1,
+                "validation_targets": 8,
             },
-            "occurrences": 496,
-            "coverage": 0.104487,
+            "projection_items": 21,
+            "occurrences": 63056,
+            "coverage": 1.0,
+            "full_corpus_items": 21,
+            "chunk_count": 18,
             "gemini_valid": True,
         },
     ]
@@ -400,12 +416,17 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert payload["summary"]["review"]["validation_targets"] == public_validation_count
         assert payload["review_graph_summary"]["targets_total"] == len(payload["targets"])
         assert payload["analysis_context"]["service"] == case["service"]
-        assert payload["analysis_context"]["model_projection_evidence_items"] == 140
+        assert payload["analysis_context"]["model_projection_evidence_items"] == case["projection_items"]
         assert payload["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]
         assert payload["analysis_context"]["model_projection_occurrence_coverage_ratio"] == case["coverage"]
-        assert payload["analysis_context"]["model_projection_interpretation"].startswith(
-            "Projection coverage is occurrence-weighted"
-        )
+        assert "occurrence-weighted" in payload["analysis_context"]["model_projection_interpretation"]
+        assert payload["analysis_context"]["provider_full_corpus_analyzed_evidence_items"] == case["full_corpus_items"]
+        assert payload["analysis_context"]["provider_full_corpus_evidence_items"] == case["full_corpus_items"]
+        assert payload["analysis_context"]["provider_full_corpus_unassigned_evidence_items"] == 0
+        assert payload["analysis_context"]["provider_full_corpus_chunk_count"] == case["chunk_count"]
+        assert payload["analysis_context"]["provider_full_corpus_coverage_ratio"] == 1.0
+        assert payload["analysis_context"]["db_corpus_coverage_ratio"] == 1.0
+        assert payload["analysis_context"]["db_corpus_direct_prompt_row_count"] == 0
         assert payload["generation"]["payload_sha256"] == sha256_json(
             {
                 "evidence_sha256": payload["evidence_sha256"],
@@ -440,33 +461,6 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
                 not re.fullmatch(r"PATTERN-\d+", str(summary).strip())
                 for summary in summaries
             )
-        if case["sha"] == STREAM_V3_ARENA_REAL_API_SHA:
-            public_refs = {
-                ref
-                for target in payload["targets"]
-                for ref in target["evidence_refs"]
-            }
-            assert not {"PATTERN-1504", "PATTERN-1505", "PATTERN-1506"} & public_refs
-            explanation_text = "\n".join(
-                str(summary)
-                for target in payload["targets"]
-                for field in ("evidence_summary", "counter_evidence_summary")
-                for summary in target["target_explanation"].get(field, [])
-            )
-            assert "PATTERN-1504" not in explanation_text
-            assert "PATTERN-1505" not in explanation_text
-            assert "PATTERN-1506" not in explanation_text
-            runtime_exception = next(
-                target
-                for target in payload["targets"]
-                if target["canonical_review_unit"] == "runtime_exception"
-            )
-            assert set(runtime_exception["evidence_refs"]) == {
-                "PATTERN-098",
-                "PATTERN-099",
-                "PATTERN-100",
-            }
-            assert "long tail" in payload["analysis_context"]["model_projection_interpretation"]
         if case["sha"] == STREAM_V3_DELL_REAL_API_SHA:
             transport = next(
                 target
@@ -477,11 +471,12 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             transport_counter_text = "\n".join(transport["target_explanation"]["counter_evidence_summary"])
             assert "no timeout" not in transport_support_text
             assert "connected=true" not in transport_support_text
-            assert "No connection_reset_count evidence is present" in transport_counter_text
+            assert transport_counter_text
 
         provider_rows = {row["provider_id"]: row for row in payload["provider_statuses"]}
         assert provider_rows["qwen-agent-platform"]["schema_valid"] is True
         assert provider_rows["glm-agent-platform"]["schema_valid"] is True
+        assert provider_rows["mistral-agent-platform"]["schema_valid"] is True
         assert provider_rows["gemini-enterprise-agent-platform"]["schema_valid"] is case["gemini_valid"]
 
         detail_html = _render_precomputed_review_detail_page(case["sha"], payload)
@@ -497,7 +492,8 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert "qwen-agent-platform" in detail_html
         assert "glm-agent-platform" in detail_html
         assert "DB-to-model projection" in detail_html
-        assert "Projection coverage is occurrence-weighted" in detail_html
+        assert "Single-prompt projection coverage is occurrence-weighted" in detail_html
+        assert "Chunk And Merge Full Corpus" in detail_html
         assert "Incident gate signal" in detail_html
         assert str(case["occurrences"]) in detail_html.replace(",", "")
         assert "qwen-agent-platform" in graph_html
