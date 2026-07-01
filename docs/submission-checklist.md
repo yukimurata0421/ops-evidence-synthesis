@@ -33,8 +33,8 @@ is for a different event.
 - Cloud Run service: `ops-evidence-api`
 - Cloud Run region: `asia-northeast1`
 - Public custom domain: https://ops-evidence.yukimurata0421.dev/
-- Deployed revision: `ops-evidence-api-00167-c8r`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:e899a1911e5bf08185ef4b2c90b83474b3d28a6ee1f1a7e0647abe9f032c48c2`
+- Deployed revision: `ops-evidence-api-00168-c29`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:68172e95f58de9c134ecc6651175b1a46218846ecb6fcaede2d18619ed3e1e38`
 - Public smoke after deploy: passed
 - Cloud Run min instances: `1`
 - Billing budget alert: `Ops Evidence Hackathon Budget`, 3000 JPY/month, project-filtered to `ops-evidence-synthesis`

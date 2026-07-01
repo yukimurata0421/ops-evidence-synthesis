@@ -264,6 +264,9 @@ def _public_manifest_entries() -> list[dict[str, Any]]:
         payload = _precomputed_review_payload(evidence_sha) or {}
         summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
         finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
+        analysis_context = (
+            payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
+        )
         review_summary = manifest.get("review_summary") if isinstance(manifest.get("review_summary"), dict) else {}
         sanitized_corpus = (
             manifest.get("sanitized_corpus") if isinstance(manifest.get("sanitized_corpus"), dict) else {}
@@ -272,6 +275,8 @@ def _public_manifest_entries() -> list[dict[str, Any]]:
         provider_summary = (
             manifest.get("provider_summary") if isinstance(manifest.get("provider_summary"), dict) else {}
         )
+        summary_providers = summary.get("providers") if isinstance(summary.get("providers"), dict) else {}
+        summary_review = summary.get("review") if isinstance(summary.get("review"), dict) else {}
         positioning = manifest.get("public_positioning") if isinstance(manifest.get("public_positioning"), dict) else {}
         case_id = str(manifest.get("case_id") or "")
         landing_role = str(positioning.get("landing_role") or manifest.get("landing_role") or "").strip()
@@ -301,18 +306,18 @@ def _public_manifest_entries() -> list[dict[str, Any]]:
                 "finding": str(finding.get("title") or manifest.get("title") or "Precomputed review"),
                 "landing_note": str(positioning.get("note") or ""),
                 "updated_at": str(payload.get("updated_at") or summary.get("updated_at") or ""),
-                "service": str(sanitized_corpus.get("service") or ""),
-                "environment": str(sanitized_corpus.get("environment") or ""),
-                "row_count": int(sanitized_corpus.get("sanitized_row_count") or summary.get("log_count") or 0),
+                "service": str(analysis_context.get("service") or sanitized_corpus.get("service") or ""),
+                "environment": str(analysis_context.get("environment") or sanitized_corpus.get("environment") or ""),
+                "row_count": int(analysis_context.get("sanitized_log_count") or sanitized_corpus.get("sanitized_row_count") or summary.get("log_count") or 0),
                 "window_hours": float(sanitized_corpus.get("analysis_window_hours") or 0.0),
-                "evidence_items": int(token.get("evidence_item_count") or 0),
-                "projected_occurrences": int(token.get("model_projection_occurrence_count") or 0),
-                "chunk_count": int(token.get("provider_full_corpus_chunk_count") or 0),
-                "full_coverage": float(token.get("provider_full_corpus_coverage_ratio") or 0.0),
-                "provider_count": int(provider_summary.get("provider_count") or 0),
-                "schema_valid_count": int(provider_summary.get("schema_valid_provider_count") or 0),
-                "primary_targets": int(review_summary.get("primary_targets") or 0),
-                "validation_targets": int(review_summary.get("validation_targets") or 0),
+                "evidence_items": int(analysis_context.get("evidence_item_count") or token.get("evidence_item_count") or 0),
+                "projected_occurrences": int(analysis_context.get("model_projection_occurrence_count") or token.get("model_projection_occurrence_count") or 0),
+                "chunk_count": int(analysis_context.get("provider_full_corpus_chunk_count") or token.get("provider_full_corpus_chunk_count") or 0),
+                "full_coverage": float(analysis_context.get("provider_full_corpus_coverage_ratio") or token.get("provider_full_corpus_coverage_ratio") or 0.0),
+                "provider_count": int(summary_providers.get("total") or provider_summary.get("provider_count") or 0),
+                "schema_valid_count": int(summary_providers.get("success") or provider_summary.get("schema_valid_provider_count") or 0),
+                "primary_targets": int(summary_review.get("primary_targets") or review_summary.get("primary_targets") or 0),
+                "validation_targets": int(summary_review.get("validation_targets") or review_summary.get("validation_targets") or 0),
             }
         )
     return entries
@@ -542,6 +547,7 @@ def _public_precomputed_landing_page() -> str:
           <header>
             <h1>Ops Evidence Synthesis</h1>
             <p class="hero-copy">This public surface serves read-only precomputed reviews over sanitized logs, sanitized source context, and approved system profiles. Raw bundles, raw source, and write APIs are not exposed here.</p>
+            <p class="hero-copy">Provider convergence creates review targets, not accepted incident causes; promotion remains human-gated until user impact and operational outcome evidence are attached.</p>
             <div class="hero-stats">
               <span>Cloud Run read-only UI</span>
               <span>5 provider recorded runs</span>

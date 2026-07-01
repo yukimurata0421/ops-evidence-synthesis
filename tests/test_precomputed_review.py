@@ -59,8 +59,30 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert PUBLIC_SAMPLE_SHA[:12] not in html
     assert PUBLIC_FLAGSHIP_SHA[:12] not in html
     assert "sanitized source context" in html
+    assert "Provider convergence creates review targets, not accepted incident causes" in html
     assert "Multi-AI disagreement requires validation" not in html
     assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
+
+
+def test_public_landing_cards_match_linked_payloads(monkeypatch) -> None:
+    monkeypatch.delenv("OES_PRECOMPUTED_REVIEW_DIR", raising=False)
+    monkeypatch.delenv("OES_PRECOMPUTED_REVIEW_DIRS", raising=False)
+
+    html = _public_precomputed_landing_page()
+    for sha in (PUBLIC_REAL_API_SHA, STREAM_V3_DELL_REAL_API_SHA, STREAM_V3_ARENA_REAL_API_SHA):
+        payload = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{sha}.json")
+        summary = payload["summary"]
+        providers = summary["providers"]
+        review = summary["review"]
+        context = payload["analysis_context"]
+        card = _landing_card_html(html, sha)
+
+        assert f"<dd>{providers['success']}/{providers['total']}</dd>" in card
+        assert f"<dd>{review['primary_targets']}</dd>" in card
+        target_count = int(review["primary_targets"]) + int(review["validation_targets"])
+        assert f"<dd>{target_count}</dd>" in card
+        assert f"<dd>{int(context['provider_full_corpus_chunk_count'])}</dd>" in card
+        assert "100.0%" in card
 
 
 def test_public_rescore_demo_is_renderable() -> None:
@@ -361,6 +383,32 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
     assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "signal present"
 
 
+def test_public_real_api_guarded_review_matches_fresh_five_provider_payload() -> None:
+    payload = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{PUBLIC_REAL_API_SHA}.json")
+
+    assert payload["summary"]["canonical_graph_sha256"].startswith("657eb44204cd")
+    assert payload["summary"]["providers"] == {
+        "success": 5,
+        "total": 5,
+        "pipeline_status": "succeeded",
+    }
+    assert payload["summary"]["review"]["primary_targets"] == 0
+    assert payload["summary"]["review"]["validation_targets"] == 12
+    assert payload["analysis_context"]["provider_full_corpus_chunk_count"] == 105
+    assert payload["analysis_context"]["provider_full_corpus_coverage_ratio"] == 1.0
+    assert all(row["status"] == "ok" and row["schema_valid"] for row in payload["provider_statuses"])
+
+    detail_html = _render_precomputed_review_detail_page(PUBLIC_REAL_API_SHA, payload)
+
+    assert "Five real providers analyzed the 44,944-row amazon-notify corpus" in detail_html
+    assert "5 / 5" in detail_html
+    assert "Chunk And Merge Full Corpus" in detail_html
+    assert "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm_chunked_full_corpus" in detail_html
+    assert "rate_limited_fail_closed" not in detail_html
+    assert "Mistral did not contribute" not in detail_html
+    assert "010838ba" not in detail_html
+
+
 def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
     cases = [
         {
@@ -606,3 +654,12 @@ def _load_json(path: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(data, dict), path
     return data
+
+
+def _landing_card_html(html: str, evidence_sha: str) -> str:
+    marker = f"<span class=\"sha\">{evidence_sha[:12]}</span>"
+    marker_index = html.index(marker)
+    start = html.rfind("<article", 0, marker_index)
+    end = html.index("</article>", marker_index) + len("</article>")
+    assert start >= 0
+    return html[start:end]
