@@ -6,91 +6,42 @@
 ![Cloud Run](https://img.shields.io/badge/demo-Cloud%20Run-4285F4)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
-Local-first evidence synthesis for DevOps incident review.
+Local-first, full-corpus evidence accounting for AI-assisted DevOps incident review.
 
 Ops Evidence Synthesis turns sanitized operational evidence into a fast,
 reviewable incident analysis page. It is built for the failure mode where AI
 incident tools sound confident before they have enough evidence.
 
-Live read-only demo:
+Public entry: https://ops-evidence.yukimurata0421.dev/
 
-- Public entry: https://ops-evidence.yukimurata0421.dev/
-- Primary summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Guarded amazon-notify detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+Use these first:
 
-Current hackathon submission surfaces:
+- Primary review: stream_v3 Dell runtime 45k detail page:
+  https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Guarded review: amazon-notify 14-day full-corpus ledger review:
+  https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- More data rescore demo:
+  https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
 
-- Public GitHub repository URL: https://github.com/yukimurata0421/ops-evidence-synthesis
-- Deployed project URL: https://ops-evidence.yukimurata0421.dev/
-- Proto Pedia project URL: pending until the project page is created.
-- Link list for submission copy/paste: [docs/submission-links.md](docs/submission-links.md)
-- Submission checklist: [docs/submission-checklist.md](docs/submission-checklist.md)
-- Architecture image: [docs/assets/architecture-devops-ai-agent.svg](docs/assets/architecture-devops-ai-agent.svg)
-- Demo video script: [docs/demo-video-script.md](docs/demo-video-script.md)
-- ProtoPedia entry draft: [docs/protopedia-entry-v3.md](docs/protopedia-entry-v3.md)
-- ProtoPedia Japanese entry draft: [docs/protopedia-entry-japanese.md](docs/protopedia-entry-japanese.md)
-- X post draft: [docs/x-post-draft.md](docs/x-post-draft.md)
+The full copy/paste URL set for submission is kept in
+[docs/submission-links.md](docs/submission-links.md). The data boundary and
+committed-vs-local artifact split are documented in
+[docs/data-boundary.md](docs/data-boundary.md).
 
-Guarded amazon-notify source-aware run:
+## Public Review Set
 
-- Evidence SHA256: `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec`
-- Public payload: `data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json`
-- Public manifest: `data/public_evidence_manifests/amazon_notify_real_api.json`
-- Run notes: [docs/real-api-5-provider-run.md](docs/real-api-5-provider-run.md)
+| Case | Public role | Evidence SHA256 | Notes |
+| --- | --- | --- | --- |
+| stream_v3 Dell runtime | Primary reviewer path | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | 45,000 sanitized runtime rows, 5/5 providers, active human-gated primary candidates. |
+| amazon-notify | Guarded review example | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` | 44,944 sanitized rows, 8,519 Evidence Items, 5/5 providers, 0 auto-promoted causes. |
+| stream_v3 arena-server monitoring | Observation-gap validation | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | 50,000 sanitized monitoring rows, used to show gap detection rather than cause promotion. |
+| amazon-notify deterministic fixture | Offline regeneration path | `3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d` | Regenerated by `make demo` from committed public-safe logs. |
+| payment-api sample | Compact smoke fixture | `a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f46208` | Regenerated by `make demo-sample`. |
 
-This run was generated through a 14-day storeless CLI real-provider path with a
-44,944-row sanitized DB coverage corpus. Every sanitized DB row is assigned to a
-coverage ledger entry before provider prompts, with coverage classes preserved
-as `pattern`, `rare`, `singleton`, and `state_transition`. Gemini, GPT OSS,
-Mistral, Qwen, and GLM then analyzed all 8,519 grouped Evidence Items through
-provider-specific chunks, preserving chunk manifests and source Evidence Item
-IDs while keeping direct raw-row prompt count at zero. The 14-day window uses
-the full available amazon-notify sanitized DB corpus. Earlier 2-day, 5-day, and
-7-day candidates were superseded by the longer evidence window.
-
-The public entry highlights the stream_v3 runtime run first because it has
-active human-gated primary candidates. The amazon-notify run remains a guarded
-review example: 5/5 providers and 100% full-corpus ledger coverage still produce
-0 auto-promoted causes until profile outcomes and user impact are approved.
-Provider support is treated as review work, not proof. Runtime claims need
-cited evidence IDs and promotion gates before they can move past human-gated
-validation.
-
-stream_v3 real API source-aware runs:
-
-- Dell runtime detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Dell runtime API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- arena-server monitoring detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
-- arena-server monitoring API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
-- Run notes: [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
-
-These runs used sanitized stream_v3 code context plus separate runtime and
-monitoring-plane log corpora. Dell retained 45,000 double-sanitized runtime
-rows over a 24.7-hour analysis window; the arena-server monitoring run retained
-50,000 double-sanitized rows over a 24.9-hour analysis window. Both runs include
-the approved profile context in each provider prompt while keeping it separate
-from runtime incident evidence. Provider prompts covered every grouped Evidence
-Item through chunked full-corpus review, while raw rows and raw source stayed
-out of provider input.
-
-The public data boundary is documented in
-[docs/data-boundary.md](docs/data-boundary.md). Full row-level sanitized
-stream_v3 corpora are intentionally not committed; public review is supported
-by fixed payloads, evidence manifests, provider output hashes, and the live
-read-only UI.
-
-Deterministic local fixture:
-
-- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d
-- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d
+Detailed run records are intentionally kept in one place:
+[docs/real-api-5-provider-run.md](docs/real-api-5-provider-run.md) for
+amazon-notify and [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
+for stream_v3.
 
 ## What You Can Run Now
 
@@ -227,13 +178,10 @@ Start here if you are evaluating the hackathon submission:
 
 ## Test Commands
 
-Install and run the full local gate:
+After the virtual environment from the demo section is active, run the full
+local gate:
 
 ```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -U pip
-python -m pip install -e ".[test,api]"
 make verify-precomputed
 make test
 ```

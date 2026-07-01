@@ -10,74 +10,30 @@ human-reviewable targets.
 ## Demo
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- Primary summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 - Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 - Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 - Guarded amazon-notify detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Full submission URL pack: [docs/submission-links.md](docs/submission-links.md)
+- Checklist and remaining manual actions: [docs/submission-checklist.md](docs/submission-checklist.md)
 
-Submission URLs:
+## Recorded Review Set
 
-- Public GitHub repository URL: https://github.com/yukimurata0421/ops-evidence-synthesis
-- Deployed project URL: https://ops-evidence.yukimurata0421.dev/
-- Proto Pedia project URL: pending until the project page is created.
-- Link list for submission copy/paste: [docs/submission-links.md](docs/submission-links.md)
-- Submission checklist: [docs/submission-checklist.md](docs/submission-checklist.md)
-- Architecture image: [docs/assets/architecture-devops-ai-agent.svg](docs/assets/architecture-devops-ai-agent.svg)
-- Demo video script: [docs/demo-video-script.md](docs/demo-video-script.md)
-- ProtoPedia entry draft: [docs/protopedia-entry-v3.md](docs/protopedia-entry-v3.md)
-- ProtoPedia Japanese entry draft: [docs/protopedia-entry-japanese.md](docs/protopedia-entry-japanese.md)
-- X post draft: [docs/x-post-draft.md](docs/x-post-draft.md)
+| Case | Role in evaluation | Evidence SHA256 | Run notes |
+| --- | --- | --- | --- |
+| stream_v3 Dell runtime | Primary path with active human-gated primary candidates | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
+| amazon-notify | Guarded-review example: 5/5 providers, 0 auto-promoted causes | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` | [amazon-notify run](docs/real-api-5-provider-run.md) |
+| stream_v3 arena-server monitoring | Observation-gap validation case | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
 
-Real API source-aware run:
-
-- Evidence SHA256: `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec`
-- Public payload: `data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json`
-- Public manifest: `data/public_evidence_manifests/amazon_notify_real_api.json`
-- Run notes: [docs/real-api-5-provider-run.md](docs/real-api-5-provider-run.md)
-
-This run used a 14-day, 44,944-row sanitized DB coverage corpus. Every
-sanitized DB row is assigned to a coverage ledger entry before provider
-prompts, while provider prompts operate over chunked Evidence Corpora with
-chunk manifests, source Evidence Item IDs, and direct raw-row prompt count kept
-at zero. Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid real
-API outputs over all 8,519 grouped Evidence Items. The 14-day window uses the
-full available amazon-notify sanitized DB corpus after shorter candidate
-windows were superseded.
-
-The public entry uses stream_v3 Dell runtime as the primary reviewer path
-because it has active human-gated primary candidates. The amazon-notify run is
-kept as the guarded-review example: even with 5/5 providers and 100% full-corpus
-ledger coverage, it does not auto-promote a cause until profile outcomes and
-user impact are approved. Llama and Claude are excluded because they were not
-available in this environment. Provider support is treated as review work, not
-truth; cited runtime evidence and promotion gates still control what can move
-forward.
-
-Additional stream_v3 source-aware real API runs:
-
-- Dell runtime detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- arena-server monitoring detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
-- Run notes: [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
-
-These runs use sanitized stream_v3 code context and separate 45,000-row Dell
-runtime / 50,000-row arena-server monitoring corpora. Both stream_v3 reviews
-meet the minimum 24-hour analysis policy and send every grouped Evidence Item
-through chunked full-corpus provider review while keeping raw rows and raw
-source local.
-
-Data boundary and compression details:
-[docs/data-boundary.md](docs/data-boundary.md). Full row-level sanitized
-stream_v3 corpora are not committed; the public evidence is the live URL, fixed
-payload, manifest, provider output hashes, and model-projection statistics.
+All public real-provider reviews use sanitized source/profile context and
+chunked full-corpus Evidence Items. Raw rows and raw source stay local; public
+proof is the live URL, fixed payload, manifest, provider hashes, and
+model-projection statistics. See [docs/data-boundary.md](docs/data-boundary.md)
+for the full committed-vs-local boundary.
 
 ## 30-Second Reviewer Path
 
-1. Open the Summary URL and confirm that a concrete finding appears immediately.
+1. Open the public entry and confirm that concrete recorded reviews appear immediately.
 2. Check the Review Graph section: provider convergence is visible, but
    incident and user-impact promotion remains separately gated.
 3. Open the Detail URL and inspect provider positions, Evidence Item links, and

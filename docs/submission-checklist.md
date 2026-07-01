@@ -4,10 +4,8 @@ Status as of 2026-07-01 after the public Cloud Run deployment.
 
 ## Official Sources Checked
 
-- ProtoPedia event page: https://protopedia.net/event/devops-ai-agent-hackathon
-- Findy Notion official page: https://findy.notion.site/DevOps-AI-Agent-Hackathon-32a04bf5e7e4806786f2c871e8b6cb00
-- Google Cloud Japan blog: https://cloud.google.com/blog/ja/products/ai-machine-learning/devops-ai-agent-hackathon-2026
-- TechPlay mirror, correct event id: https://techplay.jp/event/995186
+The canonical URL list is maintained in
+[submission-links.md](submission-links.md#official-event-sources).
 
 Do not use `https://techplay.jp/event/984731` as a submission source; that page
 is for a different event.
