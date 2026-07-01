@@ -1717,6 +1717,200 @@ def _markdown_cell(value: object) -> str:
     return text.replace("|", "\\|") or " "
 
 
+def _detail_provider_mode_label(payload: dict[str, Any]) -> str:
+    generation = payload.get("generation") if isinstance(payload.get("generation"), dict) else {}
+    mode = str(generation.get("provider_mode") or "").strip()
+    if "real_api" in mode:
+        return "real API"
+    if mode:
+        return _display_policy(mode)
+    return "precomputed"
+
+
+def _detail_case_label(payload: dict[str, Any], review: dict[str, Any]) -> str:
+    context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
+    service = str(context.get("service") or "").strip()
+    if int(review.get("primary_targets") or 0):
+        role = "Primary Review"
+    elif int(review.get("validation_targets") or 0):
+        role = "Validation Review"
+    else:
+        role = "Full Review"
+    return f"{role}: {service}" if service else role
+
+
+def _detail_coverage_label(payload: dict[str, Any]) -> str:
+    context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
+    for key in (
+        "provider_full_corpus_coverage_ratio",
+        "db_corpus_coverage_ratio",
+        "model_projection_occurrence_coverage_ratio",
+    ):
+        value = _coverage_text(context.get(key))
+        if value:
+            return value
+    return "precomputed"
+
+
+def _detail_summary_cells_html(
+    *,
+    payload: dict[str, Any],
+    review: dict[str, Any],
+    providers: dict[str, Any],
+    targets: list[dict[str, Any]],
+    raw_policy: str,
+    log_count: int,
+) -> str:
+    target_count = len(targets) or (
+        int(review.get("primary_targets") or 0)
+        + int(review.get("validation_targets") or 0)
+        + int(review.get("monitor_only") or 0)
+        + int(review.get("auto_archived") or 0)
+    )
+    cells = [
+        (
+            f"{int(providers.get('success') or 0)} / {int(providers.get('total') or 0)}",
+            "schema-valid providers",
+            _display_policy(str(providers.get("pipeline_status") or "precomputed")),
+        ),
+        (str(int(review.get("primary_targets") or 0)), "primary candidates", "not auto-promoted"),
+        (str(int(review.get("validation_targets") or 0)), "validation targets", "human review work"),
+        (str(target_count), "review targets", "canonical queue"),
+        (_detail_coverage_label(payload), "ledger coverage", "sanitized corpus"),
+        (_display_policy(raw_policy), "raw logs", _human_count(log_count) if log_count else "not uploaded"),
+    ]
+    return "".join(
+        f"""
+        <article class="stat-cell">
+          <strong>{_html(value)}</strong>
+          <span>{_html(label)}</span>
+          <small>{_html(note)}</small>
+        </article>
+        """
+        for value, label, note in cells
+    )
+
+
+def _target_anchor_id(target: dict[str, Any], *, index: int) -> str:
+    source = str(
+        target.get("review_target_id")
+        or target.get("target_id")
+        or target.get("canonical_review_unit")
+        or target.get("subsystem")
+        or index
+    ).lower()
+    safe = "".join(ch if ch.isalnum() else "-" for ch in source).strip("-")
+    while "--" in safe:
+        safe = safe.replace("--", "-")
+    return f"target-{index}-{safe[:72] or 'review'}"
+
+
+def _target_score_value(target: dict[str, Any]) -> float:
+    try:
+        return float(target.get("review_priority_score") or target.get("priority_score") or target.get("score") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _target_group_key(target: dict[str, Any]) -> str:
+    target_class = str(target.get("class") or target.get("target_class") or "").casefold()
+    if target_class == "primary_candidate":
+        return "primary"
+    agreement = target.get("agreement") if isinstance(target.get("agreement"), dict) else {}
+    verdict = str(agreement.get("verdict") or "").casefold()
+    if "single" in verdict:
+        return "single"
+    return "convergence"
+
+
+def _target_group_label(group: str) -> str:
+    return {
+        "primary": "Primary",
+        "convergence": "Convergence",
+        "single": "Single-source",
+    }.get(group, "Review")
+
+
+def _target_class_label(target: dict[str, Any]) -> str:
+    return _display_policy(str(target.get("class") or target.get("target_class") or "review_target"))
+
+
+def _detail_review_workbench(targets: list[dict[str, Any]], target_cards: str) -> str:
+    if not targets:
+        return """
+    <section class="section-block review-section">
+      <div class="section-heading">
+        <span class="eyebrow">Review targets</span>
+        <h2>No persisted review targets</h2>
+        <p>No review targets are persisted for this evidence.</p>
+      </div>
+    </section>"""
+    counts = {
+        "all": len(targets),
+        "primary": sum(1 for target in targets if _target_group_key(target) == "primary"),
+        "convergence": sum(1 for target in targets if _target_group_key(target) == "convergence"),
+        "single": sum(1 for target in targets if _target_group_key(target) == "single"),
+    }
+    filters = "".join(
+        f'<span class="filter-chip">{_html(label)} <strong>{count}</strong></span>'
+        for label, count in (
+            ("All", counts["all"]),
+            ("Primary", counts["primary"]),
+            ("Convergence", counts["convergence"]),
+            ("Single-source", counts["single"]),
+        )
+    )
+    queue_rows = "".join(
+        _target_queue_row_html(target, index=index + 1)
+        for index, target in enumerate(targets)
+    )
+    return f"""
+    <section class="section-block review-section" id="review-targets">
+      <div class="section-heading">
+        <span class="eyebrow">Review targets</span>
+        <h2>Human-gated target queue</h2>
+        <p>Primary candidates, converged targets, and single-source hypotheses are kept visible so reviewers can inspect support and weak signals without accepting incident causality automatically.</p>
+      </div>
+      <div class="review-workbench">
+        <aside class="queue-panel" aria-label="Review target queue">
+          <div class="queue-header">
+            <span class="eyebrow">Queue</span>
+            <strong>{len(targets)} targets</strong>
+          </div>
+          <div class="filter-row">{filters}</div>
+          <nav class="target-nav">{queue_rows}</nav>
+        </aside>
+        <div class="target-detail-list">
+          {target_cards}
+        </div>
+      </div>
+    </section>"""
+
+
+def _target_queue_row_html(target: dict[str, Any], *, index: int) -> str:
+    anchor = _target_anchor_id(target, index=index)
+    title = str(target.get("title") or target.get("core_claim") or target.get("proposal") or f"Review target {index}")
+    group = _target_group_key(target)
+    score = _target_score_value(target)
+    evidence_refs = target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else []
+    evidence_ref_total_count = _target_evidence_ref_total_count(target, evidence_refs)
+    return f"""
+      <a class="target-nav-card {group}" href="#{_html(anchor)}">
+        <span class="target-nav-top">
+          <span class="queue-index">{index:02d}</span>
+          <span class="queue-class">{_html(_target_group_label(group))}</span>
+        </span>
+        <strong>{_html(title)}</strong>
+        <span class="target-nav-meta">
+          <span>{_html(str(target.get("subsystem") or target.get("canonical_review_unit") or "general"))}</span>
+          <span>{score:.2f}</span>
+          <span>{evidence_ref_total_count} refs</span>
+        </span>
+        {_stance_bar_html(target)}
+      </a>
+    """
+
+
 def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[str, Any]) -> str:
     summary = _precomputed_summary(payload, evidence_sha256) or {}
     finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
@@ -1726,7 +1920,14 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     graph_sha = str(summary.get("canonical_graph_sha256") or "")
     raw_policy = str(summary.get("raw_log_policy") or "unknown")
     log_count = int(summary.get("log_count") or 0)
-    target_cards = "\n".join(_fast_detail_target_card(target, index=index + 1) for index, target in enumerate(targets))
+    target_cards = "\n".join(
+        _fast_detail_target_card(
+            target,
+            index=index + 1,
+            anchor_id=_target_anchor_id(target, index=index + 1),
+        )
+        for index, target in enumerate(targets)
+    )
     trace_panel = _precomputed_agent_trace_panel(payload)
     provider_panel = _precomputed_provider_panel(payload, providers)
     graph_summary_panel = _precomputed_review_graph_summary_panel(payload)
@@ -1734,6 +1935,19 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     devops_loop_panel = _precomputed_devops_loop_panel(payload)
     summary_url = f"/?evidence_sha256={_url_quote(evidence_sha256)}"
     action_links = _public_action_links_html(evidence_sha256, include_detail=False)
+    provider_mode = _detail_provider_mode_label(payload)
+    case_label = _detail_case_label(payload, review)
+    summary_cells = _detail_summary_cells_html(
+        payload=payload,
+        review=review,
+        providers=providers,
+        targets=targets,
+        raw_policy=raw_policy,
+        log_count=log_count,
+    )
+    review_workbench = _detail_review_workbench(targets, target_cards)
+    finding_title = str(finding.get("title") or "No persisted finding yet")
+    finding_impact = str(finding.get("impact") or "Run analysis to create a persisted review result.")
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1743,203 +1957,481 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
   <style>
     :root {{
       color-scheme: light;
-      --ink: #17202a;
-      --muted: #5c6878;
-      --line: #d9e0ea;
-      --bg: #f7f8fb;
-      --panel: #ffffff;
-      --accent: #166d6b;
-      --accent-2: #2f5f9e;
-      --warn: #a15c00;
+      --bg: #eef2f7;
+      --surface: #ffffff;
+      --surface-2: #f5f8fc;
+      --border: #e1e7f0;
+      --ink: #0f1b2d;
+      --ink-2: #51617a;
+      --ink-3: #8a97ab;
+      --accent: #2a6fdb;
+      --accent-strong: #1e5bc0;
+      --accent-soft: #e7f0fc;
+      --claimed: #12836b;
+      --silent: #a2aebf;
+      --amber: #b26a00;
+      --amber-soft: #f8ecd6;
+      --danger: #b42318;
+      --shadow: 0 1px 2px rgba(16,27,45,.05), 0 18px 50px -22px rgba(16,27,45,.28);
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
       background: var(--bg);
       color: var(--ink);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "IBM Plex Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0;
     }}
-    header {{
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 18px 24px;
-      border-bottom: 1px solid var(--line);
-      background: var(--panel);
-    }}
-    main {{
-      display: grid;
-      gap: 14px;
-      max-width: 1180px;
+    .page {{
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 18px 24px 40px;
+      padding: 0 32px 72px;
+    }}
+    .topbar {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+    }}
+    .brand-row, .status-row, .actions {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }}
+    .mark {{
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 700;
+      font-size: 13px;
+      flex: none;
+    }}
+    .breadcrumb {{
+      color: var(--ink-3);
+      font-size: 13px;
+    }}
+    .breadcrumb strong {{ color: var(--ink); font-weight: 700; }}
+    .status-chip, .evidence-chip, .filter-chip, .pill {{
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--ink-2);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 10px;
+      min-width: 0;
+    }}
+    .status-dot {{
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--claimed);
+      flex: none;
+    }}
+    .evidence-chip, code {{
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      overflow-wrap: anywhere;
+    }}
+    main, .section-block {{
+      display: grid;
+      gap: 18px;
     }}
     h1, h2, p {{ margin: 0; }}
-    h1 {{ font-size: 20px; }}
-    h2 {{ font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }}
-    p {{ color: var(--muted); line-height: 1.45; }}
-    code {{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; overflow-wrap: anywhere; }}
-    .meta {{ color: var(--muted); font-size: 12px; text-align: right; }}
-    .panel {{
+    h1 {{
+      font-size: 38px;
+      line-height: 1.12;
+      font-weight: 750;
+      max-width: 900px;
+      overflow-wrap: anywhere;
+    }}
+    h2 {{ font-size: 26px; line-height: 1.22; font-weight: 750; overflow-wrap: anywhere; }}
+    h3 {{ margin: 0; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }}
+    p {{ color: var(--ink-2); line-height: 1.55; }}
+    a {{ color: inherit; }}
+    .hero {{
+      padding: 44px 0 28px;
       display: grid;
-      gap: 12px;
-      padding: 16px;
-      border: 1px solid var(--line);
-      border-left: 5px solid var(--accent);
-      border-radius: 8px;
-      background: var(--panel);
-      min-width: 0;
+      gap: 16px;
     }}
-    .panel.secondary {{ border-left-color: var(--accent-2); }}
-    .metrics {{
-      display: grid;
-      grid-template-columns: minmax(0, 1.45fr) repeat(3, minmax(92px, 0.45fr)) minmax(150px, 0.7fr);
-      gap: 10px;
+    .hero p {{
+      max-width: 800px;
+      font-size: 16px;
+      line-height: 1.6;
     }}
-    .metric, .target, .trace-step, .provider-row, .graph-cell {{
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: #fbfcfe;
-      padding: 10px;
-      min-width: 0;
-    }}
-    label {{
+    .eyebrow, label {{
       display: block;
-      margin-bottom: 5px;
-      color: var(--muted);
-      font-size: 12px;
+      color: var(--accent);
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
+      letter-spacing: 0;
+      margin-bottom: 5px;
     }}
+    label {{ color: var(--ink-3); }}
     strong {{
       display: block;
-      font-size: 20px;
       line-height: 1.25;
       overflow-wrap: anywhere;
     }}
-    .targets, .trace-grid, .provider-grid, .graph-summary-grid {{ display: grid; gap: 10px; }}
-    .trace-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
-    .provider-grid {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
+    .actions a, .actions a.button {{
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }}
+    .actions a:hover, .actions a.button:hover {{
+      border-color: var(--accent);
+      color: var(--accent-strong);
+    }}
+    .stat-grid {{
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 8px;
+    }}
+    .stat-cell {{
+      background: var(--surface);
+      padding: 18px;
+      min-width: 0;
+    }}
+    .stat-cell strong {{
+      font-size: 21px;
+      font-weight: 800;
+    }}
+    .stat-cell span, .stat-cell small {{
+      display: block;
+      color: var(--ink-3);
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: 6px;
+    }}
+    .stat-cell small {{ color: var(--ink-2); }}
+    .section-block {{
+      padding-top: 42px;
+    }}
+    .section-heading {{
+      display: grid;
+      gap: 6px;
+      max-width: 780px;
+    }}
+    .panel {{
+      display: grid;
+      gap: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }}
+    .panel.secondary {{ background: var(--surface); }}
+    .metrics, .trace-grid, .provider-grid, .graph-summary-grid, .target-preview-grid {{
+      display: grid;
+      gap: 12px;
+    }}
+    .metrics {{ grid-template-columns: repeat(5, minmax(0, 1fr)); }}
+    .trace-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    .provider-grid {{ grid-template-columns: repeat(5, minmax(0, 1fr)); }}
     .graph-summary-grid {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
+    .target-preview-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+    .metric, .trace-step, .provider-row, .graph-cell, .target-preview {{
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface-2);
+      padding: 12px;
+      min-width: 0;
+    }}
+    .metric strong, .graph-cell strong, .provider-row strong, .trace-step strong {{
+      font-size: 18px;
+      font-weight: 800;
+    }}
+    .review-workbench {{
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }}
+    .queue-panel {{
+      position: sticky;
+      top: 16px;
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+    }}
+    .queue-header {{
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+    }}
+    .queue-header strong {{ font-size: 18px; }}
+    .filter-row {{ display: flex; flex-wrap: wrap; gap: 6px; }}
+    .filter-chip {{ padding: 5px 8px; font-size: 11px; }}
+    .filter-chip strong {{ display: inline; font-size: 11px; }}
+    .target-nav {{ display: grid; gap: 8px; }}
+    .target-nav-card {{
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      text-decoration: none;
+      color: var(--ink);
+    }}
+    .target-nav-card:hover {{
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }}
+    .target-nav-card.primary {{ box-shadow: inset 3px 0 0 var(--amber); }}
+    .target-nav-card.convergence {{ box-shadow: inset 3px 0 0 var(--accent); }}
+    .target-nav-card.single {{ box-shadow: inset 3px 0 0 var(--silent); }}
+    .target-nav-top, .target-nav-meta {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--ink-3);
+      font-size: 11px;
+    }}
+    .queue-index {{
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--accent);
+      font-weight: 800;
+    }}
+    .queue-class {{ color: var(--ink-2); font-weight: 800; }}
+    .target-nav-card strong {{ font-size: 13px; line-height: 1.35; }}
+    .target-detail-list {{ display: grid; gap: 16px; min-width: 0; }}
+    .target {{
+      display: grid;
+      gap: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      min-width: 0;
+      scroll-margin-top: 20px;
+    }}
+    .target:target {{
+      border-color: var(--accent);
+      box-shadow: inset 4px 0 0 var(--accent), var(--shadow);
+    }}
     .target-head {{
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
+      gap: 16px;
       align-items: start;
     }}
     .score {{
-      min-width: 84px;
+      min-width: 96px;
       text-align: right;
-      font-size: 22px;
+      font-size: 26px;
       font-weight: 800;
       color: var(--accent);
     }}
-    .score span {{ display: block; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }}
-    .pill-row {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }}
-    .pill {{
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 4px 7px;
-      background: #fff;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
+    .score span, .score small {{
+      display: block;
+      color: var(--ink-3);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }}
+    .score small {{
+      max-width: 180px;
+      color: var(--ink-2);
+      font-weight: 600;
+      text-transform: none;
+      line-height: 1.35;
+    }}
+    .pill-row {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }}
+    .target-class-primary_candidate, .target-class-primary-candidate {{
+      color: var(--amber);
+      background: var(--amber-soft);
+      border-color: rgba(178,106,0,.2);
     }}
     .target-grid {{
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 10px;
+      gap: 14px;
     }}
     .field {{
-      border-top: 1px solid var(--line);
-      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
       min-width: 0;
     }}
     .field.full {{ grid-column: 1 / -1; }}
+    .field *, .target *, .queue-panel *, .panel * {{
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }}
+    .field ul, .target-explanation ul {{
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: var(--ink-2);
+      line-height: 1.45;
+    }}
+    .target-explanation {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 16px;
+    }}
+    .target-explanation label, .target-explanation p, .target-explanation ul {{ margin: 0; }}
     .position-list {{ display: grid; gap: 6px; }}
     .position-row {{
       display: grid;
-      grid-template-columns: minmax(150px, 0.6fr) 96px minmax(0, 1.4fr) 96px;
+      grid-template-columns: minmax(150px, 0.7fr) 96px minmax(0, 1.4fr) 104px;
       gap: 8px;
       align-items: start;
-      border: 1px solid var(--line);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      background: #fff;
+      background: var(--surface-2);
       padding: 8px;
     }}
     .position-row p {{ color: var(--ink); }}
     .stance {{
       display: inline-flex;
       width: max-content;
-      border: 1px solid var(--line);
+      border: 1px solid var(--border);
       border-radius: 999px;
       padding: 3px 7px;
-      background: #eef6f5;
-      color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
       font-size: 12px;
       font-weight: 800;
     }}
-    .actions {{ display: flex; flex-wrap: wrap; gap: 10px; }}
-    a.button {{
+    .stance-meter {{
+      display: flex;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--border);
+    }}
+    .stance-fill.claimed {{ background: var(--claimed); }}
+    .stance-fill.contradicted {{ background: var(--danger); }}
+    .stance-fill.silent {{ background: var(--silent); }}
+    .human-gate {{
+      display: flex;
+      gap: 12px;
+      align-items: start;
+      padding: 14px;
+      border: 1px solid rgba(178,106,0,.2);
+      border-radius: 8px;
+      background: var(--amber-soft);
+      margin-top: 4px;
+    }}
+    .human-gate > div {{ min-width: 0; }}
+    .gate-mark {{
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
       display: inline-flex;
       align-items: center;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: #fff;
-      color: var(--ink);
-      padding: 8px 10px;
+      justify-content: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--amber);
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-weight: 800;
-      text-decoration: none;
+      flex: none;
+    }}
+    .human-gate strong {{ color: var(--amber); font-size: 13px; }}
+    .footer {{
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      color: var(--ink-2);
+      font-size: 12px;
     }}
     @media (max-width: 900px) {{
-      .metrics, .trace-grid, .provider-grid, .graph-summary-grid {{ grid-template-columns: 1fr 1fr; }}
+      .stat-grid, .metrics, .trace-grid, .provider-grid, .graph-summary-grid, .target-preview-grid {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
+      .review-workbench {{ grid-template-columns: 1fr; }}
+      .queue-panel {{ position: static; max-height: none; }}
     }}
     @media (max-width: 760px) {{
-      header {{ display: grid; }}
-      .meta {{ text-align: left; }}
-      main {{ padding: 14px; }}
-      .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row {{ grid-template-columns: 1fr; }}
+      .page {{ padding: 0 14px 48px; }}
+      .topbar {{ display: grid; align-items: start; }}
+      h1 {{ font-size: 30px; }}
+      h2 {{ font-size: 22px; }}
+      .stat-grid, .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row, .target-preview-grid, .target-explanation {{
+        grid-template-columns: minmax(0, 1fr);
+      }}
       .score {{ text-align: left; }}
+      .footer {{ display: grid; }}
     }}
   </style>
 </head>
 <body>
-  <header>
-    <h1>Ops Evidence Review</h1>
-    <div class="meta">Evidence <code>{_html(_short_sha(evidence_sha256))}</code></div>
-  </header>
-  <main>
-    <section class="panel">
-      <label>Persisted Review Result</label>
-      <h2>{_html(str(finding.get("title") or "No persisted finding yet"))}</h2>
-      <p>{_html(str(finding.get("impact") or "Run analysis to create a persisted review result."))}</p>
-      <div class="metrics">
-        <div class="metric"><label>Canonical graph</label><strong>{_html(_short_sha(graph_sha) if graph_sha else "precomputed")}</strong></div>
-        <div class="metric"><label>Providers</label><strong>{int(providers.get("success") or 0)} / {int(providers.get("total") or 0)}</strong></div>
-        <div class="metric"><label>Primary</label><strong>{int(review.get("primary_targets") or 0)}</strong></div>
-        <div class="metric"><label>Validation</label><strong>{int(review.get("validation_targets") or 0)}</strong></div>
-        <div class="metric"><label>Raw logs</label><strong>{_html(_display_policy(raw_policy))}</strong><p>{_html(_human_count(log_count) if log_count else "sanitized bundle")}</p></div>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand-row">
+        <div class="mark">OE</div>
+        <div class="breadcrumb">Reviews / <strong>{_html(case_label)}</strong></div>
       </div>
-      <div class="actions">{action_links}</div>
-    </section>
-    {graph_summary_panel}
-    {analysis_context_panel}
-    {trace_panel}
-    {devops_loop_panel}
-    {provider_panel}
-    <section class="panel secondary">
-      <label>Review Targets</label>
-      <div class="targets">
-        {target_cards or '<section class="target">No review targets are persisted for this evidence.</section>'}
+      <div class="status-row">
+        <span class="status-chip"><span class="status-dot"></span>Persisted Review Result</span>
+        <span class="evidence-chip">evidence {_html(_short_sha(evidence_sha256))}</span>
       </div>
-      <div class="actions">
-        <a class="button" href="{_html(summary_url)}">Back to summary</a>
-        {action_links}
-      </div>
-    </section>
-  </main>
+    </header>
+    <main>
+      <section class="hero">
+        <span class="eyebrow">Canonical Review Graph / {_html(provider_mode)}</span>
+        <h1>{_html(finding_title)}</h1>
+        <p>{_html(finding_impact)}</p>
+        <div class="actions">
+          <a class="button" href="{_html(summary_url)}">Back to summary</a>
+          <a class="button" href="#review-targets">Review targets</a>
+          {action_links}
+        </div>
+        <div class="stat-grid">{summary_cells}</div>
+      </section>
+      {graph_summary_panel}
+      {trace_panel}
+      {review_workbench}
+      {provider_panel}
+      {analysis_context_panel}
+      {devops_loop_panel}
+      <footer class="footer">
+        <span>Ops Evidence Synthesis / read-only delivery / Yuki Murata</span>
+        <span><code>canonical_review_graph.v1</code> / {_html(_short_sha(graph_sha) if graph_sha else "precomputed")}</span>
+      </footer>
+    </main>
+  </div>
 </body>
 </html>"""
 
@@ -2371,6 +2863,34 @@ def _provider_position_summary(target: dict[str, Any]) -> str:
     return " / ".join(ordered + remaining)
 
 
+def _stance_bar_html(target: dict[str, Any]) -> str:
+    counts = _provider_position_counts(target)
+    total = sum(counts.values())
+    if total <= 0:
+        return '<div class="stance-meter" aria-hidden="true"></div>'
+    segments = []
+    for stance, css_class in (
+        ("claimed", "claimed"),
+        ("contradicted", "contradicted"),
+        ("silent", "silent"),
+    ):
+        count = counts.get(stance, 0)
+        if count <= 0:
+            continue
+        width = (count / total) * 100
+        segments.append(
+            f'<span class="stance-fill {css_class}" style="width:{width:.1f}%" title="{_html(stance)} {count}"></span>'
+        )
+    for stance, count in sorted(counts.items()):
+        if stance in {"claimed", "contradicted", "silent"} or count <= 0:
+            continue
+        width = (count / total) * 100
+        segments.append(
+            f'<span class="stance-fill silent" style="width:{width:.1f}%" title="{_html(stance)} {count}"></span>'
+        )
+    return f'<div class="stance-meter" aria-hidden="true">{"".join(segments)}</div>'
+
+
 def _provider_positions_html(target: dict[str, Any]) -> str:
     positions = [row for row in target.get("provider_positions") or [] if isinstance(row, dict)]
     if not positions:
@@ -2535,10 +3055,11 @@ def _precomputed_target_preview_panel(targets: list[dict[str, Any]]) -> str:
     </section>"""
 
 
-def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
-    score = float(target.get("review_priority_score") or target.get("priority_score") or 0.0)
+def _fast_detail_target_card(target: dict[str, Any], *, index: int, anchor_id: str | None = None) -> str:
+    score = _target_score_value(target)
     title = str(target.get("title") or target.get("core_claim") or target.get("proposal") or f"Review target {index}")
     target_class = str(target.get("class") or target.get("target_class") or target.get("review_mode") or "review_target")
+    target_class_css = "".join(ch if ch.isalnum() else "-" for ch in target_class.lower()).strip("-")
     status = str(target.get("status") or "pending")
     subsystem = str(target.get("subsystem") or target.get("component") or target.get("canonical_review_unit") or "general")
     evidence_refs = target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else []
@@ -2573,20 +3094,23 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     missing_text = "; ".join(str(item) for item in missing[:4]) or "none"
     if missing_total > 4:
         missing_text = f"{missing_text} ({missing_total - 4} more grouped follow-up item(s) not shown)"
+    anchor = anchor_id or _target_anchor_id(target, index=index)
+    stance_bar = _stance_bar_html(target)
     return f"""
-<article class="target">
+<article class="target" id="{_html(anchor)}" data-target-group="{_html(_target_group_key(target))}">
   <div class="target-head">
     <div>
       <label>Target {index}</label>
       <h2>{_html(title)}</h2>
       <div class="pill-row">
-        <span class="pill">Class: {_html(target_class)}</span>
+        <span class="pill target-class-{_html(target_class_css)}">Class: {_html(_target_class_label(target))}</span>
         <span class="pill">Status: {_html(status)}</span>
         <span class="pill">Subsystem: {_html(subsystem)}</span>
         <span class="pill">Agreement: {_html(agreement_verdict)}</span>
         <span class="pill">Provider stance: {_html(provider_summary)}</span>
         <span class="pill">Evidence tracking: {_html(evidence_ref_count_label)}</span>
       </div>
+      {stance_bar}
     </div>
     <div class="score">{score:.3f}<span>Priority</span><small>{_html(tie_breaker)}</small></div>
   </div>
@@ -2596,7 +3120,16 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     <div class="field full"><label>Observed claim</label><p>{_html(claim or title)}</p></div>
     <div class="field full"><label>Provider positions</label>{provider_positions}</div>
     <div class="field full"><label>Agreement and promotion gates</label><p>{_html(agreement_text)}</p></div>
-    <div class="field full"><label>Promotion gate</label><p>{_html(promotion_text)}</p></div>
+    <div class="field full">
+      <label>Promotion gate</label>
+      <div class="human-gate">
+        <span class="gate-mark">HG</span>
+        <div>
+          <strong>Human-gated / not auto-accepted</strong>
+          <p>{_html(promotion_text)}</p>
+        </div>
+      </div>
+    </div>
     <div class="field"><label>Next check</label><p>{_html(action or "Review cited evidence and missing signals.")}</p></div>
     <div class="field"><label>{_html(missing_label)}</label><p>{_html(missing_text)}</p></div>
     <div class="field"><label>Displayed evidence refs</label><p>{_html((", ".join(str(item) for item in evidence_refs[:8]) or "none") + evidence_ref_overflow_note)}</p></div>
