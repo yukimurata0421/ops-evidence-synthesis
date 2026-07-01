@@ -1730,13 +1730,17 @@ def _detail_provider_mode_label(payload: dict[str, Any]) -> str:
 def _detail_case_label(payload: dict[str, Any], review: dict[str, Any]) -> str:
     context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
     service = str(context.get("service") or "").strip()
+    service_labels = {
+        "stream_v3_runtime": "stream_v3 Dell runtime",
+        "stream_v3_arena_monitoring": "stream_v3 arena-server monitoring",
+    }
+    if service:
+        return service_labels.get(service, service.replace("_", " "))
     if int(review.get("primary_targets") or 0):
-        role = "Primary Review"
-    elif int(review.get("validation_targets") or 0):
-        role = "Validation Review"
-    else:
-        role = "Full Review"
-    return f"{role}: {service}" if service else role
+        return "Primary Review"
+    if int(review.get("validation_targets") or 0):
+        return "Validation Review"
+    return "Full Review"
 
 
 def _detail_coverage_label(payload: dict[str, Any]) -> str:
@@ -1777,17 +1781,37 @@ def _detail_summary_cells_html(
         (str(int(review.get("validation_targets") or 0)), "validation targets", "human review work"),
         (str(target_count), "review targets", "canonical queue"),
         (_detail_coverage_label(payload), "ledger coverage", "sanitized corpus"),
-        (_display_policy(raw_policy), "raw logs", _human_count(log_count) if log_count else "not uploaded"),
+        (
+            _display_policy(raw_policy),
+            "raw logs",
+            "" if str(raw_policy).strip().lower() in {"not_uploaded", "not uploaded"} else _human_count(log_count),
+        ),
     ]
-    return "".join(
-        f"""
+    rows = []
+    for value, label, note in cells:
+        note_html = f"<small>{_html(note)}</small>" if note else ""
+        rows.append(
+            f"""
         <article class="stat-cell">
           <strong>{_html(value)}</strong>
           <span>{_html(label)}</span>
-          <small>{_html(note)}</small>
+          {note_html}
         </article>
         """
-        for value, label, note in cells
+        )
+    return "".join(rows)
+
+
+def _detail_action_links_html(evidence_sha256: str) -> str:
+    evidence = _url_quote(evidence_sha256)
+    links = [
+        ("API view", f"/ui/api?evidence_sha256={evidence}", "human-readable JSON"),
+        ("Review graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions"),
+        ("GitHub", _public_repo_url(), "repository"),
+    ]
+    return "".join(
+        f'<a class="button" href="{_html(url)}" title="{_html(title)}">{_html(label)}</a>'
+        for label, url, title in links
     )
 
 
@@ -1860,31 +1884,59 @@ def _detail_review_workbench(targets: list[dict[str, Any]], target_cards: str) -
             ("Single-source", counts["single"]),
         )
     )
-    queue_rows = "".join(
-        _target_queue_row_html(target, index=index + 1)
-        for index, target in enumerate(targets)
+    preview_limit = 6
+    preview_rows = "".join(
+        _target_preview_card_html(target, index=index + 1)
+        for index, target in enumerate(targets[:preview_limit])
+    )
+    remaining = max(0, len(targets) - preview_limit)
+    remaining_text = (
+        f"{remaining} additional target(s) are retained below and in the API / review graph views."
+        if remaining
+        else "All persisted targets are shown in this review preview."
     )
     return f"""
     <section class="section-block review-section" id="review-targets">
       <div class="section-heading">
         <span class="eyebrow">Review targets</span>
-        <h2>Human-gated target queue</h2>
-        <p>Primary candidates, converged targets, and single-source hypotheses are kept visible so reviewers can inspect support and weak signals without accepting incident causality automatically.</p>
+        <h2>Target queue preview stays human-gated.</h2>
+        <p>Primary candidates, converged targets, and single-source hypotheses are summarized here without turning provider agreement into an accepted incident cause.</p>
       </div>
-      <div class="review-workbench">
-        <aside class="queue-panel" aria-label="Review target queue">
-          <div class="queue-header">
-            <span class="eyebrow">Queue</span>
-            <strong>{len(targets)} targets</strong>
-          </div>
-          <div class="filter-row">{filters}</div>
-          <nav class="target-nav">{queue_rows}</nav>
-        </aside>
+      <div class="filter-row">{filters}</div>
+      <div class="target-preview-grid">{preview_rows}</div>
+      <p class="section-note">{_html(remaining_text)}</p>
+      <details class="detail-drawer">
+        <summary>
+          <span>Open full target details</span>
+          <small>{len(targets)} persisted target(s), provider positions, evidence refs, and promotion gates</small>
+        </summary>
         <div class="target-detail-list">
           {target_cards}
         </div>
-      </div>
+      </details>
     </section>"""
+
+
+def _target_preview_card_html(target: dict[str, Any], *, index: int) -> str:
+    title = str(target.get("title") or target.get("core_claim") or target.get("proposal") or f"Review target {index}")
+    group = _target_group_key(target)
+    score = _target_score_value(target)
+    evidence_refs = target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else []
+    evidence_ref_total_count = _target_evidence_ref_total_count(target, evidence_refs)
+    subsystem = str(target.get("subsystem") or target.get("canonical_review_unit") or "general")
+    return f"""
+        <article class="target-preview {group}">
+          <label>Target {index:02d} / {_html(_target_group_label(group))}</label>
+          <strong>{_html(title)}</strong>
+          <p>{_html(subsystem)}</p>
+          <div class="pill-row">
+            <span class="pill">priority {score:.2f}</span>
+            <span class="pill">{_html(_provider_position_summary(target))}</span>
+            <span class="pill">{evidence_ref_total_count} refs</span>
+          </div>
+          {_stance_bar_html(target)}
+        </article>
+    """
 
 
 def _target_queue_row_html(target: dict[str, Any], *, index: int) -> str:
@@ -1933,8 +1985,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     graph_summary_panel = _precomputed_review_graph_summary_panel(payload)
     analysis_context_panel = _precomputed_analysis_context_panel(payload)
     devops_loop_panel = _precomputed_devops_loop_panel(payload)
-    summary_url = f"/?evidence_sha256={_url_quote(evidence_sha256)}"
-    action_links = _public_action_links_html(evidence_sha256, include_detail=False)
+    action_links = _detail_action_links_html(evidence_sha256)
     provider_mode = _detail_provider_mode_label(payload)
     case_label = _detail_case_label(payload, review)
     summary_cells = _detail_summary_cells_html(
@@ -1946,6 +1997,11 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
         log_count=log_count,
     )
     review_workbench = _detail_review_workbench(targets, target_cards)
+    supplemental_sections = _detail_supplemental_sections(
+        provider_panel,
+        analysis_context_panel,
+        devops_loop_panel,
+    )
     finding_title = str(finding.get("title") or "No persisted finding yet")
     finding_impact = str(finding.get("impact") or "Run analysis to create a persisted review result.")
     return f"""<!doctype html>
@@ -1983,9 +2039,9 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       letter-spacing: 0;
     }}
     .page {{
-      max-width: 1200px;
+      max-width: 1180px;
       margin: 0 auto;
-      padding: 0 32px 72px;
+      padding: 0 34px 72px;
     }}
     .topbar {{
       display: flex;
@@ -2061,9 +2117,9 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     p {{ color: var(--ink-2); line-height: 1.55; }}
     a {{ color: inherit; }}
     .hero {{
-      padding: 44px 0 28px;
+      padding: 48px 0 30px;
       display: grid;
-      gap: 16px;
+      gap: 18px;
     }}
     .hero p {{
       max-width: 800px;
@@ -2130,7 +2186,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     }}
     .stat-cell small {{ color: var(--ink-2); }}
     .section-block {{
-      padding-top: 42px;
+      padding-top: 46px;
     }}
     .section-heading {{
       display: grid;
@@ -2168,32 +2224,6 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       font-size: 18px;
       font-weight: 800;
     }}
-    .review-workbench {{
-      display: grid;
-      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-      gap: 20px;
-      align-items: start;
-    }}
-    .queue-panel {{
-      position: sticky;
-      top: 16px;
-      display: grid;
-      gap: 12px;
-      padding: 16px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface);
-      box-shadow: var(--shadow);
-      max-height: calc(100vh - 32px);
-      overflow: auto;
-    }}
-    .queue-header {{
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 12px;
-    }}
-    .queue-header strong {{ font-size: 18px; }}
     .filter-row {{ display: flex; flex-wrap: wrap; gap: 6px; }}
     .filter-chip {{ padding: 5px 8px; font-size: 11px; }}
     .filter-chip strong {{ display: inline; font-size: 11px; }}
@@ -2231,6 +2261,126 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     .queue-class {{ color: var(--ink-2); font-weight: 800; }}
     .target-nav-card strong {{ font-size: 13px; line-height: 1.35; }}
     .target-detail-list {{ display: grid; gap: 16px; min-width: 0; }}
+    .section-note {{ font-size: 13px; }}
+    .review-arbitration-grid {{
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(360px, .9fr);
+      gap: 22px;
+      align-items: stretch;
+    }}
+    .distribution-card {{
+      display: grid;
+      gap: 18px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }}
+    .distribution-title {{
+      font-size: 14px;
+      font-weight: 800;
+    }}
+    .distribution-bar {{
+      display: flex;
+      height: 16px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--border);
+    }}
+    .bar-converged {{ background: var(--accent); }}
+    .bar-single {{ background: var(--silent); }}
+    .bar-context {{ background: var(--amber); }}
+    .legend-row {{
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      color: var(--ink-2);
+      font-size: 13px;
+      font-weight: 700;
+    }}
+    .legend-dot {{
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      display: inline-block;
+      margin-right: 7px;
+    }}
+    .metric-matrix {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--border);
+      box-shadow: var(--shadow);
+      gap: 1px;
+    }}
+    .matrix-cell {{
+      background: var(--surface);
+      padding: 20px;
+      min-width: 0;
+    }}
+    .matrix-cell strong {{
+      font-size: 23px;
+      font-weight: 800;
+    }}
+    .matrix-cell span {{
+      display: block;
+      margin-top: 7px;
+      color: var(--ink-3);
+      font-size: 12px;
+    }}
+    .detail-drawer, .supplemental-details {{
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      min-width: 0;
+    }}
+    .detail-drawer summary, .supplemental-details summary {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 18px;
+      cursor: pointer;
+      font-weight: 800;
+    }}
+    .detail-drawer summary small, .supplemental-details summary small {{
+      color: var(--ink-3);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: right;
+    }}
+    .detail-drawer[open] .target-detail-list, .supplemental-details[open] .supplemental-grid {{
+      border-top: 1px solid var(--border);
+      padding: 18px;
+    }}
+    .inline-details {{
+      margin-top: 8px;
+      color: var(--ink-2);
+      font-size: 12px;
+    }}
+    .inline-details summary {{
+      cursor: pointer;
+      font-weight: 800;
+      color: var(--amber);
+    }}
+    .inline-details p {{
+      margin-top: 7px;
+      font-size: 12px;
+      line-height: 1.45;
+    }}
+    .supplemental-grid {{
+      display: grid;
+      gap: 18px;
+    }}
+    .target-preview.primary {{ box-shadow: inset 3px 0 0 var(--amber); }}
+    .target-preview.convergence {{ box-shadow: inset 3px 0 0 var(--accent); }}
+    .target-preview.single {{ box-shadow: inset 3px 0 0 var(--silent); }}
     .target {{
       display: grid;
       gap: 16px;
@@ -2380,6 +2530,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       .stat-grid, .metrics, .trace-grid, .provider-grid, .graph-summary-grid, .target-preview-grid {{
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }}
+      .review-arbitration-grid {{ grid-template-columns: minmax(0, 1fr); }}
       .review-workbench {{ grid-template-columns: 1fr; }}
       .queue-panel {{ position: static; max-height: none; }}
     }}
@@ -2388,9 +2539,11 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       .topbar {{ display: grid; align-items: start; }}
       h1 {{ font-size: 30px; }}
       h2 {{ font-size: 22px; }}
-      .stat-grid, .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row, .target-preview-grid, .target-explanation {{
+      .stat-grid, .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row, .target-preview-grid, .target-explanation, .metric-matrix {{
         grid-template-columns: minmax(0, 1fr);
       }}
+      .detail-drawer summary, .supplemental-details summary {{ display: grid; }}
+      .detail-drawer summary small, .supplemental-details summary small {{ text-align: left; }}
       .score {{ text-align: left; }}
       .footer {{ display: grid; }}
     }}
@@ -2414,8 +2567,6 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
         <h1>{_html(finding_title)}</h1>
         <p>{_html(finding_impact)}</p>
         <div class="actions">
-          <a class="button" href="{_html(summary_url)}">Back to summary</a>
-          <a class="button" href="#review-targets">Review targets</a>
           {action_links}
         </div>
         <div class="stat-grid">{summary_cells}</div>
@@ -2423,9 +2574,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       {graph_summary_panel}
       {trace_panel}
       {review_workbench}
-      {provider_panel}
-      {analysis_context_panel}
-      {devops_loop_panel}
+      {supplemental_sections}
       <footer class="footer">
         <span>Ops Evidence Synthesis / read-only delivery / Yuki Murata</span>
         <span><code>canonical_review_graph.v1</code> / {_html(_short_sha(graph_sha) if graph_sha else "precomputed")}</span>
@@ -2436,10 +2585,35 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
 </html>"""
 
 
+def _detail_supplemental_sections(*sections: str) -> str:
+    body = "\n".join(section for section in sections if section.strip())
+    if not body:
+        return ""
+    return f"""
+    <section class="section-block">
+      <details class="supplemental-details">
+        <summary>
+          <span>Evidence context, provider frontier, and improvement loop</span>
+          <small>Expanded only when the reviewer needs audit detail</small>
+        </summary>
+        <div class="supplemental-grid">
+          {body}
+        </div>
+      </details>
+    </section>"""
+
+
 def _precomputed_agent_trace_panel(payload: dict[str, Any]) -> str:
     steps = [step for step in payload.get("agent_trace") or [] if isinstance(step, dict)]
     if not steps:
         return ""
+    visible_steps = steps[:6]
+    overflow = max(0, len(steps) - len(visible_steps))
+    overflow_note = (
+        f"<p class=\"section-note\">{overflow} additional trace step(s) are retained in the API view.</p>"
+        if overflow
+        else ""
+    )
     rows = "".join(
         f"""
         <article class="trace-step">
@@ -2453,14 +2627,17 @@ def _precomputed_agent_trace_panel(payload: dict[str, Any]) -> str:
           </div>
         </article>
         """
-        for index, step in enumerate(steps, start=1)
+        for index, step in enumerate(visible_steps, start=1)
     )
     return f"""
-    <section class="panel secondary">
-      <label>Agent Trace</label>
-      <h2>Guarded autonomous investigation loop</h2>
-      <p>The trace is generated from an ADK-compatible tool contract: deterministic evidence tools are orchestrated around Gemini-on-Vertex provider work, while final causal judgement and destructive actions stay human-gated. The same contract is compatible with Vertex Agent Runtime / AdkApp deployments.</p>
+    <section class="section-block trace-section">
+      <div class="section-heading">
+        <span class="eyebrow">Agent Trace · ADK tool contract</span>
+        <h2>A guarded autonomous investigation loop.</h2>
+        <p>Deterministic evidence tools are orchestrated around Gemini-on-Vertex. Final causal judgement and destructive actions stay behind explicit human gates.</p>
+      </div>
       <div class="trace-grid">{rows}</div>
+      {overflow_note}
     </section>"""
 
 
@@ -2758,51 +2935,77 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     summary = payload.get("review_graph_summary")
     if not isinstance(summary, dict):
         return ""
-    cells = [
-        ("Targets", str(int(summary.get("targets_total") or 0))),
-        ("Converged targets", str(int(summary.get("convergence_count") or 0))),
-        ("Single-source targets", str(int(summary.get("single_source_count") or 0))),
-        ("Rule/context targets", str(int(summary.get("rule_or_context_count") or 0))),
-        ("Partial overlap", str(int(summary.get("partial_overlap_count") or 0))),
-        ("Explicit conflicts", str(int(summary.get("conflict_count") or 0))),
-        ("Primary promoted", str(int(summary.get("primary_promoted_count") or 0))),
-        (
-            "Incident gate signal",
-            _incident_gate_signal_text(summary.get("incident_gate_signal") or summary.get("incident_baseline")),
-        ),
-        ("Target promotion", "per-target human-gated"),
-        ("Technical support", str(summary.get("technical_baseline") or "open")),
-        ("Detection overlap", str(summary.get("provider_detection_overlap") or "unknown")),
-        ("Auto-archived", str(int(summary.get("auto_archived_count") or 0))),
+    converged = int(summary.get("convergence_count") or 0)
+    single_source = int(summary.get("single_source_count") or 0)
+    rule_or_context = int(summary.get("rule_or_context_count") or 0)
+    partial_overlap = int(summary.get("partial_overlap_count") or 0)
+    conflicts = int(summary.get("conflict_count") or 0)
+    auto_archived = int(summary.get("auto_archived_count") or 0)
+    verdict_total = max(1, converged + single_source + rule_or_context)
+    converged_width = (converged / verdict_total) * 100
+    single_width = (single_source / verdict_total) * 100
+    context_width = (rule_or_context / verdict_total) * 100
+    stat_cells = [
+        (str(converged), "converged targets"),
+        (str(single_source), "single-source targets"),
+        (str(partial_overlap), "partial overlap overlay"),
+        (str(conflicts), "explicit conflicts"),
+        (str(summary.get("provider_detection_overlap") or "unknown"), "detection overlap"),
+        (str(auto_archived), "auto-archived (post-window)"),
     ]
-    cell_html = "".join(
+    stat_html = "".join(
         f"""
-        <article class="graph-cell">
-          <label>{_html(label)}</label>
+        <article class="matrix-cell">
           <strong>{_html(value)}</strong>
+          <span>{_html(label)}</span>
         </article>
         """
-        for label, value in cells
+        for value, label in stat_cells
     )
     note = str(summary.get("note") or "")
-    note_html = f"<p>{_html(note)}</p>" if note else ""
     score_definition = str(summary.get("score_definition") or "")
-    score_definition_html = f"<p>{_html(score_definition)}</p>" if score_definition else ""
-    overlay_note = (
-        "<p>Converged, single-source, and rule/context are target verdict counts. "
-        "Partial overlap is an overlay for converged targets with one or more silent providers.</p>"
-    )
     promotion_policy = str(summary.get("target_promotion_policy") or "")
-    promotion_policy_html = f"<p>{_html(promotion_policy)}</p>" if promotion_policy else ""
+    incident_gate = _incident_gate_signal_text(summary.get("incident_gate_signal") or summary.get("incident_baseline"))
+    summary_text = str(summary.get("summary") or "Provider agreement was evaluated before promotion.")
+    policy_text = promotion_policy or "Each target promotion remains human-gated until impact and operational outcome evidence are attached."
+    score_text = score_definition or "Convergence score = claimed successful providers / all successful providers."
+    note_text = note or "Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent."
     return f"""
-    <section class="panel secondary">
-      <label>Review Graph Arbitration</label>
-      <h2>{_html(str(summary.get("summary") or "Provider agreement was evaluated before promotion."))}</h2>
-      {note_html}
-      {score_definition_html}
-      {overlay_note}
-      {promotion_policy_html}
-      <div class="graph-summary-grid">{cell_html}</div>
+    <section class="section-block graph-arbitration">
+      <div class="section-heading">
+        <span class="eyebrow">Review Graph Arbitration</span>
+        <h2>Convergence is technical support. Impact stays human-gated.</h2>
+        <p>{_html(summary_text)}</p>
+      </div>
+      <div class="review-arbitration-grid">
+        <article class="distribution-card">
+          <strong class="distribution-title">Target verdict distribution</strong>
+          <div class="distribution-bar" aria-label="Target verdict distribution">
+            <span class="bar-converged" style="width:{converged_width:.1f}%"></span>
+            <span class="bar-single" style="width:{single_width:.1f}%"></span>
+            <span class="bar-context" style="width:{context_width:.1f}%"></span>
+          </div>
+          <div class="legend-row">
+            <span><span class="legend-dot bar-converged"></span>{converged} converged</span>
+            <span><span class="legend-dot bar-single"></span>{single_source} single-source</span>
+            <span><span class="legend-dot bar-context"></span>{partial_overlap} partial overlap</span>
+          </div>
+          <div class="human-gate">
+            <span class="gate-mark">HG</span>
+            <div>
+              <strong>Incident gate { _html(incident_gate) } · promotion human-gated</strong>
+              <p>{_html(f"{conflicts} explicit conflicts · each target promotes on its own evidence")}</p>
+              <details class="inline-details">
+                <summary>Arbitration notes</summary>
+                <p>{_html(policy_text)}</p>
+                <p>{_html(score_text)}</p>
+                <p>Target promotion: per-target human-gated. Incident gate signal: {_html(incident_gate)}. {_html(note_text)}</p>
+              </details>
+            </div>
+          </div>
+        </article>
+        <div class="metric-matrix">{stat_html}</div>
+      </div>
     </section>"""
 
 
