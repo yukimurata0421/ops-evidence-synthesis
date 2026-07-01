@@ -3,16 +3,42 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import threading
+import time
+from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 from fastapi.testclient import TestClient
 
+from ops_evidence_synthesis.ai.base import ModelResponse
+from ops_evidence_synthesis.ai.runtime import SafetyPreflightResult
 from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sanitize_input
 from ops_evidence_synthesis.profile_discovery import approve_profile_draft, discover_profile, draft_profile
 from ops_evidence_synthesis.synthesis.multi_ai import (
+    PROVIDER_CHUNK_LEDGER_FILENAME,
     SCORE_NOTE,
+    _ArtifactEnvelope,
+    _ProviderChunkLedger,
+    _adaptive_subchunk_retry_enabled,
+    _artifact_execution_status,
+    _bundle_for_evidence_chunk,
+    _chunk_cache_key,
+    _chunk_input_tokens_per_minute,
+    _chunk_min_start_interval_seconds,
+    _chunk_start_interval_seconds,
+    _chunk_target_tokens,
+    _chunk_worker_count,
+    _evidence_chunk_size,
+    _evidence_item_chunks,
+    _merge_chunk_claim_payloads,
     _normalize_claim_result_payload,
+    _provider_chunk_ledger_for_output_dir,
+    _provider_rate_limit_cooldown_seconds,
     _provider_worker_count,
+    _retry_after_seconds_from_text,
+    _run_provider_full_corpus,
     finding_impact_from_synthesis,
     run_multi_ai,
     synthesize_multi_ai,
@@ -32,6 +58,245 @@ def test_provider_worker_count_can_be_limited_for_real_api_stability(monkeypatch
 
     monkeypatch.setenv("OES_MULTI_AI_MAX_WORKERS", "99")
     assert _provider_worker_count(5) == 5
+
+
+def test_chunk_worker_count_can_be_limited_for_real_api_stability(monkeypatch) -> None:
+    monkeypatch.delenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_CHUNK_MAX_WORKERS_BY_PROVIDER", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_CHUNK_MAX_WORKERS_GEMINI_ENTERPRISE_AGENT_PLATFORM", raising=False)
+    assert _chunk_worker_count(10) == 4
+
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "1")
+    assert _chunk_worker_count(10) == 1
+
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "99")
+    assert _chunk_worker_count(3) == 3
+
+
+def test_chunk_worker_count_uses_provider_specific_limits(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "2")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS_GEMINI_ENTERPRISE_AGENT_PLATFORM", "8")
+
+    assert _chunk_worker_count(20, "gemini-enterprise-agent-platform") == 8
+    assert _chunk_worker_count(20, "qwen-agent-platform") == 2
+
+    monkeypatch.delenv("OES_MULTI_AI_CHUNK_MAX_WORKERS_GEMINI_ENTERPRISE_AGENT_PLATFORM", raising=False)
+    monkeypatch.setenv(
+        "OES_MULTI_AI_CHUNK_MAX_WORKERS_BY_PROVIDER",
+        "gemini-enterprise-agent-platform=7,mistral-agent-platform=2",
+    )
+
+    assert _chunk_worker_count(20, "gemini-enterprise-agent-platform") == 7
+    assert _chunk_worker_count(20, "mistral-agent-platform") == 2
+    assert _chunk_worker_count(20, "glm-agent-platform") == 2
+
+
+def test_llama_uses_gemini_chunk_token_budget() -> None:
+    assert _chunk_target_tokens("llama-agent-platform") == _chunk_target_tokens("gemini-enterprise-agent-platform")
+
+
+def test_mistral_defaults_to_large_low_parallel_chunks(monkeypatch) -> None:
+    monkeypatch.delenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE_MISTRAL_AGENT_PLATFORM", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE_BY_PROVIDER", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_CHUNK_MAX_WORKERS_MISTRAL_AGENT_PLATFORM", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_CHUNK_MAX_WORKERS_BY_PROVIDER", raising=False)
+
+    assert _chunk_target_tokens("mistral-agent-platform") == 120_000
+    assert _evidence_chunk_size("mistral-agent-platform") == 500
+    assert _chunk_worker_count(20, "mistral-agent-platform") == 1
+    assert _chunk_input_tokens_per_minute("mistral-agent-platform") == 60_000
+    assert _chunk_min_start_interval_seconds("mistral-agent-platform") == 120.0
+    assert _provider_rate_limit_cooldown_seconds("mistral-agent-platform") == 180.0
+
+
+def test_mistral_chunk_count_is_smaller_than_gemini_for_tiny_items(monkeypatch) -> None:
+    monkeypatch.delenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE_MISTRAL_AGENT_PLATFORM", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_CHUNK_TARGET_TOKENS_MISTRAL_AGENT_PLATFORM", raising=False)
+    evidence_items = [
+        {
+            "evidence_id": f"PATTERN-{index:03d}",
+            "coverage_class": "pattern",
+            "component": "dispatcher",
+            "event_type": "delivery_state",
+            "message_template": "short repeated delivery state",
+            "count": 50,
+        }
+        for index in range(1, 421)
+    ]
+    bundle = {
+        "evidence_sha256": "mistral-smallest-chunk-count-sha",
+        "evidence_items": evidence_items,
+        "evidence_refs": {str(item["evidence_id"]): item for item in evidence_items},
+    }
+
+    gemini_chunks = _evidence_item_chunks(bundle, provider_id="gemini-enterprise-agent-platform")
+    mistral_chunks = _evidence_item_chunks(bundle, provider_id="mistral-agent-platform")
+
+    assert len(gemini_chunks) == 3
+    assert len(mistral_chunks) == 1
+    assert len(mistral_chunks[0]) == 420
+
+
+def test_mistral_chunk_start_interval_uses_estimated_tokens(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_INPUT_TOKENS_PER_MINUTE_MISTRAL_AGENT_PLATFORM", "60000")
+    items = [
+        {
+            "evidence_id": "PATTERN-001",
+            "coverage_class": "pattern",
+            "component": "worker",
+            "event_type": "delivery_state",
+            "message_template": "x" * 1000,
+        }
+    ]
+
+    assert _chunk_input_tokens_per_minute("mistral-agent-platform") == 60_000
+    assert _chunk_start_interval_seconds("mistral-agent-platform", items) > 0
+    assert _chunk_start_interval_seconds("gemini-enterprise-agent-platform", items) == 0
+
+
+def test_llama_reuses_gemini_chunk_plan_even_with_llama_specific_env(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "140")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_TARGET_TOKENS_GEMINI_ENTERPRISE_AGENT_PLATFORM", "4000")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_TARGET_TOKENS_LLAMA_AGENT_PLATFORM", "9000")
+    evidence_items = [
+        {
+            "evidence_id": f"PATTERN-{index:03d}",
+            "coverage_class": "singleton",
+            "component": "worker",
+            "event_type": "traceback",
+            "example_sanitized": "traceback frame " + ("x" * 3000),
+            "count": 1,
+        }
+        for index in range(1, 8)
+    ]
+    bundle = {
+        "evidence_sha256": "llama-gemini-chunk-plan-sha",
+        "evidence_items": evidence_items,
+        "evidence_refs": {str(item["evidence_id"]): item for item in evidence_items},
+    }
+
+    gemini_chunks = _evidence_item_chunks(bundle, provider_id="gemini-enterprise-agent-platform")
+    llama_chunks = _evidence_item_chunks(bundle, provider_id="llama-agent-platform")
+
+    assert _chunk_target_tokens("llama-agent-platform") == 4000
+    assert [[item["evidence_id"] for item in chunk] for chunk in llama_chunks] == [
+        [item["evidence_id"] for item in chunk] for chunk in gemini_chunks
+    ]
+
+
+def test_evidence_chunks_use_provider_token_budget_and_semantic_buckets(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "140")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_TARGET_TOKENS_OPENAI_GPT_OSS_ON_VERTEX", "4000")
+    evidence_items: list[dict[str, Any]] = []
+    for index in range(1, 4):
+        evidence_items.append(
+            {
+                "evidence_id": f"PATTERN-{index:03d}",
+                "coverage_class": "pattern",
+                "component": "dispatcher",
+                "event_type": "delivery_state",
+                "message_template": "short repeated delivery state",
+                "count": 50,
+            }
+        )
+    for index in range(4, 8):
+        evidence_items.append(
+            {
+                "evidence_id": f"PATTERN-{index:03d}",
+                "coverage_class": "singleton",
+                "component": "worker",
+                "event_type": "traceback",
+                "example_sanitized": "traceback frame " + ("x" * 3000),
+                "count": 1,
+            }
+        )
+    bundle = {
+        "evidence_sha256": "token-budget-sha",
+        "evidence_items": evidence_items,
+        "evidence_refs": {str(item["evidence_id"]): item for item in evidence_items},
+    }
+
+    item_count_chunks = _evidence_item_chunks(bundle, provider_id="local-gemini")
+    token_budget_chunks = _evidence_item_chunks(bundle, provider_id="openai-gpt-oss-on-vertex")
+
+    assert _chunk_target_tokens("local-gemini") == 0
+    assert _chunk_target_tokens("openai-gpt-oss-on-vertex") == 4000
+    assert len(item_count_chunks) == 1
+    assert len(token_budget_chunks) > 1
+    assert [item["evidence_id"] for item in token_budget_chunks[0]] == ["PATTERN-001", "PATTERN-002", "PATTERN-003"]
+    assert all(
+        {str(item["coverage_class"]) for item in chunk} in ({"pattern"}, {"singleton"})
+        for chunk in token_budget_chunks
+    )
+
+
+def test_chunk_claim_merge_sorts_by_manifest_chunk_index_not_input_order() -> None:
+    provider = SimpleNamespace(provider="gemini-enterprise-agent-platform")
+    envelopes = [
+        _chunk_envelope(
+            chunk_index=2,
+            chunk_id="chunk-runtime-002",
+            claim_text="second chunk claim",
+            evidence_refs=["PATTERN-002"],
+        ),
+        _chunk_envelope(
+            chunk_index=1,
+            chunk_id="chunk-runtime-001",
+            claim_text="first chunk claim",
+            evidence_refs=["PATTERN-001"],
+        ),
+    ]
+
+    payload = _merge_chunk_claim_payloads(provider, envelopes, chunk_count=2)
+
+    assert [row["source_chunk_index"] for row in payload["claims"]] == [1, 2]
+    assert [row["claim_text"] for row in payload["claims"]] == ["first chunk claim", "second chunk claim"]
+
+
+def _chunk_envelope(
+    *,
+    chunk_index: int,
+    chunk_id: str,
+    claim_text: str,
+    evidence_refs: list[str],
+) -> _ArtifactEnvelope:
+    parsed = {
+        "schema_version": "claim-result/v1",
+        "agent_role": "test",
+        "finding_status": "supported",
+        "summary": f"chunk {chunk_index}",
+        "claims": [
+            {
+                "claim_type": "operational",
+                "claim_text": claim_text,
+                "evidence_refs": evidence_refs,
+                "counter_evidence_refs": [],
+            }
+        ],
+        "propositions": [],
+    }
+    artifact = {
+        "status": "ok",
+        "schema_valid": True,
+        "model_input_context": {
+            "full_corpus_coverage": {
+                "chunk": {
+                    "chunk_index": chunk_index,
+                    "chunk_id": chunk_id,
+                    "chunk_type": "runtime",
+                }
+            }
+        },
+    }
+    return _ArtifactEnvelope(
+        artifact=artifact,
+        raw_output=json.dumps(parsed, sort_keys=True),
+        parsed_payload=parsed,
+        output_parse=None,
+    )
 
 
 def _bundle_and_profile(tmp_path: Path) -> tuple[dict[str, object], dict[str, object]]:
@@ -221,6 +486,14 @@ def test_provider_failure_does_not_block_other_provider_synthesis(tmp_path: Path
     assert statuses["local-gpt-oss"] == "ok"
     assert result["multi_ai_synthesis"]["successful_provider_count"] == 2
     assert result["multi_ai_synthesis"]["failed_provider_count"] == 1
+    assert result["multi_ai_synthesis"]["provider_execution_status_counts"]["provider_error"] == 1
+    failed_status = next(
+        row
+        for row in result["multi_ai_synthesis"]["provider_statuses"]
+        if row["provider_id"] == "local-fail"
+    )
+    assert failed_status["execution_status"] == "provider_error"
+    assert failed_status["failure_is_not_silent"] is True
     assert len(result["multi_ai_synthesis"]["agreement_groups"]) >= 1
 
 
@@ -308,6 +581,812 @@ def test_model_input_policy_states_raw_logs_are_not_sent(tmp_path: Path) -> None
     assert synthesis["safety"]["raw_logs_sent_to_providers"] is False
     assert "Raw logs are never sent to providers" in synthesis["safety"]["policy"]
     assert all(run["safety_preflight"]["raw_logs_sent_to_providers"] is False for run in result["model_runs"])
+
+
+def test_multi_ai_chunks_all_evidence_items_instead_of_sampling_tail(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "2")
+    evidence_items = [
+        {
+            "evidence_id": f"PATTERN-{index:03d}",
+            "type": "log_pattern",
+            "coverage_class": "singleton",
+            "event_type": "database_timeout" if index == 1 else "runtime_restart",
+            "severity_text": "error",
+            "count": 1,
+            "source_log_count": 1,
+            "first_seen": f"2026-06-16T00:0{index}:00Z",
+            "last_seen": f"2026-06-16T00:0{index}:30Z",
+            "message_template": f"low-frequency runtime_restart marker {index}",
+            "example_sanitized": f"runtime_restart low-frequency marker {index}",
+            "component": "worker",
+            "source": "sanitized_events",
+        }
+        for index in range(1, 6)
+    ]
+    bundle = {
+        "schema_version": "evidence_bundle.v1",
+        "bundle_type": "sanitized_evidence_bundle",
+        "evidence_sha256": "chunked-full-corpus-sha",
+        "raw_log_policy": "not_uploaded",
+        "source": {"service": "demo-worker", "environment": "prod"},
+        "service": "demo-worker",
+        "environment": "prod",
+        "time_window": {"start": "2026-06-16T00:00:00Z", "end": "2026-06-16T01:00:00Z"},
+        "local_first_summary": {"raw_logs_uploaded": False, "sanitized_event_count": 5},
+        "evidence_items": evidence_items,
+        "evidence_refs": {str(item["evidence_id"]): item for item in evidence_items},
+        "signals": [],
+        "prompt_rules": [],
+    }
+
+    result = run_multi_ai(bundle, {}, providers=["local-gemini"], output_dir=tmp_path / "chunked")
+    run = result["model_runs"][0]
+    coverage = run["full_corpus_coverage"]
+
+    assert run["status"] == "ok"
+    assert run["schema_valid"] is True
+    assert coverage["mode"] == "full_evidence_item_chunking"
+    assert coverage["full_evidence_item_count"] == 5
+    assert coverage["analyzed_evidence_item_count"] == 5
+    assert coverage["omitted_evidence_item_count"] == 0
+    assert coverage["unassigned_evidence_item_count"] == 0
+    assert coverage["direct_prompt_evidence_item_count"] == 5
+    assert coverage["tail_evidence_item_count"] == 0
+    assert coverage["coverage_ratio"] == 1.0
+    assert coverage["chunk_count"] == 3
+    assert coverage["chunk_manifest_entry_count"] == 3
+    assert coverage["chunk_manifest_sha256"]
+    assert coverage["coverage_class_counts"] == {"singleton": 5}
+    assert [row["chunk_id"] for row in run["chunk_results"]] == [
+        "chunk-rare-singleton-001",
+        "chunk-rare-singleton-002",
+        "chunk-rare-singleton-003",
+    ]
+    assert [row["evidence_item_count"] for row in run["chunk_results"]] == [2, 2, 1]
+    assert [row["source_log_count"] for row in run["chunk_results"]] == [2, 2, 1]
+    assert all(row["provider_prompt_sha256"] for row in run["chunk_results"])
+    assert {claim["source_chunk_index"] for claim in run["parsed_result"]["claims"]} == {1, 2, 3}
+    assert {claim["source_chunk_id"] for claim in run["parsed_result"]["claims"]} == {
+        "chunk-rare-singleton-001",
+        "chunk-rare-singleton-002",
+        "chunk-rare-singleton-003",
+    }
+    assert any(
+        "PATTERN-005" in claim.get("evidence_refs", [])
+        for claim in run["parsed_result"]["claims"]
+    )
+    assert result["context_inputs"]["full_corpus_coverage"]["coverage_ratio"] == 1.0
+
+
+@dataclass(frozen=True, slots=True)
+class ChunkBarrierProvider:
+    provider: str = "chunk-barrier-provider"
+    model_name: str = "chunk-barrier-model"
+    prompt_name: str = "root-cause"
+    temperature: float = 0.0
+    barrier: threading.Barrier | None = None
+    events: list[tuple[int, str, float]] | None = None
+    lock: Any | None = None
+
+    def run(self, bundle: dict[str, Any]) -> ModelResponse:
+        chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+        chunk_index = int(chunk.get("chunk_index") or 1)
+        evidence_ids = list(chunk.get("evidence_ids") or [])
+        self._record(chunk_index, "entered")
+        if self.barrier is not None:
+            self.barrier.wait(timeout=2.0)
+        self._record(chunk_index, "released")
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=json.dumps(
+                {
+                    "schema_version": "claim-result/v1",
+                    "agent_role": "chunk_test",
+                    "finding_status": "supported",
+                    "summary": f"chunk {chunk_index} reviewed",
+                    "claims": [
+                        {
+                            "claim_type": "support",
+                            "claim_text": f"chunk {chunk_index} evidence reviewed",
+                            "evidence_refs": evidence_ids[:1],
+                            "missing_evidence": [],
+                        }
+                    ],
+                    "propositions": [],
+                },
+                sort_keys=True,
+            ),
+            latency_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+        )
+
+    def _record(self, chunk_index: int, action: str) -> None:
+        if self.events is None:
+            return
+        row = (chunk_index, action, time.monotonic())
+        if self.lock is None:
+            self.events.append(row)
+            return
+        with self.lock:
+            self.events.append(row)
+
+
+@dataclass(frozen=True, slots=True)
+class ChunkFailureProvider:
+    provider: str = "chunk-failure-provider"
+    model_name: str = "chunk-failure-model"
+    prompt_name: str = "root-cause"
+    temperature: float = 0.0
+
+    def run(self, bundle: dict[str, Any]) -> ModelResponse:
+        chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+        chunk_index = int(chunk.get("chunk_index") or 1)
+        if chunk_index == 2:
+            return ModelResponse(
+                provider=self.provider,
+                model_name=self.model_name,
+                prompt_name=self.prompt_name,
+                temperature=self.temperature,
+                raw_output=json.dumps({"status": "failed", "chunk_index": chunk_index}, sort_keys=True),
+                latency_ms=1,
+                input_tokens=1,
+                output_tokens=1,
+                status="failed",
+            )
+        evidence_ids = list(chunk.get("evidence_ids") or [])
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=json.dumps(
+                {
+                    "schema_version": "claim-result/v1",
+                    "agent_role": "chunk_failure_test",
+                    "finding_status": "supported",
+                    "summary": f"chunk {chunk_index} reviewed",
+                    "claims": [
+                        {
+                            "claim_type": "support",
+                            "claim_text": f"chunk {chunk_index} evidence reviewed",
+                            "evidence_refs": evidence_ids[:1],
+                            "missing_evidence": [],
+                        }
+                    ],
+                    "propositions": [],
+                },
+                sort_keys=True,
+            ),
+            latency_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class FlakyChunkProvider:
+    provider: str = "flaky-chunk-provider"
+    model_name: str = "flaky-chunk-model"
+    prompt_name: str = "root-cause"
+    temperature: float = 0.0
+    calls: dict[int, int] | None = None
+
+    def run(self, bundle: dict[str, Any]) -> ModelResponse:
+        chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+        chunk_index = int(chunk.get("chunk_index") or 1)
+        if self.calls is not None:
+            self.calls[chunk_index] = self.calls.get(chunk_index, 0) + 1
+        if chunk_index == 2 and self.calls is not None and self.calls[chunk_index] == 1:
+            return ModelResponse(
+                provider=self.provider,
+                model_name=self.model_name,
+                prompt_name=self.prompt_name,
+                temperature=self.temperature,
+                raw_output=json.dumps({"status": "transient", "chunk_index": chunk_index}, sort_keys=True),
+                latency_ms=1,
+                input_tokens=1,
+                output_tokens=1,
+                status="failed",
+            )
+        evidence_ids = list(chunk.get("evidence_ids") or [])
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=json.dumps(
+                {
+                    "schema_version": "claim-result/v1",
+                    "agent_role": "flaky_chunk_test",
+                    "finding_status": "supported",
+                    "summary": f"chunk {chunk_index} reviewed after retry",
+                    "claims": [
+                        {
+                            "claim_type": "support",
+                            "claim_text": f"chunk {chunk_index} evidence reviewed",
+                            "evidence_refs": evidence_ids[:1],
+                            "missing_evidence": [],
+                        }
+                    ],
+                    "propositions": [],
+                },
+                sort_keys=True,
+            ),
+            latency_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CountingChunkProvider:
+    provider: str = "counting-chunk-provider"
+    model_name: str = "counting-chunk-model"
+    prompt_name: str = "root-cause"
+    temperature: float = 0.0
+    calls: list[int] | None = None
+    lock: Any | None = None
+
+    def run(self, bundle: dict[str, Any]) -> ModelResponse:
+        chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+        chunk_index = int(chunk.get("chunk_index") or 1)
+        if self.calls is not None:
+            if self.lock is None:
+                self.calls.append(chunk_index)
+            else:
+                with self.lock:
+                    self.calls.append(chunk_index)
+        evidence_ids = list(chunk.get("evidence_ids") or [])
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=json.dumps(
+                {
+                    "schema_version": "claim-result/v1",
+                    "agent_role": "counting_chunk_test",
+                    "finding_status": "supported",
+                    "summary": f"chunk {chunk_index} reviewed",
+                    "claims": [
+                        {
+                            "claim_type": "support",
+                            "claim_text": f"counting chunk {chunk_index} evidence reviewed",
+                            "evidence_refs": evidence_ids[:1],
+                            "missing_evidence": [],
+                        }
+                    ],
+                    "propositions": [],
+                },
+                sort_keys=True,
+            ),
+            latency_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RetryBarrierProvider:
+    provider: str = "retry-barrier-provider"
+    model_name: str = "retry-barrier-model"
+    prompt_name: str = "root-cause"
+    temperature: float = 0.0
+    calls: dict[int, int] | None = None
+    barrier: threading.Barrier | None = None
+    events: list[tuple[int, str, float]] | None = None
+    lock: Any | None = None
+
+    def run(self, bundle: dict[str, Any]) -> ModelResponse:
+        chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+        chunk_index = int(chunk.get("chunk_index") or 1)
+        if self.calls is not None:
+            self.calls[chunk_index] = self.calls.get(chunk_index, 0) + 1
+            if self.calls[chunk_index] == 1:
+                return ModelResponse(
+                    provider=self.provider,
+                    model_name=self.model_name,
+                    prompt_name=self.prompt_name,
+                    temperature=self.temperature,
+                    raw_output=json.dumps({"status": "transient", "chunk_index": chunk_index}, sort_keys=True),
+                    latency_ms=1,
+                    input_tokens=1,
+                    output_tokens=1,
+                    status="failed",
+                )
+        self._record(chunk_index, "retry_entered")
+        if self.barrier is not None:
+            self.barrier.wait(timeout=2.0)
+        self._record(chunk_index, "retry_released")
+        evidence_ids = list(chunk.get("evidence_ids") or [])
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=json.dumps(
+                {
+                    "schema_version": "claim-result/v1",
+                    "agent_role": "retry_barrier_test",
+                    "finding_status": "supported",
+                    "summary": f"chunk {chunk_index} reviewed after parallel retry",
+                    "claims": [
+                        {
+                            "claim_type": "support",
+                            "claim_text": f"chunk {chunk_index} retry evidence reviewed",
+                            "evidence_refs": evidence_ids[:1],
+                            "missing_evidence": [],
+                        }
+                    ],
+                    "propositions": [],
+                },
+                sort_keys=True,
+            ),
+            latency_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+        )
+
+    def _record(self, chunk_index: int, action: str) -> None:
+        if self.events is None:
+            return
+        row = (chunk_index, action, time.monotonic())
+        if self.lock is None:
+            self.events.append(row)
+            return
+        with self.lock:
+            self.events.append(row)
+
+
+@dataclass(frozen=True, slots=True)
+class AdaptiveSplitProvider:
+    provider: str = "adaptive-split-provider"
+    model_name: str = "adaptive-split-model"
+    prompt_name: str = "root-cause"
+    temperature: float = 0.0
+    calls: list[tuple[int, int, bool]] | None = None
+    lock: Any | None = None
+
+    def run(self, bundle: dict[str, Any]) -> ModelResponse:
+        chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+        chunk_index = int(chunk.get("chunk_index") or 1)
+        evidence_ids = list(chunk.get("evidence_ids") or [])
+        is_subchunk = bool(chunk.get("parent_chunk_id"))
+        self._record(chunk_index, len(evidence_ids), is_subchunk)
+        if not is_subchunk and len(evidence_ids) > 1:
+            return ModelResponse(
+                provider=self.provider,
+                model_name=self.model_name,
+                prompt_name=self.prompt_name,
+                temperature=self.temperature,
+                raw_output=json.dumps({"status": "needs_subchunk", "chunk_index": chunk_index}, sort_keys=True),
+                latency_ms=1,
+                input_tokens=1,
+                output_tokens=1,
+                status="timeout",
+            )
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=json.dumps(
+                {
+                    "schema_version": "claim-result/v1",
+                    "agent_role": "adaptive_split_test",
+                    "finding_status": "supported",
+                    "summary": f"chunk {chunk_index} subchunk reviewed",
+                    "claims": [
+                        {
+                            "claim_type": "support",
+                            "claim_text": f"adaptive chunk {chunk_index} evidence reviewed",
+                            "evidence_refs": evidence_ids[:1],
+                            "missing_evidence": [],
+                        }
+                    ],
+                    "propositions": [],
+                },
+                sort_keys=True,
+            ),
+            latency_ms=1,
+            input_tokens=1,
+            output_tokens=1,
+        )
+
+    def _record(self, chunk_index: int, evidence_count: int, is_subchunk: bool) -> None:
+        if self.calls is None:
+            return
+        row = (chunk_index, evidence_count, is_subchunk)
+        if self.lock is None:
+            self.calls.append(row)
+            return
+        with self.lock:
+            self.calls.append(row)
+
+
+def _chunk_contract_bundle(item_count: int) -> dict[str, Any]:
+    evidence_items = [
+        {
+            "evidence_id": f"PATTERN-{index:03d}",
+            "type": "log_pattern",
+            "coverage_class": "singleton",
+            "event_type": "rare_event",
+            "severity_text": "INFO",
+            "count": 1,
+            "source_log_count": 1,
+            "first_seen": f"2026-06-16T00:{index:02d}:00Z",
+            "last_seen": f"2026-06-16T00:{index:02d}:30Z",
+            "message_template": f"rare event word {index}",
+            "source": "logs_sanitized",
+        }
+        for index in range(1, item_count + 1)
+    ]
+    return {
+        "schema_version": "evidence_bundle.v1",
+        "bundle_type": "sanitized_evidence_bundle",
+        "evidence_sha256": "chunk-contract-sha",
+        "raw_log_policy": "not_uploaded",
+        "service": "chunk-contract",
+        "environment": "prod",
+        "window_start": "2026-06-16T00:00:00Z",
+        "window_end": "2026-06-16T01:00:00Z",
+        "evidence_items": evidence_items,
+        "evidence_refs": {str(item["evidence_id"]): item for item in evidence_items},
+        "signals": [],
+    }
+
+
+def test_provider_chunks_run_in_parallel_and_merge_deterministically(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "2")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "3")
+    events: list[tuple[int, str, float]] = []
+    provider = ChunkBarrierProvider(
+        barrier=threading.Barrier(3),
+        events=events,
+        lock=threading.Lock(),
+    )
+
+    envelope = _run_provider_full_corpus(
+        _chunk_contract_bundle(6),
+        provider,
+        SafetyPreflightResult(True, (), "", 0),
+    )
+    artifact = envelope.artifact
+
+    actions = [action for _, action, _ in events]
+    assert actions.count("entered") == 3
+    assert actions.count("released") == 3
+    assert max(index for index, action in enumerate(actions) if action == "entered") < min(
+        index for index, action in enumerate(actions) if action == "released"
+    )
+    assert artifact["status"] == "ok"
+    assert artifact["schema_valid"] is True
+    assert [row["chunk_index"] for row in artifact["chunk_results"]] == [1, 2, 3]
+    assert [row["chunk_id"] for row in artifact["chunk_results"]] == [
+        "chunk-rare-singleton-001",
+        "chunk-rare-singleton-002",
+        "chunk-rare-singleton-003",
+    ]
+    assert [row["evidence_item_count"] for row in artifact["chunk_results"]] == [2, 2, 2]
+    assert {claim["source_chunk_index"] for claim in artifact["parsed_result"]["claims"]} == {1, 2, 3}
+    assert {claim["source_chunk_id"] for claim in artifact["parsed_result"]["claims"]} == {
+        "chunk-rare-singleton-001",
+        "chunk-rare-singleton-002",
+        "chunk-rare-singleton-003",
+    }
+    assert artifact["full_corpus_coverage"]["coverage_ratio"] == 1.0
+
+
+def test_chunk_merge_fails_closed_when_any_chunk_fails(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "2")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "3")
+
+    envelope = _run_provider_full_corpus(
+        _chunk_contract_bundle(6),
+        ChunkFailureProvider(),
+        SafetyPreflightResult(True, (), "", 0),
+    )
+    artifact = envelope.artifact
+
+    assert artifact["status"] == "failed"
+    assert artifact["schema_valid"] is False
+    assert artifact["failure_reason"] == "chunked_full_corpus_provider_error"
+    assert artifact["execution_status"] == "provider_error"
+    assert artifact["failure_is_not_silent"] is True
+    assert artifact["chunk_status_counts"] == {"ok": 2, "provider_error": 1}
+    assert artifact["chunk_failure_count"] == 1
+    assert [row["status"] for row in artifact["chunk_results"]] == ["ok", "failed", "ok"]
+    assert [row["execution_status"] for row in artifact["chunk_results"]] == ["ok", "provider_error", "ok"]
+    assert artifact["chunk_results"][1]["last_error_type"] == "provider_error"
+    assert artifact["full_corpus_coverage"]["coverage_ratio"] == 1.0
+
+
+def test_chunk_merge_uses_high_coverage_partial_results(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "2")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "5")
+
+    envelope = _run_provider_full_corpus(
+        _chunk_contract_bundle(10),
+        ChunkFailureProvider(),
+        SafetyPreflightResult(True, (), "", 0),
+    )
+    artifact = envelope.artifact
+
+    assert artifact["status"] == "ok"
+    assert artifact["schema_valid"] is True
+    assert artifact["chunk_status_counts"] == {"ok": 4, "provider_error": 1}
+    assert artifact["chunk_failure_count"] == 1
+    assert artifact["partial_chunk_result"] == {
+        "usable": True,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 4,
+        "total_chunk_count": 5,
+        "success_ratio": 0.8,
+        "min_success_ratio": 0.8,
+        "failure_count": 1,
+    }
+    assert {claim["source_chunk_index"] for claim in artifact["parsed_result"]["claims"]} == {1, 3, 4, 5}
+    assert artifact["execution_status"] == "ok"
+
+
+def test_chunk_retry_recovers_transient_chunk_failure(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "2")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "3")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_RETRY_ATTEMPTS", "2")
+    calls: dict[int, int] = {}
+
+    envelope = _run_provider_full_corpus(
+        _chunk_contract_bundle(6),
+        FlakyChunkProvider(calls=calls),
+        SafetyPreflightResult(True, (), "", 0),
+    )
+    artifact = envelope.artifact
+
+    assert artifact["status"] == "ok"
+    assert artifact["schema_valid"] is True
+    assert [row["status"] for row in artifact["chunk_results"]] == ["ok", "ok", "ok"]
+    assert calls[2] == 2
+    assert {claim["source_chunk_index"] for claim in artifact["parsed_result"]["claims"]} == {1, 2, 3}
+
+
+def test_failed_chunk_retries_run_in_parallel(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "2")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "3")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_RETRY_ATTEMPTS", "1")
+    events: list[tuple[int, str, float]] = []
+    calls: dict[int, int] = {}
+
+    envelope = _run_provider_full_corpus(
+        _chunk_contract_bundle(6),
+        RetryBarrierProvider(
+            calls=calls,
+            barrier=threading.Barrier(3),
+            events=events,
+            lock=threading.Lock(),
+        ),
+        SafetyPreflightResult(True, (), "", 0),
+    )
+    artifact = envelope.artifact
+
+    actions = [action for _, action, _ in events]
+    assert actions.count("retry_entered") == 3
+    assert actions.count("retry_released") == 3
+    assert max(index for index, action in enumerate(actions) if action == "retry_entered") < min(
+        index for index, action in enumerate(actions) if action == "retry_released"
+    )
+    assert calls == {1: 2, 2: 2, 3: 2}
+    assert artifact["status"] == "ok"
+    assert artifact["schema_valid"] is True
+    assert [row["status"] for row in artifact["chunk_results"]] == ["ok", "ok", "ok"]
+
+
+def test_failed_chunk_can_retry_as_adaptive_subchunks(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "2")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "4")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_RETRY_ATTEMPTS", "1")
+    monkeypatch.setenv("OES_MULTI_AI_ADAPTIVE_SUBCHUNK_RETRY", "1")
+    calls: list[tuple[int, int, bool]] = []
+
+    envelope = _run_provider_full_corpus(
+        _chunk_contract_bundle(4),
+        AdaptiveSplitProvider(calls=calls, lock=threading.Lock()),
+        SafetyPreflightResult(True, (), "", 0),
+    )
+    artifact = envelope.artifact
+
+    assert artifact["status"] == "ok"
+    assert artifact["schema_valid"] is True
+    assert [row["status"] for row in artifact["chunk_results"]] == ["ok", "ok"]
+    assert [row["adaptive_retry"] for row in artifact["chunk_results"]] == [True, True]
+    assert [row["adaptive_subchunk_count"] for row in artifact["chunk_results"]] == [2, 2]
+    assert (1, 2, False) in calls
+    assert (2, 2, False) in calls
+    assert sum(1 for _, evidence_count, is_subchunk in calls if evidence_count == 1 and is_subchunk) == 4
+    assert all(
+        claim.get("source_subchunk_id")
+        for claim in artifact["parsed_result"]["claims"]
+    )
+
+
+def test_adaptive_subchunk_retry_only_splits_size_related_failures(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_ADAPTIVE_SUBCHUNK_RETRY", "1")
+    items = _chunk_contract_bundle(2)["evidence_items"]
+
+    assert _adaptive_subchunk_retry_enabled("mistral-agent-platform", items, failure_status="timeout") is True
+    assert _adaptive_subchunk_retry_enabled("mistral-agent-platform", items, failure_status="context_length") is True
+    assert _adaptive_subchunk_retry_enabled("mistral-agent-platform", items, failure_status="rate_limited") is False
+    assert _adaptive_subchunk_retry_enabled("mistral-agent-platform", items, failure_status="schema_invalid") is False
+    assert _adaptive_subchunk_retry_enabled("mistral-agent-platform", items, failure_status="provider_error") is False
+
+
+def test_provider_chunk_ledger_reuses_successful_chunks(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "2")
+    monkeypatch.setenv("OES_MULTI_AI_CHUNK_MAX_WORKERS", "2")
+    bundle = _chunk_contract_bundle(4)
+    ledger = _provider_chunk_ledger_for_output_dir(tmp_path)
+    first_calls: list[int] = []
+
+    first = _run_provider_full_corpus(
+        bundle,
+        CountingChunkProvider(calls=first_calls, lock=threading.Lock()),
+        SafetyPreflightResult(True, (), "", 0),
+        chunk_ledger=ledger,
+    )
+
+    assert first.artifact["status"] == "ok"
+    assert sorted(first_calls) == [1, 2]
+    records = [json.loads(line) for line in (tmp_path / PROVIDER_CHUNK_LEDGER_FILENAME).read_text().splitlines()]
+    assert len(records) == 2
+    assert {row["status"] for row in records} == {"ok"}
+    assert all(row["prompt_sha256"] for row in records)
+    assert all(row["artifact"]["schema_valid"] is True for row in records)
+
+    reloaded_ledger = _provider_chunk_ledger_for_output_dir(tmp_path)
+    second_calls: list[int] = []
+    second = _run_provider_full_corpus(
+        bundle,
+        CountingChunkProvider(calls=second_calls, lock=threading.Lock()),
+        SafetyPreflightResult(True, (), "", 0),
+        chunk_ledger=reloaded_ledger,
+    )
+
+    assert second.artifact["status"] == "ok"
+    assert second_calls == []
+    assert [row["status"] for row in second.artifact["chunk_results"]] == ["ok", "ok"]
+    assert len((tmp_path / PROVIDER_CHUNK_LEDGER_FILENAME).read_text().splitlines()) == 2
+
+
+def test_provider_chunk_ledger_reuses_failed_chunks_only_when_enabled(monkeypatch) -> None:
+    prompt_sha256 = "failed-prompt"
+    record = {
+        "provider_id": "mistral-agent-platform",
+        "prompt_sha256": prompt_sha256,
+        "status": "rate_limited",
+        "artifact": {"status": "failed", "schema_valid": False},
+        "parsed_payload": {"claims": [], "propositions": []},
+    }
+    ledger = _ProviderChunkLedger(
+        records=[record],
+        cache={_chunk_cache_key("mistral-agent-platform", prompt_sha256): record},
+    )
+
+    monkeypatch.delenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS", raising=False)
+    monkeypatch.delenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS_BY_PROVIDER", raising=False)
+    assert ledger.reusable_record("mistral-agent-platform", prompt_sha256) is None
+
+    monkeypatch.setenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS", "1")
+    assert ledger.reusable_record("mistral-agent-platform", prompt_sha256) == record
+
+    monkeypatch.delenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS", raising=False)
+    monkeypatch.setenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS_BY_PROVIDER", "llama-agent-platform=1")
+    assert ledger.reusable_record("mistral-agent-platform", prompt_sha256) is None
+
+    llama_record = {**record, "provider_id": "llama-agent-platform"}
+    llama_ledger = _ProviderChunkLedger(
+        records=[llama_record],
+        cache={_chunk_cache_key("llama-agent-platform", prompt_sha256): llama_record},
+    )
+    assert llama_ledger.reusable_record("llama-agent-platform", prompt_sha256) == llama_record
+
+
+def test_provider_chunk_ledger_cache_key_includes_model_name() -> None:
+    prompt_sha256 = "same-prompt"
+    pro_record = {
+        "provider_id": "gemini-enterprise-agent-platform",
+        "model_name": "gemini-3.1-pro-preview",
+        "prompt_sha256": prompt_sha256,
+        "status": "ok",
+        "artifact": {"status": "ok", "schema_valid": True},
+        "parsed_payload": {"claims": [{"claim_text": "pro output"}], "propositions": []},
+    }
+    flash_record = {
+        **pro_record,
+        "model_name": "gemini-3.1-flash-lite",
+        "parsed_payload": {"claims": [{"claim_text": "flash output"}], "propositions": []},
+    }
+    ledger = _ProviderChunkLedger(records=[], cache={})
+    ledger.append(pro_record)
+    ledger.append(flash_record)
+
+    assert (
+        ledger.reusable_record(
+            "gemini-enterprise-agent-platform",
+            prompt_sha256,
+            "gemini-3.1-pro-preview",
+        )["parsed_payload"]["claims"][0]["claim_text"]
+        == "pro output"
+    )
+    assert (
+        ledger.reusable_record(
+            "gemini-enterprise-agent-platform",
+            prompt_sha256,
+            "gemini-3.1-flash-lite",
+        )["parsed_payload"]["claims"][0]["claim_text"]
+        == "flash output"
+    )
+    assert ledger.reusable_record("gemini-enterprise-agent-platform", prompt_sha256, "gemini-other") is None
+
+
+def test_chunk_failure_classifier_separates_scheduler_and_schema_failures() -> None:
+    assert _artifact_execution_status(
+        {
+            "status": "failed",
+            "schema_valid": False,
+            "failure_reason": "provider_exception",
+            "provider_error": {"message": "HTTP 429 resource exhausted; Retry-After: 17"},
+            "retry": {"attempts": 1, "max_attempts": 1, "retryable": True},
+        }
+    ) == "rate_limited"
+    assert _retry_after_seconds_from_text("HTTP 429 resource exhausted; Retry-After: 17") == 17
+    assert _artifact_execution_status(
+        {
+            "status": "ok",
+            "schema_valid": False,
+            "parse_status": "parsed_original",
+            "schema_errors": ["claims[0].evidence_refs is required"],
+            "retry": {"attempts": 1, "max_attempts": 1, "retryable": False},
+        }
+    ) == "schema_invalid"
+    assert _artifact_execution_status(
+        {
+            "status": "ok",
+            "schema_valid": False,
+            "parse_status": "invalid_after_repair",
+            "schema_errors": ["invalid JSON"],
+            "retry": {"attempts": 1, "max_attempts": 1, "retryable": False},
+        }
+    ) == "deterministic_parse_failure"
+
+
+def test_chunk_bundle_keeps_db_coverage_summary_out_of_row_ledger() -> None:
+    bundle = _chunk_contract_bundle(3)
+    bundle["db_corpus_coverage"] = {
+        "schema_version": "db_corpus_coverage.v1",
+        "total_row_count": 3,
+        "covered_row_count": 3,
+        "uncovered_row_count": 0,
+        "coverage_ratio": 1.0,
+        "row_assignments_sha256": "ledger-sha",
+        "row_assignments": [{"log_id": "row-1"}, {"log_id": "row-2"}, {"log_id": "row-3"}],
+    }
+    items = list(bundle["evidence_items"])[:2]
+
+    chunk = _bundle_for_evidence_chunk(
+        bundle,
+        evidence_items=items,
+        chunk_index=1,
+        total_chunks=2,
+    )
+
+    assert "row_assignments" in bundle["db_corpus_coverage"]
+    assert chunk["db_corpus_coverage"]["row_assignments_sha256"] == "ledger-sha"
+    assert "row_assignments" not in chunk["db_corpus_coverage"]
+    assert chunk["evidence_items"] == items
+    assert set(chunk["evidence_refs"]) == {"PATTERN-001", "PATTERN-002"}
 
 
 def test_disagreement_without_agreement_generates_validation_finding() -> None:

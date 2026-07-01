@@ -10,9 +10,9 @@ Ops Evidence Synthesis
 
 ## One-Line Summary
 
-Local-first DevOps incident review agent that keeps raw logs private, compares
-Gemini-led multi-provider analysis, and re-scores review decisions when missing
-evidence arrives.
+Local-first DevOps incident review agent that keeps raw logs private, runs a
+chunked real-provider review over sanitized evidence, and re-scores review
+decisions when missing evidence arrives.
 
 ## Problem
 
@@ -26,14 +26,15 @@ enough evidence exists.
 
 ## Solution
 
-The system turns local sanitized logs into a SHA-fixed Evidence Bundle, runs a
-Gemini-led multi-provider review, validates cited claims, preserves provider
-disagreement, and projects the result into a Canonical Review Graph.
+The system turns local sanitized logs into a SHA-fixed Evidence Bundle, assigns
+every sanitized row to a coverage ledger, runs a chunked real-provider review,
+validates cited claims, and projects the result into a Canonical Review Graph.
 
-Gemini Enterprise Agent Platform is the required first provider and reference
-point for comparison. gpt-oss, Mistral, Qwen, and GLM act as adversarial
-cross-checks. Agreement becomes a review signal. Disagreement becomes a
-validation target. Score is review priority, not truth probability.
+The current public flagship run uses Gemini, GPT OSS, Mistral, Qwen, and GLM
+real API outputs over provider-specific chunks. Provider support is review
+work, not truth.
+Unresolved impact and operational-outcome questions remain validation targets.
+Score is review priority, not truth probability.
 
 The public Cloud Run surface is read-only and precomputed. Reviewers can inspect
 the exact fixed artifacts without uploading raw logs, using credentials, or
@@ -60,17 +61,18 @@ human-gated.
 The main review page shows a five-provider source-aware run over the
 amazon-notify public payload:
 
-- Evidence SHA256: `7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb`
-- Sanitized log count: 23,400
+- Evidence SHA256: `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec`
+- Sanitized log count: 44,944
 - Raw log policy: `not_uploaded`
-- Providers: Gemini, gpt-oss, Mistral, Qwen, GLM
-- Output state: schema-valid provider outputs with review targets
+- Providers: Gemini, GPT OSS, Mistral, Qwen, and GLM
+- Maximum chunked provider calls: 105
+- Output state: 5/5 schema-valid provider outputs with human-gated review targets
 
 Live URL:
-https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+https://ops-evidence.yukimurata0421.dev/?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 
 Detail URL:
-https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 
 ## Run
 
@@ -86,7 +88,7 @@ The More data re-score demo shows the AI improvement cycle directly:
 - Promotion score: `0.84`
 - Review priority score: `0.86`
 - Blocked reasons: cleared
-- Provider positions: all five providers recorded, with the after state showing
+- Provider positions: recorded for the demo state, with the after state showing
   the target as `claimed`
 - Promotion reason: child evidence added user-impact rows and removed
   `user_impact_unverified`
@@ -103,8 +105,8 @@ decision only after the evidence boundary is satisfied.
 The public product path is deployed to Cloud Run behind a custom domain:
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- Visual graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- Visual graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 
 The release path runs:
 
@@ -128,11 +130,11 @@ Flow:
 raw logs stay local
 -> sanitize and verify
 -> sanitized code context
--> Gemini-focused system profile draft
+-> source-aware system profile draft
 -> human-approved profile context
 -> SHA-fixed Evidence Bundle
--> Gemini reference provider
--> cross-check providers
+-> Mistral full-corpus chunks
+-> recorded provider output
 -> schema and evidence-reference validation
 -> Canonical Review Graph
 -> read-only Cloud Run UI

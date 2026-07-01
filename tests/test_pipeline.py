@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ops_evidence_synthesis.ai.base import ModelResponse
+from ops_evidence_synthesis.bundle import EvidenceBundleBuilder
 from ops_evidence_synthesis.ingest import ingest_jsonl
 from ops_evidence_synthesis.models import IncidentWindow, ModelRunRecord
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
@@ -14,6 +15,39 @@ from ops_evidence_synthesis.synthesis.pipeline import run_model_stage, run_pipel
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+_RARE_WORDS = (
+    "alpha",
+    "bravo",
+    "charlie",
+    "delta",
+    "echo",
+    "foxtrot",
+    "golf",
+    "hotel",
+    "india",
+    "juliet",
+    "kilo",
+    "lima",
+    "mike",
+    "november",
+    "oscar",
+    "papa",
+    "quebec",
+    "romeo",
+    "sierra",
+    "tango",
+    "uniform",
+    "victor",
+    "whiskey",
+    "xray",
+    "yankee",
+    "zulu",
+    "amber",
+    "cobalt",
+    "ivory",
+    "scarlet",
+)
 
 
 def test_pipeline_runs_end_to_end(tmp_path: Path) -> None:
@@ -77,6 +111,67 @@ def test_pipeline_runs_end_to_end(tmp_path: Path) -> None:
     assert empty_result.review_queue_count == 0
     assert empty_result.canonical_graph_status == "persisted"
     assert store.list_review_queue(evidence_sha256=empty_result.evidence_sha256) == []
+
+
+def test_sqlite_bundle_assigns_every_db_row_to_evidence_item_including_singletons(tmp_path: Path) -> None:
+    raw = tmp_path / "rare.jsonl"
+    raw.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "timestamp": f"2026-06-12T10:{index:02d}:00Z",
+                    "service": "coverage-api",
+                    "environment": "prod",
+                    "severity": "INFO",
+                    "message": f"rare singleton marker {word}",
+                },
+                sort_keys=True,
+            )
+            for index, word in enumerate(_RARE_WORDS)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    store = SQLiteStore(tmp_path / "coverage.sqlite3")
+    assert ingest_jsonl(raw, store) == len(_RARE_WORDS)
+
+    bundle = EvidenceBundleBuilder(store).build(
+        IncidentWindow(
+            service="coverage-api",
+            environment="prod",
+            incident_start="2026-06-12T10:00:00Z",
+            incident_end="2026-06-12T10:30:00Z",
+            lookback_minutes=60,
+        )
+    )
+    coverage = bundle["db_corpus_coverage"]
+    row_assignments = coverage["row_assignments"]
+
+    assert coverage["total_row_count"] == len(_RARE_WORDS)
+    assert coverage["covered_row_count"] == len(_RARE_WORDS)
+    assert coverage["uncovered_row_count"] == 0
+    assert coverage["coverage_ratio"] == 1.0
+    assert coverage["pattern_count"] == len(_RARE_WORDS)
+    assert coverage["singleton_pattern_count"] == len(_RARE_WORDS)
+    assert coverage["low_frequency_pattern_count"] == len(_RARE_WORDS)
+    assert coverage["row_assignments_sha256"]
+    assert len(row_assignments) == len(_RARE_WORDS)
+    assert all(str(row["evidence_id"]).startswith("PATTERN-") for row in row_assignments)
+    assert all(row["evidence_item_id"] == row["evidence_id"] for row in row_assignments)
+    assert {row["coverage_class"] for row in row_assignments} == {"singleton"}
+    assert all(row["direct_prompt"] is False for row in row_assignments)
+    assert all(row["assignment_reason"] == "single_occurrence_preserved" for row in row_assignments)
+    assert all(row["template_hash"] for row in row_assignments)
+    assert coverage["coverage_class_counts"] == {"singleton": len(_RARE_WORDS)}
+    assert coverage["direct_prompt_row_count"] == 0
+    assert coverage["raw_rows_sent_to_providers"] is False
+    assert {row["raw_log_sha256"] for row in row_assignments}
+    assert len(bundle["log_patterns"]) == len(_RARE_WORDS)
+    assert "PATTERN-030" in {item["evidence_id"] for item in bundle["evidence_items"]}
+    assert all(int(item["count"]) == 1 for item in bundle["evidence_items"] if item["type"] == "log_pattern")
+    assert {item["coverage_class"] for item in bundle["evidence_items"] if item["type"] == "log_pattern"} == {
+        "singleton"
+    }
 
 
 @dataclass(frozen=True, slots=True)

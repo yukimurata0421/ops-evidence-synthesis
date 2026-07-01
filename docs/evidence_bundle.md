@@ -17,6 +17,7 @@ raw operational material
   -> local sanitize
   -> local verify-sanitized
   -> sanitized normalized events
+  -> DB row coverage ledger
   -> evidence_bundle.json
   -> provider input / review graph / evidence request planning
 ```
@@ -34,7 +35,28 @@ A sanitized Evidence Bundle must satisfy these properties:
   paths, and internal URLs are not present.
 - Runtime support evidence is represented by Evidence Items with stable
   `evidence_id` values.
+- DB-backed bundles include `db_corpus_coverage`, which assigns every
+  `logs_sanitized` row in the incident window to a grouped Evidence Item before
+  provider chunking.
 - The stable evidence hash excludes generation metadata such as `created_at`.
+
+## DB Corpus Coverage
+
+For SQLite-backed runs, the DB remains local and is not sent to providers. The
+bundle builder reads the full incident window from `logs_sanitized`, groups rows
+by sanitized `message_template` and `error_type`, and emits one `PATTERN-*`
+Evidence Item per group. Count alone does not decide inclusion: singleton and
+low-frequency groups are retained as Evidence Items.
+
+The `db_corpus_coverage` ledger records:
+
+- total, covered, and uncovered sanitized DB rows
+- pattern count and singleton/low-frequency pattern counts
+- a SHA256 over row-to-Evidence-Item assignments
+- sanitized row assignment metadata for local audit
+
+Provider calls receive the sanitized Evidence Items in bounded chunks. They do
+not receive the SQLite DB file or the full row assignment ledger.
 
 ## Evidence Versus Context
 

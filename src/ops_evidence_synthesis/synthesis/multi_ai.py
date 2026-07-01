@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+import time
 import uuid
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -34,6 +37,10 @@ from ops_evidence_synthesis.source_context import (
     validate_source_analysis_bundle_for_upload,
     validate_source_context_bundle_for_upload,
 )
+from ops_evidence_synthesis.storage.provider_chunk_runs import (
+    ProviderChunkRunStore,
+    build_provider_chunk_run_store_from_env,
+)
 from ops_evidence_synthesis.synthesis.output_ingest import model_output_artifact, parse_model_output
 from ops_evidence_synthesis.synthesis.validation import validate_claim_result
 from ops_evidence_synthesis.timeutils import utc_now
@@ -42,6 +49,34 @@ from ops_evidence_synthesis.timeutils import utc_now
 MODEL_RUN_SCHEMA_VERSION = "model_run.v1"
 MULTI_AI_SYNTHESIS_SCHEMA_VERSION = "multi_ai_synthesis.v1"
 SCORE_NOTE = "Score is review priority, not truth probability."
+DEFAULT_EVIDENCE_CHUNK_SIZE = 140
+DEFAULT_CHUNK_TARGET_TOKENS = 70_000
+PARTIAL_CHUNK_SUCCESS_MIN_RATIO = 0.8
+PROVIDER_CHUNK_TARGET_TOKENS = {
+    "gemini-enterprise-agent-platform": 80_000,
+    "openai-gpt-oss-on-vertex": 64_000,
+    "qwen-agent-platform": 80_000,
+    "glm-agent-platform": 80_000,
+    "llama-agent-platform": 80_000,
+    "mistral-agent-platform": 120_000,
+    "claude-agent-platform": 48_000,
+}
+PROVIDER_EVIDENCE_CHUNK_SIZE = {
+    "mistral-agent-platform": 500,
+}
+PROVIDER_CHUNK_WORKER_DEFAULTS = {
+    "mistral-agent-platform": 1,
+}
+PROVIDER_CHUNK_INPUT_TOKENS_PER_MINUTE = {
+    "mistral-agent-platform": 60_000,
+}
+PROVIDER_CHUNK_MIN_START_INTERVAL_SECONDS = {
+    "mistral-agent-platform": 120.0,
+}
+PROVIDER_RATE_LIMIT_COOLDOWN_SECONDS = {
+    "mistral-agent-platform": 180.0,
+}
+MIN_ADAPTIVE_SUBCHUNK_TOKENS = 8_000
 _EVIDENCE_REF_RE = re.compile(r"\b(?:PATTERN|LOG|EV|EVIDENCE)-\d+\b")
 SUPPORTED_MODEL_STATUSES = {
     "ok",
@@ -51,6 +86,18 @@ SUPPORTED_MODEL_STATUSES = {
     "blocked_by_safety_preflight",
 }
 FAILED_MODEL_STATUSES = {"failed", "error", "timeout", "blocked_by_safety_preflight"}
+CHUNK_FAILURE_STATUSES = {
+    "context_length",
+    "deterministic_parse_failure",
+    "empty_response",
+    "provider_error",
+    "rate_limited",
+    "retry_exhausted",
+    "safety_filter",
+    "schema_invalid",
+    "timeout",
+}
+PROVIDER_CHUNK_LEDGER_FILENAME = "provider_chunk_runs.jsonl"
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +106,153 @@ class _ArtifactEnvelope:
     raw_output: str
     parsed_payload: dict[str, Any]
     output_parse: Any
+
+
+@dataclass(slots=True)
+class _ProviderChunkStartPacer:
+    provider_id: str
+    last_started_at: float = 0.0
+    blocked_until: float = 0.0
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def wait(self, items: list[dict[str, Any]]) -> None:
+        interval = _chunk_start_interval_seconds(self.provider_id, items)
+        if interval <= 0:
+            return
+        with self.lock:
+            now = time.monotonic()
+            if self.blocked_until > now:
+                time.sleep(self.blocked_until - now)
+                now = time.monotonic()
+            if self.last_started_at > 0:
+                sleep_for = max(0.0, self.last_started_at + interval - now)
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
+            self.last_started_at = time.monotonic()
+
+    def note_result(self, envelope: _ArtifactEnvelope) -> None:
+        if _chunk_envelope_execution_status(envelope) != "rate_limited":
+            return
+        cooldown = _provider_rate_limit_cooldown_seconds(self.provider_id)
+        if cooldown <= 0:
+            return
+        with self.lock:
+            self.blocked_until = max(self.blocked_until, time.monotonic() + cooldown)
+
+
+@dataclass(slots=True)
+class _ProviderChunkLedger:
+    records: list[dict[str, Any]]
+    cache: dict[str, dict[str, Any]]
+    path: Path | None = None
+    backend: ProviderChunkRunStore | None = None
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def success_record(self, provider_id: str, prompt_sha256: str, model_name: str = "") -> dict[str, Any] | None:
+        if self.backend is not None:
+            record = self.backend.success_record(provider_id, prompt_sha256)
+            if record is not None and _chunk_record_is_success(record) and _chunk_record_matches_model(record, model_name):
+                self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+                return record
+        record = self.cache.get(_chunk_cache_key(provider_id, prompt_sha256, model_name))
+        if not record:
+            return None
+        if _chunk_record_is_success(record) and _chunk_record_matches_model(record, model_name):
+            return record
+        return None
+
+    def reusable_record(self, provider_id: str, prompt_sha256: str, model_name: str = "") -> dict[str, Any] | None:
+        success = self.success_record(provider_id, prompt_sha256, model_name)
+        if success is not None:
+            return success
+        if not _reuse_failed_chunk_records(provider_id):
+            return None
+        if self.backend is not None:
+            record = self.backend.latest_record(provider_id, prompt_sha256)
+            if _chunk_record_is_reusable(record) and _chunk_record_matches_model(record, model_name):
+                self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+                return record
+        record = self.cache.get(_chunk_cache_key(provider_id, prompt_sha256, model_name))
+        return record if _chunk_record_is_reusable(record) and _chunk_record_matches_model(record, model_name) else None
+
+    def append(self, record: dict[str, Any]) -> None:
+        with self.lock:
+            self.records.append(record)
+            provider_id = str(record.get("provider_id") or "")
+            model_name = str(record.get("model_name") or "")
+            prompt_sha256 = str(record.get("prompt_sha256") or "")
+            if provider_id and prompt_sha256:
+                self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+            if self.path is not None:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                with self.path.open("a", encoding="utf-8") as handle:
+                    handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+        if self.backend is not None:
+            self.backend.upsert_record(record)
+
+
+def _chunk_record_is_success(record: dict[str, Any]) -> bool:
+    if str(record.get("status") or "") != "ok":
+        return False
+    artifact = record.get("artifact") if isinstance(record.get("artifact"), dict) else {}
+    parsed_payload = record.get("parsed_payload") if isinstance(record.get("parsed_payload"), dict) else {}
+    return artifact.get("schema_valid") is True and bool(parsed_payload)
+
+
+def _chunk_record_is_reusable(record: dict[str, Any] | None) -> bool:
+    if not isinstance(record, dict):
+        return False
+    artifact = record.get("artifact") if isinstance(record.get("artifact"), dict) else {}
+    parsed_payload = record.get("parsed_payload") if isinstance(record.get("parsed_payload"), dict) else {}
+    if not artifact or not parsed_payload:
+        return False
+    return bool(str(record.get("status") or ""))
+
+
+def _chunk_record_matches_model(record: dict[str, Any], model_name: str = "") -> bool:
+    requested = str(model_name or "").strip()
+    if not requested:
+        return True
+    recorded = str(record.get("model_name") or "").strip()
+    return bool(recorded) and recorded == requested
+
+
+def _reuse_failed_chunk_records(provider_id: str = "") -> bool:
+    mapped = _mapped_provider_setting("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS_BY_PROVIDER", provider_id)
+    if mapped:
+        return mapped.strip().casefold() in {"1", "true", "yes", "on"}
+    raw = os.environ.get("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS", "").strip().casefold()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _chunk_cache_key(provider_id: str, prompt_sha256: str, model_name: str = "") -> str:
+    return sha256_text(f"{provider_id}:{model_name}:{prompt_sha256}")
+
+
+def _provider_chunk_ledger_for_output_dir(output_dir: str | Path | None) -> _ProviderChunkLedger:
+    path = Path(output_dir) / PROVIDER_CHUNK_LEDGER_FILENAME if output_dir is not None else None
+    records: list[dict[str, Any]] = []
+    cache: dict[str, dict[str, Any]] = {}
+    if path is not None and path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(record, dict):
+                continue
+            records.append(record)
+            provider_id = str(record.get("provider_id") or "")
+            model_name = str(record.get("model_name") or "")
+            prompt_sha256 = str(record.get("prompt_sha256") or "")
+            if provider_id and prompt_sha256:
+                cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+    backend = build_provider_chunk_run_store_from_env()
+    if backend is not None:
+        backend.init_schema()
+    return _ProviderChunkLedger(records=records, cache=cache, path=path, backend=backend)
 
 
 def run_multi_ai(
@@ -84,6 +278,7 @@ def run_multi_ai(
     )
     provider_list = build_multi_ai_providers(providers, mode=mode)
     evidence_sha = str(evidence_bundle.get("evidence_sha256") or "")
+    chunk_ledger = _provider_chunk_ledger_for_output_dir(output_dir)
     owns_pipeline_run = pipeline_run_id is None and store is not None
     if owns_pipeline_run:
         pipeline_run_id = start_pipeline_run(
@@ -120,7 +315,13 @@ def run_multi_ai(
             status="running",
             message="Safety preflight will run before provider calls.",
         )
-        model_runs = _run_model_artifacts(bundle, provider_list, store=store, pipeline_run_id=pipeline_run_id)
+        model_runs = _run_model_artifacts(
+            bundle,
+            provider_list,
+            store=store,
+            pipeline_run_id=pipeline_run_id,
+            chunk_ledger=chunk_ledger,
+        )
         record_pipeline_event(
             store,
             pipeline_run_id=pipeline_run_id,
@@ -200,6 +401,7 @@ def run_multi_ai(
             "context_inputs": _context_input_summary(bundle),
             "profile_context": profile_context,
             "model_runs": model_runs,
+            "provider_chunk_runs": chunk_ledger.records,
             "multi_ai_synthesis": synthesis,
             "canonical_review_graph": canonical_review_graph,
             "canonical_graph_status": graph_resolution.get("canonical_graph_status"),
@@ -278,6 +480,9 @@ def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> No
     with (out / "model_runs.jsonl").open("w", encoding="utf-8") as handle:
         for run in result.get("model_runs") or []:
             handle.write(json.dumps(run, ensure_ascii=False, sort_keys=True) + "\n")
+    with (out / PROVIDER_CHUNK_LEDGER_FILENAME).open("w", encoding="utf-8") as handle:
+        for run in result.get("provider_chunk_runs") or []:
+            handle.write(json.dumps(run, ensure_ascii=False, sort_keys=True) + "\n")
     (out / "multi_ai_synthesis.json").write_text(
         pretty_json(result.get("multi_ai_synthesis") or {}) + "\n",
         encoding="utf-8",
@@ -310,6 +515,7 @@ def _public_multi_ai_run_result(result: dict[str, Any]) -> dict[str, Any]:
             "context_inputs",
             "profile_context",
             "model_runs",
+            "provider_chunk_runs",
             "multi_ai_synthesis",
             "canonical_review_graph",
             "canonical_graph_status",
@@ -389,6 +595,7 @@ def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[s
         if run.get("status") in FAILED_MODEL_STATUSES
         or (run.get("status") == "ok" and run.get("schema_valid") is not True)
     ]
+    provider_execution_status_counts = Counter(_artifact_execution_status(run) for run in model_runs)
     cost_summary = summarize_model_run_costs(model_runs)
     known_refs = _known_evidence_refs(evidence_bundle)
     claim_groups = _claim_groups(successful, known_refs)
@@ -438,6 +645,12 @@ def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[s
         "successful_provider_count": len(successful),
         "failed_provider_count": len(failed),
         "skipped_provider_count": sum(1 for run in model_runs if run.get("status") == "skipped_not_configured"),
+        "provider_execution_status_counts": dict(sorted(provider_execution_status_counts.items())),
+        "provider_failure_count_excluding_silent": sum(
+            count
+            for status, count in provider_execution_status_counts.items()
+            if status not in {"ok", "skipped_not_configured"}
+        ),
         "token_usage": {
             "input_tokens": cost_summary["input_tokens"],
             "output_tokens": cost_summary["output_tokens"],
@@ -484,6 +697,7 @@ def _run_model_artifacts(
     *,
     store: Any | None = None,
     pipeline_run_id: str | None = None,
+    chunk_ledger: _ProviderChunkLedger | None = None,
 ) -> list[dict[str, Any]]:
     if not providers:
         return []
@@ -496,7 +710,11 @@ def _run_model_artifacts(
         step_key="providers_scheduled",
         status="running",
         message=f"{len(providers)} provider run(s) scheduled.",
-        metadata={"provider_count": len(providers), "providers": [provider.provider for provider in providers]},
+        metadata={
+            "provider_count": len(providers),
+            "providers": [provider.provider for provider in providers],
+            "full_corpus_coverage": _full_corpus_coverage_summary(bundle),
+        },
     )
     model_input = _model_input(bundle)
     preflight = safety_preflight(model_input)
@@ -529,7 +747,7 @@ def _run_model_artifacts(
         message="Safety preflight passed.",
     )
     if len(providers) == 1:
-        envelopes = [_run_single_provider(bundle, providers[0], preflight)]
+        envelopes = [_run_provider_full_corpus(bundle, providers[0], preflight, chunk_ledger=chunk_ledger)]
         _persist_artifact_envelopes(store, envelopes)
         _record_multi_ai_provider_events(store, pipeline_run_id, [envelope.artifact for envelope in envelopes])
         return [envelope.artifact for envelope in envelopes]
@@ -537,7 +755,7 @@ def _run_model_artifacts(
     by_index: dict[int, _ArtifactEnvelope] = {}
     with ThreadPoolExecutor(max_workers=_provider_worker_count(len(providers)), thread_name_prefix="oes-multi-ai") as executor:
         futures = {
-            executor.submit(_run_single_provider, bundle, provider, preflight): index
+            executor.submit(_run_provider_full_corpus, bundle, provider, preflight, chunk_ledger=chunk_ledger): index
             for index, provider in enumerate(providers)
         }
         for future in as_completed(futures):
@@ -564,6 +782,7 @@ def _provider_worker_count(provider_count: int) -> int:
 def _record_multi_ai_provider_events(store: Any | None, pipeline_run_id: str | None, artifacts: list[dict[str, Any]]) -> None:
     for artifact in artifacts:
         status = str(artifact.get("status") or "")
+        execution_status = _artifact_execution_status(artifact)
         schema_valid = bool(artifact.get("schema_valid"))
         if status == "ok" and schema_valid:
             event_status = "completed"
@@ -586,6 +805,8 @@ def _record_multi_ai_provider_events(store: Any | None, pipeline_run_id: str | N
                 "provider_id": artifact.get("provider_id") or "",
                 "model_name": artifact.get("model_name") or "",
                 "status": status,
+                "execution_status": execution_status,
+                "failure_is_not_silent": execution_status in CHUNK_FAILURE_STATUSES,
                 "artifact_id": artifact.get("run_id") or "",
                 "run_id": artifact.get("run_id") or "",
                 "raw_output_sha256": artifact.get("raw_output_sha256") or "",
@@ -659,12 +880,1592 @@ def _run_single_provider(
         output_parse=output_parse,
         schema_repair_rules=schema_repair_rules,
     )
+    if status != "ok" and isinstance(output_parse.parsed, dict):
+        artifact["provider_error"] = _provider_error_detail(output_parse.parsed)
+    _annotate_execution_status(artifact)
     return _ArtifactEnvelope(
         artifact=artifact,
         raw_output=response.raw_output,
         parsed_payload=parsed_payload,
         output_parse=output_parse,
     )
+
+
+def _run_provider_chunk(
+    bundle: dict[str, Any],
+    provider: ModelProvider,
+    preflight: SafetyPreflightResult,
+    chunk_ledger: _ProviderChunkLedger | None = None,
+) -> _ArtifactEnvelope:
+    cached_envelope = _cached_provider_chunk_envelope(bundle, provider, chunk_ledger)
+    if cached_envelope is not None:
+        return cached_envelope
+
+    chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+    started_at = utc_now()
+    envelope = _run_single_provider(bundle, provider, preflight)
+    finished_at = utc_now()
+    if chunk_ledger is not None and chunk:
+        chunk_ledger.append(
+            _provider_chunk_run_record(
+                bundle=bundle,
+                provider=provider,
+                envelope=envelope,
+                started_at=started_at,
+                finished_at=finished_at,
+            )
+        )
+    return envelope
+
+
+def _envelope_from_chunk_ledger_record(record: dict[str, Any]) -> _ArtifactEnvelope:
+    artifact = json.loads(json.dumps(record.get("artifact") or {}, ensure_ascii=False))
+    parsed_payload = json.loads(json.dumps(record.get("parsed_payload") or {}, ensure_ascii=False))
+    artifact["provider_chunk_cache_hit"] = True
+    retry = artifact.get("retry") if isinstance(artifact.get("retry"), dict) else {}
+    artifact["retry"] = {**retry, "cache_hit": True}
+    _annotate_execution_status(artifact)
+    raw_output = json.dumps(parsed_payload, ensure_ascii=False, sort_keys=True)
+    return _ArtifactEnvelope(
+        artifact=artifact,
+        raw_output=raw_output,
+        parsed_payload=parsed_payload,
+        output_parse=parse_model_output(raw_output),
+    )
+
+
+def _provider_chunk_run_record(
+    *,
+    bundle: dict[str, Any],
+    provider: ModelProvider,
+    envelope: _ArtifactEnvelope,
+    started_at: str,
+    finished_at: str,
+) -> dict[str, Any]:
+    artifact = envelope.artifact
+    chunk = _artifact_chunk_manifest(artifact)
+    prompt_sha256 = str(chunk.get("provider_prompt_sha256") or "")
+    execution_status = _artifact_execution_status(artifact)
+    retry = artifact.get("retry") if isinstance(artifact.get("retry"), dict) else {}
+    failure_message = _artifact_failure_message(artifact)
+    return {
+        "schema_version": "provider_chunk_run.v1",
+        "run_id": str(artifact.get("run_id") or ""),
+        "evidence_sha256": str(bundle.get("evidence_sha256") or artifact.get("evidence_sha256") or ""),
+        "provider_id": provider.provider,
+        "model_name": provider.model_name,
+        "chunk_id": str(chunk.get("chunk_id") or ""),
+        "chunk_index": int(chunk.get("chunk_index") or 0),
+        "chunk_count": int(chunk.get("chunk_count") or 0),
+        "chunk_type": str(chunk.get("chunk_type") or ""),
+        "prompt_sha256": prompt_sha256,
+        "prompt_cache_key": _chunk_cache_key(provider.provider, prompt_sha256, provider.model_name) if prompt_sha256 else "",
+        "status": execution_status,
+        "provider_status": str(artifact.get("status") or ""),
+        "schema_valid": bool(artifact.get("schema_valid")),
+        "attempt_count": int(retry.get("attempts") or 0),
+        "max_attempts": int(retry.get("max_attempts") or 0),
+        "retried": bool(retry.get("retried")),
+        "retryable": bool(retry.get("retryable")),
+        "last_error_type": "" if execution_status == "ok" else execution_status,
+        "last_error_message": failure_message[:1000],
+        "retry_after_sec": _retry_after_seconds_from_text(failure_message),
+        "input_tokens": int(artifact.get("input_tokens") or 0),
+        "output_tokens": int(artifact.get("output_tokens") or 0),
+        "latency_ms": int(artifact.get("latency_ms") or 0),
+        "raw_output_sha256": str(artifact.get("raw_output_sha256") or ""),
+        "parsed_output_sha256": str(artifact.get("parsed_json_sha256") or ""),
+        "parse_status": str(artifact.get("parse_status") or ""),
+        "repair_applied": bool(artifact.get("repair_applied")),
+        "repair_rules": list(artifact.get("repair_rules") or []),
+        "semantic_keys": list(chunk.get("semantic_keys") or []),
+        "coverage_classes": list(chunk.get("coverage_classes") or []),
+        "source_log_count": int(chunk.get("source_log_count") or 0),
+        "evidence_item_count": int(chunk.get("evidence_item_count") or 0),
+        "estimated_input_tokens": int(chunk.get("estimated_input_tokens") or 0),
+        "token_budget": int(chunk.get("token_budget") or 0),
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "artifact": artifact,
+        "parsed_payload": envelope.parsed_payload,
+    }
+
+
+def _run_provider_full_corpus(
+    bundle: dict[str, Any],
+    provider: ModelProvider,
+    preflight: SafetyPreflightResult,
+    *,
+    chunk_ledger: _ProviderChunkLedger | None = None,
+) -> _ArtifactEnvelope:
+    chunks = _evidence_item_chunks(bundle, provider_id=provider.provider)
+    if len(chunks) <= 1:
+        envelope = _run_single_provider(bundle, provider, preflight)
+        coverage = _full_corpus_coverage_summary(bundle, chunk_count=1, provider_id=provider.provider)
+        envelope.artifact["full_corpus_coverage"] = coverage
+        envelope.artifact.setdefault("model_input_context", {})["full_corpus_coverage"] = coverage
+        return envelope
+
+    child_envelopes = _run_provider_chunks_parallel(bundle, provider, preflight, chunks, chunk_ledger=chunk_ledger)
+
+    return _merge_chunked_provider_envelopes(
+        bundle,
+        provider,
+        preflight,
+        child_envelopes,
+        chunk_count=len(chunks),
+    )
+
+
+def _run_provider_chunks_parallel(
+    bundle: dict[str, Any],
+    provider: ModelProvider,
+    preflight: SafetyPreflightResult,
+    chunks: list[list[dict[str, Any]]],
+    *,
+    chunk_ledger: _ProviderChunkLedger | None = None,
+) -> list[_ArtifactEnvelope]:
+    pacer = _ProviderChunkStartPacer(provider.provider)
+    if len(chunks) <= 1:
+        child_bundle = _bundle_for_evidence_chunk(
+            bundle,
+            evidence_items=chunks[0] if chunks else [],
+            chunk_index=1,
+            total_chunks=1,
+            provider_id=provider.provider,
+        )
+        pacer.wait(chunks[0] if chunks else [])
+        return [_run_provider_chunk(child_bundle, provider, preflight, chunk_ledger=chunk_ledger)]
+
+    by_index: dict[int, _ArtifactEnvelope] = {}
+    with ThreadPoolExecutor(
+        max_workers=_chunk_worker_count(len(chunks), provider.provider),
+        thread_name_prefix=f"oes-{provider.provider}-chunk",
+    ) as executor:
+        futures = {}
+        for index, items in enumerate(chunks, start=1):
+            child_bundle = _bundle_for_evidence_chunk(
+                bundle,
+                evidence_items=items,
+                chunk_index=index,
+                total_chunks=len(chunks),
+                provider_id=provider.provider,
+            )
+            futures[
+                executor.submit(
+                    _run_provider_chunk_with_pacing,
+                    child_bundle,
+                    provider,
+                    preflight,
+                    items,
+                    pacer,
+                    chunk_ledger,
+                )
+            ] = index
+        for future in as_completed(futures):
+            by_index[futures[future]] = future.result()
+    _retry_failed_chunk_envelopes(
+        bundle,
+        provider,
+        preflight,
+        chunks,
+        by_index,
+        pacer=pacer,
+        chunk_ledger=chunk_ledger,
+    )
+    return [by_index[index] for index in range(1, len(chunks) + 1)]
+
+
+def _run_provider_chunk_with_pacing(
+    child_bundle: dict[str, Any],
+    provider: ModelProvider,
+    preflight: SafetyPreflightResult,
+    items: list[dict[str, Any]],
+    pacer: _ProviderChunkStartPacer,
+    chunk_ledger: _ProviderChunkLedger | None,
+) -> _ArtifactEnvelope:
+    cached_envelope = _cached_provider_chunk_envelope(child_bundle, provider, chunk_ledger)
+    if cached_envelope is not None:
+        return cached_envelope
+    pacer.wait(items)
+    envelope = _run_provider_chunk(child_bundle, provider, preflight, chunk_ledger=chunk_ledger)
+    pacer.note_result(envelope)
+    return envelope
+
+
+def _cached_provider_chunk_envelope(
+    bundle: dict[str, Any],
+    provider: ModelProvider,
+    chunk_ledger: _ProviderChunkLedger | None,
+) -> _ArtifactEnvelope | None:
+    if chunk_ledger is None:
+        return None
+    chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+    prompt_sha256 = str(chunk.get("provider_prompt_sha256") or "")
+    if not prompt_sha256:
+        return None
+    cached = chunk_ledger.reusable_record(provider.provider, prompt_sha256, provider.model_name)
+    if cached is None:
+        return None
+    return _envelope_from_chunk_ledger_record(cached)
+
+
+def _retry_failed_chunk_envelopes(
+    bundle: dict[str, Any],
+    provider: ModelProvider,
+    preflight: SafetyPreflightResult,
+    chunks: list[list[dict[str, Any]]],
+    by_index: dict[int, _ArtifactEnvelope],
+    *,
+    pacer: _ProviderChunkStartPacer,
+    chunk_ledger: _ProviderChunkLedger | None = None,
+) -> None:
+    attempts = _chunk_retry_attempts()
+    if attempts <= 0:
+        return
+    total_chunks = len(chunks)
+    for _attempt in range(attempts):
+        failed_indexes = [
+            index
+            for index in range(1, total_chunks + 1)
+            if by_index.get(index) is None or _chunk_envelope_retryable(by_index[index])
+        ]
+        if not failed_indexes:
+            return
+        retry_workers = _retry_chunk_worker_count(
+            failed_indexes,
+            provider_id=provider.provider,
+            by_index=by_index,
+        )
+        retry_delay = _chunk_retry_delay_seconds(
+            failed_indexes,
+            provider_id=provider.provider,
+            by_index=by_index,
+            attempt_index=_attempt + 1,
+        )
+        if retry_delay > 0:
+            time.sleep(retry_delay)
+        with ThreadPoolExecutor(
+            max_workers=retry_workers,
+            thread_name_prefix=f"oes-{provider.provider}-chunk-retry",
+        ) as executor:
+            futures = {}
+            for index in failed_indexes:
+                items = chunks[index - 1]
+                failure_status = _chunk_envelope_execution_status(by_index.get(index))
+                if _adaptive_subchunk_retry_enabled(provider.provider, items, failure_status=failure_status):
+                    futures[
+                        executor.submit(
+                            _run_adaptive_subchunk_retry,
+                            bundle,
+                            provider,
+                            preflight,
+                            items,
+                            index,
+                            total_chunks,
+                            pacer=pacer,
+                            chunk_ledger=chunk_ledger,
+                        )
+                    ] = index
+                    continue
+                child_bundle = _bundle_for_evidence_chunk(
+                    bundle,
+                    evidence_items=items,
+                    chunk_index=index,
+                    total_chunks=total_chunks,
+                    provider_id=provider.provider,
+                )
+                futures[
+                    executor.submit(
+                        _run_provider_chunk_with_pacing,
+                        child_bundle,
+                        provider,
+                        preflight,
+                        items,
+                        pacer,
+                        chunk_ledger,
+                    )
+                ] = index
+            for future in as_completed(futures):
+                by_index[futures[future]] = future.result()
+
+
+def _chunk_envelope_failed(envelope: _ArtifactEnvelope) -> bool:
+    artifact = envelope.artifact
+    return str(artifact.get("status") or "") != "ok" or artifact.get("schema_valid") is not True
+
+
+def _chunk_envelope_retryable(envelope: _ArtifactEnvelope) -> bool:
+    if not _chunk_envelope_failed(envelope):
+        return False
+    status = _chunk_envelope_execution_status(envelope)
+    return status not in {"safety_filter", "skipped_not_configured"}
+
+
+def _chunk_envelope_execution_status(envelope: _ArtifactEnvelope | None) -> str:
+    if envelope is None:
+        return "provider_error"
+    return _artifact_execution_status(envelope.artifact)
+
+
+def _retry_chunk_worker_count(
+    failed_indexes: list[int],
+    *,
+    provider_id: str,
+    by_index: dict[int, _ArtifactEnvelope],
+) -> int:
+    statuses = {_chunk_envelope_execution_status(by_index.get(index)) for index in failed_indexes}
+    if "rate_limited" in statuses:
+        return 1
+    if "timeout" in statuses:
+        return min(2, _chunk_worker_count(len(failed_indexes), provider_id))
+    return _chunk_worker_count(len(failed_indexes), provider_id)
+
+
+def _chunk_retry_delay_seconds(
+    failed_indexes: list[int],
+    *,
+    provider_id: str,
+    by_index: dict[int, _ArtifactEnvelope],
+    attempt_index: int,
+) -> float:
+    retry_after_values: list[int] = []
+    statuses: set[str] = set()
+    for index in failed_indexes:
+        envelope = by_index.get(index)
+        statuses.add(_chunk_envelope_execution_status(envelope))
+        if envelope is None:
+            continue
+        retry_after = _retry_after_seconds_from_text(_artifact_failure_message(envelope.artifact))
+        if retry_after > 0:
+            retry_after_values.append(retry_after)
+    if retry_after_values:
+        return float(min(max(retry_after_values), 120))
+    if "rate_limited" not in statuses:
+        return 0.0
+    provider_cooldown = _provider_rate_limit_cooldown_seconds(provider_id)
+    if provider_cooldown > 0:
+        return min(provider_cooldown * max(1, attempt_index), 600.0)
+    raw = os.environ.get("OES_MULTI_AI_RATE_LIMIT_BACKOFF_SECONDS", "").strip()
+    try:
+        base = float(raw) if raw else 0.25
+    except ValueError:
+        base = 0.25
+    return max(0.0, min(base * max(1, attempt_index), 30.0))
+
+
+def _adaptive_subchunk_retry_enabled(
+    provider_id: str,
+    items: list[dict[str, Any]],
+    *,
+    failure_status: str = "",
+) -> bool:
+    if len(items) <= 1:
+        return False
+    if failure_status in {"context_length", "timeout"}:
+        return True
+    if failure_status in {
+        "rate_limited",
+        "schema_invalid",
+        "deterministic_parse_failure",
+        "empty_response",
+        "provider_error",
+        "retry_exhausted",
+        "safety_filter",
+        "skipped_not_configured",
+    }:
+        return False
+    raw = os.environ.get("OES_MULTI_AI_ADAPTIVE_SUBCHUNK_RETRY", "").strip().casefold()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    return _chunk_target_tokens(provider_id) > 0
+
+
+def _run_adaptive_subchunk_retry(
+    bundle: dict[str, Any],
+    provider: ModelProvider,
+    preflight: SafetyPreflightResult,
+    items: list[dict[str, Any]],
+    parent_chunk_index: int,
+    parent_chunk_count: int,
+    *,
+    pacer: _ProviderChunkStartPacer | None = None,
+    chunk_ledger: _ProviderChunkLedger | None = None,
+) -> _ArtifactEnvelope:
+    pacer = pacer or _ProviderChunkStartPacer(provider.provider)
+    subchunks = _adaptive_subchunks_for_failed_chunk(items, provider.provider)
+    if len(subchunks) <= 1:
+        child_bundle = _bundle_for_evidence_chunk(
+            bundle,
+            evidence_items=items,
+            chunk_index=parent_chunk_index,
+            total_chunks=parent_chunk_count,
+            provider_id=provider.provider,
+        )
+        return _run_provider_chunk_with_pacing(child_bundle, provider, preflight, items, pacer, chunk_ledger)
+    parent_manifest = _chunk_manifest_from_items(
+        items,
+        chunk_index=parent_chunk_index,
+        total_chunks=parent_chunk_count,
+        full_evidence_item_count=len([row for row in bundle.get("evidence_items") or [] if isinstance(row, dict)]),
+        provider_id=provider.provider,
+        adaptive_retry=True,
+    )
+    sub_envelopes_by_index: dict[int, _ArtifactEnvelope] = {}
+    with ThreadPoolExecutor(
+        max_workers=_chunk_worker_count(len(subchunks), provider.provider),
+        thread_name_prefix=f"oes-{provider.provider}-subchunk-retry",
+    ) as executor:
+        futures = {}
+        for sub_index, sub_items in enumerate(subchunks, start=1):
+            child_bundle = _bundle_for_evidence_chunk(
+                bundle,
+                evidence_items=sub_items,
+                chunk_index=parent_chunk_index,
+                total_chunks=parent_chunk_count,
+                provider_id=provider.provider,
+                parent_chunk_id=str(parent_manifest.get("chunk_id") or ""),
+                subchunk_index=sub_index,
+                subchunk_count=len(subchunks),
+                adaptive_retry=True,
+            )
+            futures[
+                executor.submit(
+                    _run_provider_chunk_with_pacing,
+                    child_bundle,
+                    provider,
+                    preflight,
+                    sub_items,
+                    pacer,
+                    chunk_ledger,
+                )
+            ] = sub_index
+        for future in as_completed(futures):
+            sub_envelopes_by_index[futures[future]] = future.result()
+    sub_envelopes = [sub_envelopes_by_index[index] for index in range(1, len(subchunks) + 1)]
+    return _merge_adaptive_subchunk_envelopes(
+        bundle,
+        provider,
+        preflight,
+        parent_manifest,
+        sub_envelopes,
+        parent_chunk_count=parent_chunk_count,
+    )
+
+
+def _adaptive_subchunks_for_failed_chunk(items: list[dict[str, Any]], provider_id: str) -> list[list[dict[str, Any]]]:
+    if len(items) <= 1:
+        return [items]
+    parent_budget = _chunk_target_tokens(provider_id)
+    sub_budget = max(MIN_ADAPTIVE_SUBCHUNK_TOKENS, parent_budget // 2) if parent_budget > 0 else 0
+    max_items = max(1, min(_evidence_chunk_size(provider_id), (len(items) + 1) // 2))
+    if sub_budget > 0:
+        subchunks = _pack_evidence_items_by_semantic_token_budget(
+            items,
+            max_items=max_items,
+            token_budget=sub_budget,
+            provider_id=provider_id,
+        )
+    else:
+        subchunks = [items[index : index + max_items] for index in range(0, len(items), max_items)]
+    if len(subchunks) == 1 and len(items) > 1:
+        midpoint = (len(items) + 1) // 2
+        subchunks = [items[:midpoint], items[midpoint:]]
+    return [subchunk for subchunk in subchunks if subchunk]
+
+
+def _merge_adaptive_subchunk_envelopes(
+    bundle: dict[str, Any],
+    provider: ModelProvider,
+    preflight: SafetyPreflightResult,
+    parent_manifest: dict[str, Any],
+    sub_envelopes: list[_ArtifactEnvelope],
+    *,
+    parent_chunk_count: int,
+) -> _ArtifactEnvelope:
+    parsed_payload = _merge_chunk_claim_payloads(provider, sub_envelopes, chunk_count=parent_chunk_count)
+    aggregate_raw_output = json.dumps(parsed_payload, ensure_ascii=False, sort_keys=True)
+    output_parse = parse_model_output(aggregate_raw_output)
+    schema_valid, schema_errors = validate_claim_result(parsed_payload)
+    child_statuses = [str(envelope.artifact.get("status") or "") for envelope in sub_envelopes]
+    child_schema_valid = [bool(envelope.artifact.get("schema_valid")) for envelope in sub_envelopes]
+    status = (
+        "ok"
+        if child_statuses
+        and all(status == "ok" for status in child_statuses)
+        and all(child_schema_valid)
+        and schema_valid
+        else "failed"
+    )
+    response = ModelResponse(
+        provider=provider.provider,
+        model_name=provider.model_name,
+        prompt_name=provider.prompt_name,
+        temperature=provider.temperature,
+        raw_output=aggregate_raw_output,
+        latency_ms=sum(int(envelope.artifact.get("latency_ms") or 0) for envelope in sub_envelopes),
+        input_tokens=sum(int(envelope.artifact.get("input_tokens") or 0) for envelope in sub_envelopes),
+        output_tokens=sum(int(envelope.artifact.get("output_tokens") or 0) for envelope in sub_envelopes),
+        status=status,
+    )
+    all_schema_errors = schema_errors if status == "ok" else (*schema_errors, *_chunk_failure_errors(sub_envelopes))
+    artifact = _artifact_from_response(
+        bundle,
+        response,
+        status=status,
+        latency_ms=response.latency_ms,
+        parsed_payload=parsed_payload,
+        parsed_result=_parsed_result_payload(parsed_payload) if schema_valid and status == "ok" else _empty_parsed_result(),
+        schema_valid=schema_valid and status == "ok",
+        schema_errors=all_schema_errors,
+        preflight=preflight,
+        failure_reason="" if status == "ok" else _chunked_failure_reason(sub_envelopes, schema_errors),
+        retry={"adaptive_subchunk_retry": True, "subchunk_count": len(sub_envelopes)},
+        cost_estimate=_sum_child_costs(sub_envelopes),
+        output_parse=output_parse,
+        schema_repair_rules=tuple(
+            _unique(
+                f"subchunk_{index}:{rule}"
+                for index, envelope in enumerate(sub_envelopes, start=1)
+                for rule in envelope.artifact.get("repair_rules") or []
+                if str(rule).strip()
+            )
+        ),
+    )
+    coverage = _full_corpus_coverage_summary(bundle, chunk_count=parent_chunk_count, provider_id=provider.provider)
+    coverage["chunk"] = parent_manifest
+    artifact["full_corpus_coverage"] = coverage
+    artifact.setdefault("model_input_context", {})["full_corpus_coverage"] = coverage
+    artifact["adaptive_subchunk_results"] = _chunk_result_summaries(sub_envelopes)
+    artifact["chunk_status_counts"] = _chunk_status_counts(sub_envelopes)
+    artifact["chunk_failure_count"] = sum(
+        count
+        for status_key, count in artifact["chunk_status_counts"].items()
+        if status_key not in {"ok", "skipped_not_configured"}
+    )
+    _annotate_execution_status(artifact)
+    return _ArtifactEnvelope(
+        artifact=artifact,
+        raw_output=aggregate_raw_output,
+        parsed_payload=parsed_payload,
+        output_parse=output_parse,
+    )
+
+
+def _chunk_retry_attempts() -> int:
+    raw = os.environ.get("OES_MULTI_AI_CHUNK_RETRY_ATTEMPTS", "").strip()
+    if not raw:
+        return 1
+    try:
+        requested = int(raw)
+    except ValueError:
+        return 1
+    return max(0, min(requested, 5))
+
+
+def _evidence_item_chunks(bundle: dict[str, Any], provider_id: str = "") -> list[list[dict[str, Any]]]:
+    items = [row for row in bundle.get("evidence_items") or [] if isinstance(row, dict)]
+    if not items:
+        return [[]]
+    chunk_size = _evidence_chunk_size(provider_id)
+    token_budget = _chunk_target_tokens(provider_id)
+    if token_budget <= 0:
+        return [items[index : index + chunk_size] for index in range(0, len(items), chunk_size)]
+    return _pack_evidence_items_by_semantic_token_budget(
+        items,
+        max_items=chunk_size,
+        token_budget=token_budget,
+        provider_id=provider_id,
+    )
+
+
+def _pack_evidence_items_by_semantic_token_budget(
+    items: list[dict[str, Any]],
+    *,
+    max_items: int,
+    token_budget: int,
+    provider_id: str = "",
+) -> list[list[dict[str, Any]]]:
+    chunks: list[list[dict[str, Any]]] = []
+    for bucket in _semantic_evidence_buckets(items):
+        current: list[dict[str, Any]] = []
+        current_tokens = _chunk_prompt_overhead_tokens()
+        for item in bucket:
+            item_tokens = _estimated_evidence_item_tokens(item)
+            would_exceed_items = len(current) >= max_items
+            would_exceed_tokens = bool(current) and current_tokens + item_tokens > token_budget
+            if would_exceed_items or would_exceed_tokens:
+                chunks.append(current)
+                current = []
+                current_tokens = _chunk_prompt_overhead_tokens()
+            current.append(item)
+            current_tokens += item_tokens
+        if current:
+            chunks.append(current)
+    if _merge_small_semantic_chunks_enabled(provider_id):
+        chunks = _merge_adjacent_chunks_by_token_budget(chunks, max_items=max_items, token_budget=token_budget)
+    return chunks or [[]]
+
+
+def _merge_small_semantic_chunks_enabled(provider_id: str = "") -> bool:
+    raw = _merge_small_semantic_chunks_setting(provider_id).strip().casefold()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return str(provider_id or "").strip().casefold() == "mistral-agent-platform"
+
+
+def _merge_small_semantic_chunks_setting(provider_id: str = "") -> str:
+    provider_key = _provider_worker_env_key(provider_id)
+    if provider_key:
+        raw = os.environ.get(f"OES_MULTI_AI_MERGE_SMALL_SEMANTIC_CHUNKS_{provider_key}", "").strip()
+        if raw:
+            return raw
+    mapped = _mapped_provider_setting("OES_MULTI_AI_MERGE_SMALL_SEMANTIC_CHUNKS_BY_PROVIDER", provider_id)
+    if mapped:
+        return mapped
+    return os.environ.get("OES_MULTI_AI_MERGE_SMALL_SEMANTIC_CHUNKS", "").strip()
+
+
+def _merge_adjacent_chunks_by_token_budget(
+    chunks: list[list[dict[str, Any]]],
+    *,
+    max_items: int,
+    token_budget: int,
+) -> list[list[dict[str, Any]]]:
+    if token_budget <= 0 or len(chunks) <= 1:
+        return chunks
+    merged: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    current_tokens = _chunk_prompt_overhead_tokens()
+    for chunk in chunks:
+        if not chunk:
+            continue
+        chunk_item_tokens = sum(_estimated_evidence_item_tokens(item) for item in chunk)
+        would_exceed_items = bool(current) and len(current) + len(chunk) > max_items
+        would_exceed_tokens = bool(current) and current_tokens + chunk_item_tokens > token_budget
+        if would_exceed_items or would_exceed_tokens:
+            merged.append(current)
+            current = []
+            current_tokens = _chunk_prompt_overhead_tokens()
+        current.extend(chunk)
+        current_tokens += chunk_item_tokens
+    if current:
+        merged.append(current)
+    return merged or chunks
+
+
+def _semantic_evidence_buckets(items: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    order: list[str] = []
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        key = _semantic_key_for_item(item)
+        if key not in buckets:
+            order.append(key)
+            buckets[key] = []
+        buckets[key].append(item)
+    return [buckets[key] for key in order]
+
+
+def _semantic_keys_for_items(items: list[dict[str, Any]]) -> list[str]:
+    keys: list[str] = []
+    for item in items:
+        key = _semantic_key_for_item(item)
+        if key not in keys:
+            keys.append(key)
+    return keys
+
+
+def _semantic_key_for_item(item: dict[str, Any]) -> str:
+    coverage_class = str(item.get("coverage_class") or "").strip() or _fallback_coverage_class(item)
+    subsystem = (
+        str(item.get("subsystem") or "").strip()
+        or str(item.get("component") or "").strip()
+        or str(item.get("service") or "").strip()
+        or "unknown"
+    )
+    event_type = (
+        str(item.get("event_type") or "").strip()
+        or str(item.get("type") or "").strip()
+        or "event"
+    )
+    if coverage_class in {"pattern", "state_transition", "temporal_bucket"}:
+        return f"{coverage_class}:{subsystem}:{event_type}"
+    if coverage_class in {"rare", "singleton"}:
+        return f"rare_singleton:{subsystem}:{event_type}"
+    return f"{coverage_class}:{subsystem}:{event_type}"
+
+
+def _estimated_chunk_input_tokens(items: list[dict[str, Any]]) -> int:
+    return _chunk_prompt_overhead_tokens() + sum(_estimated_evidence_item_tokens(item) for item in items)
+
+
+def _estimated_evidence_item_tokens(item: dict[str, Any]) -> int:
+    text = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return max(1, (len(text) + 1) // 2 + 32)
+
+
+def _chunk_prompt_overhead_tokens() -> int:
+    return 2_500
+
+
+def _evidence_chunk_size(provider_id: str = "") -> int:
+    normalized_provider_id = str(provider_id or "").strip().casefold()
+    provider_default = PROVIDER_EVIDENCE_CHUNK_SIZE.get(normalized_provider_id, DEFAULT_EVIDENCE_CHUNK_SIZE)
+    raw = _evidence_chunk_size_setting(provider_id)
+    if not raw:
+        return provider_default
+    try:
+        requested = int(raw)
+    except ValueError:
+        return provider_default
+    hard_limit = max(provider_default, DEFAULT_EVIDENCE_CHUNK_SIZE)
+    return max(1, min(requested, hard_limit))
+
+
+def _evidence_chunk_size_setting(provider_id: str = "") -> str:
+    provider_key = _provider_worker_env_key(provider_id)
+    if provider_key:
+        raw = os.environ.get(f"OES_MULTI_AI_EVIDENCE_CHUNK_SIZE_{provider_key}", "").strip()
+        if raw:
+            return raw
+    mapped = _mapped_provider_setting("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE_BY_PROVIDER", provider_id)
+    if mapped:
+        return mapped
+    return os.environ.get("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "").strip()
+
+
+def _chunk_target_tokens(provider_id: str = "") -> int:
+    planning_provider_id = _chunk_planning_provider_id(provider_id)
+    raw = _chunk_target_token_setting(planning_provider_id)
+    if raw:
+        try:
+            requested = int(raw)
+        except ValueError:
+            requested = _default_chunk_target_tokens(planning_provider_id)
+    else:
+        requested = _default_chunk_target_tokens(planning_provider_id)
+    return max(0, requested)
+
+
+def _chunk_planning_provider_id(provider_id: str = "") -> str:
+    normalized_provider_id = str(provider_id or "").strip().casefold()
+    if normalized_provider_id == "llama-agent-platform":
+        return "gemini-enterprise-agent-platform"
+    return provider_id
+
+
+def _chunk_target_token_setting(provider_id: str = "") -> str:
+    provider_key = _provider_worker_env_key(provider_id)
+    if provider_key:
+        raw = os.environ.get(f"OES_MULTI_AI_CHUNK_TARGET_TOKENS_{provider_key}", "").strip()
+        if raw:
+            return raw
+    mapped = _mapped_provider_setting("OES_MULTI_AI_CHUNK_TARGET_TOKENS_BY_PROVIDER", provider_id)
+    if mapped:
+        return mapped
+    return os.environ.get("OES_MULTI_AI_CHUNK_TARGET_TOKENS", "").strip()
+
+
+def _default_chunk_target_tokens(provider_id: str = "") -> int:
+    normalized_provider_id = str(provider_id or "").strip().casefold()
+    if not normalized_provider_id:
+        return 0
+    return PROVIDER_CHUNK_TARGET_TOKENS.get(normalized_provider_id, 0)
+
+
+def _chunk_worker_count(chunk_count: int, provider_id: str = "") -> int:
+    if chunk_count <= 1:
+        return 1
+    raw = _chunk_worker_count_setting(provider_id)
+    normalized_provider_id = str(provider_id or "").strip().casefold()
+    default_workers = PROVIDER_CHUNK_WORKER_DEFAULTS.get(normalized_provider_id, 4)
+    default = min(chunk_count, default_workers)
+    if not raw:
+        return default
+    try:
+        requested = int(raw)
+    except ValueError:
+        return default
+    return max(1, min(chunk_count, requested))
+
+
+def _chunk_start_interval_seconds(provider_id: str, items: list[dict[str, Any]]) -> float:
+    tokens_per_minute = _chunk_input_tokens_per_minute(provider_id)
+    token_interval = 0.0
+    if tokens_per_minute > 0:
+        estimated_tokens = _estimated_chunk_input_tokens(items)
+        token_interval = max(0.0, (estimated_tokens / tokens_per_minute) * 60.0)
+    return max(token_interval, _chunk_min_start_interval_seconds(provider_id))
+
+
+def _chunk_min_start_interval_seconds(provider_id: str = "") -> float:
+    normalized_provider_id = str(provider_id or "").strip().casefold()
+    default = PROVIDER_CHUNK_MIN_START_INTERVAL_SECONDS.get(normalized_provider_id, 0.0)
+    raw = _chunk_min_start_interval_setting(provider_id)
+    if not raw:
+        return default
+    try:
+        requested = float(raw)
+    except ValueError:
+        return default
+    return max(0.0, min(requested, 600.0))
+
+
+def _chunk_min_start_interval_setting(provider_id: str = "") -> str:
+    provider_key = _provider_worker_env_key(provider_id)
+    if provider_key:
+        raw = os.environ.get(f"OES_MULTI_AI_CHUNK_MIN_START_INTERVAL_SECONDS_{provider_key}", "").strip()
+        if raw:
+            return raw
+    mapped = _mapped_provider_setting("OES_MULTI_AI_CHUNK_MIN_START_INTERVAL_SECONDS_BY_PROVIDER", provider_id)
+    if mapped:
+        return mapped
+    return os.environ.get("OES_MULTI_AI_CHUNK_MIN_START_INTERVAL_SECONDS", "").strip()
+
+
+def _chunk_input_tokens_per_minute(provider_id: str = "") -> int:
+    normalized_provider_id = str(provider_id or "").strip().casefold()
+    default = PROVIDER_CHUNK_INPUT_TOKENS_PER_MINUTE.get(normalized_provider_id, 0)
+    raw = _chunk_input_tokens_per_minute_setting(provider_id)
+    if not raw:
+        return default
+    try:
+        requested = int(raw)
+    except ValueError:
+        return default
+    return max(0, requested)
+
+
+def _chunk_input_tokens_per_minute_setting(provider_id: str = "") -> str:
+    provider_key = _provider_worker_env_key(provider_id)
+    if provider_key:
+        raw = os.environ.get(f"OES_MULTI_AI_CHUNK_INPUT_TOKENS_PER_MINUTE_{provider_key}", "").strip()
+        if raw:
+            return raw
+    mapped = _mapped_provider_setting("OES_MULTI_AI_CHUNK_INPUT_TOKENS_PER_MINUTE_BY_PROVIDER", provider_id)
+    if mapped:
+        return mapped
+    return os.environ.get("OES_MULTI_AI_CHUNK_INPUT_TOKENS_PER_MINUTE", "").strip()
+
+
+def _provider_rate_limit_cooldown_seconds(provider_id: str = "") -> float:
+    normalized_provider_id = str(provider_id or "").strip().casefold()
+    default = PROVIDER_RATE_LIMIT_COOLDOWN_SECONDS.get(normalized_provider_id, 0.0)
+    raw = _provider_rate_limit_cooldown_setting(provider_id)
+    if not raw:
+        return default
+    try:
+        requested = float(raw)
+    except ValueError:
+        return default
+    return max(0.0, min(requested, 600.0))
+
+
+def _provider_rate_limit_cooldown_setting(provider_id: str = "") -> str:
+    provider_key = _provider_worker_env_key(provider_id)
+    if provider_key:
+        raw = os.environ.get(f"OES_MULTI_AI_RATE_LIMIT_COOLDOWN_SECONDS_{provider_key}", "").strip()
+        if raw:
+            return raw
+    mapped = _mapped_provider_setting("OES_MULTI_AI_RATE_LIMIT_COOLDOWN_SECONDS_BY_PROVIDER", provider_id)
+    if mapped:
+        return mapped
+    return os.environ.get("OES_MULTI_AI_RATE_LIMIT_COOLDOWN_SECONDS", "").strip()
+
+
+def _chunk_worker_count_setting(provider_id: str = "") -> str:
+    provider_key = _provider_worker_env_key(provider_id)
+    if provider_key:
+        raw = os.environ.get(f"OES_MULTI_AI_CHUNK_MAX_WORKERS_{provider_key}", "").strip()
+        if raw:
+            return raw
+    mapped = _mapped_chunk_worker_count(provider_id)
+    if mapped:
+        return mapped
+    return os.environ.get("OES_MULTI_AI_CHUNK_MAX_WORKERS", "").strip()
+
+
+def _mapped_chunk_worker_count(provider_id: str) -> str:
+    return _mapped_provider_setting("OES_MULTI_AI_CHUNK_MAX_WORKERS_BY_PROVIDER", provider_id)
+
+
+def _mapped_provider_setting(env_key: str, provider_id: str) -> str:
+    provider_key = _provider_worker_env_key(provider_id)
+    if not provider_key:
+        return ""
+    raw_map = os.environ.get(env_key, "").strip()
+    if not raw_map:
+        return ""
+    normalized_provider_id = _normalize_provider_worker_key(provider_id)
+    for entry in raw_map.split(","):
+        if not entry.strip() or "=" not in entry:
+            continue
+        key, value = entry.split("=", 1)
+        normalized_key = _normalize_provider_worker_key(key)
+        if normalized_key in {provider_key, normalized_provider_id}:
+            return value.strip()
+    return ""
+
+
+def _provider_worker_env_key(provider_id: str) -> str:
+    normalized = _normalize_provider_worker_key(provider_id)
+    return normalized.strip("_")
+
+
+def _normalize_provider_worker_key(value: str) -> str:
+    return "".join(char if char.isalnum() else "_" for char in str(value).upper())
+
+
+def _bundle_for_evidence_chunk(
+    bundle: dict[str, Any],
+    *,
+    evidence_items: list[dict[str, Any]],
+    chunk_index: int,
+    total_chunks: int,
+    provider_id: str = "",
+    parent_chunk_id: str = "",
+    subchunk_index: int = 0,
+    subchunk_count: int = 0,
+    adaptive_retry: bool = False,
+) -> dict[str, Any]:
+    chunk = dict(bundle)
+    chunk["db_corpus_coverage"] = _model_db_corpus_coverage(bundle.get("db_corpus_coverage") or {})
+    evidence_ids = _evidence_item_ids(evidence_items)
+    chunk_manifest = _chunk_manifest_from_items(
+        evidence_items,
+        chunk_index=chunk_index,
+        total_chunks=total_chunks,
+        full_evidence_item_count=len([row for row in bundle.get("evidence_items") or [] if isinstance(row, dict)]),
+        provider_id=provider_id,
+        parent_chunk_id=parent_chunk_id,
+        subchunk_index=subchunk_index,
+        subchunk_count=subchunk_count,
+        adaptive_retry=adaptive_retry,
+    )
+    chunk["evidence_items"] = evidence_items
+    refs = bundle.get("evidence_refs") if isinstance(bundle.get("evidence_refs"), dict) else {}
+    chunk["evidence_refs"] = {
+        evidence_id: refs.get(evidence_id) or item
+        for evidence_id, item in zip(evidence_ids, evidence_items)
+    }
+    chunk["log_patterns"] = _patterns_from_evidence_items(evidence_items)
+    chunk["logs"] = evidence_items[: min(len(evidence_items), 20)]
+    for key in ("metric_windows", "operational_evidence", "evidence_signals", "signals", "candidate_targets", "normalized_events"):
+        chunk[key] = _rows_for_evidence_ids(bundle.get(key) or [], evidence_ids=evidence_ids)
+    chunk["full_corpus_chunk"] = chunk_manifest
+    policy = dict(chunk.get("model_input_policy") or {})
+    policy["full_corpus_chunking"] = chunk["full_corpus_chunk"]
+    policy["row_level_coverage"] = {
+        "raw_rows_sent_to_providers": False,
+        "row_assignments_in_prompt": False,
+        "boundary": "db_row_to_evidence_item_to_review_chunk",
+    }
+    chunk["model_input_policy"] = policy
+    prompt_hash = sha256_json(_model_input(chunk))
+    chunk["full_corpus_chunk"]["provider_prompt_sha256"] = prompt_hash
+    chunk["full_corpus_chunk"]["provider_prompt_hash_scope"] = "model_input_before_provider_prompt_sha_field"
+    chunk["model_input_policy"]["full_corpus_chunking"] = chunk["full_corpus_chunk"]
+    return chunk
+
+
+def _chunk_manifest_from_items(
+    evidence_items: list[dict[str, Any]],
+    *,
+    chunk_index: int,
+    total_chunks: int,
+    full_evidence_item_count: int,
+    provider_id: str = "",
+    parent_chunk_id: str = "",
+    subchunk_index: int = 0,
+    subchunk_count: int = 0,
+    adaptive_retry: bool = False,
+) -> dict[str, Any]:
+    evidence_ids = _evidence_item_ids(evidence_items)
+    chunk_type = _chunk_type_for_evidence_items(evidence_items)
+    coverage_classes = _coverage_classes_for_items(evidence_items)
+    semantic_keys = _semantic_keys_for_items(evidence_items)
+    chunk_id = f"chunk-{chunk_type.replace('_', '-')}-{chunk_index:03d}"
+    if parent_chunk_id and subchunk_index:
+        chunk_id = f"{parent_chunk_id}-retry-{subchunk_index:03d}"
+    token_budget = _chunk_target_tokens(provider_id)
+    return {
+        "schema_version": "multi_ai_full_corpus_chunk.v1",
+        "mode": "full_evidence_item_chunking",
+        "chunk_id": chunk_id,
+        "chunk_index": chunk_index,
+        "chunk_count": total_chunks,
+        "chunk_type": chunk_type,
+        "semantic_keys": semantic_keys,
+        "chunk_size": _evidence_chunk_size(provider_id),
+        "token_budget": token_budget,
+        "estimated_input_tokens": _estimated_chunk_input_tokens(evidence_items),
+        "packing_strategy": "semantic_bucket_token_budget" if token_budget > 0 else "item_count",
+        "provider_id": provider_id,
+        "parent_chunk_id": parent_chunk_id,
+        "subchunk_index": subchunk_index,
+        "subchunk_count": subchunk_count,
+        "adaptive_retry": adaptive_retry,
+        "evidence_item_count": len(evidence_items),
+        "evidence_ids": evidence_ids,
+        "evidence_ids_sha256": sha256_json(evidence_ids),
+        "source_log_count": _source_log_count_for_items(evidence_items),
+        "time_range": _time_range_for_items(evidence_items),
+        "coverage_classes": coverage_classes,
+        "coverage_class_counts": _coverage_class_counts_for_items(evidence_items),
+        "full_evidence_item_count": full_evidence_item_count,
+        "provider_prompt_sha256": "",
+        "provider_prompt_hash_scope": "",
+    }
+
+
+def _chunk_type_for_evidence_items(items: list[dict[str, Any]]) -> str:
+    classes = _coverage_classes_for_items(items)
+    types = {str(item.get("type") or "unknown") for item in items}
+    if not items:
+        return "empty"
+    if len(classes) == 1:
+        coverage_class = classes[0]
+        if coverage_class in {"rare", "singleton"}:
+            return "rare_singleton"
+        return coverage_class
+    if {"rare", "singleton"}.intersection(classes):
+        return "rare_singleton"
+    if types == {"metric_window"}:
+        return "temporal_bucket"
+    if types == {"operational_evidence"}:
+        return "state_transition"
+    return "mixed_evidence"
+
+
+def _coverage_classes_for_items(items: list[dict[str, Any]]) -> list[str]:
+    classes: list[str] = []
+    for item in items:
+        coverage_class = str(item.get("coverage_class") or "").strip()
+        if not coverage_class:
+            coverage_class = _fallback_coverage_class(item)
+        if coverage_class not in classes:
+            classes.append(coverage_class)
+    return classes
+
+
+def _coverage_class_counts_for_items(items: list[dict[str, Any]]) -> dict[str, int]:
+    counts = Counter(_fallback_coverage_class(item) if not str(item.get("coverage_class") or "").strip() else str(item.get("coverage_class") or "").strip() for item in items)
+    return dict(sorted(counts.items()))
+
+
+def _fallback_coverage_class(item: dict[str, Any]) -> str:
+    item_type = str(item.get("type") or "")
+    if item_type == "metric_window":
+        return "temporal_bucket"
+    if item_type == "operational_evidence":
+        return "state_transition"
+    count = int(item.get("source_log_count") or item.get("count") or 0)
+    if count == 1:
+        return "singleton"
+    if count <= 3:
+        return "rare"
+    return "pattern"
+
+
+def _source_log_count_for_items(items: list[dict[str, Any]]) -> int:
+    total = 0
+    for item in items:
+        coverage = item.get("db_row_coverage") if isinstance(item.get("db_row_coverage"), dict) else {}
+        total += int(item.get("source_log_count") or coverage.get("covered_log_count") or item.get("count") or 0)
+    return total
+
+
+def _time_range_for_items(items: list[dict[str, Any]]) -> dict[str, str]:
+    starts = sorted(str(item.get("first_seen") or "") for item in items if str(item.get("first_seen") or "").strip())
+    ends = sorted(str(item.get("last_seen") or "") for item in items if str(item.get("last_seen") or "").strip())
+    return {
+        "start": starts[0] if starts else "",
+        "end": ends[-1] if ends else "",
+    }
+
+
+def _rows_for_evidence_ids(rows: Any, *, evidence_ids: list[str]) -> list[dict[str, Any]]:
+    if not isinstance(rows, list) or not evidence_ids:
+        return []
+    evidence_id_set = set(evidence_ids)
+    selected: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        refs = set(_row_evidence_refs(row))
+        if refs and refs.intersection(evidence_id_set):
+            selected.append(row)
+    return selected
+
+
+def _row_evidence_refs(row: dict[str, Any]) -> list[str]:
+    refs: list[str] = []
+    for key in ("evidence_id", "id", "pattern_id", "metric_window_id", "signal_id", "target_id", "request_id"):
+        value = str(row.get(key) or "")
+        if value:
+            refs.append(value)
+    for key in ("evidence_refs", "evidence_ids", "counter_evidence_refs"):
+        refs.extend(_string_list(row.get(key)))
+    return _unique(refs)
+
+
+def _evidence_item_ids(items: list[dict[str, Any]]) -> list[str]:
+    ids: list[str] = []
+    for index, item in enumerate(items, start=1):
+        ids.append(str(item.get("evidence_id") or item.get("id") or f"EVIDENCE-{index:03d}"))
+    return ids
+
+
+def _merge_chunked_provider_envelopes(
+    bundle: dict[str, Any],
+    provider: ModelProvider,
+    preflight: SafetyPreflightResult,
+    child_envelopes: list[_ArtifactEnvelope],
+    *,
+    chunk_count: int,
+) -> _ArtifactEnvelope:
+    parsed_payload = _merge_chunk_claim_payloads(provider, child_envelopes, chunk_count=chunk_count)
+    aggregate_raw_output = json.dumps(parsed_payload, ensure_ascii=False, sort_keys=True)
+    output_parse = parse_model_output(aggregate_raw_output)
+    schema_valid, schema_errors = validate_claim_result(parsed_payload)
+    child_statuses = [str(envelope.artifact.get("status") or "") for envelope in child_envelopes]
+    child_schema_valid = [bool(envelope.artifact.get("schema_valid")) for envelope in child_envelopes]
+    valid_chunk_count = sum(
+        1
+        for envelope in child_envelopes
+        if str(envelope.artifact.get("status") or "") == "ok"
+        and envelope.artifact.get("schema_valid") is True
+    )
+    partial_chunk_result_usable = _partial_chunk_result_usable(
+        valid_chunk_count=valid_chunk_count,
+        chunk_count=chunk_count,
+        schema_valid=schema_valid,
+    )
+    if child_statuses and all(status == "skipped_not_configured" for status in child_statuses):
+        status = "skipped_not_configured"
+    elif child_statuses and all(status == "ok" for status in child_statuses) and all(child_schema_valid) and schema_valid:
+        status = "ok"
+    elif partial_chunk_result_usable:
+        status = "ok"
+    else:
+        status = "failed"
+    response = ModelResponse(
+        provider=provider.provider,
+        model_name=provider.model_name,
+        prompt_name=provider.prompt_name,
+        temperature=provider.temperature,
+        raw_output=aggregate_raw_output,
+        latency_ms=sum(int(envelope.artifact.get("latency_ms") or 0) for envelope in child_envelopes),
+        input_tokens=sum(int(envelope.artifact.get("input_tokens") or 0) for envelope in child_envelopes),
+        output_tokens=sum(int(envelope.artifact.get("output_tokens") or 0) for envelope in child_envelopes),
+        status=status,
+    )
+    aggregate_cost = _sum_child_costs(child_envelopes)
+    retry = _aggregate_retry_metadata(child_envelopes, status=status)
+    schema_repair_rules = tuple(
+        _unique(
+            f"chunk_{index}:{rule}"
+            for index, envelope in enumerate(child_envelopes, start=1)
+            for rule in envelope.artifact.get("repair_rules") or []
+            if str(rule).strip()
+        )
+    )
+    all_schema_errors = schema_errors if status == "ok" else (*schema_errors, *_chunk_failure_errors(child_envelopes))
+    artifact = _artifact_from_response(
+        bundle,
+        response,
+        status=status,
+        latency_ms=response.latency_ms,
+        parsed_payload=parsed_payload,
+        parsed_result=_parsed_result_payload(parsed_payload) if schema_valid and status == "ok" else _empty_parsed_result(),
+        schema_valid=schema_valid and status == "ok",
+        schema_errors=all_schema_errors,
+        preflight=preflight,
+        failure_reason="" if status == "ok" else _chunked_failure_reason(child_envelopes, schema_errors),
+        retry=retry,
+        cost_estimate=aggregate_cost,
+        output_parse=output_parse,
+        schema_repair_rules=schema_repair_rules,
+    )
+    coverage = _full_corpus_coverage_summary(bundle, chunk_count=chunk_count, provider_id=provider.provider)
+    artifact["full_corpus_coverage"] = coverage
+    artifact.setdefault("model_input_context", {})["full_corpus_coverage"] = coverage
+    artifact["chunk_results"] = _chunk_result_summaries(child_envelopes)
+    artifact["chunk_status_counts"] = _chunk_status_counts(child_envelopes)
+    artifact["chunk_failure_count"] = sum(
+        count
+        for status_key, count in artifact["chunk_status_counts"].items()
+        if status_key not in {"ok", "skipped_not_configured"}
+    )
+    artifact["partial_chunk_result"] = {
+        "usable": bool(partial_chunk_result_usable),
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": valid_chunk_count,
+        "total_chunk_count": int(chunk_count),
+        "success_ratio": round(valid_chunk_count / chunk_count, 6) if chunk_count else 1.0,
+        "min_success_ratio": PARTIAL_CHUNK_SUCCESS_MIN_RATIO,
+        "failure_count": int(artifact["chunk_failure_count"]),
+    }
+    _annotate_execution_status(artifact)
+    return _ArtifactEnvelope(
+        artifact=artifact,
+        raw_output=aggregate_raw_output,
+        parsed_payload=parsed_payload,
+        output_parse=output_parse,
+    )
+
+
+def _partial_chunk_result_usable(*, valid_chunk_count: int, chunk_count: int, schema_valid: bool) -> bool:
+    if not schema_valid or chunk_count <= 1:
+        return False
+    if valid_chunk_count >= chunk_count:
+        return True
+    if valid_chunk_count <= 0:
+        return False
+    return (valid_chunk_count / chunk_count) >= PARTIAL_CHUNK_SUCCESS_MIN_RATIO
+
+
+def _merge_chunk_claim_payloads(
+    provider: ModelProvider,
+    child_envelopes: list[_ArtifactEnvelope],
+    *,
+    chunk_count: int,
+) -> dict[str, Any]:
+    claims: list[dict[str, Any]] = []
+    propositions: list[dict[str, Any]] = []
+    summaries: list[str] = []
+    seen_claims: set[str] = set()
+    for ordinal, envelope in enumerate(child_envelopes, start=1):
+        artifact = envelope.artifact
+        if str(artifact.get("status") or "") != "ok" or artifact.get("schema_valid") is not True:
+            continue
+        chunk = _artifact_chunk_manifest(artifact)
+        index = int(chunk.get("chunk_index") or ordinal)
+        chunk_id = str(chunk.get("chunk_id") or f"chunk-{index:03d}")
+        parsed = envelope.parsed_payload if isinstance(envelope.parsed_payload, dict) else {}
+        summary = str(parsed.get("summary") or "").strip()
+        if summary:
+            summaries.append(f"chunk {index}: {summary}")
+        for claim in parsed.get("claims") or []:
+            if not isinstance(claim, dict):
+                continue
+            annotated = dict(claim)
+            annotated["source_chunk_index"] = index
+            annotated["source_chunk_id"] = chunk_id
+            annotated["source_chunk_type"] = str(chunk.get("chunk_type") or "")
+            annotated["source_chunk_count"] = chunk_count
+            if chunk.get("parent_chunk_id"):
+                annotated["source_parent_chunk_id"] = str(chunk.get("parent_chunk_id") or "")
+                annotated["source_subchunk_id"] = chunk_id
+                annotated["source_subchunk_index"] = int(chunk.get("subchunk_index") or ordinal)
+                annotated["source_subchunk_count"] = int(chunk.get("subchunk_count") or 0)
+            key = sha256_json(
+                {
+                    "claim_type": annotated.get("claim_type"),
+                    "claim_text": annotated.get("claim_text"),
+                    "evidence_refs": sorted(_string_list(annotated.get("evidence_refs"))),
+                    "counter_evidence_refs": sorted(_string_list(annotated.get("counter_evidence_refs"))),
+                }
+            )
+            if key in seen_claims:
+                continue
+            seen_claims.add(key)
+            claims.append(annotated)
+        for proposition in parsed.get("propositions") or []:
+            if isinstance(proposition, dict):
+                annotated_proposition = dict(proposition)
+                annotated_proposition["source_chunk_index"] = index
+                annotated_proposition["source_chunk_id"] = chunk_id
+                annotated_proposition["source_chunk_type"] = str(chunk.get("chunk_type") or "")
+                if chunk.get("parent_chunk_id"):
+                    annotated_proposition["source_parent_chunk_id"] = str(chunk.get("parent_chunk_id") or "")
+                    annotated_proposition["source_subchunk_id"] = chunk_id
+                    annotated_proposition["source_subchunk_index"] = int(chunk.get("subchunk_index") or ordinal)
+                    annotated_proposition["source_subchunk_count"] = int(chunk.get("subchunk_count") or 0)
+                propositions.append(annotated_proposition)
+    claims = sorted(
+        claims,
+        key=lambda row: (
+            int(row.get("source_chunk_index") or 0),
+            str(row.get("source_chunk_id") or ""),
+            str(row.get("claim_type") or ""),
+            str(row.get("claim_text") or ""),
+            sorted(_string_list(row.get("evidence_refs"))),
+            sorted(_string_list(row.get("counter_evidence_refs"))),
+        ),
+    )
+    propositions = sorted(
+        propositions,
+        key=lambda row: (
+            int(row.get("source_chunk_index") or 0),
+            str(row.get("source_chunk_id") or ""),
+            str(row.get("proposition_id") or ""),
+            str(row.get("text") or row.get("claim_text") or row.get("summary") or ""),
+        ),
+    )
+    return {
+        "schema_version": "claim-result/v1",
+        "agent_role": f"{provider.provider}_full_corpus_chunk_merger",
+        "finding_status": "supported" if claims else "insufficient_evidence",
+        "summary": (
+            f"{provider.provider} analyzed the complete Evidence Item corpus in {chunk_count} chunk(s). "
+            + (" ".join(summaries[:3]) if summaries else "No schema-valid chunk claim was returned.")
+        ),
+        "claims": claims,
+        "propositions": propositions,
+        "chunk_coverage": {
+            "schema_version": "multi_ai_chunk_coverage.v1",
+            "mode": "full_evidence_item_chunking",
+            "chunk_count": chunk_count,
+            "schema_valid_chunk_count": sum(
+                1
+                for envelope in child_envelopes
+                if str(envelope.artifact.get("status") or "") == "ok"
+                and envelope.artifact.get("schema_valid") is True
+            ),
+            "chunk_status_counts": _chunk_status_counts(child_envelopes),
+            "failed_chunk_count": sum(
+                1
+                for envelope in child_envelopes
+                if _artifact_execution_status(envelope.artifact) not in {"ok", "skipped_not_configured"}
+            ),
+        },
+    }
+
+
+def _sum_child_costs(child_envelopes: list[_ArtifactEnvelope]) -> dict[str, Any]:
+    input_tokens = sum(int(envelope.artifact.get("input_tokens") or 0) for envelope in child_envelopes)
+    output_tokens = sum(int(envelope.artifact.get("output_tokens") or 0) for envelope in child_envelopes)
+    estimated = 0.0
+    priced = 0
+    for envelope in child_envelopes:
+        cost = envelope.artifact.get("cost_estimate") if isinstance(envelope.artifact.get("cost_estimate"), dict) else {}
+        estimated += float(cost.get("estimated_cost_usd") or 0.0)
+        if cost.get("pricing_source") == "env":
+            priced += 1
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "estimated_cost_usd": round(estimated, 8),
+        "priced_run_count": priced,
+        "pricing_source": "env" if priced else "not_configured",
+    }
+
+
+def _aggregate_retry_metadata(child_envelopes: list[_ArtifactEnvelope], *, status: str) -> dict[str, Any]:
+    retries = [
+        envelope.artifact.get("retry")
+        for envelope in child_envelopes
+        if isinstance(envelope.artifact.get("retry"), dict)
+    ]
+    failures = _unique(str(retry.get("failure_reason") or "") for retry in retries if retry.get("failure_reason"))
+    return {
+        "attempts": sum(int(retry.get("attempts") or 0) for retry in retries),
+        "max_attempts": sum(int(retry.get("max_attempts") or 0) for retry in retries),
+        "retried": any(bool(retry.get("retried")) for retry in retries),
+        "retryable": any(bool(retry.get("retryable")) for retry in retries),
+        "failure_reason": "; ".join(failures) if status != "ok" else "",
+        "exception_type": "; ".join(
+            _unique(str(retry.get("exception_type") or "") for retry in retries if retry.get("exception_type"))
+        ),
+    }
+
+
+def _chunk_failure_errors(child_envelopes: list[_ArtifactEnvelope]) -> tuple[str, ...]:
+    errors: list[str] = []
+    for index, envelope in enumerate(child_envelopes, start=1):
+        artifact = envelope.artifact
+        if str(artifact.get("status") or "") == "ok" and artifact.get("schema_valid") is True:
+            continue
+        reason = _artifact_execution_status(artifact)
+        message = _artifact_failure_message(artifact)
+        if message:
+            reason = f"{reason}: {message}"
+        errors.append(f"chunk {index}: {reason}")
+    return tuple(errors)
+
+
+def _chunked_failure_reason(child_envelopes: list[_ArtifactEnvelope], schema_errors: tuple[str, ...]) -> str:
+    counts = _chunk_status_counts(child_envelopes)
+    failures = {status: count for status, count in counts.items() if status not in {"ok", "skipped_not_configured"}}
+    if failures:
+        if len(failures) == 1:
+            return f"chunked_full_corpus_{next(iter(failures))}"
+        return "chunked_full_corpus_mixed_failures"
+    if schema_errors:
+        return "chunked_full_corpus_schema_validation_failed"
+    return "chunked_full_corpus_provider_failed"
+
+
+def _chunk_result_summaries(child_envelopes: list[_ArtifactEnvelope]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for index, envelope in enumerate(child_envelopes, start=1):
+        artifact = envelope.artifact
+        chunk = _artifact_chunk_manifest(artifact)
+        execution_status = _artifact_execution_status(artifact)
+        retry = artifact.get("retry") if isinstance(artifact.get("retry"), dict) else {}
+        failure_message = _artifact_failure_message(artifact)
+        rows.append(
+            {
+                "chunk_id": str(chunk.get("chunk_id") or f"chunk-{index:03d}"),
+                "chunk_index": index,
+                "chunk_type": str(chunk.get("chunk_type") or ""),
+                "semantic_keys": list((chunk or {}).get("semantic_keys") or []),
+                "status": str(artifact.get("status") or ""),
+                "execution_status": execution_status,
+                "last_error_type": "" if execution_status == "ok" else execution_status,
+                "last_error_message": failure_message[:1000],
+                "attempt_count": int(retry.get("attempts") or 0),
+                "max_attempts": int(retry.get("max_attempts") or 0),
+                "retry_after_sec": _retry_after_seconds_from_text(failure_message),
+                "schema_valid": bool(artifact.get("schema_valid")),
+                "evidence_item_count": int((chunk or {}).get("evidence_item_count") or 0),
+                "estimated_input_tokens": int((chunk or {}).get("estimated_input_tokens") or 0),
+                "token_budget": int((chunk or {}).get("token_budget") or 0),
+                "packing_strategy": str((chunk or {}).get("packing_strategy") or ""),
+                "adaptive_retry": bool((chunk or {}).get("adaptive_retry")),
+                "adaptive_subchunk_count": len(artifact.get("adaptive_subchunk_results") or []),
+                "source_log_count": int((chunk or {}).get("source_log_count") or 0),
+                "coverage_classes": list((chunk or {}).get("coverage_classes") or []),
+                "time_range": dict((chunk or {}).get("time_range") or {}),
+                "provider_prompt_sha256": str((chunk or {}).get("provider_prompt_sha256") or ""),
+                "raw_output_sha256": str(artifact.get("raw_output_sha256") or ""),
+                "parsed_json_sha256": str(artifact.get("parsed_json_sha256") or ""),
+                "input_tokens": int(artifact.get("input_tokens") or 0),
+                "output_tokens": int(artifact.get("output_tokens") or 0),
+            }
+        )
+    return rows
+
+
+def _chunk_status_counts(child_envelopes: list[_ArtifactEnvelope]) -> dict[str, int]:
+    counts = Counter(_artifact_execution_status(envelope.artifact) for envelope in child_envelopes)
+    return dict(sorted(counts.items()))
+
+
+def _artifact_chunk_manifest(artifact: dict[str, Any]) -> dict[str, Any]:
+    context = artifact.get("model_input_context") if isinstance(artifact.get("model_input_context"), dict) else {}
+    coverage = context.get("full_corpus_coverage") if isinstance(context.get("full_corpus_coverage"), dict) else {}
+    chunk = coverage.get("chunk") if isinstance(coverage.get("chunk"), dict) else {}
+    return chunk
+
+
+def _full_corpus_coverage_summary(
+    bundle: dict[str, Any],
+    *,
+    chunk_count: int | None = None,
+    provider_id: str = "",
+) -> dict[str, Any]:
+    items = [row for row in bundle.get("evidence_items") or [] if isinstance(row, dict)]
+    ids = _evidence_item_ids(items)
+    chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+    chunk_manifest = _chunk_manifest_rows_for_bundle(bundle, chunk_count=chunk_count, provider_id=provider_id)
+    total = int(chunk.get("full_evidence_item_count") or len(items))
+    analyzed = len(items)
+    if not chunk:
+        analyzed = total
+    omitted = max(0, total - analyzed if chunk else 0)
+    chunks = _evidence_item_chunks(bundle, provider_id=provider_id)
+    estimated_tokens = sum(_estimated_chunk_input_tokens(chunk_items) for chunk_items in chunks if chunk_items)
+    return {
+        "schema_version": "multi_ai_full_corpus_coverage.v1",
+        "mode": "full_evidence_item_chunking",
+        "packing_strategy": "semantic_bucket_token_budget" if _chunk_target_tokens(provider_id) > 0 else "item_count",
+        "provider_id": provider_id,
+        "token_budget": _chunk_target_tokens(provider_id),
+        "estimated_input_tokens": estimated_tokens,
+        "full_evidence_item_count": total,
+        "analyzed_evidence_item_count": analyzed,
+        "omitted_evidence_item_count": omitted,
+        "direct_prompt_evidence_item_count": analyzed,
+        "summarized_evidence_item_count": 0,
+        "tail_evidence_item_count": 0,
+        "unassigned_evidence_item_count": omitted,
+        "coverage_ratio": round((analyzed / total), 6) if total else 1.0,
+        "chunk_size": _evidence_chunk_size(),
+        "chunk_count": int(chunk_count or chunk.get("chunk_count") or max(1, len(chunks))),
+        "evidence_ids_sha256": sha256_json(ids),
+        "coverage_class_counts": _coverage_class_counts_for_items(items),
+        "chunk_manifest_entry_count": len(chunk_manifest),
+        "chunk_manifest_sha256": sha256_json(chunk_manifest),
+        "boundary_policy": (
+            "Every Evidence Item is assigned to a provider review chunk; prompt-excluded row-level tails remain "
+            "visible through the DB coverage ledger."
+        ),
+        "chunk": chunk,
+    }
+
+
+def _chunk_manifest_rows_for_bundle(
+    bundle: dict[str, Any],
+    *,
+    chunk_count: int | None = None,
+    provider_id: str = "",
+) -> list[dict[str, Any]]:
+    chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
+    if chunk:
+        return [_compact_chunk_manifest_row(chunk)]
+    chunks = _evidence_item_chunks(bundle, provider_id=provider_id)
+    total_chunks = int(chunk_count or len(chunks) or 1)
+    full_count = len([row for row in bundle.get("evidence_items") or [] if isinstance(row, dict)])
+    rows: list[dict[str, Any]] = []
+    for index, items in enumerate(chunks, start=1):
+        manifest = _chunk_manifest_from_items(
+            items,
+            chunk_index=index,
+            total_chunks=total_chunks,
+            full_evidence_item_count=full_count,
+            provider_id=provider_id,
+        )
+        rows.append(_compact_chunk_manifest_row(manifest))
+    return rows
+
+
+def _compact_chunk_manifest_row(chunk: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "chunk_id": str(chunk.get("chunk_id") or ""),
+        "chunk_index": int(chunk.get("chunk_index") or 0),
+        "chunk_type": str(chunk.get("chunk_type") or ""),
+        "semantic_keys": list(chunk.get("semantic_keys") or []),
+        "token_budget": int(chunk.get("token_budget") or 0),
+        "estimated_input_tokens": int(chunk.get("estimated_input_tokens") or 0),
+        "packing_strategy": str(chunk.get("packing_strategy") or ""),
+        "adaptive_retry": bool(chunk.get("adaptive_retry")),
+        "evidence_item_count": int(chunk.get("evidence_item_count") or 0),
+        "evidence_ids_sha256": str(chunk.get("evidence_ids_sha256") or ""),
+        "source_log_count": int(chunk.get("source_log_count") or 0),
+        "time_range": dict(chunk.get("time_range") or {}),
+        "coverage_classes": list(chunk.get("coverage_classes") or []),
+        "coverage_class_counts": dict(chunk.get("coverage_class_counts") or {}),
+        "provider_prompt_sha256": str(chunk.get("provider_prompt_sha256") or ""),
+    }
+
+
+def _model_db_corpus_coverage(coverage: Any) -> dict[str, Any]:
+    if not isinstance(coverage, dict):
+        return {}
+    return {
+        "schema_version": str(coverage.get("schema_version") or ""),
+        "source_table": str(coverage.get("source_table") or ""),
+        "strategy": str(coverage.get("strategy") or ""),
+        "total_row_count": int(coverage.get("total_row_count") or 0),
+        "covered_row_count": int(coverage.get("covered_row_count") or 0),
+        "uncovered_row_count": int(coverage.get("uncovered_row_count") or 0),
+        "coverage_ratio": float(coverage.get("coverage_ratio") or 0.0),
+        "pattern_count": int(coverage.get("pattern_count") or 0),
+        "singleton_pattern_count": int(coverage.get("singleton_pattern_count") or 0),
+        "low_frequency_pattern_count": int(coverage.get("low_frequency_pattern_count") or 0),
+        "coverage_class_counts": dict(coverage.get("coverage_class_counts") or {}),
+        "direct_prompt_row_count": int(coverage.get("direct_prompt_row_count") or 0),
+        "raw_rows_sent_to_providers": bool(coverage.get("raw_rows_sent_to_providers")),
+        "prompt_boundary_policy": str(coverage.get("prompt_boundary_policy") or ""),
+        "row_assignments_sha256": str(coverage.get("row_assignments_sha256") or ""),
+        "row_assignments_in_prompt": False,
+    }
 
 
 def _artifact_from_response(
@@ -766,6 +2567,8 @@ def _model_input_context_summary(bundle: dict[str, Any]) -> dict[str, Any]:
         "raw_source_sent_to_providers": False,
         "raw_logs_sent_to_providers": False,
         "context_is_not_incident_evidence": True,
+        "db_corpus_coverage": _model_db_corpus_coverage(bundle.get("db_corpus_coverage") or {}),
+        "full_corpus_coverage": _full_corpus_coverage_summary(bundle),
     }
 
 
@@ -847,6 +2650,7 @@ def _blocked_artifact(
         cost_estimate=cost_estimate_for_response(response),
         output_parse=output_parse,
     )
+    _annotate_execution_status(artifact)
     return _ArtifactEnvelope(
         artifact=artifact,
         raw_output=response.raw_output,
@@ -965,6 +2769,8 @@ def _context_input_summary(bundle: dict[str, Any]) -> dict[str, Any]:
         "source_analysis_sha256": source_analysis.get("analysis_sha256") or "",
         "context_is_not_incident_evidence": True,
         "support_claims_must_cite_evidence_id": True,
+        "db_corpus_coverage": _model_db_corpus_coverage(bundle.get("db_corpus_coverage") or {}),
+        "full_corpus_coverage": _full_corpus_coverage_summary(bundle),
     }
 
 
@@ -1029,6 +2835,7 @@ def _model_input(bundle: dict[str, Any]) -> dict[str, Any]:
         "metric_windows": bundle.get("metric_windows") or [],
         "operational_evidence": bundle.get("operational_evidence") or [],
         "signals": bundle.get("signals") or [],
+        "db_corpus_coverage": _model_db_corpus_coverage(bundle.get("db_corpus_coverage") or {}),
         "approved_profile_context": bundle.get("approved_profile_context") or {},
         "source_context_context": bundle.get("source_context_context") or {},
         "source_analysis_context": bundle.get("source_analysis_context") or {},
@@ -1050,6 +2857,9 @@ def _model_input_policy(bundle: dict[str, Any]) -> dict[str, Any]:
         "raw_source_sent_to_providers": False,
         "raw_env_values_sent_to_providers": False,
         "raw_grep_output_sent_to_providers": False,
+        "sqlite_db_file_sent_to_providers": False,
+        "db_row_assignments_sent_to_providers": False,
+        "db_corpus_coverage_summary_included": bool(bundle.get("db_corpus_coverage")),
         "support_claims_must_cite_evidence_id": True,
         "score_note": SCORE_NOTE,
         "policy_text": (
@@ -1450,11 +3260,14 @@ def _subsystem(claim: dict[str, Any]) -> str:
 
 
 def _provider_status(run: dict[str, Any]) -> dict[str, Any]:
+    execution_status = _artifact_execution_status(run)
     return {
         "provider_id": run.get("provider_id"),
         "display_name": run.get("display_name"),
         "model_name": run.get("model_name"),
         "status": run.get("status"),
+        "execution_status": execution_status,
+        "failure_is_not_silent": execution_status in CHUNK_FAILURE_STATUSES,
         "latency_ms": run.get("latency_ms"),
         "input_tokens": run.get("input_tokens"),
         "output_tokens": run.get("output_tokens"),
@@ -1464,6 +3277,8 @@ def _provider_status(run: dict[str, Any]) -> dict[str, Any]:
         "schema_errors": run.get("schema_errors") or [],
         "failure_reason": run.get("failure_reason") or "",
         "retry": run.get("retry") or {},
+        "chunk_status_counts": dict(run.get("chunk_status_counts") or {}),
+        "chunk_failure_count": int(run.get("chunk_failure_count") or 0),
         "cost_estimate": run.get("cost_estimate") or {},
     }
 
@@ -1480,6 +3295,109 @@ def _failure_reason(status: str, schema_valid: bool, schema_errors: tuple[str, .
     if status == "blocked_by_safety_preflight":
         return "secret_like_pattern_detected"
     return "provider_failed"
+
+
+def _artifact_execution_status(artifact: dict[str, Any]) -> str:
+    status = str(artifact.get("status") or "").strip()
+    schema_valid = bool(artifact.get("schema_valid"))
+    if status == "ok" and schema_valid:
+        return "ok"
+    if status == "skipped_not_configured":
+        return "skipped_not_configured"
+
+    text = _artifact_failure_text(artifact)
+    if status == "blocked_by_safety_preflight" or _text_has_any(text, ("safety", "filter", "blocked")):
+        return "safety_filter"
+    if _text_has_any(text, ("context length", "context_length", "maximum context", "max context", "token limit")):
+        return "context_length"
+    if _text_has_any(text, ("429", "rate limit", "rate_limit", "quota", "resource exhausted", "throttle")):
+        return "rate_limited"
+    if status == "timeout" or _text_has_any(text, ("timeout", "timed out", "deadline")):
+        return "timeout"
+    if _text_has_any(text, ("schema invalid", "schema_invalid", "schema validation", "schema_validation")):
+        return "schema_invalid"
+    if status == "ok" and not schema_valid:
+        parse_status = str(artifact.get("parse_status") or "")
+        if parse_status in {"invalid_json", "invalid_after_repair"}:
+            return "deterministic_parse_failure"
+        return "schema_invalid"
+    if _text_has_any(text, ("empty response", "empty_response", "no response")):
+        return "empty_response"
+
+    retry = artifact.get("retry") if isinstance(artifact.get("retry"), dict) else {}
+    attempts = int(retry.get("attempts") or 0)
+    max_attempts = int(retry.get("max_attempts") or 0)
+    if attempts and max_attempts and attempts >= max_attempts and bool(retry.get("retryable")):
+        return "retry_exhausted"
+    if status in {"failed", "error"}:
+        return "provider_error"
+    return "provider_error"
+
+
+def _annotate_execution_status(artifact: dict[str, Any]) -> None:
+    execution_status = _artifact_execution_status(artifact)
+    artifact["execution_status"] = execution_status
+    artifact["failure_is_not_silent"] = execution_status in CHUNK_FAILURE_STATUSES
+
+
+def _artifact_failure_text(artifact: dict[str, Any]) -> str:
+    retry = artifact.get("retry") if isinstance(artifact.get("retry"), dict) else {}
+    provider_error = artifact.get("provider_error") if isinstance(artifact.get("provider_error"), dict) else {}
+    values: list[str] = [
+        str(artifact.get("status") or ""),
+        str(artifact.get("failure_reason") or ""),
+        str(artifact.get("parse_status") or ""),
+        str(retry.get("failure_reason") or ""),
+        str(retry.get("exception_type") or ""),
+        str(provider_error.get("error_type") or ""),
+        str(provider_error.get("failure_reason") or ""),
+        str(provider_error.get("message") or ""),
+        str(provider_error.get("exception_type") or ""),
+    ]
+    values.extend(str(item) for item in artifact.get("schema_errors") or [])
+    return " ".join(value for value in values if value).casefold()
+
+
+def _artifact_failure_message(artifact: dict[str, Any]) -> str:
+    retry = artifact.get("retry") if isinstance(artifact.get("retry"), dict) else {}
+    provider_error = artifact.get("provider_error") if isinstance(artifact.get("provider_error"), dict) else {}
+    parts = [
+        str(artifact.get("failure_reason") or ""),
+        str(artifact.get("parse_status") or ""),
+        "; ".join(str(item) for item in artifact.get("schema_errors") or [] if str(item).strip()),
+        str(retry.get("failure_reason") or ""),
+        str(retry.get("exception_type") or ""),
+        str(provider_error.get("error_type") or ""),
+        str(provider_error.get("failure_reason") or ""),
+        str(provider_error.get("message") or ""),
+        str(provider_error.get("exception_type") or ""),
+    ]
+    return " | ".join(part for part in parts if part)
+
+
+def _provider_error_detail(payload: dict[str, Any]) -> dict[str, str]:
+    return {
+        "schema_version": str(payload.get("schema_version") or ""),
+        "status": str(payload.get("status") or ""),
+        "error_type": str(payload.get("error_type") or ""),
+        "failure_reason": str(payload.get("failure_reason") or ""),
+        "message": str(payload.get("message") or "")[:1000],
+        "exception_type": str(payload.get("exception_type") or ""),
+    }
+
+
+def _retry_after_seconds_from_text(text: str) -> int:
+    match = re.search(r"retry[-_\s]*after(?:[_\s]*(?:seconds|sec))?\D{0,8}(\d{1,5})", str(text), re.IGNORECASE)
+    if not match:
+        return 0
+    try:
+        return max(0, min(int(match.group(1)), 86_400))
+    except ValueError:
+        return 0
+
+
+def _text_has_any(text: str, needles: tuple[str, ...]) -> bool:
+    return any(needle in text for needle in needles)
 
 
 def _display_name(provider_id: str) -> str:

@@ -59,7 +59,8 @@ event set. The longest valid window was selected before the five-provider run.
 
 The arena-server monitoring corpus was evaluated with the same minimum
 24-hour policy. The accepted 7-day bundle includes more state and journal
-coverage while keeping the provider prompt bounded.
+coverage. Single-prompt projection remains bounded for inspection, while
+provider execution covers the full Evidence Item corpus through chunks.
 
 | Candidate | Window | Sanitized rows | Evidence items | Prompt items | Prompt occurrences | Coverage | Evidence SHA256 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -118,26 +119,27 @@ was excluded before the final sanitized verification.
 ## Token Compression
 
 The API did not send row-level raw logs as prompt text. Each sanitized corpus
-was persisted, grouped into Evidence Items, and projected into a bounded model
-input.
+was persisted and grouped into Evidence Items. Single-prompt projection metadata
+records a bounded top-140 slice for quick inspection; multi-provider synthesis
+covers all grouped Evidence Items through chunked provider calls.
 
 | Layer | Dell runtime | arena-server monitoring |
 | --- | ---: | ---: |
 | Sanitized rows in Evidence Bundle | 11,399 | 4,747 |
 | Grouped Evidence Items retained | 654 | 1,520 |
-| Evidence Items selected for model prompt | 140 | 140 |
+| Evidence Items in single-prompt projection | 140 | 140 |
+| Evidence Items covered by chunked provider calls | 654 | 1,520 |
 | Occurrences represented by selected items | 10,771 | 496 |
-| Occurrence coverage | 94.5% | 10.4% |
+| Single-prompt occurrence coverage | 94.5% | 10.4% |
+| Provider Evidence Item coverage | 100.0% | 100.0% |
 
 Dell runtime had dense repeated runtime patterns, so 140 selected items covered
 most occurrences. arena-server monitoring had a wider set of one-off state,
-metric, and journal items; the selected prompt stayed bounded while the full
-sanitized corpus remained in the Evidence Bundle and public payload metadata.
-Projection coverage is occurrence-weighted, not raw-row coverage, so a low
-percentage indicates a long-tail corpus rather than a missing raw-log window.
-For arena-server monitoring, gpt-oss used a provider-budgeted top-64 projection
-and Mistral Medium 3 used a top-40 projection to stay under their current MaaS
-context limits. Gemini, Qwen, and GLM used the standard top-140 projection.
+metric, and journal items, so single-prompt projection coverage is low. That is
+now a display/inspection metric rather than an analysis cutoff: every grouped
+Evidence Item is still sent through later provider chunks. Projection coverage
+is occurrence-weighted, not raw-row coverage, so a low percentage indicates a
+long-tail corpus rather than a missing raw-log window.
 
 ## Provider Results
 

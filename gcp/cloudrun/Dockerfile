@@ -7,10 +7,11 @@ ENV OES_DB_PATH=/tmp/ops_evidence_synthesis.sqlite3
 WORKDIR /app
 COPY pyproject.toml README.md /app/
 COPY src /app/src
+COPY scripts /app/scripts
 COPY data /app/data
 COPY gcp /app/gcp
 
-RUN pip install --no-cache-dir ".[api,gcp]"
+RUN pip install --no-cache-dir ".[api,gcp,postgres]"
 
 EXPOSE 8080
 CMD ["uvicorn", "ops_evidence_synthesis.api:app", "--host", "0.0.0.0", "--port", "8080"]

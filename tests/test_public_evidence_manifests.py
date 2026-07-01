@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from html.parser import HTMLParser
 from pathlib import Path
 
+from ops_evidence_synthesis.web.precomputed_review import render_precomputed_review_detail_page
 from ops_evidence_synthesis.window_policy import validate_minimum_analysis_window
 
 
@@ -12,6 +14,43 @@ MANIFEST_DIR = ROOT / "data" / "public_evidence_manifests"
 
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+class _TargetHeadingParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.headings: list[str] = []
+        self._article_stack: list[bool] = []
+        self._capturing_h2 = False
+        self._current_parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "article":
+            classes = dict(attrs).get("class") or ""
+            self._article_stack.append("target" in classes.split())
+        if tag == "h2" and any(self._article_stack):
+            self._capturing_h2 = True
+            self._current_parts = []
+
+    def handle_data(self, data: str) -> None:
+        if self._capturing_h2:
+            self._current_parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "h2" and self._capturing_h2:
+            heading = " ".join("".join(self._current_parts).split())
+            if heading:
+                self.headings.append(heading)
+            self._capturing_h2 = False
+            self._current_parts = []
+        if tag == "article" and self._article_stack:
+            self._article_stack.pop()
+
+
+def _detail_target_headings(html: str) -> list[str]:
+    parser = _TargetHeadingParser()
+    parser.feed(html)
+    return parser.headings
 
 
 def test_public_evidence_manifest_index_points_to_existing_manifests() -> None:
@@ -41,7 +80,8 @@ def test_public_evidence_manifests_match_precomputed_payloads() -> None:
         assert manifest["input_fingerprint_sha256"] == payload["summary"]["input_fingerprint_sha256"]
         assert manifest["payload_sha256"] == payload["generation"]["payload_sha256"]
 
-        assert manifest["source_boundary"] == {
+        source_boundary = manifest["source_boundary"]
+        expected_source_boundary = {
             "raw_logs_committed": False,
             "raw_logs_uploaded_to_model": False,
             "raw_source_committed": False,
@@ -51,6 +91,13 @@ def test_public_evidence_manifests_match_precomputed_payloads() -> None:
             "raw_log_policy": analysis_context["raw_log_policy"],
             "raw_source_policy": analysis_context["raw_source_policy"],
         }
+        assert {
+            key: source_boundary.get(key)
+            for key in expected_source_boundary
+        } == expected_source_boundary
+        for optional_key in ("model_projection_policy", "source_context_sha256", "source_analysis_sha256"):
+            if optional_key in source_boundary:
+                assert source_boundary[optional_key] == analysis_context[optional_key]
         assert manifest["sanitized_corpus"]["service"] == analysis_context["service"]
         assert manifest["sanitized_corpus"]["environment"] == analysis_context["environment"]
         assert manifest["sanitized_corpus"]["sanitized_row_count"] == analysis_context["sanitized_log_count"]
@@ -116,6 +163,8 @@ def test_public_evidence_manifests_match_precomputed_payloads() -> None:
         assert manifest["review_summary"]["validation_targets"] == payload["summary"]["review"]["validation_targets"]
         assert manifest["review_summary"]["monitor_only"] == payload["summary"]["review"]["monitor_only"]
         assert manifest["review_summary"]["auto_archived"] == payload["summary"]["review"]["auto_archived"]
+        titles = [target["title"] for target in payload["targets"]]
+        assert len(titles) == len(set(titles)), f"duplicate public target titles in {manifest_path.name}"
         assert (
             manifest["review_summary"]["incident_baseline"]
             == payload["review_graph_summary"]["incident_baseline"]
@@ -147,6 +196,29 @@ def test_public_evidence_manifests_match_precomputed_payloads() -> None:
         assert profile_gate["human_questions"] == profile_context["human_questions"]
         assert profile_gate["profile_to_review_links"] == profile_context["profile_to_review_links"]
         assert profile_gate["context_is_not_incident_evidence"] is True
+
+
+def test_public_evidence_manifest_detail_target_headings_are_unique() -> None:
+    for manifest_path in sorted(MANIFEST_DIR.glob("*_real_api.json")):
+        manifest = _load_json(manifest_path)
+        payload_path = ROOT / manifest["precomputed_payload_path"]
+        payload = _load_json(payload_path)
+        target_count = len([target for target in payload.get("targets") or [] if isinstance(target, dict)])
+
+        html = render_precomputed_review_detail_page(payload["evidence_sha256"], payload)
+        headings = _detail_target_headings(html)
+        duplicate_headings = sorted(
+            {
+                heading
+                for heading in headings
+                if headings.count(heading) > 1
+            }
+        )
+
+        assert len(headings) == target_count, f"detail target heading count mismatch in {manifest_path.name}"
+        assert duplicate_headings == [], f"duplicate detail target headings in {manifest_path.name}: {duplicate_headings}"
+        if manifest_path.name == "amazon_notify_real_api.json":
+            assert "Review target requires validation: general" not in headings
 
 
 def test_public_evidence_manifests_do_not_publish_local_artifact_paths() -> None:

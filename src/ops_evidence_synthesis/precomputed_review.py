@@ -519,14 +519,25 @@ def _analysis_context(
     component_count = len(source_analysis.get("component_candidates") or [])
     metric_count = len(source_analysis.get("metric_semantics_candidates") or [])
     collector_count = len(source_analysis.get("collector_mapping_candidates") or [])
+    log_count = _bundle_log_count(bundle, {})
+    db_corpus_coverage = _bundle_db_corpus_coverage(bundle, fallback_rows=log_count)
     return {
         "schema_version": "deterministic_source_context_summary.v1",
-        "service": str(source.get("service") or ""),
-        "environment": str(source.get("environment") or ""),
-        "window_start": str(time_window.get("start") or ""),
-        "window_end": str(time_window.get("end") or ""),
+        "service": str(source.get("service") or bundle.get("service") or ""),
+        "environment": str(source.get("environment") or bundle.get("environment") or ""),
+        "window_start": str(time_window.get("start") or bundle.get("window_start") or ""),
+        "window_end": str(time_window.get("end") or bundle.get("window_end") or ""),
         "profile_id": profile_id,
-        "sanitized_log_count": _bundle_log_count(bundle, {}),
+        "sanitized_log_count": log_count,
+        "db_ingested_log_count": log_count,
+        "db_corpus_coverage": db_corpus_coverage,
+        "db_corpus_row_count": int(db_corpus_coverage.get("total_row_count") or 0),
+        "db_corpus_covered_row_count": int(db_corpus_coverage.get("covered_row_count") or 0),
+        "db_corpus_coverage_ratio": float(db_corpus_coverage.get("coverage_ratio") or 0.0),
+        "db_corpus_pattern_count": int(db_corpus_coverage.get("pattern_count") or 0),
+        "db_corpus_singleton_pattern_count": int(db_corpus_coverage.get("singleton_pattern_count") or 0),
+        "db_corpus_row_assignments_sha256": str(db_corpus_coverage.get("row_assignments_sha256") or ""),
+        "evidence_item_count": len(bundle.get("evidence_items") or []),
         "raw_log_policy": str(bundle.get("raw_log_policy") or local_first.get("raw_log_policy") or "not_uploaded"),
         "raw_source_policy": str(source_context.get("raw_source_policy") or "not_uploaded"),
         "source_context_sha256": source_context_sha,
@@ -552,6 +563,41 @@ def _analysis_context(
             ),
             "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs.",
         ],
+    }
+
+
+def _bundle_db_corpus_coverage(bundle: dict[str, Any], *, fallback_rows: int) -> dict[str, Any]:
+    coverage = bundle.get("db_corpus_coverage") if isinstance(bundle.get("db_corpus_coverage"), dict) else {}
+    if coverage:
+        total = int(coverage.get("total_row_count") or 0)
+        covered = int(coverage.get("covered_row_count") or 0)
+        return {
+            "schema_version": str(coverage.get("schema_version") or "db_corpus_coverage.v1"),
+            "source_table": str(coverage.get("source_table") or "logs_sanitized"),
+            "strategy": str(coverage.get("strategy") or ""),
+            "total_row_count": total,
+            "covered_row_count": covered,
+            "uncovered_row_count": int(coverage.get("uncovered_row_count") or 0),
+            "coverage_ratio": float(coverage.get("coverage_ratio") or (covered / total if total else 1.0)),
+            "pattern_count": int(coverage.get("pattern_count") or 0),
+            "singleton_pattern_count": int(coverage.get("singleton_pattern_count") or 0),
+            "low_frequency_pattern_count": int(coverage.get("low_frequency_pattern_count") or 0),
+            "row_assignments_sha256": str(coverage.get("row_assignments_sha256") or ""),
+            "row_assignments_in_public_payload": False,
+        }
+    return {
+        "schema_version": "db_corpus_coverage.v1",
+        "source_table": "unknown",
+        "strategy": "legacy_payload_without_row_coverage_ledger",
+        "total_row_count": int(fallback_rows),
+        "covered_row_count": 0,
+        "uncovered_row_count": int(fallback_rows),
+        "coverage_ratio": 0.0 if fallback_rows else 1.0,
+        "pattern_count": 0,
+        "singleton_pattern_count": 0,
+        "low_frequency_pattern_count": 0,
+        "row_assignments_sha256": "",
+        "row_assignments_in_public_payload": False,
     }
 
 

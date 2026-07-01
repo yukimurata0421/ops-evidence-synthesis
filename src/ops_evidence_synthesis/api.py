@@ -132,6 +132,13 @@ def _glm_provider() -> ModelProvider:
     return HeuristicProvider("glm-local", "glm-simulated-root", "alternative-hypothesis")
 
 
+def _llama_provider() -> ModelProvider:
+    provider_name = os.environ.get("OES_LLAMA_PROVIDER", "vertex").casefold()
+    if provider_name in {"vertex", "agent-platform", "llama-agent-platform"}:
+        return VertexOpenModelProvider.from_llama_env()
+    return HeuristicProvider("llama-local", "llama-simulated-root", "alternative-hypothesis")
+
+
 def _startup() -> None:
     configure_logging()
     store = _store()
@@ -164,6 +171,7 @@ configure_api_routes(
     mistral_provider_factory=_mistral_provider,
     qwen_provider_factory=_qwen_provider,
     glm_provider_factory=_glm_provider,
+    llama_provider_factory=_llama_provider,
 )
 
 app = FastAPI(

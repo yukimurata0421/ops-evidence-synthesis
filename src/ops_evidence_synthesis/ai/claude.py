@@ -46,6 +46,7 @@ class VertexClaudeProvider:
             location=os.environ.get("OES_CLAUDE_LOCATION", DEFAULT_CLAUDE_LOCATION),
             temperature=float(os.environ.get("OES_CLAUDE_TEMPERATURE", "0")),
             max_output_tokens=int(os.environ.get("OES_CLAUDE_MAX_OUTPUT_TOKENS", "4096")),
+            timeout_seconds=int(os.environ.get("OES_CLAUDE_TIMEOUT_SECONDS", "90")),
         )
 
     def run(self, bundle: dict[str, Any]) -> ModelResponse:

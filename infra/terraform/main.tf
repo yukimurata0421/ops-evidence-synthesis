@@ -9,7 +9,52 @@ locals {
     OES_GCP_PROJECT       = var.project_id
     OES_BIGQUERY_LOCATION = var.bigquery_location
   }
-  cloud_run_env = merge(local.base_env, var.runtime_env)
+  cloud_run_env = merge(
+    local.base_env,
+    {
+      OES_PRECOMPUTED_REVIEW_GCS_PREFIX = "gs://${google_storage_bucket.private_artifacts.name}/precomputed_review_summaries"
+    },
+    var.runtime_env,
+  )
+  chunked_review_job_env = merge(
+    local.base_env,
+    var.runtime_env,
+    {
+      OES_CHUNK_RUN_STORE                   = "postgres"
+      OES_CLOUD_SQL_CONNECTION_NAME         = google_sql_database_instance.postgres.connection_name
+      OES_POSTGRES_DB                       = google_sql_database.ledger.name
+      OES_POSTGRES_USER                     = google_sql_user.ledger.name
+      OES_JOB_OUTPUT_PREFIX_URI             = "gs://${google_storage_bucket.private_artifacts.name}/job-runs"
+      OES_JOB_PRECOMPUTED_OUTPUT_PREFIX_URI = "gs://${google_storage_bucket.private_artifacts.name}/precomputed_review_summaries"
+      OES_JOB_PROVIDER_MODE                 = var.chunked_review_job_provider_mode
+      OES_JOB_PROVIDERS                     = join(",", var.chunked_review_job_providers)
+      OES_MULTI_AI_CHUNK_WORKERS            = tostring(var.chunked_review_job_chunk_workers)
+      OES_MULTI_AI_PROVIDER_WORKERS         = tostring(var.chunked_review_job_provider_workers)
+      OES_MULTI_AI_CHUNK_RETRY_ATTEMPTS     = tostring(var.chunked_review_job_chunk_retry_attempts)
+    },
+    var.chunked_review_job_env,
+  )
+}
+
+resource "google_storage_bucket" "private_artifacts" {
+  name                        = var.private_artifact_bucket_name
+  location                    = var.private_artifact_bucket_location
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = false
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      age = var.private_artifact_bucket_retention_days
+    }
+    action {
+      type = "Delete"
+    }
+  }
 }
 
 resource "google_bigquery_dataset" "raw" {
@@ -66,12 +111,68 @@ resource "google_project_iam_member" "api_vertex_user" {
   member  = "serviceAccount:${google_service_account.api.email}"
 }
 
+resource "google_storage_bucket_iam_member" "api_private_artifact_object_admin" {
+  bucket = google_storage_bucket.private_artifacts.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_project_iam_member" "api_cloud_sql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
 resource "google_secret_manager_secret_iam_member" "api_write_token_accessor" {
   count     = var.api_write_token_secret == "" ? 0 : 1
   project   = var.project_id
   secret_id = var.api_write_token_secret
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "api_postgres_password_accessor" {
+  count     = var.postgres_password_secret == "" ? 0 : 1
+  project   = var.project_id
+  secret_id = var.postgres_password_secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_sql_database_instance" "postgres" {
+  name             = var.postgres_instance_name
+  database_version = var.postgres_database_version
+  region           = var.region
+
+  deletion_protection = var.postgres_deletion_protection
+
+  settings {
+    tier              = var.postgres_tier
+    availability_type = var.postgres_availability_type
+    disk_size         = var.postgres_disk_size_gb
+    disk_type         = "PD_SSD"
+    disk_autoresize   = true
+
+    backup_configuration {
+      enabled                        = true
+      point_in_time_recovery_enabled = true
+    }
+
+    ip_configuration {
+      ipv4_enabled = var.postgres_ipv4_enabled
+    }
+  }
+}
+
+resource "google_sql_database" "ledger" {
+  name     = var.postgres_database_name
+  instance = google_sql_database_instance.postgres.name
+}
+
+resource "google_sql_user" "ledger" {
+  name     = var.postgres_user_name
+  instance = google_sql_database_instance.postgres.name
+  password = var.postgres_password
 }
 
 resource "google_cloud_run_v2_service" "api" {
@@ -145,6 +246,64 @@ resource "google_cloud_run_v2_service" "api" {
       client,
       client_version,
     ]
+  }
+}
+
+resource "google_cloud_run_v2_job" "chunked_review" {
+  name     = var.chunked_review_job_name
+  location = var.region
+
+  template {
+    template {
+      service_account = google_service_account.api.email
+      timeout         = "${var.chunked_review_job_timeout_seconds}s"
+      max_retries     = var.chunked_review_job_max_retries
+
+      containers {
+        image   = var.container_image
+        command = ["python", "-m", "ops_evidence_synthesis.gcp.chunked_review_job"]
+
+        dynamic "env" {
+          for_each = local.chunked_review_job_env
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+
+        dynamic "env" {
+          for_each = var.postgres_password_secret == "" ? [] : [var.postgres_password_secret]
+          content {
+            name = "OES_POSTGRES_PASSWORD"
+            value_source {
+              secret_key_ref {
+                secret  = env.value
+                version = "latest"
+              }
+            }
+          }
+        }
+
+        resources {
+          limits = {
+            cpu    = var.chunked_review_job_cpu_limit
+            memory = var.chunked_review_job_memory_limit
+          }
+        }
+
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+      }
+
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [google_sql_database_instance.postgres.connection_name]
+        }
+      }
+    }
   }
 }
 

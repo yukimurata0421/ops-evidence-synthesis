@@ -1,0 +1,368 @@
+{
+  "agent_trace": [
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:freeze_evidence_bundle",
+      "output": {
+        "artifact": "evidence_bundle",
+        "evidence_sha256": "434da4f823f4536c790ba4e689776fab20a9b4b1bb08bdf0d634ce82b93202fa",
+        "log_count": 6461,
+        "raw_log_policy": "not_uploaded",
+        "status": "completed",
+        "summary": "Evidence Bundle 434da4f823f4 fixed 6,461 sanitized rows; raw_log_policy=not_uploaded."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "freeze_evidence_bundle",
+      "summary": "Evidence Bundle 434da4f823f4 fixed 6,461 sanitized rows; raw_log_policy=not_uploaded.",
+      "title": "Freeze Evidence Bundle",
+      "tool": "freeze_evidence_bundle",
+      "trace_sha256": "d213ff314815e44041c82fcd44f4dfee766029f154cb4a9b290ef76366a81f91",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:attach_sanitized_source_context",
+      "output": {
+        "artifact": "source_context",
+        "context_is_not_incident_evidence": true,
+        "source_analysis_attached": false,
+        "source_analysis_sha256": "",
+        "source_context_attached": false,
+        "source_context_sha256": "",
+        "status": "skipped",
+        "summary": "No sanitized Source Context was attached to this review payload."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "skipped",
+      "step": "attach_sanitized_source_context",
+      "summary": "No sanitized Source Context was attached to this review payload.",
+      "title": "Attach Sanitized Source Context",
+      "tool": "attach_sanitized_source_context",
+      "trace_sha256": "d213ff314815e44041c82fcd44f4dfee766029f154cb4a9b290ef76366a81f91",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:run_cross_check_providers",
+      "output": {
+        "artifact": "model_runs",
+        "gemini_primary_present": true,
+        "provider_count": 3,
+        "provider_ids": [
+          "local-gemini",
+          "local-gpt-oss",
+          "local-mistral"
+        ],
+        "schema_valid_provider_count": 3,
+        "status": "completed",
+        "summary": "3/3 provider outputs were schema-valid; Gemini primary present=True."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "run_cross_check_providers",
+      "summary": "3/3 provider outputs were schema-valid; Gemini primary present=True.",
+      "title": "Run Cross-Check Providers",
+      "tool": "run_cross_check_providers",
+      "trace_sha256": "d213ff314815e44041c82fcd44f4dfee766029f154cb4a9b290ef76366a81f91",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:validate_citations",
+      "output": {
+        "artifact": "citation_validation",
+        "cited_evidence_ref_count": 4,
+        "missing_evidence_count": 4,
+        "status": "completed",
+        "summary": "1 review target(s) cite 4 sanitized evidence ref(s); 4 missing-evidence item(s) remain.",
+        "target_count": 1,
+        "uncited_target_ids": []
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "validate_citations",
+      "summary": "1 review target(s) cite 4 sanitized evidence ref(s); 4 missing-evidence item(s) remain.",
+      "title": "Validate Citations",
+      "tool": "validate_citations",
+      "trace_sha256": "d213ff314815e44041c82fcd44f4dfee766029f154cb4a9b290ef76366a81f91",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:compute_review_targets",
+      "output": {
+        "artifact": "canonical_review_graph",
+        "convergence_count": 1,
+        "primary_count": 0,
+        "status": "completed",
+        "summary": "Canonical Review Graph projected 1 target(s), 0 primary candidate(s), and 1 convergence group(s).",
+        "targets_total": 1,
+        "validation_count": 1
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "compute_review_targets",
+      "summary": "Canonical Review Graph projected 1 target(s), 0 primary candidate(s), and 1 convergence group(s).",
+      "title": "Compute Review Targets",
+      "tool": "compute_review_targets",
+      "trace_sha256": "d213ff314815e44041c82fcd44f4dfee766029f154cb4a9b290ef76366a81f91",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:arbitrate_review_gate",
+      "output": {
+        "artifact": "review_arbitration",
+        "blocked_reasons": [
+          "incident_baseline_open; user_impact_unverified; causal_direction_unverified"
+        ],
+        "incident_baseline": "open",
+        "requires_human_review": true,
+        "status": "human_gate",
+        "summary": "Final incident causality remains human-gated; the agent stops with review targets."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "arbitrate_review_gate",
+      "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
+      "title": "Arbitrate Human Gate",
+      "tool": "arbitrate_review_gate",
+      "trace_sha256": "d213ff314815e44041c82fcd44f4dfee766029f154cb4a9b290ef76366a81f91",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:request_more_evidence",
+      "output": {
+        "artifact": "evidence_request_plan",
+        "missing_evidence_count": 4,
+        "request_types": [
+          "process_state"
+        ],
+        "status": "completed",
+        "summary": "Generated read-only follow-up plan with 1 request type(s) and 4 missing-evidence item(s)."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "request_more_evidence",
+      "summary": "Generated read-only follow-up plan with 1 request type(s) and 4 missing-evidence item(s).",
+      "title": "Request More Evidence",
+      "tool": "request_more_evidence",
+      "trace_sha256": "d213ff314815e44041c82fcd44f4dfee766029f154cb4a9b290ef76366a81f91",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:draft_system_profile",
+      "output": {
+        "approved": false,
+        "artifact": "profile_draft",
+        "explicit_profile": false,
+        "generation_mode": "not_run",
+        "llm_status": "not_run",
+        "status": "skipped",
+        "summary": "No Gemini profile draft is embedded in this review payload."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "skipped",
+      "step": "draft_system_profile",
+      "summary": "No Gemini profile draft is embedded in this review payload.",
+      "title": "Draft System Profile",
+      "tool": "draft_system_profile",
+      "trace_sha256": "d213ff314815e44041c82fcd44f4dfee766029f154cb4a9b290ef76366a81f91",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:deliver_read_only_review",
+      "output": {
+        "artifact": "precomputed_review_summary",
+        "evidence_sha256": "434da4f823f4536c790ba4e689776fab20a9b4b1bb08bdf0d634ce82b93202fa",
+        "provider_mode": "deterministic_local",
+        "public_url": "",
+        "status": "completed",
+        "summary": "Read-only review payload for 434da4f823f4 is served from precomputed JSON; page load does not invoke live model work."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "deliver_read_only_review",
+      "summary": "Read-only review payload for 434da4f823f4 is served from precomputed JSON; page load does not invoke live model work.",
+      "title": "Deliver Read-Only Review",
+      "tool": "deliver_read_only_review",
+      "trace_sha256": "d213ff314815e44041c82fcd44f4dfee766029f154cb4a9b290ef76366a81f91",
+      "trace_source": "adk_tool_contract"
+    }
+  ],
+  "devops_loop": {
+    "items": [
+      {
+        "detail": "The public demo uses local providers that require no keys or network access.",
+        "label": "Deterministic replay",
+        "value": "local providers"
+      },
+      {
+        "detail": "CI regenerates the public fixture and compares it with the committed cache.",
+        "label": "Fixture fidelity",
+        "value": "byte comparison"
+      },
+      {
+        "detail": "Each provider's claimed or silent stance is retained instead of being collapsed into a vote.",
+        "label": "Provider frontier",
+        "value": "provider stances retained"
+      },
+      {
+        "detail": "The release smoke script checks the public review pages and the UI time budget.",
+        "label": "Post-deploy smoke",
+        "value": "root + detail checked"
+      }
+    ],
+    "summary": "The public repository verifies that the fast UI cache can be regenerated from a deterministic local pipeline.",
+    "title": "AI workflow is operated as production software"
+  },
+  "evidence_sha256": "434da4f823f4536c790ba4e689776fab20a9b4b1bb08bdf0d634ce82b93202fa",
+  "generation": {
+    "generator": "ops_evidence_synthesis.precomputed_review",
+    "payload_sha256": "aaf39888a45cd2a95b919bdf64f18eb1e6f298f8fcf631a9e7395a437e5ab950",
+    "provider_mode": "deterministic_local",
+    "raw_log_policy": "not_uploaded",
+    "schema_version": "precomputed_review_generation.v1",
+    "score_definition": "claimed successful providers / all successful providers",
+    "source_note": "generated from latest arena-server amazon-notify sanitized evidence"
+  },
+  "provider_statuses": [
+    {
+      "provider_id": "local-gemini",
+      "raw_output_sha256": "a2055ad3d2966e99bc2eea02dac22707c7221ce1d83fbfbf57e5b0e638b2fbc6",
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "provider_id": "local-gpt-oss",
+      "raw_output_sha256": "a2055ad3d2966e99bc2eea02dac22707c7221ce1d83fbfbf57e5b0e638b2fbc6",
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "provider_id": "local-mistral",
+      "raw_output_sha256": "091c87678609cff79dbd2dfe2746e86c83286a245376c488f52a887b367c26b9",
+      "schema_valid": true,
+      "status": "ok"
+    }
+  ],
+  "review_graph_summary": {
+    "auto_archived_count": 0,
+    "conflict_count": 0,
+    "convergence_count": 1,
+    "hidden_multi_provider_archived_count": 0,
+    "incident_baseline": "open",
+    "incident_baseline_established_count": 0,
+    "note": "Provider convergence is treated as technical support only; causal judgement remains human-gated.",
+    "primary_promoted_count": 0,
+    "provider_detection_overlap": "2/3",
+    "review_unit_convergence": "partial",
+    "rule_or_context_count": 0,
+    "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
+    "single_source_count": 0,
+    "summary": "1 converged target(s), 0 single-source target(s), and 0 rule/context target(s). Incident baseline remains human-gated.",
+    "targets_total": 1,
+    "technical_baseline": "partial"
+  },
+  "schema_version": "precomputed_review_summary.v1",
+  "summary": {
+    "baselines": {
+      "incident": false,
+      "technical": true
+    },
+    "canonical_graph_sha256": "33e3505be87d53399d048da20e251a2dda21b55fea10c53f82b267ba7f173d53",
+    "canonical_graph_status": "pipeline_generated",
+    "finding": {
+      "impact": "1 target(s) show provider convergence, and 1 validation target(s) remain human-gated.",
+      "title": "Multi-AI disagreement requires validation"
+    },
+    "input_fingerprint_sha256": "2fcc35dac403ac38559783ed66a7c59d915ab6288383391741c26fc298284d62",
+    "log_count": 6461,
+    "providers": {
+      "pipeline_status": "completed",
+      "success": 3,
+      "total": 3
+    },
+    "raw_log_policy": "not_uploaded",
+    "review": {
+      "auto_archived": 0,
+      "monitor_only": 0,
+      "primary_targets": 0,
+      "validation_targets": 1
+    },
+    "schema_version": "ui_summary.v1",
+    "status": "ok"
+  },
+  "targets": [
+    {
+      "agreement": {
+        "convergence_score": 0.6666666667,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "2/3 successful providers projected this review unit; incident baseline remains open.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "claim": "The leading hypothesis is runtime restart loop. amazon-notify in prod from 2026-06-27T13:00:00Z to 2026-06-27T14:01:18Z",
+      "class": "validation_target",
+      "evidence_refs": [
+        "PATTERN-001",
+        "PATTERN-002",
+        "PATTERN-003",
+        "PATTERN-004"
+      ],
+      "missing_evidence": [
+        "Dependency-specific latency and error budget burn.",
+        "Verify process or runtime state during the incident window.",
+        "Compare state transitions with health or liveness signals.",
+        "Compare deploy, configuration, and rollout changes with the incident window."
+      ],
+      "promotion": {
+        "blocked_reason": "incident_baseline_open; user_impact_unverified; causal_direction_unverified",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 2,
+      "provider_positions": [
+        {
+          "model_run_hash": "a2055ad3d296",
+          "one_line": "Projected Service start failure needs verification as evidence-backed review work.",
+          "provider_id": "local-gemini",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "a2055ad3d296",
+          "one_line": "Projected Service start failure needs verification as evidence-backed review work.",
+          "provider_id": "local-gpt-oss",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "091c87678609",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "local-mistral",
+          "stance": "silent"
+        }
+      ],
+      "recommended_request_type": "process_state",
+      "review_priority_score": 0.8175,
+      "review_target_id": "prt-402ff4fdc8e2c9c403d3",
+      "subsystem": "runtime_recovery",
+      "title": "Service start failure needs verification"
+    }
+  ],
+  "updated_at": "2026-06-27T14:01:18Z"
+}

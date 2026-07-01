@@ -72,6 +72,7 @@ def test_adk_tool_contract_trace_records_real_gates_without_raw_payload() -> Non
         "freeze_evidence_bundle",
         "attach_sanitized_source_context",
         "run_cross_check_providers",
+        "chunk_and_merge_full_corpus",
         "validate_citations",
         "compute_review_targets",
         "arbitrate_review_gate",

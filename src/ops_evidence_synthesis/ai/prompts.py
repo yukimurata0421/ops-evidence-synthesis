@@ -401,13 +401,17 @@ def compact_bundle_for_model(
         "incident": bundle.get("incident") or {},
         "compression_note": (
             "Model input is compacted from the full audit bundle. Individual sanitized log lines and normalized events "
-            "remain in storage by default; this prompt keeps a bounded high-signal sample of SQL-grouped log patterns, "
+            "remain in storage by default; a single prompt keeps a bounded high-signal sample of SQL-grouped log patterns, "
             "occurrence counts, first/last seen timestamps, baseline counts, metrics, operational evidence, and "
-            "review-routing hints. Corpus-level counts describe the omitted low-signal patterns. Profile context is "
+            "review-routing hints. Multi-provider synthesis covers every Evidence Item by chunking the corpus before "
+            "provider calls. Corpus-level counts describe any single-prompt projection. Profile context is "
             "included only to interpret evidence, not to prove claims."
         ),
         "evidence_corpus_summary": _evidence_corpus_summary(raw_evidence_items, selected_evidence_items),
+        "db_corpus_coverage": _compact_db_corpus_coverage(bundle.get("db_corpus_coverage") or {}),
         "source_counts": {
+            "db_corpus_rows": _safe_int((bundle.get("db_corpus_coverage") or {}).get("total_row_count"), default=0),
+            "db_corpus_covered_rows": _safe_int((bundle.get("db_corpus_coverage") or {}).get("covered_row_count"), default=0),
             "full_evidence_refs": len(bundle.get("evidence_refs") or {}),
             "full_evidence_items": len(bundle.get("evidence_items") or []),
             "full_log_patterns": len(bundle.get("log_patterns") or []),
@@ -645,7 +649,8 @@ def _evidence_corpus_summary(raw_items: list[dict[str, Any]], selected_items: li
             "model_type_counts": selected_type_counts,
             "selection_policy": (
                 "Keep highest-severity, highest-count, and operationally interesting sanitized log patterns; "
-                "omit low-signal tail patterns from provider prompts while preserving corpus counts."
+                "single-prompt projection may omit tail patterns, while multi-provider synthesis uses chunked "
+                "full-corpus coverage."
             ),
         }
     )
@@ -831,6 +836,33 @@ def _compact_evidence_item(row: dict[str, Any], *, max_text_chars: int) -> dict[
             "example_sanitized": _truncate(row.get("example_sanitized"), max_text_chars),
             "component": row.get("component"),
             "source": row.get("source"),
+            "db_row_coverage": row.get("db_row_coverage"),
+        }
+    )
+
+
+def _compact_db_corpus_coverage(coverage: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(coverage, dict):
+        return {}
+    return _drop_empty(
+        {
+            "schema_version": coverage.get("schema_version"),
+            "source_table": coverage.get("source_table"),
+            "strategy": coverage.get("strategy"),
+            "total_row_count": coverage.get("total_row_count"),
+            "covered_row_count": coverage.get("covered_row_count"),
+            "uncovered_row_count": coverage.get("uncovered_row_count"),
+            "coverage_ratio": coverage.get("coverage_ratio"),
+            "pattern_count": coverage.get("pattern_count"),
+            "singleton_pattern_count": coverage.get("singleton_pattern_count"),
+            "low_frequency_pattern_count": coverage.get("low_frequency_pattern_count"),
+            "row_assignments_sha256": coverage.get("row_assignments_sha256"),
+            "severity_counts": coverage.get("severity_counts"),
+            "error_type_counts": coverage.get("error_type_counts"),
+            "note": (
+                "Every sanitized DB row in the incident window is assigned to an Evidence Item before chunking; "
+                "row-level assignments stay in the bundle ledger and this prompt carries only the coverage summary."
+            ),
         }
     )
 

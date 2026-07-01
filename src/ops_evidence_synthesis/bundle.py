@@ -18,6 +18,17 @@ from ops_evidence_synthesis.timeutils import format_timestamp, parse_timestamp, 
 
 
 _KEY_VALUE_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)=([^\s]+)")
+_STATE_BOUNDARY_TERMS = (
+    "checkpoint",
+    "frontier",
+    "state_transition",
+    "deployment",
+    "deploy",
+    "runtime_restart",
+    "service_start",
+    "watchdog",
+    "systemd",
+)
 
 
 def _duration_minutes(start: str, end: str) -> int:
@@ -35,6 +46,51 @@ def _severity_hint(count: int, baseline_count: int, max_severity: str) -> str:
     if delta >= 2:
         return "medium"
     return "low"
+
+
+def _pattern_template_hash(pattern: dict[str, Any]) -> str:
+    return sha256_json(
+        {
+            "message_template": str(pattern.get("message_template") or ""),
+            "error_type": str(pattern.get("error_type") or "none"),
+        }
+    )
+
+
+def _pattern_coverage_class(pattern: dict[str, Any]) -> str:
+    count = int(pattern.get("covered_log_count") or pattern.get("count") or 0)
+    if count == 1:
+        return "singleton"
+    if count <= 3:
+        return "rare"
+    if _pattern_has_state_boundary(pattern):
+        return "state_transition"
+    return "pattern"
+
+
+def _pattern_has_state_boundary(pattern: dict[str, Any]) -> bool:
+    event_text = (
+        f"{pattern.get('error_type') or ''} {pattern.get('message_template') or ''}"
+    ).lower()
+    return any(term in event_text for term in _STATE_BOUNDARY_TERMS)
+
+
+def _pattern_coverage_facets(pattern: dict[str, Any], coverage_class: str) -> list[str]:
+    facets = [coverage_class]
+    if _pattern_has_state_boundary(pattern) and "state_transition" not in facets:
+        facets.append("state_transition")
+    return facets
+
+
+def _coverage_assignment_reason(coverage_class: str) -> str:
+    return {
+        "pattern": "high_frequency_operational_pattern",
+        "rare": "low_frequency_evidence_preserved",
+        "singleton": "single_occurrence_preserved",
+        "state_transition": "state_or_checkpoint_boundary",
+        "temporal_bucket": "temporal_variation_boundary",
+        "tail_summary": "low_signal_tail_accounted_for",
+    }.get(coverage_class, "evidence_item_boundary_assignment")
 
 
 def _metric(
@@ -86,7 +142,7 @@ class EvidenceBundleBuilder:
             normalized.incident_start,
         )
 
-        selected_logs = [
+        log_sample_candidates = [
             log
             for log in current_logs
             if severity_rank(log.severity) >= severity_rank("WARN")
@@ -99,17 +155,17 @@ class EvidenceBundleBuilder:
                 "service_health_failure",
             }
         ]
-        if not selected_logs:
-            selected_logs = current_logs[:25]
+        if not log_sample_candidates:
+            log_sample_candidates = current_logs[:100]
 
-        log_items = self._log_evidence(selected_logs)
+        log_items = self._log_evidence(log_sample_candidates)
         normalized_events = [
             normalized_event_from_log(log, source_system=normalized.environment)
-            for log in selected_logs[:100]
+            for log in log_sample_candidates[:100]
         ]
         patterns = self._patterns(
             normalized,
-            selected_logs,
+            current_logs,
             baseline_logs,
             baseline_start=lookback_start,
         )
@@ -123,6 +179,12 @@ class EvidenceBundleBuilder:
             baseline_logs,
             profile_id=profile_id,
         )
+        evidence_items = self._evidence_items(
+            patterns,
+            metrics,
+            operational_evidence,
+        )
+        db_corpus_coverage = self._db_corpus_coverage(current_logs, patterns)
         signal_graph_input = {
             **profile_context,
             "service": normalized.service,
@@ -133,6 +195,8 @@ class EvidenceBundleBuilder:
             "log_patterns": patterns,
             "metric_windows": metrics,
             "operational_evidence": operational_evidence,
+            "evidence_items": evidence_items,
+            "db_corpus_coverage": db_corpus_coverage,
         }
         signal_graph = build_signal_graph(signal_graph_input)
 
@@ -142,7 +206,7 @@ class EvidenceBundleBuilder:
             "window_start": normalized.incident_start,
             "window_end": normalized.incident_end,
             "lookback_minutes": normalized.lookback_minutes,
-            "builder": "local-sqlite-v1",
+            "builder": "local-sqlite-v2-full-corpus-coverage",
         }
         query_sql_hash = sha256_json(query_fingerprint)
 
@@ -161,9 +225,10 @@ class EvidenceBundleBuilder:
                 "baseline_count": item.get("baseline_count", 0),
                 "first_seen": item.get("first_seen", ""),
                 "last_seen": item.get("last_seen", ""),
-                "severity_hint": item.get("severity_hint", ""),
-                "aggregation_source": item.get("aggregation_source", ""),
-            }
+                    "severity_hint": item.get("severity_hint", ""),
+                    "aggregation_source": item.get("aggregation_source", ""),
+                    "covered_log_count": item.get("covered_log_count", item.get("count", 0)),
+                }
         for item in metrics:
             evidence_refs[item["metric_window_id"]] = {
                 "type": "metric_window",
@@ -209,6 +274,8 @@ class EvidenceBundleBuilder:
                 "duration_minutes": _duration_minutes(normalized.incident_start, normalized.incident_end),
             },
             "evidence_refs": evidence_refs,
+            "evidence_items": evidence_items,
+            "db_corpus_coverage": db_corpus_coverage,
             "normalized_events": normalized_events,
             "logs": log_items,
             "log_patterns": patterns,
@@ -247,7 +314,11 @@ class EvidenceBundleBuilder:
         *,
         baseline_start: str,
     ) -> list[dict[str, Any]]:
-        sql_patterns = self._sql_patterns(incident, baseline_start=baseline_start)
+        sql_patterns = self._sql_patterns(
+            incident,
+            baseline_start=baseline_start,
+            current_log_count=len(current_logs),
+        )
         if sql_patterns:
             return sql_patterns
 
@@ -261,7 +332,7 @@ class EvidenceBundleBuilder:
             grouped.items(),
             key=lambda item: (-len(item[1]), item[0][0], item[0][1]),
         )
-        for index, ((template, error_type), logs) in enumerate(sorted_groups[:25], start=1):
+        for index, ((template, error_type), logs) in enumerate(sorted_groups, start=1):
             first_seen = min(log.timestamp for log in logs)
             last_seen = max(log.timestamp for log in logs)
             max_severity = max((log.severity for log in logs), key=severity_rank)
@@ -283,12 +354,21 @@ class EvidenceBundleBuilder:
                     "example_log_sha256": logs[0].raw_log_sha256,
                     "aggregation_source": "python_selected_logs",
                     "embedding": [],
+                    "max_severity": max_severity,
+                    "covered_log_count": len(logs),
+                    "db_row_coverage_role": "pattern_group",
                     "severity_hint": _severity_hint(len(logs), baseline_count, max_severity),
                 }
             )
         return patterns
 
-    def _sql_patterns(self, incident: IncidentWindow, *, baseline_start: str) -> list[dict[str, Any]]:
+    def _sql_patterns(
+        self,
+        incident: IncidentWindow,
+        *,
+        baseline_start: str,
+        current_log_count: int,
+    ) -> list[dict[str, Any]]:
         fetch = getattr(self.store, "fetch_log_pattern_summaries", None)
         if not callable(fetch):
             return []
@@ -300,7 +380,7 @@ class EvidenceBundleBuilder:
                 incident.incident_end,
                 baseline_start=baseline_start,
                 baseline_end=incident.incident_start,
-                limit=25,
+                limit=max(1, current_log_count),
             )
         except Exception:
             return []
@@ -325,10 +405,183 @@ class EvidenceBundleBuilder:
                     "example_log_sha256": str(row.get("example_log_sha256") or ""),
                     "aggregation_source": str(row.get("aggregation_source") or "sql_group_by"),
                     "embedding": [],
+                    "max_severity": max_severity,
+                    "covered_log_count": count,
+                    "db_row_coverage_role": "pattern_group",
                     "severity_hint": _severity_hint(count, baseline_count, max_severity),
                 }
             )
         return patterns
+
+    def _evidence_items(
+        self,
+        patterns: list[dict[str, Any]],
+        metrics: list[dict[str, Any]],
+        operational_evidence: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        for pattern in patterns:
+            evidence_id = str(pattern.get("pattern_id") or "")
+            coverage_class = _pattern_coverage_class(pattern)
+            coverage_facets = _pattern_coverage_facets(pattern, coverage_class)
+            template_hash = _pattern_template_hash(pattern)
+            covered_log_count = int(pattern.get("covered_log_count") or pattern.get("count") or 0)
+            items.append(
+                {
+                    "evidence_id": evidence_id,
+                    "type": "log_pattern",
+                    "coverage_class": coverage_class,
+                    "coverage_facets": coverage_facets,
+                    "event_type": str(pattern.get("error_type") or "none"),
+                    "severity_text": str(pattern.get("max_severity") or pattern.get("severity_hint") or "INFO"),
+                    "count": int(pattern.get("count") or 0),
+                    "baseline_count": int(pattern.get("baseline_count") or 0),
+                    "first_seen": str(pattern.get("first_seen") or ""),
+                    "last_seen": str(pattern.get("last_seen") or ""),
+                    "message_template": str(pattern.get("message_template") or ""),
+                    "template_hash": template_hash,
+                    "example_log_sha256": str(pattern.get("example_log_sha256") or ""),
+                    "component": "unknown",
+                    "source": "logs_sanitized",
+                    "source_log_count": covered_log_count,
+                    "prompt_boundary": {
+                        "mode": "chunked_evidence_item",
+                        "raw_row_direct_prompt": False,
+                        "direct_prompt": True,
+                        "assignment_reason": _coverage_assignment_reason(coverage_class),
+                    },
+                    "db_row_coverage": {
+                        "source_table": "logs_sanitized",
+                        "coverage_role": "pattern_group",
+                        "coverage_class": coverage_class,
+                        "coverage_facets": coverage_facets,
+                        "covered_log_count": covered_log_count,
+                        "assignment_key": "message_template,error_type",
+                        "template_hash": template_hash,
+                        "assignment_reason": _coverage_assignment_reason(coverage_class),
+                    },
+                }
+            )
+        for metric in metrics:
+            metric_id = str(metric.get("metric_window_id") or "")
+            items.append(
+                {
+                    "evidence_id": metric_id,
+                    "type": "metric_window",
+                    "event_type": str(metric.get("metric_name") or "metric_window"),
+                    "severity_text": str(metric.get("severity_hint") or "INFO"),
+                    "coverage_class": "temporal_bucket",
+                    "count": 1,
+                    "first_seen": str(metric.get("window_start") or ""),
+                    "last_seen": str(metric.get("window_end") or ""),
+                    "message_template": (
+                        f"{metric.get('metric_name')} baseline={metric.get('baseline_value')} "
+                        f"current={metric.get('current_value')} delta={metric.get('delta')}"
+                    ),
+                    "source": "derived_metric_window",
+                    "source_log_count": 0,
+                    "prompt_boundary": {
+                        "mode": "chunked_evidence_item",
+                        "raw_row_direct_prompt": False,
+                        "direct_prompt": True,
+                        "assignment_reason": _coverage_assignment_reason("temporal_bucket"),
+                    },
+                }
+            )
+        for row in operational_evidence:
+            evidence_id = str(row.get("evidence_id") or "")
+            interpretation = row.get("interpretation") if isinstance(row.get("interpretation"), dict) else {}
+            items.append(
+                {
+                    "evidence_id": evidence_id,
+                    "type": "operational_evidence",
+                    "event_type": str(row.get("request_type") or row.get("need") or "operational_evidence"),
+                    "severity_text": str(interpretation.get("severity_hint") or ("NOTICE" if row.get("incident_count") else "INFO")),
+                    "coverage_class": "state_transition",
+                    "count": int(row.get("incident_count") or 0),
+                    "baseline_count": int(row.get("baseline_count") or 0),
+                    "first_seen": str((row.get("samples") or [{}])[-1].get("timestamp") or ""),
+                    "last_seen": str((row.get("samples") or [{}])[0].get("timestamp") or ""),
+                    "message_template": str(row.get("summary") or ""),
+                    "component": str(row.get("subsystem") or "general"),
+                    "source": "operational_evidence_spec",
+                    "source_log_count": int(row.get("incident_count") or 0),
+                    "prompt_boundary": {
+                        "mode": "chunked_evidence_item",
+                        "raw_row_direct_prompt": False,
+                        "direct_prompt": True,
+                        "assignment_reason": _coverage_assignment_reason("state_transition"),
+                    },
+                }
+            )
+        return [item for item in items if item.get("evidence_id")]
+
+    def _db_corpus_coverage(
+        self,
+        logs: list[SanitizedLog],
+        patterns: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        key_to_pattern = {
+            (str(pattern.get("message_template") or ""), str(pattern.get("error_type") or "")): pattern
+            for pattern in patterns
+        }
+        assignments: list[dict[str, Any]] = []
+        uncovered = 0
+        for log in logs:
+            pattern = key_to_pattern.get((log.message_template, log.error_type))
+            pattern_id = str((pattern or {}).get("pattern_id") or "")
+            if not pattern_id:
+                uncovered += 1
+            coverage_class = _pattern_coverage_class(pattern or {}) if pattern_id else "unassigned"
+            coverage_facets = _pattern_coverage_facets(pattern or {}, coverage_class) if pattern_id else ["unassigned"]
+            template_hash = _pattern_template_hash(pattern or {"message_template": log.message_template, "error_type": log.error_type})
+            assignments.append(
+                {
+                    "log_id": log.log_id,
+                    "raw_log_sha256": log.raw_log_sha256,
+                    "sanitized_log_sha256": log.log_id,
+                    "timestamp": log.timestamp,
+                    "severity": log.severity,
+                    "error_type": log.error_type,
+                    "evidence_id": pattern_id,
+                    "evidence_item_id": pattern_id,
+                    "review_boundary_id": pattern_id,
+                    "template_hash": template_hash,
+                    "coverage_class": coverage_class,
+                    "coverage_facets": coverage_facets,
+                    "direct_prompt": False,
+                    "prompt_boundary": "raw_row_to_evidence_item_to_chunk_manifest",
+                    "assignment_reason": _coverage_assignment_reason(coverage_class),
+                }
+            )
+        severity_counts = Counter(log.severity for log in logs)
+        error_type_counts = Counter(log.error_type or "none" for log in logs)
+        pattern_counts = Counter(str(row.get("evidence_id") or "") for row in assignments if row.get("evidence_id"))
+        total = len(logs)
+        covered = total - uncovered
+        return {
+            "schema_version": "db_corpus_coverage.v1",
+            "source_table": "logs_sanitized",
+            "strategy": "assign_every_sanitized_log_to_message_template_error_type_pattern",
+            "total_row_count": total,
+            "covered_row_count": covered,
+            "uncovered_row_count": uncovered,
+            "coverage_ratio": round(covered / total, 6) if total else 1.0,
+            "pattern_count": len(patterns),
+            "singleton_pattern_count": sum(1 for count in pattern_counts.values() if count == 1),
+            "low_frequency_pattern_count": sum(1 for count in pattern_counts.values() if count <= 3),
+            "coverage_class_counts": dict(sorted(Counter(row["coverage_class"] for row in assignments).items())),
+            "direct_prompt_row_count": sum(1 for row in assignments if row.get("direct_prompt") is True),
+            "raw_rows_sent_to_providers": False,
+            "prompt_boundary_policy": (
+                "Sanitized DB rows are assigned to Evidence Items and review chunks; raw rows are not copied "
+                "directly into provider prompts."
+            ),
+            "row_assignments_sha256": sha256_json(assignments),
+            "row_assignments": assignments,
+            "severity_counts": dict(sorted(severity_counts.items())),
+            "error_type_counts": dict(sorted(error_type_counts.items())),
+        }
 
     def _metrics(
         self,

@@ -21,41 +21,42 @@ https://ops-evidence.yukimurata0421.dev/
 Open the main summary URL.
 
 URL:
-https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+https://ops-evidence.yukimurata0421.dev/?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 
 Show:
 
 - Raw log policy: `not_uploaded`
-- Five provider run
+- 44,944-row sanitized corpus
+- 51 Mistral chunks
 - Agent Trace
 - Review Graph Arbitration
 
 Narration:
-The investigation loop is autonomous up to the evidence boundary. Gemini runs
-first as the reference provider. gpt-oss, Mistral, Qwen, and GLM act as
-adversarial cross-checks. Gemini is not treated as a truth source or answer key. Every
-provider sees the same SHA-fixed sanitized bundle, and every claim must point
-back to evidence.
+The investigation loop is autonomous up to the evidence boundary. Raw rows stay
+local. Every sanitized row is assigned to the coverage ledger, then Mistral
+analyzes all grouped Evidence Items through 51 rate-paced chunks. The provider
+sees the SHA-fixed sanitized bundle and source context, and every claim must
+point back to evidence.
 
 ## 0:55-1:35 Evidence And Disagreement
 
 Open the detail page.
 
 URL:
-https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 
 Show:
 
 - Provider positions
-- `claimed` versus `silent`
+- provider support
 - Agreement and promotion gates
 - Promotion gate
 
 Narration:
-The product does not turn agreement into truth. Technical convergence becomes a
-review signal, but incident support and user impact still gate promotion. That
-is why the system can investigate automatically while keeping causal judgement
-human-gated.
+The product does not turn model output into truth. Provider support
+becomes review work, but incident support and user impact still gate promotion.
+That is why the system can investigate automatically while keeping causal
+judgement human-gated.
 
 ## 1:35-2:20 Run
 
@@ -66,7 +67,7 @@ https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-da
 
 Show:
 
-- `Gemini-led control plane`
+- control-plane trace
 - before state: `validation_target`
 - blocked reason: `user_impact_unverified`
 - transition: `needs_more_data -> evidence_collected`
@@ -84,8 +85,8 @@ Open the API view or review graph.
 
 URLs:
 
-- https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 
 Narration:
 The delivered surface is read-only, fast, and deployed on Cloud Run. Public

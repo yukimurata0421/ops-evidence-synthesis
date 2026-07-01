@@ -20,6 +20,14 @@ _SECRET_RE = re.compile(
 _RTMPS_STREAM_KEY_RE = re.compile(r"(?i)(rtmps://[^ \n]+/live2/)[A-Za-z0-9_-]+")
 _ID_RE = re.compile(r"(?i)\b(user_id|order_id|customer_id|account_id)\s*[:=]\s*[A-Za-z0-9_-]{4,}")
 _UUID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.IGNORECASE)
+_USER_HOME_PATH_RE = re.compile(
+    r"(?P<path>(?:/home/[^/\s:'\"]+|/Users/[^/\s:'\"]+)(?:/[^\s:'\"]+)*)",
+    re.IGNORECASE,
+)
+_WINDOWS_USER_PATH_RE = re.compile(
+    r"(?P<path>[A-Z]:\\Users\\[^\\\s:'\"]+(?:\\[^\\\s:'\"]+)*)",
+    re.IGNORECASE,
+)
 _HEX_RE = re.compile(r"\b0x[0-9a-f]{6,}\b", re.IGNORECASE)
 _LONG_NUMBER_RE = re.compile(r"\b\d{4,}\b")
 _SMALL_NUMBER_RE = re.compile(r"\b\d+\b")
@@ -33,11 +41,21 @@ def sanitize_text(message: str) -> str:
     sanitized = _JWT_RE.sub("<JWT>", sanitized)
     sanitized = _RTMPS_STREAM_KEY_RE.sub(r"\1<STREAM_KEY>", sanitized)
     sanitized = _SECRET_RE.sub(lambda match: f"{match.group(1)}=<SECRET>", sanitized)
+    sanitized = _USER_HOME_PATH_RE.sub(_local_path_replacement, sanitized)
+    sanitized = _WINDOWS_USER_PATH_RE.sub(_local_path_replacement, sanitized)
     sanitized = _EMAIL_RE.sub("<EMAIL>", sanitized)
     sanitized = _IPV4_RE.sub("<IP>", sanitized)
     sanitized = _ID_RE.sub(lambda match: f"{match.group(1)}=<ID>", sanitized)
     sanitized = _UUID_RE.sub("<UUID>", sanitized)
     return _WS_RE.sub(" ", sanitized).strip()
+
+
+def _local_path_replacement(match: re.Match[str]) -> str:
+    path = match.group("path")
+    basename = path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+    if not basename or basename in {".", ".."}:
+        return "<LOCAL_PATH>"
+    return f"<LOCAL_PATH>/{basename}"
 
 
 def message_template(message: str) -> str:

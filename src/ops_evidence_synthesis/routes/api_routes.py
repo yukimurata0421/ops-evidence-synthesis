@@ -108,6 +108,7 @@ _GPT_OSS_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _MISTRAL_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _QWEN_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _GLM_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
+_LLAMA_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 
 
 def configure_api_routes(
@@ -121,6 +122,7 @@ def configure_api_routes(
     mistral_provider_factory: Callable[[], ModelProvider],
     qwen_provider_factory: Callable[[], ModelProvider],
     glm_provider_factory: Callable[[], ModelProvider],
+    llama_provider_factory: Callable[[], ModelProvider],
 ) -> None:
     global _STORE_FACTORY
     global _GEMINI_PROVIDER_FACTORY
@@ -131,6 +133,7 @@ def configure_api_routes(
     global _MISTRAL_PROVIDER_FACTORY
     global _QWEN_PROVIDER_FACTORY
     global _GLM_PROVIDER_FACTORY
+    global _LLAMA_PROVIDER_FACTORY
     _STORE_FACTORY = store_factory
     _GEMINI_PROVIDER_FACTORY = gemini_provider_factory
     _PROFILE_DRAFT_PROVIDER_FACTORY = profile_draft_provider_factory
@@ -140,6 +143,7 @@ def configure_api_routes(
     _MISTRAL_PROVIDER_FACTORY = mistral_provider_factory
     _QWEN_PROVIDER_FACTORY = qwen_provider_factory
     _GLM_PROVIDER_FACTORY = glm_provider_factory
+    _LLAMA_PROVIDER_FACTORY = llama_provider_factory
 
 
 def _store() -> Any:
@@ -194,6 +198,12 @@ def _glm_provider() -> ModelProvider:
     if _GLM_PROVIDER_FACTORY is None:
         raise RuntimeError("GLM provider factory is not configured")
     return _GLM_PROVIDER_FACTORY()
+
+
+def _llama_provider() -> ModelProvider:
+    if _LLAMA_PROVIDER_FACTORY is None:
+        raise RuntimeError("Llama provider factory is not configured")
+    return _LLAMA_PROVIDER_FACTORY()
 
 
 def _store_label() -> str:
@@ -1583,6 +1593,26 @@ def run_gpt_oss_worker(payload: dict[str, Any]) -> dict[str, Any]:
 def run_mistral_worker(payload: dict[str, Any]) -> dict[str, Any]:
     bundle = _bundle_from_payload(payload)
     provider = _mistral_provider()
+    store = _store()
+    parsed_results = run_model_stage(
+        store,
+        bundle,
+        [provider],
+    )
+    return {
+        "evidence_sha256": bundle["evidence_sha256"],
+        "provider": provider.provider,
+        "model_name": provider.model_name,
+        "parsed_result_count": len(parsed_results),
+        "schema_valid_count": sum(1 for result in parsed_results if result.schema_valid),
+        "pipeline_status": pipeline_status_from_store(store, evidence_sha256=bundle["evidence_sha256"]),
+    }
+
+
+@router.post("/run/llama")
+def run_llama_worker(payload: dict[str, Any]) -> dict[str, Any]:
+    bundle = _bundle_from_payload(payload)
+    provider = _llama_provider()
     store = _store()
     parsed_results = run_model_stage(
         store,
@@ -3270,6 +3300,14 @@ def _providers_for_names(names: list[Any]) -> list[ModelProvider]:
             providers.append(_qwen_provider())
         elif key in {"glm", "glm-5", "glm-5-maas", "glm-agent-platform"}:
             providers.append(_glm_provider())
+        elif key in {
+            "llama",
+            "meta-llama",
+            "llama-4-maverick",
+            "llama-4-maverick-17b-128e-instruct-maas",
+            "llama-agent-platform",
+        }:
+            providers.append(_llama_provider())
     if not providers:
         providers.append(_gemini_provider())
     return providers
@@ -3297,7 +3335,7 @@ def _unique_text(values: Any) -> list[str]:
 def _configured_alternative_providers() -> list[ModelProvider]:
     names = [
         item.strip()
-        for item in os.environ.get("OES_ALTERNATIVE_PROVIDERS", "gpt-oss,mistral").split(",")
+        for item in os.environ.get("OES_ALTERNATIVE_PROVIDERS", "gpt-oss,llama").split(",")
         if item.strip()
     ]
     return _providers_for_names(names)

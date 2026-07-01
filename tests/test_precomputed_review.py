@@ -25,8 +25,8 @@ from ops_evidence_synthesis.web.precomputed_review import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_SAMPLE_SHA = "1be4a21441fec7d2a4eafa95508badbe4a892bd61f3d9e08541893fba97c6731"
-PUBLIC_FLAGSHIP_SHA = "c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e"
+PUBLIC_SAMPLE_SHA = "60c453b79abad184a668bf35a3faede725aee15875c01ae8b11a9b6ff9c0ff5f"
+PUBLIC_FLAGSHIP_SHA = "5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079"
 REAL_API_QWEN_GLM_SHA = "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb"
 STREAM_V3_DELL_REAL_API_SHA = "aba039fb4c472b45d5f016a8c7accd853d61cc3a00480767fe33fbca6f36c778"
 STREAM_V3_ARENA_REAL_API_SHA = "a09ee4615689dfce1557c2803cdbdf43ce0c285c196c1317cd3d30ee1835d267"
@@ -188,6 +188,21 @@ def test_precomputed_detail_page_renders_provider_mode() -> None:
     assert "5,041" in html
     assert "77.5%" in html
     assert "Projection coverage is occurrence-weighted" in html
+
+
+def test_precomputed_review_gcs_uri_prefixes(monkeypatch) -> None:
+    from ops_evidence_synthesis.web.precomputed_review import _precomputed_review_gcs_uris
+
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_GCS_PREFIX", "gs://private/precomputed")
+    monkeypatch.setenv(
+        "OES_PRECOMPUTED_REVIEW_GCS_PREFIXES",
+        "gs://private/backup, https://example.invalid/not-gcs",
+    )
+
+    assert _precomputed_review_gcs_uris("a" * 64) == [
+        f"gs://private/precomputed/{'a' * 64}.json",
+        f"gs://private/backup/{'a' * 64}.json",
+    ]
 
 
 def test_precomputed_graph_renders_analysis_context() -> None:

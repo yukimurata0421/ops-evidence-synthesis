@@ -8,6 +8,8 @@
 !data/**
 !gcp/
 !gcp/**
+!scripts/
+!scripts/**
 
 .git/
 .venv/

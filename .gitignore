@@ -34,3 +34,6 @@ docs/latest-implementation-summary*.md
 docs/local-first-evidence-bundle-record*.md
 docs/stream_v3-monitoring.md
 docs/arena-seed-import.md
+
+# Local import scratch space.
+arena_seed/

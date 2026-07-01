@@ -1,0 +1,1012 @@
+{
+  "agent_trace": [
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:freeze_evidence_bundle",
+      "output": {
+        "artifact": "evidence_bundle",
+        "evidence_sha256": "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+        "log_count": 5055,
+        "raw_log_policy": "not_uploaded",
+        "status": "completed",
+        "summary": "Evidence Bundle f22b327f6017 fixed 5,055 sanitized rows; raw_log_policy=not_uploaded."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "freeze_evidence_bundle",
+      "summary": "Evidence Bundle f22b327f6017 fixed 5,055 sanitized rows; raw_log_policy=not_uploaded.",
+      "title": "Freeze Evidence Bundle",
+      "tool": "freeze_evidence_bundle",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:attach_sanitized_source_context",
+      "output": {
+        "artifact": "source_context",
+        "context_is_not_incident_evidence": true,
+        "source_analysis_attached": true,
+        "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+        "source_context_attached": true,
+        "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
+        "status": "completed",
+        "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "attach_sanitized_source_context",
+      "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
+      "title": "Attach Sanitized Source Context",
+      "tool": "attach_sanitized_source_context",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:run_cross_check_providers",
+      "output": {
+        "artifact": "model_runs",
+        "gemini_baseline_present": true,
+        "provider_count": 5,
+        "provider_ids": [
+          "gemini-enterprise-agent-platform",
+          "glm-agent-platform",
+          "mistral-agent-platform",
+          "openai-gpt-oss-on-vertex",
+          "qwen-agent-platform"
+        ],
+        "schema_valid_provider_count": 5,
+        "status": "completed",
+        "summary": "5/5 provider outputs were schema-valid; Gemini baseline/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "run_cross_check_providers",
+      "summary": "5/5 provider outputs were schema-valid; Gemini baseline/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
+      "title": "Run Cross-Check Providers",
+      "tool": "run_cross_check_providers",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:validate_citations",
+      "output": {
+        "artifact": "citation_validation",
+        "cited_evidence_ref_count": 40,
+        "missing_evidence_count": 14,
+        "status": "completed",
+        "summary": "6 review target(s) cite 40 sanitized evidence ref(s); 14 missing-evidence item(s) remain.",
+        "target_count": 6,
+        "uncited_target_ids": []
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "validate_citations",
+      "summary": "6 review target(s) cite 40 sanitized evidence ref(s); 14 missing-evidence item(s) remain.",
+      "title": "Validate Citations",
+      "tool": "validate_citations",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:compute_review_targets",
+      "output": {
+        "artifact": "canonical_review_graph",
+        "convergence_count": 5,
+        "primary_count": 0,
+        "status": "completed",
+        "summary": "Canonical Review Graph projected 6 target(s), 0 primary candidate(s), and 5 convergence group(s).",
+        "targets_total": 6,
+        "validation_count": 6
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "compute_review_targets",
+      "summary": "Canonical Review Graph projected 6 target(s), 0 primary candidate(s), and 5 convergence group(s).",
+      "title": "Compute Review Targets",
+      "tool": "compute_review_targets",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:arbitrate_review_gate",
+      "output": {
+        "artifact": "review_arbitration",
+        "blocked_reasons": [
+          "core_missing_evidence",
+          "single_metric_only; user_impact_unverified; impact_disagreement",
+          "user_impact_unverified; impact_disagreement"
+        ],
+        "incident_baseline": "open",
+        "requires_human_review": true,
+        "status": "human_gate",
+        "summary": "Final incident causality remains human-gated; the agent stops with review targets."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "arbitrate_review_gate",
+      "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
+      "title": "Arbitrate Human Gate",
+      "tool": "arbitrate_review_gate",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:request_more_evidence",
+      "output": {
+        "artifact": "evidence_request_plan",
+        "missing_evidence_count": 14,
+        "request_types": [
+          "external_dependency_status_query",
+          "instrumentation_consistency_query",
+          "user_impact_signal_query"
+        ],
+        "status": "completed",
+        "summary": "Generated read-only follow-up plan with 3 request type(s) and 14 missing-evidence item(s)."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "request_more_evidence",
+      "summary": "Generated read-only follow-up plan with 3 request type(s) and 14 missing-evidence item(s).",
+      "title": "Request More Evidence",
+      "tool": "request_more_evidence",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:draft_system_profile",
+      "output": {
+        "approved": true,
+        "artifact": "profile_draft",
+        "collector_mapping_count": 4,
+        "component_count": 392,
+        "explicit_profile": true,
+        "generation_mode": "profile_draft_and_approved_profile",
+        "llm_status": "persisted",
+        "metric_semantics_count": 367,
+        "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+        "required_human_decisions": [
+          "Approve or edit component roles before using this as an explicit profile.",
+          "Approve metric zero/increase/decrease semantics.",
+          "Confirm critical user outcomes.",
+          "Confirm read-only collector mappings before collection."
+        ],
+        "status": "human_gate",
+        "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "draft_system_profile",
+      "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
+      "title": "Draft System Profile",
+      "tool": "draft_system_profile",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:deliver_read_only_review",
+      "output": {
+        "artifact": "precomputed_review_summary",
+        "evidence_sha256": "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+        "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
+        "public_url": "",
+        "status": "completed",
+        "summary": "Read-only review payload for f22b327f6017 is served from precomputed JSON; page load does not invoke live model work."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "deliver_read_only_review",
+      "summary": "Read-only review payload for f22b327f6017 is served from precomputed JSON; page load does not invoke live model work.",
+      "title": "Deliver Read-Only Review",
+      "tool": "deliver_read_only_review",
+      "trace_sha256": "21ea56c292d6863a74ef03f6a12470c5eb8ed55f239df3a9378b4a965d313111",
+      "trace_source": "adk_tool_contract"
+    }
+  ],
+  "analysis_context": {
+    "analysis_conclusion": [
+      "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned status=ok and schema_valid=true.",
+      "The canonical graph produced 0 primary candidate, 6 validation target(s), and 2 monitor-only item(s).",
+      "Providers aligned on a technical baseline, but user impact or incident impact is not verified. 6 validation targets remain for human review, and no primary incident candidate was promoted."
+    ],
+    "db_ingested_log_count": 5055,
+    "environment": "arena_server",
+    "evidence_item_count": 1680,
+    "log_observations": [
+      "The run used all 5,055 sanitized stream_v3_monitoring rows from 2026-05-24T11:29:00Z to 2026-06-17T00:12:45Z.",
+      "The local-first Evidence Bundle retained 1,680 grouped evidence items and 7 deterministic signals.",
+      "The provider prompt used 140 selected evidence items covering 496 occurrences (9.8% of the sanitized corpus).",
+      "Repeated RUN_ONCE/RUN_RESULT, systemd watchdog, token refresh, Pub/Sub idle, and status snapshot patterns were represented by evidence IDs rather than raw log bodies."
+    ],
+    "model_projection_evidence_items": 140,
+    "model_projection_occurrence_count": 496,
+    "model_projection_occurrence_coverage_ratio": 0.098121,
+    "model_projection_policy": "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; row-level raw logs stayed out of provider prompts.",
+    "pipeline_run_id": "pipe-1c22491f0c7b448aa3d1",
+    "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+    "provider_count": 5,
+    "raw_log_policy": "not_uploaded",
+    "raw_source_policy": "not_uploaded",
+    "real_api_revision": "ops-evidence-api-e2e-00006-6t9",
+    "sanitized_log_count": 5055,
+    "schema_valid_provider_count": 5,
+    "schema_version": "real_api_source_context_summary.v2",
+    "service": "stream_v3_monitoring",
+    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
+    "source_observations": [
+      "Sanitized source context was attached with source_context_sha256=669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2.",
+      "Source analysis was attached with analysis_sha256=451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5.",
+      "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs from the sanitized corpus."
+    ],
+    "token_usage": {
+      "input_tokens": 329984,
+      "output_tokens": 10178
+    },
+    "window_end": "2026-06-17T00:12:45Z",
+    "window_start": "2026-05-24T11:29:00Z"
+  },
+  "devops_loop": {
+    "items": [
+      {
+        "detail": "Gemini, GPT OSS, Mistral, Qwen, and GLM were executed through Vertex-backed endpoints.",
+        "label": "Real provider run",
+        "value": "5 providers"
+      },
+      {
+        "detail": "Raw logs and raw source stayed local; only sanitized bundles and context reached the API.",
+        "label": "Source-first boundary",
+        "value": "raw not uploaded"
+      },
+      {
+        "detail": "496 occurrences were represented by selected evidence IDs and counts.",
+        "label": "Token compression",
+        "value": "140 items"
+      },
+      {
+        "detail": "Provider convergence creates review targets, not automatic causal truth.",
+        "label": "Human gate",
+        "value": "incident open"
+      }
+    ],
+    "summary": "The public URL is backed by a recorded e2e API run, provider hashes, schema validation, and read-only precomputed serving.",
+    "title": "AI workflow is operated as production software"
+  },
+  "evidence_sha256": "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+  "generation": {
+    "api_revision": "ops-evidence-api-e2e-00006-6t9",
+    "generator": "ops_evidence_synthesis.precomputed_review",
+    "payload_sha256": "f7ab810104bf7c26615f8498f46778a99b4b758e1bdb93e19f44164d13314695",
+    "pipeline_run_id": "pipe-1c22491f0c7b448aa3d1",
+    "provider_mode": "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm",
+    "raw_log_policy": "not_uploaded",
+    "real_api_evidence_sha256": "f22b327f601738de5c7011c9424fe7c615ed35ea693f791849a54af8d7271769",
+    "schema_version": "precomputed_review_generation.v1",
+    "score_definition": "claimed successful providers / all successful providers",
+    "source_note": "generated from e2e API real provider run using enriched sanitized arena-server stream_v3 monitoring logs plus sanitized source context"
+  },
+  "profile_context": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 392,
+    "context_is_not_incident_evidence": true,
+    "draft_schema_version": "profile_draft.v1",
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
+    "llm_status": "persisted",
+    "metric_semantics_count": 367,
+    "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+    "purpose": "Draft profile generated from sanitized log-observed entities and project structure.",
+    "required_human_decisions": [
+      "Approve or edit component roles before using this as an explicit profile.",
+      "Approve metric zero/increase/decrease semantics.",
+      "Confirm critical user outcomes.",
+      "Confirm read-only collector mappings before collection."
+    ],
+    "schema_version": "profile_context_summary.v1",
+    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
+    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
+    "source_discovery_sha256": "457f35eb1be42e7214a3eb71b3db33cbd9c0ca17695e159f32b4a3706b560a37",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains interpretation but runtime claims still require Evidence Item IDs.",
+    "system_type": "systemd_service"
+  },
+  "profile_draft_generation": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 392,
+    "explicit_profile": true,
+    "generation_mode": "profile_draft_and_approved_profile",
+    "llm_status": "persisted",
+    "metric_semantics_count": 367,
+    "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+    "required_human_decisions": [
+      "Approve or edit component roles before using this as an explicit profile.",
+      "Approve metric zero/increase/decrease semantics.",
+      "Confirm critical user outcomes.",
+      "Confirm read-only collector mappings before collection."
+    ],
+    "schema_version": "profile_draft_generation_summary.v1"
+  },
+  "provider_statuses": [
+    {
+      "display_name": "Vertex Gemini",
+      "failure_reason": "",
+      "input_tokens": 74472,
+      "latency_ms": 54010,
+      "model_name": "gemini-3.1-pro-preview",
+      "output_tokens": 1303,
+      "parsed_json_sha256": "963ec8f383127fa5a462155af22ccf3f0631034b2e633550cd5bc907fb25f915",
+      "provider_id": "gemini-enterprise-agent-platform",
+      "raw_output_sha256": "490c0e98d17e0643543546f6043130710c4301efdc4fbe14e92fdbaa5c39824c",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "display_name": "GLM on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 58193,
+      "latency_ms": 142070,
+      "model_name": "zai-org/glm-5-maas",
+      "output_tokens": 3753,
+      "parsed_json_sha256": "a3ad067faf2389c7919b3cb66c9a7f009edc9918e0585eba3964e9f3195ac16f",
+      "provider_id": "glm-agent-platform",
+      "raw_output_sha256": "7a7b85ace43d02d8918e1b99ab622fdc6a6de39d701d31cb5d8e145d39aa4497",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "display_name": "Mistral on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 72156,
+      "latency_ms": 34130,
+      "model_name": "mistral-medium-3",
+      "output_tokens": 1001,
+      "parsed_json_sha256": "c4eadac81b6919af995e287aff48ac9b3ae0ea9b551d913ff034befb786f0aa0",
+      "provider_id": "mistral-agent-platform",
+      "raw_output_sha256": "8656f2e7e1c8228115ef53d9db9de1c7bc64f4c60d0d476553d5d5f62465eb06",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "display_name": "gpt-oss on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 57242,
+      "latency_ms": 15785,
+      "model_name": "gpt-oss-120b-maas",
+      "output_tokens": 2850,
+      "parsed_json_sha256": "f8da7b5d3ee79f3329527dfd0e4e8c17596167a7e061d421b05e42e54dd855d4",
+      "provider_id": "openai-gpt-oss-on-vertex",
+      "raw_output_sha256": "44fa19487f28d2523a244f7c28ddf25be8e7704604cd4b5866dc6edb08cb7ec3",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "display_name": "Qwen on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 67921,
+      "latency_ms": 9452,
+      "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
+      "output_tokens": 1271,
+      "parsed_json_sha256": "0467f15dbae64cb19bca247b81cc4a2f2be4267d543ee91beab372c28f20cea6",
+      "provider_id": "qwen-agent-platform",
+      "raw_output_sha256": "a470bdfe52aba55f8e4a5f13e2d0672f69d920f971ce8ed14c5b8ccc8f17e5cc",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    }
+  ],
+  "review_graph_summary": {
+    "auto_archived_count": 1,
+    "conflict_count": 0,
+    "convergence_count": 5,
+    "hidden_multi_provider_archived_count": 0,
+    "incident_baseline": "open",
+    "incident_baseline_established_count": 0,
+    "note": "Provider convergence is technical support only; causal and impact judgement remains human-gated. Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; it is not additive with target verdict counts.",
+    "partial_overlap_count": 5,
+    "primary_promoted_count": 0,
+    "provider_detection_overlap": "5/5",
+    "review_unit_convergence": "strong",
+    "rule_or_context_count": 0,
+    "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
+    "single_source_count": 1,
+    "summary": "The e2e API analyzed a 5,055-row sanitized log corpus with 5 schema-valid real provider output(s); 5 review unit(s) had at least two provider positions while impact remains human-gated.",
+    "targets_total": 6,
+    "technical_baseline": "established"
+  },
+  "schema_version": "precomputed_review_summary.v1",
+  "summary": {
+    "baselines": {
+      "incident": false,
+      "technical": true
+    },
+    "canonical_graph_sha256": "3732e88c6e51596eba2331fc63f54dbe4d676da68cf0ad6e620759f39fcdfbf3",
+    "canonical_graph_status": "persisted",
+    "finding": {
+      "impact": "Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid outputs. 0 primary candidate and 6 validation target(s) remain human-gated; incident baseline is not auto-accepted.",
+      "title": "Five real providers analyzed the 5,055-row stream_v3_monitoring corpus"
+    },
+    "input_fingerprint_sha256": "2b771e56c49ecf63b0eb5a97e9251ab837174f4476edc1eee61436684d2b1461",
+    "log_count": 5055,
+    "message": "",
+    "providers": {
+      "pipeline_status": "succeeded",
+      "success": 5,
+      "total": 5
+    },
+    "raw_log_policy": "not_uploaded",
+    "review": {
+      "auto_archived": 1,
+      "monitor_only": 2,
+      "primary_targets": 0,
+      "validation_targets": 6
+    },
+    "schema_version": "ui_summary.v1",
+    "status": "ok",
+    "updated_at": "2026-06-28 15:43:20+00:00"
+  },
+  "targets": [
+    {
+      "agreement": {
+        "convergence_score": 0.8,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "4/5 schema-valid providers projected this review unit from the 5,055-row corpus; incident baseline remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "downstream_dependency",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "evidence_refs": [
+        "PATTERN-005",
+        "PATTERN-009",
+        "PATTERN-010",
+        "PATTERN-1114",
+        "PATTERN-1115",
+        "PATTERN-221",
+        "PATTERN-223",
+        "PATTERN-226",
+        "PATTERN-228",
+        "PATTERN-235",
+        "PATTERN-237",
+        "PATTERN-011",
+        "PATTERN-012"
+      ],
+      "missing_evidence": [
+        "Network reachability test results for cloudflare-dns.com",
+        "YouTube API quota limit and current utilization percentage",
+        "Impact of quota exhaustion on streaming functionality",
+        "Fallback behavior when API quota is exceeded"
+      ],
+      "promotion": {
+        "blocked_reason": "user_impact_unverified; impact_disagreement",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 4,
+      "provider_positions": [
+        {
+          "model_run_hash": "490c0e98d17e",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "7a7b85ace43d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "8656f2e7e1c8",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "44fa19487f28",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "a470bdfe52ab",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "5ea82a39c9cfbe37e1329bc0",
+        "rollup_provider_ratio": 0.8,
+        "source_candidate_count": 5
+      },
+      "recommended_request_type": "external_dependency_status_query",
+      "review_priority_score": 0.8,
+      "review_target_id": "cog-3b468bd7be1479975fcf",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "downstream_dependency",
+      "target_id": "cog-3b468bd7be1479975fcf",
+      "title": "Review target requires validation: downstream_dependency"
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.8,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "4/5 schema-valid providers projected this review unit from the 5,055-row corpus; incident baseline remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "transport_sender",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "evidence_refs": [
+        "PATTERN-005",
+        "PATTERN-009",
+        "PATTERN-010",
+        "PATTERN-1114",
+        "PATTERN-1115",
+        "PATTERN-068",
+        "PATTERN-069",
+        "PATTERN-226",
+        "PATTERN-228",
+        "PATTERN-233",
+        "PATTERN-237",
+        "PATTERN-1154",
+        "PATTERN-1159",
+        "PATTERN-1168",
+        "PATTERN-1170",
+        "PATTERN-1164",
+        "PATTERN-1166",
+        "PATTERN-1173",
+        "PATTERN-1180",
+        "PATTERN-221",
+        "PATTERN-223",
+        "PATTERN-231",
+        "PATTERN-235"
+      ],
+      "missing_evidence": [
+        "Detailed log excerpts showing BrokenPipeError with surrounding context",
+        "User impact reports or metrics correlating with rtmps_connect_failure_all_families events"
+      ],
+      "promotion": {
+        "blocked_reason": "core_missing_evidence",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 4,
+      "provider_positions": [
+        {
+          "model_run_hash": "490c0e98d17e",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "7a7b85ace43d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "8656f2e7e1c8",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "44fa19487f28",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "a470bdfe52ab",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "3512b64f84c4640abaf61cf8",
+        "rollup_provider_ratio": 0.5,
+        "source_candidate_count": 8
+      },
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.8,
+      "review_target_id": "cog-7e42743834bbbab86e44",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "network_transport",
+      "target_id": "cog-7e42743834bbbab86e44",
+      "title": "Review target requires validation: network_transport"
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.8,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "4/5 schema-valid providers projected this review unit from the 5,055-row corpus; incident baseline remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "general",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "evidence_refs": [
+        "PATTERN-1142",
+        "PATTERN-1143",
+        "PATTERN-1161",
+        "PATTERN-1163",
+        "PATTERN-1164",
+        "PATTERN-1166",
+        "PATTERN-1170",
+        "PATTERN-1175",
+        "PATTERN-1180",
+        "PATTERN-1188",
+        "PATTERN-1664",
+        "PATTERN-1665",
+        "PATTERN-1666"
+      ],
+      "missing_evidence": [
+        "Answers to required profile questions: What is the critical user outcome? Which component is the main service path? Are restart failures expected or harmful? Which metrics are zero-is-good or zero-is-bad? Which logs indicate user impact rather than diagnostic noise?",
+        "System profile defining critical user outcome",
+        "Component map identifying main service path",
+        "Metric semantics for zero-is-good vs zero-is-bad indicators",
+        "Log classification for user impact vs diagnostic noise",
+        "Version information for the deployed components during the incident window.",
+        "Deployed version identifier for the incident window",
+        "Source code version tag or commit hash"
+      ],
+      "promotion": {
+        "blocked_reason": "core_missing_evidence",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 4,
+      "provider_positions": [
+        {
+          "model_run_hash": "490c0e98d17e",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "7a7b85ace43d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "8656f2e7e1c8",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "44fa19487f28",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "a470bdfe52ab",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "silent"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "c7bafc51f4ed20660e4deb42",
+        "rollup_provider_ratio": 1.0,
+        "source_candidate_count": 4
+      },
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.8,
+      "review_target_id": "cog-9104978d080284b03d20",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "general",
+      "target_id": "cog-9104978d080284b03d20",
+      "title": "Throughput disappearance requires validation: general"
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.4,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "2/5 schema-valid providers projected this review unit from the 5,055-row corpus; incident baseline remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "generic_runtime",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "evidence_refs": [
+        "PATTERN-066",
+        "PATTERN-067",
+        "PATTERN-120",
+        "PATTERN-121",
+        "PATTERN-122"
+      ],
+      "missing_evidence": [],
+      "promotion": {
+        "blocked_reason": "user_impact_unverified; impact_disagreement",
+        "explanation": "2/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 2,
+      "provider_positions": [
+        {
+          "model_run_hash": "490c0e98d17e",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "7a7b85ace43d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "8656f2e7e1c8",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "44fa19487f28",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "a470bdfe52ab",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 0.875,
+        "canonical_group_key": "acdbd0487b569a97e211b385",
+        "rollup_provider_ratio": 1.0,
+        "source_candidate_count": 2
+      },
+      "recommended_request_type": "instrumentation_consistency_query",
+      "review_priority_score": 0.725,
+      "review_target_id": "cog-6be563417bedb8d2176a",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "generic_runtime",
+      "target_id": "cog-6be563417bedb8d2176a",
+      "title": "Review target requires validation: generic_runtime"
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.8,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "4/5 schema-valid providers projected this review unit from the 5,055-row corpus; incident baseline remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "resource_pressure",
+      "caveats": [],
+      "claim": "4/5 schema-valid providers projected resource_pressure with 3 cited Evidence Item(s); this is technical review support, not majority-vote truth.",
+      "class": "validation_target",
+      "evidence_refs": [
+        "PATTERN-1664",
+        "PATTERN-1665",
+        "PATTERN-1666"
+      ],
+      "missing_evidence": [],
+      "promotion": {
+        "blocked_reason": "user_impact_unverified; impact_disagreement",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 4,
+      "provider_positions": [
+        {
+          "model_run_hash": "490c0e98d17e",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "7a7b85ace43d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "8656f2e7e1c8",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "44fa19487f28",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "a470bdfe52ab",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 0.925,
+        "canonical_group_key": "a641151e3b6cc21a391d063d",
+        "rollup_provider_ratio": 0.0,
+        "source_candidate_count": 1
+      },
+      "recommended_request_type": "instrumentation_consistency_query",
+      "review_priority_score": 0.72,
+      "review_target_id": "cog-4d811f59a6d0e29b0dd1",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "resource_pressure",
+      "target_id": "cog-4d811f59a6d0e29b0dd1",
+      "title": "Review target requires validation: resource_pressure"
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.2,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "1/5 schema-valid providers projected this review unit from the 5,055-row corpus; incident baseline remains human-gated.",
+        "technical_baseline": "open",
+        "verdict": "single_source"
+      },
+      "canonical_review_unit": "youtube_health",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "evidence_refs": [
+        "PATTERN-002"
+      ],
+      "missing_evidence": [],
+      "promotion": {
+        "blocked_reason": "single_metric_only; user_impact_unverified; impact_disagreement",
+        "explanation": "A single provider surfaced this target; it needs corroboration before promotion.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 1,
+      "provider_positions": [
+        {
+          "model_run_hash": "490c0e98d17e",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "7a7b85ace43d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "glm-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "8656f2e7e1c8",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "44fa19487f28",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "a470bdfe52ab",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "silent"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 0.575,
+        "canonical_group_key": "c372bab8bc971ec40b75243b",
+        "rollup_provider_ratio": 0.0,
+        "source_candidate_count": 1
+      },
+      "recommended_request_type": "instrumentation_consistency_query",
+      "review_priority_score": 0.62,
+      "review_target_id": "cog-b6115fddcd43f8b81c33",
+      "state": "validation_target",
+      "status": "pending",
+      "subsystem": "youtube_health",
+      "target_id": "cog-b6115fddcd43f8b81c33",
+      "title": "Review target requires validation: youtube_health"
+    }
+  ],
+  "updated_at": "2026-06-28 15:43:20+00:00"
+}

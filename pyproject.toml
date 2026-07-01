@@ -19,6 +19,10 @@ api = [
 ]
 gcp = [
   "google-cloud-bigquery>=3.25",
+  "google-cloud-storage>=2.18",
+]
+postgres = [
+  "psycopg[binary]>=3.2",
 ]
 agent = [
   "google-adk==2.3.0",

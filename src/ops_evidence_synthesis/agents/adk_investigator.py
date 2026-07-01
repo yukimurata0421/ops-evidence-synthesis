@@ -38,6 +38,7 @@ def build_investigation_agent(model_name: str = DEFAULT_ADK_MODEL) -> Any:
             freeze_evidence_bundle,
             attach_sanitized_source_context,
             run_cross_check_providers,
+            chunk_and_merge_full_corpus,
             validate_citations,
             compute_review_targets,
             arbitrate_review_gate,
@@ -173,6 +174,46 @@ def run_cross_check_providers(provider_statuses: list[dict[str, Any]]) -> dict[s
             f"{len(valid_rows)}/{len(rows)} provider outputs were schema-valid; "
             f"Gemini reference/arbiter present={bool(gemini_ids)}. "
             "A silent provider position is preserved as evidence for review, not treated as failure."
+        ),
+    }
+
+
+def chunk_and_merge_full_corpus(
+    analysis_context: dict[str, Any],
+    provider_statuses: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Summarize chunked full-corpus provider execution and deterministic merge scope."""
+    context = analysis_context if isinstance(analysis_context, dict) else {}
+    providers = [row for row in provider_statuses if isinstance(row, dict)]
+    full_items = int(context.get("provider_full_corpus_evidence_items") or context.get("evidence_item_count") or 0)
+    analyzed_items = int(context.get("provider_full_corpus_analyzed_evidence_items") or 0)
+    chunk_count = int(context.get("provider_full_corpus_chunk_count") or 0)
+    manifest_count = int(context.get("provider_full_corpus_chunk_manifest_count") or 0)
+    unassigned = int(context.get("provider_full_corpus_unassigned_evidence_items") or 0)
+    failed_chunks = sum(int(row.get("chunk_failure_count") or 0) for row in providers)
+    coverage_ratio = float(context.get("provider_full_corpus_coverage_ratio") or 0.0)
+    status = "completed" if chunk_count and analyzed_items else "skipped"
+    return {
+        "status": status,
+        "artifact": "chunked_provider_merge",
+        "full_evidence_items": full_items,
+        "analyzed_evidence_items": analyzed_items,
+        "coverage_ratio": coverage_ratio,
+        "chunk_count": chunk_count,
+        "chunk_manifest_count": manifest_count,
+        "unassigned_evidence_items": unassigned,
+        "failed_chunk_count": failed_chunks,
+        "determinism_scope": {
+            "provider_outputs": "recorded_and_hashed",
+            "merge": "deterministic_sort_dedup_over_recorded_chunk_outputs",
+            "fixture_regeneration": "deterministic_local_provider_ci",
+        },
+        "summary": (
+            f"Provider prompts covered {analyzed_items:,}/{full_items:,} Evidence Item(s) "
+            f"through up to {chunk_count:,} chunk(s); recorded chunk outputs are sorted and "
+            "deduplicated before canonical merge."
+            if status == "completed"
+            else "No full-corpus chunk manifest was attached to this payload."
         ),
     }
 
@@ -437,6 +478,11 @@ def build_adk_tool_contract_trace(payload: dict[str, Any]) -> list[dict[str, Any
             "run_cross_check_providers",
             "Run Cross-Check Providers",
             run_cross_check_providers(provider_statuses),
+        ),
+        (
+            "chunk_and_merge_full_corpus",
+            "Chunk And Merge Full Corpus",
+            chunk_and_merge_full_corpus(analysis_context, provider_statuses),
         ),
         (
             "validate_citations",

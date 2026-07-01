@@ -22,6 +22,8 @@ DEFAULT_QWEN_MODEL = "qwen/qwen3-coder-480b-a35b-instruct-maas"
 DEFAULT_QWEN_LOCATION = "global"
 DEFAULT_GLM_MODEL = "zai-org/glm-5-maas"
 DEFAULT_GLM_LOCATION = "global"
+DEFAULT_LLAMA_MODEL = "llama-4-maverick-17b-128e-instruct-maas"
+DEFAULT_LLAMA_LOCATION = "us-east5"
 DEFAULT_VERTEX_API_VERSION = "v1"
 
 
@@ -249,6 +251,23 @@ class VertexOpenModelProvider:
             max_logs=int(os.environ.get("OES_GLM_MAX_LOGS", "0")),
             max_normalized_events=int(os.environ.get("OES_GLM_MAX_NORMALIZED_EVENTS", "0")),
             max_text_chars=int(os.environ.get("OES_GLM_MAX_TEXT_CHARS", "480")),
+        )
+
+    @classmethod
+    def from_llama_env(cls) -> "VertexOpenModelProvider":
+        return cls(
+            provider="llama-agent-platform",
+            model_name=os.environ.get("OES_LLAMA_MODEL", DEFAULT_LLAMA_MODEL),
+            default_publisher="meta",
+            project_id=_open_model_project("LLAMA"),
+            location=os.environ.get("OES_LLAMA_LOCATION", DEFAULT_LLAMA_LOCATION),
+            temperature=float(os.environ.get("OES_LLAMA_TEMPERATURE", "0")),
+            max_output_tokens=int(os.environ.get("OES_LLAMA_MAX_OUTPUT_TOKENS", "8192")),
+            timeout_seconds=int(os.environ.get("OES_LLAMA_TIMEOUT_SECONDS", "240")),
+            max_evidence_items=int(os.environ.get("OES_LLAMA_MAX_EVIDENCE_ITEMS", "140")),
+            max_logs=int(os.environ.get("OES_LLAMA_MAX_LOGS", "0")),
+            max_normalized_events=int(os.environ.get("OES_LLAMA_MAX_NORMALIZED_EVENTS", "0")),
+            max_text_chars=int(os.environ.get("OES_LLAMA_MAX_TEXT_CHARS", "480")),
         )
 
     def run(self, bundle: dict[str, Any]) -> ModelResponse:

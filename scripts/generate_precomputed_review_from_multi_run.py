@@ -25,6 +25,9 @@ DEFAULT_SOURCE_NOTE = (
     "generated from a recorded e2e API real provider run using a sanitized log corpus and optional sanitized source context"
 )
 DEFAULT_PROVIDER_MODE = "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm"
+PUBLIC_EVIDENCE_REF_LIMIT = 80
+PUBLIC_EVIDENCE_SUMMARY_LIMIT = 16
+PUBLIC_COUNTER_SUMMARY_LIMIT = 12
 
 
 def main() -> int:
@@ -131,8 +134,8 @@ def build_payload(
     compact = compact_bundle_for_model(bundle)
     corpus_summary = compact.get("evidence_corpus_summary") if isinstance(compact.get("evidence_corpus_summary"), dict) else {}
     local_first = bundle.get("local_first_summary") if isinstance(bundle.get("local_first_summary"), dict) else {}
-    source = bundle.get("source") if isinstance(bundle.get("source"), dict) else {}
-    time_window = bundle.get("time_window") if isinstance(bundle.get("time_window"), dict) else {}
+    source = _bundle_source(bundle)
+    time_window = _bundle_time_window(bundle)
     window = validate_minimum_analysis_window(
         str(time_window.get("start") or ""),
         str(time_window.get("end") or ""),
@@ -156,7 +159,12 @@ def build_payload(
         valid_provider_count=valid_provider_count,
         provider_count=provider_count,
     )
-    log_count = _int(local_first.get("sanitized_event_count"))
+    raw_db_corpus_coverage = bundle.get("db_corpus_coverage") if isinstance(bundle.get("db_corpus_coverage"), dict) else {}
+    log_count = (
+        _int(local_first.get("sanitized_event_count"))
+        or _int(raw_db_corpus_coverage.get("total_row_count"))
+        or _int(raw_db_corpus_coverage.get("covered_row_count"))
+    )
     evidence_lookup = _evidence_lookup(bundle)
     targets = _targets(
         api_response,
@@ -171,16 +179,26 @@ def build_payload(
         api_response,
         targets=targets,
         provider_count=valid_provider_count,
-        log_count=_int(local_first.get("sanitized_event_count")),
+        log_count=log_count,
     )
     updated = updated_at or str((api_response.get("pipeline_status") or {}).get("completed_at") or "")
     full_items = _int(corpus_summary.get("full_evidence_item_count"))
     model_items = _int(corpus_summary.get("model_evidence_item_count"))
     model_occurrences = _int(corpus_summary.get("model_occurrence_count"))
     coverage = float(corpus_summary.get("occurrence_coverage_ratio") or 0.0)
+    db_corpus_coverage = _bundle_db_corpus_coverage(bundle, fallback_rows=log_count)
+    evidence_item_accounting = _evidence_item_accounting(
+        full_items=full_items,
+        db_corpus_coverage=db_corpus_coverage,
+    )
+    determinism_scope = _determinism_scope()
+    provider_full_corpus_coverage = _provider_full_corpus_coverage(
+        api_response,
+        full_items=full_items,
+    )
     projection_policy = model_projection_policy or (
-        "AI input used a bounded Evidence Bundle projection: top 140 high-signal evidence items; "
-        "row-level raw logs stayed out of provider prompts."
+        "Single-prompt metadata records the bounded Evidence Bundle projection. "
+        "Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts."
     )
     projection_interpretation = _projection_coverage_interpretation(
         service=str(source.get("service") or "service"),
@@ -189,6 +207,7 @@ def build_payload(
         model_items=model_items,
         model_occurrences=model_occurrences,
         coverage=coverage,
+        full_corpus_coverage=provider_full_corpus_coverage,
     )
     source_context_sha = _source_context_sha(api_response, source_context)
     source_analysis_sha = _source_analysis_sha(api_response, source_analysis)
@@ -285,7 +304,35 @@ def build_payload(
             "schema_valid_provider_count": valid_provider_count,
             "sanitized_log_count": log_count,
             "db_ingested_log_count": log_count,
+            "db_corpus_coverage": db_corpus_coverage,
+            "db_corpus_row_count": _int(db_corpus_coverage.get("total_row_count")),
+            "db_corpus_covered_row_count": _int(db_corpus_coverage.get("covered_row_count")),
+            "db_corpus_coverage_ratio": float(db_corpus_coverage.get("coverage_ratio") or 0.0),
+            "db_corpus_pattern_count": _int(db_corpus_coverage.get("pattern_count")),
+            "db_corpus_singleton_pattern_count": _int(db_corpus_coverage.get("singleton_pattern_count")),
+            "db_corpus_coverage_class_counts": dict(db_corpus_coverage.get("coverage_class_counts") or {}),
+            "db_corpus_direct_prompt_row_count": _int(db_corpus_coverage.get("direct_prompt_row_count")),
+            "db_corpus_raw_rows_sent_to_providers": bool(db_corpus_coverage.get("raw_rows_sent_to_providers")),
+            "db_corpus_row_assignments_sha256": str(db_corpus_coverage.get("row_assignments_sha256") or ""),
             "evidence_item_count": full_items,
+            "evidence_item_accounting": evidence_item_accounting,
+            "provider_full_corpus_coverage": provider_full_corpus_coverage,
+            "provider_full_corpus_evidence_items": _int(provider_full_corpus_coverage.get("full_evidence_item_count")),
+            "provider_full_corpus_analyzed_evidence_items": _int(
+                provider_full_corpus_coverage.get("analyzed_evidence_item_count")
+            ),
+            "provider_full_corpus_unassigned_evidence_items": _int(
+                provider_full_corpus_coverage.get("unassigned_evidence_item_count")
+            ),
+            "provider_full_corpus_coverage_ratio": float(provider_full_corpus_coverage.get("coverage_ratio") or 0.0),
+            "provider_full_corpus_chunk_count": _int(provider_full_corpus_coverage.get("max_chunk_count")),
+            "provider_full_corpus_chunk_manifest_count": _int(
+                provider_full_corpus_coverage.get("max_chunk_manifest_entry_count")
+            ),
+            "provider_full_corpus_chunk_manifest_sha256s": list(
+                provider_full_corpus_coverage.get("chunk_manifest_sha256s") or []
+            ),
+            "determinism_scope": determinism_scope,
             "model_projection_evidence_items": model_items,
             "model_projection_occurrence_count": model_occurrences,
             "model_projection_occurrence_coverage_ratio": coverage,
@@ -298,18 +345,31 @@ def build_payload(
             "token_usage": dict(synthesis.get("token_usage") or {}),
             "log_observations": [
                 (
-                    f"The run used all {log_count:,} sanitized {source.get('service', 'service')} rows "
-                    f"from {time_window.get('start')} to {time_window.get('end')}."
+                    f"The run used {db_corpus_coverage.get('covered_row_count', log_count):,}/"
+                    f"{db_corpus_coverage.get('total_row_count', log_count):,} sanitized "
+                    f"{source.get('service', 'service')} DB rows from {time_window.get('start')} "
+                    f"to {time_window.get('end')} as the coverage corpus; direct raw-row prompt count was "
+                    f"{db_corpus_coverage.get('direct_prompt_row_count', 0):,}."
                 ),
                 (
                     f"The local-first Evidence Bundle retained {full_items:,} "
-                    f"grouped evidence items and {len(bundle.get('signals') or []):,} deterministic signals."
+                    f"grouped evidence items, including {db_corpus_coverage.get('singleton_pattern_count', 0):,} "
+                    f"singleton pattern(s), {db_corpus_coverage.get('low_frequency_pattern_count', 0):,} "
+                    f"low-frequency pattern(s), and {len(bundle.get('signals') or []):,} deterministic signals."
                 ),
+                _evidence_item_accounting_observation(evidence_item_accounting),
                 (
-                    f"The provider prompt used {model_items:,} selected evidence items covering "
-                    f"{model_occurrences:,} occurrences ({coverage:.1%} of the sanitized corpus)."
+                    f"The single-prompt projection used {model_items:,} selected evidence items covering "
+                    f"{model_occurrences:,} occurrences ({coverage:.1%} of the sanitized corpus); "
+                    f"provider synthesis covered {provider_full_corpus_coverage.get('analyzed_evidence_item_count', 0):,}/"
+                    f"{provider_full_corpus_coverage.get('full_evidence_item_count', full_items):,} grouped Evidence Items "
+                    f"via chunked calls."
                 ),
                 projection_interpretation,
+                (
+                    "Real provider outputs are recorded and hashed; deterministic reproduction applies to "
+                    "the canonical merge over sorted recorded chunk outputs and to local fixture regeneration."
+                ),
                 *(
                     log_observations
                     or [
@@ -336,7 +396,7 @@ def build_payload(
                     f"{public_review_counts['validation_targets']} validation target(s), and "
                     f"{public_review_counts['monitor_only']} monitor-only item(s) after the analysis-window boundary is applied."
                 ),
-                _analysis_conclusion_impact(canonical_graph, targets),
+                _analysis_conclusion_impact(canonical_graph, targets, public_review_counts=public_review_counts),
             ],
         },
         "agent_trace": [],
@@ -379,11 +439,54 @@ def _provider_statuses(api_response: dict[str, Any]) -> list[dict[str, Any]]:
                 "parsed_json_sha256": str(run.get("parsed_json_sha256") or ""),
                 "schema_valid": bool(run.get("schema_valid")),
                 "failure_reason": str(run.get("failure_reason") or ""),
-                "schema_errors": list(run.get("schema_errors") or []),
+                "schema_errors": _compact_provider_schema_errors(run.get("schema_errors") or []),
                 "retry": dict(run.get("retry") or {}),
+                "chunk_status_counts": dict(run.get("chunk_status_counts") or {}),
+                "chunk_failure_count": _int(run.get("chunk_failure_count")),
+                "partial_chunk_result": dict(run.get("partial_chunk_result") or {}),
             }
         )
     return sorted(rows, key=lambda row: row["provider_id"])
+
+
+def _bundle_time_window(bundle: dict[str, Any]) -> dict[str, str]:
+    time_window = bundle.get("time_window") if isinstance(bundle.get("time_window"), dict) else {}
+    start = str(
+        time_window.get("start")
+        or bundle.get("window_start")
+        or ((bundle.get("incident_window") or {}).get("start") if isinstance(bundle.get("incident_window"), dict) else "")
+        or ""
+    )
+    end = str(
+        time_window.get("end")
+        or bundle.get("window_end")
+        or ((bundle.get("incident_window") or {}).get("end") if isinstance(bundle.get("incident_window"), dict) else "")
+        or ""
+    )
+    return {"start": start, "end": end}
+
+
+def _bundle_source(bundle: dict[str, Any]) -> dict[str, str]:
+    source = bundle.get("source") if isinstance(bundle.get("source"), dict) else {}
+    return {
+        "service": str(source.get("service") or bundle.get("service") or ""),
+        "environment": str(source.get("environment") or bundle.get("environment") or ""),
+    }
+
+
+def _compact_provider_schema_errors(errors: Any, *, limit: int = 8) -> list[str]:
+    compact: list[str] = []
+    for error in errors or []:
+        text = str(error or "").strip()
+        if not text or text in compact:
+            continue
+        compact.append(text)
+        if len(compact) >= limit:
+            break
+    total = len([error for error in errors or [] if str(error or "").strip()])
+    if total > len(compact):
+        compact.append(f"... {total - len(compact)} additional schema/error detail(s) omitted from public payload")
+    return compact
 
 
 def _pipeline_status(api_response: dict[str, Any], *, valid_provider_count: int, provider_count: int) -> str:
@@ -443,38 +546,51 @@ def _targets(
         promotion_state = "primary_candidate" if target_class == "primary_candidate" else "validation"
         blocked_reason = _blocked_reason(target, provider_count=provider_count)
         missing_evidence = _public_missing_evidence(target, blocked_reason=blocked_reason)
-        target_explanation = _public_target_explanation(
+        canonical_review_unit = _public_canonical_review_unit(
             target,
             evidence_refs=evidence_refs,
+            evidence_lookup=evidence_lookup,
+        )
+        public_target = dict(target)
+        public_target["canonical_review_unit"] = canonical_review_unit
+        if _is_generic_review_unit(str(public_target.get("subsystem") or "")):
+            public_target["subsystem"] = canonical_review_unit
+        evidence_ref_total_count = len(evidence_refs)
+        public_evidence_refs = evidence_refs[:PUBLIC_EVIDENCE_REF_LIMIT]
+        evidence_ref_overflow_count = max(0, evidence_ref_total_count - len(public_evidence_refs))
+        target_explanation = _public_target_explanation(
+            public_target,
+            evidence_refs=public_evidence_refs,
             blocked_reason=blocked_reason,
             evidence_lookup=evidence_lookup,
             window_start=window_start,
             window_end=window_end,
         )
+        public_title = _public_target_title(public_target, canonical_review_unit=canonical_review_unit)
         targets.append(
             {
-                "target_id": str(target.get("target_id") or target.get("review_target_id") or ""),
-                "review_target_id": str(target.get("review_target_id") or target.get("target_id") or ""),
-                "title": str(target.get("title") or ""),
+                "target_id": str(public_target.get("target_id") or public_target.get("review_target_id") or ""),
+                "review_target_id": str(public_target.get("review_target_id") or public_target.get("target_id") or ""),
+                "title": public_title,
                 "class": target_class,
-                "state": str(target.get("state") or target_class),
-                "status": str(target.get("status") or "pending"),
-                "subsystem": str(target.get("subsystem") or "general"),
-                "canonical_review_unit": str(target.get("canonical_review_unit") or target.get("subsystem") or "general"),
-                "review_priority_score": round(float(target.get("review_priority_score") or 0.0), 4),
+                "state": str(public_target.get("state") or target_class),
+                "status": str(public_target.get("status") or "pending"),
+                "subsystem": str(public_target.get("subsystem") or "general"),
+                "canonical_review_unit": canonical_review_unit,
+                "review_priority_score": round(float(public_target.get("review_priority_score") or 0.0), 4),
                 "provider_count": provider_count,
-                "recommended_request_type": str(target.get("recommended_request_type") or ""),
+                "recommended_request_type": str(public_target.get("recommended_request_type") or ""),
                 "claim": _target_claim(
-                    target,
+                    public_target,
                     provider_count=provider_count,
                     valid_count=valid_count,
-                    evidence_ref_count=len(evidence_refs),
+                    evidence_ref_count=evidence_ref_total_count,
                 ),
                 "review_reason": _review_reason_summary(
-                    target,
+                    public_target,
                     provider_count=provider_count,
                     valid_count=valid_count,
-                    evidence_ref_count=len(evidence_refs),
+                    evidence_ref_count=evidence_ref_total_count,
                     blocked_reason=blocked_reason,
                     log_count=log_count,
                 ),
@@ -494,7 +610,8 @@ def _targets(
                     "technical_baseline": "established" if provider_count >= 2 else "open",
                     "incident_baseline": "open",
                     "summary": (
-                        f"{provider_count}/{valid_count} schema-valid providers projected this review unit "
+                        f"{provider_count}/{valid_count} schema-valid "
+                        f"{'provider' if valid_count == 1 else 'providers'} projected this review unit "
                         f"from the {log_count:,}-row corpus; "
                         "incident promotion remains human-gated."
                     ),
@@ -510,19 +627,229 @@ def _targets(
                     "score_cap_applied": False,
                     "score_note": "Priority is review urgency, not truth probability.",
                 },
-                "evidence_refs": evidence_refs,
+                "evidence_refs": public_evidence_refs,
+                "evidence_ref_total_count": evidence_ref_total_count,
+                "evidence_ref_display_count": len(public_evidence_refs),
+                "evidence_ref_overflow_count": evidence_ref_overflow_count,
                 "excluded_evidence_refs": excluded_evidence_refs,
                 "missing_evidence": missing_evidence,
                 "caveats": list(target.get("caveats") or []),
                 "raw": {
-                    "baseline_support_score": target.get("baseline_support_score"),
-                    "canonical_group_key": target.get("canonical_group_key"),
-                    "rollup_provider_ratio": target.get("rollup_provider_ratio"),
-                    "source_candidate_count": target.get("source_candidate_count"),
+                    "baseline_support_score": public_target.get("baseline_support_score"),
+                    "canonical_group_key": public_target.get("canonical_group_key"),
+                    "rollup_provider_ratio": public_target.get("rollup_provider_ratio"),
+                    "source_candidate_count": public_target.get("source_candidate_count"),
                 },
             }
         )
-    return targets
+    return _filter_and_dedupe_public_targets(targets)
+
+
+def _public_canonical_review_unit(
+    target: dict[str, Any],
+    *,
+    evidence_refs: list[str],
+    evidence_lookup: dict[str, dict[str, Any]],
+) -> str:
+    explicit = str(target.get("canonical_review_unit") or "").strip()
+    if not _is_generic_review_unit(explicit):
+        return explicit
+    subsystem = str(target.get("subsystem") or "").strip()
+    if not _is_generic_review_unit(subsystem):
+        return subsystem
+    inferred = _infer_review_unit_from_target_context(
+        target,
+        evidence_refs=evidence_refs,
+        evidence_lookup=evidence_lookup,
+    )
+    return inferred or "general"
+
+
+def _is_generic_review_unit(value: str) -> bool:
+    return value.strip().casefold() in {"", "general", "general_review", "validation_target", "unknown", "none", "null"}
+
+
+def _infer_review_unit_from_target_context(
+    target: dict[str, Any],
+    *,
+    evidence_refs: list[str],
+    evidence_lookup: dict[str, dict[str, Any]],
+) -> str:
+    request_type = str(target.get("recommended_request_type") or "").casefold()
+    if "external_dependency" in request_type or "downstream" in request_type:
+        return "downstream_dependency"
+    if "instrumentation" in request_type or "observability" in request_type or "metric_semantics" in request_type:
+        return "observability_contract"
+    if "user_impact" in request_type or "outcome" in request_type:
+        return "user_experience"
+    if "deployment" in request_type or "job_configuration" in request_type or "scheduler" in request_type:
+        return "job_configuration"
+    if "process_state" in request_type or "runtime" in request_type or "restart" in request_type:
+        return "runtime_recovery"
+
+    text = _target_context_text(target, evidence_refs=evidence_refs, evidence_lookup=evidence_lookup)
+    scores = {
+        "downstream_dependency": _keyword_score(
+            text,
+            ("external", "dependency", "downstream", "webhook", "discord", "gmail", "http", "tls", "certificate"),
+        ),
+        "observability_contract": _keyword_score(
+            text,
+            ("instrumentation", "observability", "metric", "logging", "error_count", "semantic"),
+        ),
+        "runtime_recovery": _keyword_score(
+            text,
+            ("restart", "runtime_restart", "watchdog", "systemd", "service_start_failure", "process state", "exit code"),
+        ),
+        "job_configuration": _keyword_score(
+            text,
+            ("job_configuration", "configuration", "deployment", "scheduler", "timer", "artifact"),
+        ),
+        "background_processing": _keyword_score(
+            text,
+            ("run_once", "run_result", "checkpoint", "pipeline_commit", "pubsub", "processed", "matched", "notified"),
+        ),
+        "user_experience": _keyword_score(
+            text,
+            ("user impact", "user_impact", "delivery", "notification", "recipient", "end-to-end", "user outcome"),
+        ),
+        "service_liveness": _keyword_score(text, ("liveness", "heartbeat", "health", "service health")),
+    }
+    winner, score = max(scores.items(), key=lambda row: row[1])
+    return winner if score > 0 else ""
+
+
+def _target_context_text(
+    target: dict[str, Any],
+    *,
+    evidence_refs: list[str],
+    evidence_lookup: dict[str, dict[str, Any]],
+) -> str:
+    parts: list[str] = []
+    for key in (
+        "recommended_request_type",
+        "core_target_type",
+        "canonical_target_type",
+        "review_target_type",
+        "title",
+        "suspected_issue",
+        "operational_mechanism",
+        "why_it_matters",
+    ):
+        parts.append(str(target.get(key) or ""))
+    parts.extend(str(item) for item in target.get("missing_evidence") or [] if item)
+    for evidence_id in evidence_refs[:80]:
+        row = evidence_lookup.get(evidence_id) or {}
+        for key in ("message_template", "summary", "event_type", "error_type", "type", "severity_text"):
+            parts.append(str(row.get(key) or ""))
+    return " ".join(parts).casefold()
+
+
+def _keyword_score(text: str, keywords: tuple[str, ...]) -> int:
+    return sum(1 for keyword in keywords if keyword in text)
+
+
+def _public_target_title(target: dict[str, Any], *, canonical_review_unit: str) -> str:
+    title = str(target.get("title") or "").strip()
+    unit = str(canonical_review_unit or target.get("subsystem") or "review unit").strip() or "review unit"
+    generic_title = (
+        not title
+        or title.casefold() == "review target requires validation"
+        or title.casefold().endswith(": general")
+    )
+    if title and not generic_title:
+        return title
+    return f"Review target requires validation: {unit}"
+
+
+def _filter_and_dedupe_public_targets(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    winners: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for target in targets:
+        if _is_low_information_public_target(target):
+            continue
+        key = _public_target_dedupe_key(target)
+        current = winners.get(key)
+        if current is None:
+            winners[key] = target
+            order.append(key)
+            continue
+        if _public_target_rank(target) > _public_target_rank(current):
+            winners[key] = target
+    return [winners[key] for key in order]
+
+
+def _public_target_dedupe_key(target: dict[str, Any]) -> str:
+    unit = _normalized_dedupe_text(target.get("canonical_review_unit") or target.get("subsystem") or "general")
+    if unit == "general":
+        return "unit:general"
+    return f"unit:{unit}"
+
+
+def _public_target_rank(target: dict[str, Any]) -> tuple[int, int, float, int, int]:
+    class_rank = 2 if str(target.get("class") or "") == "primary_candidate" else 1
+    provider_count = _int(target.get("provider_count"))
+    priority = float(target.get("review_priority_score") or 0.0)
+    evidence_count = len(target.get("evidence_refs") or [])
+    source_candidates = _int((target.get("raw") or {}).get("source_candidate_count"))
+    return (class_rank, provider_count, priority, evidence_count, source_candidates)
+
+
+def _is_low_information_public_target(target: dict[str, Any]) -> bool:
+    if str(target.get("class") or "") == "primary_candidate":
+        return False
+    unit = _normalized_dedupe_text(target.get("canonical_review_unit") or target.get("subsystem") or "general")
+    issue = str(target.get("suspected_issue") or "").strip()
+    mechanism = str(target.get("operational_mechanism") or "").strip()
+    why = str(target.get("why_it_matters") or "").strip()
+    claim = str(target.get("claim") or "").strip()
+    problem_context = " ".join([unit, issue, mechanism, why, claim])
+    if _is_non_actionable_status_text(issue) or _is_non_actionable_status_text(mechanism):
+        return True
+    if unit == "general" and not _contains_positive_problem_signal(problem_context):
+        return True
+    if issue.casefold() in {"", "unknown", "n/a", "none"} and not _contains_positive_problem_signal(problem_context):
+        return True
+    return False
+
+
+def _is_non_actionable_status_text(text: str) -> bool:
+    lowered = str(text or "").casefold().strip()
+    if not lowered:
+        return False
+    non_actionable_phrases = (
+        "no issue detected",
+        "no direct evidence",
+        "normal operation",
+        "indicates normal",
+        "unknown operational status",
+        "not a failure",
+        "not an incident",
+        "healthy state",
+    )
+    return any(phrase in lowered for phrase in non_actionable_phrases)
+
+
+def _contains_positive_problem_signal(text: str) -> bool:
+    lowered = str(text or "").casefold()
+    for phrase in (
+        "no direct evidence of",
+        "no evidence of",
+        "no issue detected",
+        "normal operation",
+        "indicates normal",
+        "unknown operational status",
+        "not a failure",
+        "not an incident",
+    ):
+        lowered = lowered.replace(phrase, "")
+    return any(token in lowered for token in _PROBLEM_SIGNAL_TOKENS)
+
+
+def _normalized_dedupe_text(value: object) -> str:
+    text = str(value or "").casefold().strip()
+    text = re.sub(r"[^a-z0-9]+", "_", text)
+    return text.strip("_") or "general"
 
 
 def _review_reason_summary(
@@ -541,9 +868,10 @@ def _review_reason_summary(
         rollup_ratio_text = f"{float(rollup_ratio):.3f}"
     except (TypeError, ValueError):
         rollup_ratio_text = "unknown"
+    provider_noun = "provider" if valid_count == 1 else "providers"
     factors = [
         (
-            f"{provider_count}/{valid_count} schema-valid providers independently projected "
+            f"{provider_count}/{valid_count} schema-valid {provider_noun} independently projected "
             f"the normalized review unit `{canonical_unit}`."
         ),
         (
@@ -634,6 +962,11 @@ def _public_target_explanation(
         operational_mechanism=operational_mechanism,
         why_it_matters=why_it_matters,
     )
+    evidence_summary = _compact_public_summary_entries(
+        evidence_summary,
+        limit=PUBLIC_EVIDENCE_SUMMARY_LIMIT,
+        omitted_label="supporting evidence summary",
+    )
     counter_summary = _counter_summary_for_public_window(
         [
             *_string_items(target.get("counter_evidence_summary")),
@@ -646,6 +979,11 @@ def _public_target_explanation(
     )
     if not counter_summary and blocked_reason:
         counter_summary = [f"Promotion blocker: {blocked_reason}."]
+    counter_summary = _compact_public_summary_entries(
+        counter_summary,
+        limit=PUBLIC_COUNTER_SUMMARY_LIMIT,
+        omitted_label="counter or weak-signal summary",
+    )
     why_not_promoted = (
         str(target.get("why_not_promoted") or raw.get("why_not_promoted") or "").strip()
         or _why_not_promoted(blocked_reason)
@@ -665,6 +1003,30 @@ def _public_target_explanation(
         "next_validation_question": next_validation_question,
         "provider_explanations": list(raw.get("provider_explanations") or []),
     }
+
+
+def _compact_public_summary_entries(values: list[str], *, limit: int, omitted_label: str) -> list[str]:
+    compacted: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value or "").strip()
+        if not text:
+            continue
+        key = re.sub(r"\s+", " ", text.casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        compacted.append(text)
+    if len(compacted) <= limit:
+        return compacted
+    omitted = len(compacted) - limit
+    return [
+        *compacted[:limit],
+        (
+            f"{omitted} additional {omitted_label} item(s) are omitted from this public detail view; "
+            "the full count remains in evidence_ref_total_count and the chunk manifest."
+        ),
+    ]
 
 
 def _public_missing_evidence(target: dict[str, Any], *, blocked_reason: str) -> list[str]:
@@ -1104,9 +1466,152 @@ def _review_graph_summary(
         ),
         "summary": (
             f"The e2e API analyzed a {log_count:,}-row sanitized log corpus with "
-            f"{provider_count} schema-valid real provider output(s); "
-            f"{convergence_count} review unit(s) had at least two provider positions while impact remains human-gated."
+            f"{provider_count} schema-valid real provider {'output' if provider_count == 1 else 'outputs'}; "
+            f"{convergence_count} {'review unit' if convergence_count == 1 else 'review units'} "
+            "had at least two provider positions while impact remains human-gated."
         ),
+    }
+
+
+def _provider_full_corpus_coverage(api_response: dict[str, Any], *, full_items: int) -> dict[str, Any]:
+    runs = [row for row in api_response.get("model_runs") or [] if isinstance(row, dict)]
+    valid_runs = [
+        row
+        for row in runs
+        if str(row.get("status") or "") == "ok"
+        and row.get("schema_valid") is True
+    ]
+    coverages = [
+        row.get("full_corpus_coverage")
+        for row in valid_runs
+        if isinstance(row.get("full_corpus_coverage"), dict)
+    ]
+    if not coverages:
+        return {
+            "schema_version": "provider_full_corpus_coverage.v1",
+            "mode": "not_reported",
+            "provider_count": len(runs),
+            "schema_valid_provider_count": len(valid_runs),
+            "full_evidence_item_count": full_items,
+            "analyzed_evidence_item_count": 0,
+            "coverage_ratio": 0.0,
+            "max_chunk_count": 0,
+            "all_schema_valid_providers_covered_full_corpus": False,
+        }
+    ratios = [float(row.get("coverage_ratio") or 0.0) for row in coverages]
+    analyzed_counts = [int(row.get("analyzed_evidence_item_count") or 0) for row in coverages]
+    full_counts = [int(row.get("full_evidence_item_count") or full_items) for row in coverages]
+    chunk_counts = [int(row.get("chunk_count") or 0) for row in coverages]
+    chunk_manifest_counts = [int(row.get("chunk_manifest_entry_count") or 0) for row in coverages]
+    chunk_manifest_sha256_values = [str(row.get("chunk_manifest_sha256") or "") for row in coverages]
+    chunk_manifest_sha256s = sorted({value for value in chunk_manifest_sha256_values if value})
+    unassigned_counts = [int(row.get("unassigned_evidence_item_count") or 0) for row in coverages]
+    coverage_ratio = min(ratios) if ratios else 0.0
+    analyzed = min(analyzed_counts) if analyzed_counts else 0
+    total = max(full_counts or [full_items])
+    return {
+        "schema_version": "provider_full_corpus_coverage.v1",
+        "mode": "full_evidence_item_chunking",
+        "provider_count": len(runs),
+        "schema_valid_provider_count": len(valid_runs),
+        "reported_provider_count": len(coverages),
+        "full_evidence_item_count": total,
+        "analyzed_evidence_item_count": analyzed,
+        "coverage_ratio": round(coverage_ratio, 6),
+        "max_chunk_count": max(chunk_counts or [0]),
+        "max_chunk_manifest_entry_count": max(chunk_manifest_counts or [0]),
+        "chunk_manifest_sha256s": chunk_manifest_sha256s,
+        "unassigned_evidence_item_count": max(unassigned_counts or [0]),
+        "all_provider_chunk_manifests_present": (
+            bool(coverages)
+            and len(coverages) == len(valid_runs)
+            and all(chunk_manifest_sha256_values)
+        ),
+        "all_schema_valid_providers_covered_full_corpus": (
+            len(coverages) == len(valid_runs)
+            and bool(valid_runs)
+            and coverage_ratio >= 1.0
+            and analyzed >= total
+            and max(unassigned_counts or [0]) == 0
+        ),
+    }
+
+
+def _evidence_item_accounting(*, full_items: int, db_corpus_coverage: dict[str, Any]) -> dict[str, Any]:
+    pattern_groups = _int(db_corpus_coverage.get("pattern_count"))
+    derived_items = max(0, int(full_items) - pattern_groups)
+    return {
+        "schema_version": "evidence_item_accounting.v1",
+        "total_evidence_items": int(full_items),
+        "db_pattern_groups": pattern_groups,
+        "derived_metric_or_operational_items": derived_items,
+        "explanation": (
+            "Evidence Item count can exceed DB pattern groups because deterministic metric, state, "
+            "or operational boundary items are added after row-level grouping."
+        ),
+    }
+
+
+def _evidence_item_accounting_observation(accounting: dict[str, Any]) -> str:
+    total = _int(accounting.get("total_evidence_items"))
+    patterns = _int(accounting.get("db_pattern_groups"))
+    derived = _int(accounting.get("derived_metric_or_operational_items"))
+    if not total or not patterns:
+        return str(accounting.get("explanation") or "")
+    return (
+        f"Evidence accounting: {patterns:,} DB pattern group(s) plus {derived:,} deterministic "
+        f"metric/state/operational item(s) produced {total:,} Evidence Item(s)."
+    )
+
+
+def _determinism_scope() -> dict[str, str]:
+    return {
+        "provider_outputs": "recorded_and_hashed_not_recreated_byte_for_byte",
+        "chunk_merge": "deterministic_sort_dedup_over_recorded_chunk_outputs",
+        "local_fixture": "byte_equal_regeneration_for_deterministic_local_provider_ci",
+    }
+
+
+def _bundle_db_corpus_coverage(bundle: dict[str, Any], *, fallback_rows: int) -> dict[str, Any]:
+    coverage = bundle.get("db_corpus_coverage") if isinstance(bundle.get("db_corpus_coverage"), dict) else {}
+    if coverage:
+        total = _int(coverage.get("total_row_count"))
+        covered = _int(coverage.get("covered_row_count"))
+        return {
+            "schema_version": str(coverage.get("schema_version") or "db_corpus_coverage.v1"),
+            "source_table": str(coverage.get("source_table") or "logs_sanitized"),
+            "strategy": str(coverage.get("strategy") or ""),
+            "total_row_count": total,
+            "covered_row_count": covered,
+            "uncovered_row_count": _int(coverage.get("uncovered_row_count")),
+            "coverage_ratio": float(coverage.get("coverage_ratio") or (covered / total if total else 1.0)),
+            "pattern_count": _int(coverage.get("pattern_count")),
+            "singleton_pattern_count": _int(coverage.get("singleton_pattern_count")),
+            "low_frequency_pattern_count": _int(coverage.get("low_frequency_pattern_count")),
+            "coverage_class_counts": dict(coverage.get("coverage_class_counts") or {}),
+            "direct_prompt_row_count": _int(coverage.get("direct_prompt_row_count")),
+            "raw_rows_sent_to_providers": bool(coverage.get("raw_rows_sent_to_providers")),
+            "prompt_boundary_policy": str(coverage.get("prompt_boundary_policy") or ""),
+            "row_assignments_sha256": str(coverage.get("row_assignments_sha256") or ""),
+            "row_assignments_in_public_payload": False,
+        }
+    return {
+        "schema_version": "db_corpus_coverage.v1",
+        "source_table": "unknown",
+        "strategy": "legacy_payload_without_row_coverage_ledger",
+        "total_row_count": int(fallback_rows),
+        "covered_row_count": 0,
+        "uncovered_row_count": int(fallback_rows),
+        "coverage_ratio": 0.0 if fallback_rows else 1.0,
+        "pattern_count": 0,
+        "singleton_pattern_count": 0,
+        "low_frequency_pattern_count": 0,
+        "coverage_class_counts": {},
+        "direct_prompt_row_count": 0,
+        "raw_rows_sent_to_providers": False,
+        "prompt_boundary_policy": "",
+        "row_assignments_sha256": "",
+        "row_assignments_in_public_payload": False,
     }
 
 
@@ -1118,22 +1623,33 @@ def _projection_coverage_interpretation(
     model_items: int,
     model_occurrences: int,
     coverage: float,
+    full_corpus_coverage: dict[str, Any] | None = None,
 ) -> str:
+    full_corpus_coverage = full_corpus_coverage if isinstance(full_corpus_coverage, dict) else {}
     base = (
-        f"Projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized "
+        f"Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized "
         f"{service} bundle keeps {log_count:,} rows and {full_items:,} grouped Evidence Items, while "
-        f"provider prompts use {model_items:,} high-signal Evidence Items representing "
+        f"the bounded projection tracks {model_items:,} high-signal Evidence Items representing "
         f"{model_occurrences:,} repeated occurrences."
     )
+    if bool(full_corpus_coverage.get("all_schema_valid_providers_covered_full_corpus")):
+        return (
+            f"{base} Multi-provider synthesis then covered "
+            f"{int(full_corpus_coverage.get('analyzed_evidence_item_count') or 0):,}/"
+            f"{int(full_corpus_coverage.get('full_evidence_item_count') or full_items):,} grouped Evidence Items "
+            f"through chunked provider calls across up to "
+            f"{int(full_corpus_coverage.get('max_chunk_count') or 0):,} chunk(s), so low-frequency Evidence Items "
+            "are analyzed instead of being dropped by frequency."
+        )
     if coverage and coverage < 0.25:
         return (
             f"{base} A low percentage means this corpus has a long tail of low-frequency state, "
             "metric, or journal items; those items remain SHA-fixed in the Evidence Bundle for "
-            "traceability, but they are not all copied into the bounded provider prompt."
+            "traceability, but they are not all copied into the bounded single-prompt projection."
         )
     return (
         f"{base} Remaining Evidence Items stay SHA-fixed in the Evidence Bundle for traceability "
-        "even when they are outside the bounded provider prompt."
+        "even when they are outside the bounded single-prompt projection."
     )
 
 
@@ -1288,9 +1804,19 @@ def _promotion_explanation(*, state: str, provider_count: int, valid_count: int)
     return "This target is context/rule driven and needs runtime support before promotion."
 
 
-def _analysis_conclusion_impact(canonical_graph: dict[str, Any], targets: list[dict[str, Any]]) -> str:
+def _analysis_conclusion_impact(
+    canonical_graph: dict[str, Any],
+    targets: list[dict[str, Any]],
+    *,
+    public_review_counts: dict[str, int],
+) -> str:
     finding = canonical_graph.get("finding") if isinstance(canonical_graph.get("finding"), dict) else {}
     impact = str(finding.get("impact") or "").strip()
+    if "validation target" in impact or "review target" in impact:
+        return (
+            f"{public_review_counts['primary_targets']} primary candidate and "
+            f"{public_review_counts['validation_targets']} validation target(s) remain for human review."
+        )
     if impact and "providers aligned on a review signal" not in impact:
         return _public_review_language(impact)
     primary = next(
@@ -1380,7 +1906,11 @@ def _schema_valid_provider_statuses(provider_statuses: list[dict[str, Any]]) -> 
 def _provider_summary_title(*, valid_provider_count: int, provider_count: int, log_count: int, service: str) -> str:
     if provider_count == 5 and valid_provider_count == 5:
         return f"Five real providers analyzed the {log_count:,}-row {service} corpus"
-    return f"{valid_provider_count}/{provider_count} real providers produced schema-valid output for the {log_count:,}-row {service} corpus"
+    provider_noun = "provider" if provider_count == 1 else "providers"
+    return (
+        f"Recorded chunked review of the {log_count:,}-row {service} corpus "
+        f"with {valid_provider_count}/{provider_count} schema-valid {provider_noun}"
+    )
 
 
 def _provider_result_sentence(
@@ -1390,7 +1920,10 @@ def _provider_result_sentence(
     invalid_provider_statuses: list[dict[str, Any]],
 ) -> str:
     if provider_statuses and len(valid_provider_statuses) == len(provider_statuses):
-        return f"{_provider_sentence(provider_statuses)} all returned schema-valid outputs."
+        provider_text = _provider_sentence(provider_statuses)
+        if len(provider_statuses) == 1:
+            return f"{provider_text} returned a schema-valid output."
+        return f"{provider_text} all returned schema-valid outputs."
     valid = _provider_sentence(valid_provider_statuses) or "No provider"
     invalid = _provider_sentence(invalid_provider_statuses)
     if invalid:
@@ -1405,7 +1938,10 @@ def _provider_conclusion(
     invalid_provider_statuses: list[dict[str, Any]],
 ) -> str:
     if provider_statuses and len(valid_provider_statuses) == len(provider_statuses):
-        return f"{_provider_sentence(provider_statuses)} all returned status=ok and schema_valid=true."
+        provider_text = _provider_sentence(provider_statuses)
+        if len(provider_statuses) == 1:
+            return f"{provider_text} returned status=ok and schema_valid=true."
+        return f"{provider_text} all returned status=ok and schema_valid=true."
     valid = _provider_sentence(valid_provider_statuses) or "No provider"
     invalid = _provider_sentence(invalid_provider_statuses)
     if invalid:

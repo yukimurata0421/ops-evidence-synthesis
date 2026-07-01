@@ -43,7 +43,7 @@ VISUAL_GRAPH_NEEDLES = [
 REVIEW_TARGET_NEEDLES = [
     "precomputed_review_summary",
     "claimed",
-    "silent",
+    "provider_positions",
 ]
 
 REVIEW_GRAPH_NEEDLES = [

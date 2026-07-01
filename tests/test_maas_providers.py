@@ -138,6 +138,16 @@ def test_open_model_request_name_adds_publisher_when_missing() -> None:
     assert glm_provider._request_model_name() == "zai-org/glm-5-maas"
 
 
+def test_llama_open_model_provider_uses_meta_defaults() -> None:
+    provider = VertexOpenModelProvider.from_llama_env()
+
+    assert provider.provider == "llama-agent-platform"
+    assert provider.default_publisher == "meta"
+    assert provider.model_name == "llama-4-maverick-17b-128e-instruct-maas"
+    assert provider.location == "us-east5"
+    assert provider._request_model_name() == "meta/llama-4-maverick-17b-128e-instruct-maas"
+
+
 def test_open_model_retries_empty_content_with_larger_output_budget(monkeypatch) -> None:
     calls: list[int] = []
 

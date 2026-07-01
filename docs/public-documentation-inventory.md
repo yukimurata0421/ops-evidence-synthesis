@@ -22,7 +22,7 @@ operator history or raw incident material.
 | `docs/protopedia-entry-japanese.md` | Japanese ProtoPedia copy/paste draft for the project page. | Keep |
 | `docs/x-post-draft.md` | X post draft with the required hackathon hashtag. | Keep |
 | `docs/assets/architecture-devops-ai-agent.svg` | ProtoPedia-ready system architecture image. | Keep |
-| `docs/real-api-qwen-glm-run.md` | Source-aware real API run record for the amazon-notify public payload. | Keep |
+| `docs/real-api-5-provider-run.md` | Source-aware five-provider real API run record for the amazon-notify public payload. | Keep |
 | `docs/stream-v3-real-api-runs.md` | Source-aware real API run record for Dell runtime and arena-server stream_v3 payloads. | Keep |
 | `architecture.txt` | Plain-text architecture reference for tools or readers that prefer text output. | Keep |
 | `src/ops_evidence_synthesis/routes/` and `src/ops_evidence_synthesis/web/` | Implementation split for API routing and reviewer-facing page rendering. | Keep |

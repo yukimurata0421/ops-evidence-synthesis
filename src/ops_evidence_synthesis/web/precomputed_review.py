@@ -55,6 +55,23 @@ def _precomputed_review_dirs() -> list[Path]:
     return configured
 
 
+def _precomputed_review_gcs_uris(evidence_id: str) -> list[str]:
+    prefixes: list[str] = []
+    single = os.environ.get("OES_PRECOMPUTED_REVIEW_GCS_PREFIX", "").strip()
+    if single:
+        prefixes.append(single)
+    for item in os.environ.get("OES_PRECOMPUTED_REVIEW_GCS_PREFIXES", "").split(","):
+        item = item.strip()
+        if item:
+            prefixes.append(item)
+    uris: list[str] = []
+    for prefix in prefixes:
+        clean = prefix.rstrip("/")
+        if clean.startswith("gs://"):
+            uris.append(f"{clean}/{evidence_id}.json")
+    return uris
+
+
 def _rescore_demo_dirs() -> list[Path]:
     configured = [
         Path(item)
@@ -85,6 +102,18 @@ def _precomputed_review_payload(evidence_sha256: str) -> dict[str, Any] | None:
         except Exception:
             continue
         if not isinstance(payload, dict):
+            continue
+        if str(payload.get("evidence_sha256") or "") != evidence_id:
+            continue
+        if ttl > 0:
+            _PRECOMPUTED_REVIEW_CACHE[evidence_id] = (time.monotonic(), deepcopy(payload))
+        return payload
+    for uri in _precomputed_review_gcs_uris(evidence_id):
+        try:
+            from ops_evidence_synthesis.gcp.storage import read_json
+
+            payload = read_json(uri)
+        except Exception:
             continue
         if str(payload.get("evidence_sha256") or "") != evidence_id:
             continue
@@ -720,14 +749,28 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
     if context:
         cells = [
             ("DB ingested logs", _human_count(_context_count(context.get("db_ingested_log_count")))),
-            ("Model projection", _human_count(_context_count(context.get("model_projection_evidence_items")))),
+            ("DB corpus coverage", _coverage_text(context.get("db_corpus_coverage_ratio"))),
+            ("DB covered rows", _human_count(_context_count(context.get("db_corpus_covered_row_count")))),
+            ("DB pattern groups", _human_count(_context_count(context.get("db_corpus_pattern_count")))),
+            ("Derived Evidence Items", _human_count(_context_nested_count(context, "evidence_item_accounting", "derived_metric_or_operational_items"))),
+            ("DB singleton rows", _human_count(_coverage_class_count(context, "singleton"))),
+            ("DB rare rows", _human_count(_coverage_class_count(context, "rare"))),
+            ("Prompt-direct DB rows", _human_count(_context_count(context.get("db_corpus_direct_prompt_row_count")))),
+            ("Provider corpus coverage", _coverage_text(context.get("provider_full_corpus_coverage_ratio"))),
+            ("Provider corpus items", _human_count(_context_count(context.get("provider_full_corpus_analyzed_evidence_items")))),
+            ("Provider chunks", _human_count(_context_count(context.get("provider_full_corpus_chunk_count")))),
+            ("Chunk manifests", _human_count(_context_count(context.get("provider_full_corpus_chunk_manifest_count")))),
+            ("Unassigned items", _human_count(_context_count(context.get("provider_full_corpus_unassigned_evidence_items")))),
+            ("Single-prompt projection", _human_count(_context_count(context.get("model_projection_evidence_items")))),
             ("Projected occurrences", _human_count(_context_count(context.get("model_projection_occurrence_count")))),
             ("Projection coverage", _coverage_text(context.get("model_projection_occurrence_coverage_ratio"))),
         ]
         projection_interpretation = str(context.get("model_projection_interpretation") or "").strip()
+        determinism_points = _determinism_scope_points(context)
         projection_interpretation_html = (
             f"<p>{_html(projection_interpretation)}</p>" if projection_interpretation else ""
         )
+        determinism_html = "".join(f"<p>{_html(point)}</p>" for point in determinism_points)
         context_cards = "".join(
             f"""
             <article class="context-cell">
@@ -736,8 +779,9 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
             </article>
             """
             for label, value in cells
-            if value and value != "0"
+            if _show_context_cell(label, value)
         )
+        projection_interpretation_html = projection_interpretation_html + determinism_html
     node_cards = "\n".join(
         f"""
         <article class="node" data-node-type="{_html(str(node.get("type") or ""))}">
@@ -1068,6 +1112,12 @@ def _trace_output_facts_html(step: dict[str, Any]) -> str:
         ("collector_mapping_count", "collectors"),
         ("provider_count", "providers"),
         ("schema_valid_provider_count", "schema-valid"),
+        ("full_evidence_items", "Evidence Items"),
+        ("analyzed_evidence_items", "analyzed"),
+        ("chunk_count", "chunks"),
+        ("chunk_manifest_count", "manifests"),
+        ("unassigned_evidence_items", "unassigned"),
+        ("failed_chunk_count", "failed chunks"),
         ("missing_evidence_count", "missing evidence"),
     ):
         if output.get(key) not in (None, "", 0):
@@ -1125,7 +1175,19 @@ def _precomputed_analysis_context_panel(payload: dict[str, Any]) -> str:
     profile_context = payload.get("profile_context") if isinstance(payload.get("profile_context"), dict) else {}
     cells = [
         ("DB ingested logs", _human_count(_context_count(context.get("db_ingested_log_count")))),
-        ("Model projection", _human_count(_context_count(context.get("model_projection_evidence_items")))),
+        ("DB corpus coverage", _coverage_text(context.get("db_corpus_coverage_ratio"))),
+        ("DB covered rows", _human_count(_context_count(context.get("db_corpus_covered_row_count")))),
+        ("DB pattern groups", _human_count(_context_count(context.get("db_corpus_pattern_count")))),
+        ("Derived Evidence Items", _human_count(_context_nested_count(context, "evidence_item_accounting", "derived_metric_or_operational_items"))),
+        ("DB singleton rows", _human_count(_coverage_class_count(context, "singleton"))),
+        ("DB rare rows", _human_count(_coverage_class_count(context, "rare"))),
+        ("Prompt-direct DB rows", _human_count(_context_count(context.get("db_corpus_direct_prompt_row_count")))),
+        ("Provider corpus coverage", _coverage_text(context.get("provider_full_corpus_coverage_ratio"))),
+        ("Provider corpus items", _human_count(_context_count(context.get("provider_full_corpus_analyzed_evidence_items")))),
+        ("Provider chunks", _human_count(_context_count(context.get("provider_full_corpus_chunk_count")))),
+        ("Chunk manifests", _human_count(_context_count(context.get("provider_full_corpus_chunk_manifest_count")))),
+        ("Unassigned items", _human_count(_context_count(context.get("provider_full_corpus_unassigned_evidence_items")))),
+        ("Single-prompt projection", _human_count(_context_count(context.get("model_projection_evidence_items")))),
         ("Projected occurrences", _human_count(_context_count(context.get("model_projection_occurrence_count")))),
         ("Projection coverage", _coverage_text(context.get("model_projection_occurrence_coverage_ratio"))),
     ]
@@ -1137,7 +1199,7 @@ def _precomputed_analysis_context_panel(payload: dict[str, Any]) -> str:
         </article>
         """
         for label, value in cells
-        if value and value != "0"
+        if _show_context_cell(label, value)
     )
     log_points = _context_points(context.get("log_observations"))
     source_points = _context_points(context.get("source_observations"))
@@ -1150,6 +1212,7 @@ def _precomputed_analysis_context_panel(payload: dict[str, Any]) -> str:
         for note in (projection_policy, projection_interpretation)
         if str(note).strip()
     ]
+    projection_notes.extend(_determinism_scope_points(context))
     projection_note = "".join(f"<p>{_html(note)}</p>" for note in projection_notes)
     return f"""
     <section class="panel secondary">
@@ -1230,6 +1293,45 @@ def _context_count(value: object) -> int:
         return int(value or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _coverage_class_count(context: dict[str, Any], coverage_class: str) -> int:
+    counts = context.get("db_corpus_coverage_class_counts")
+    if not isinstance(counts, dict):
+        return 0
+    return _context_count(counts.get(coverage_class))
+
+
+def _context_nested_count(context: dict[str, Any], section: str, key: str) -> int:
+    nested = context.get(section)
+    if not isinstance(nested, dict):
+        return 0
+    return _context_count(nested.get(key))
+
+
+def _determinism_scope_points(context: dict[str, Any]) -> list[str]:
+    scope = context.get("determinism_scope")
+    if not isinstance(scope, dict):
+        return []
+    points = []
+    provider_outputs = str(scope.get("provider_outputs") or "").strip()
+    chunk_merge = str(scope.get("chunk_merge") or "").strip()
+    local_fixture = str(scope.get("local_fixture") or "").strip()
+    if provider_outputs:
+        points.append(f"Provider outputs: {provider_outputs}.")
+    if chunk_merge:
+        points.append(f"Chunk merge: {chunk_merge}.")
+    if local_fixture:
+        points.append(f"Fixture regeneration: {local_fixture}.")
+    return points
+
+
+def _show_context_cell(label: str, value: str) -> bool:
+    if not value:
+        return False
+    if value != "0":
+        return True
+    return label in {"Prompt-direct DB rows", "Unassigned items"}
 
 
 def _points_html(points: list[str]) -> str:
@@ -1429,6 +1531,7 @@ def _target_review_reason_html(target: dict[str, Any]) -> str:
         canonical_unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
         provider_summary = _provider_position_summary(target)
         evidence_refs = target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else []
+        evidence_ref_total_count = _target_evidence_ref_total_count(target, evidence_refs)
         promotion = target.get("promotion") if isinstance(target.get("promotion"), dict) else {}
         blocked_reason = str(promotion.get("blocked_reason") or "human validation required")
         headline = (
@@ -1437,7 +1540,7 @@ def _target_review_reason_html(target: dict[str, Any]) -> str:
         )
         factors = [
             f"Provider stance: {provider_summary}.",
-            f"{len(evidence_refs)} cited Evidence Item(s) are attached.",
+            f"{evidence_ref_total_count} cited Evidence Item(s) are attached.",
             f"Promotion is blocked by `{blocked_reason}`.",
         ]
         operator_question = str(target.get("recommended_request_type") or "Review cited evidence and missing signals.")
@@ -1536,6 +1639,18 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     status = str(target.get("status") or "pending")
     subsystem = str(target.get("subsystem") or target.get("component") or target.get("canonical_review_unit") or "general")
     evidence_refs = target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else []
+    evidence_ref_total_count = _target_evidence_ref_total_count(target, evidence_refs)
+    evidence_ref_overflow_count = max(0, int(target.get("evidence_ref_overflow_count") or 0))
+    evidence_ref_count_label = (
+        f"{evidence_ref_total_count} total / {len(evidence_refs)} shown"
+        if evidence_ref_total_count != len(evidence_refs)
+        else str(len(evidence_refs))
+    )
+    evidence_ref_overflow_note = (
+        f" ({evidence_ref_overflow_count} more tracked in chunk evidence)"
+        if evidence_ref_overflow_count
+        else ""
+    )
     missing = target.get("missing_evidence") if isinstance(target.get("missing_evidence"), list) else []
     caveats = target.get("caveats") if isinstance(target.get("caveats"), list) else []
     claim = str(target.get("claim") or target.get("core_claim") or target.get("impact_summary") or target.get("proposal") or "")
@@ -1560,7 +1675,7 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
         <span class="pill">Subsystem: {_html(subsystem)}</span>
         <span class="pill">Agreement: {_html(agreement_verdict)}</span>
         <span class="pill">Provider stance: {_html(provider_summary)}</span>
-        <span class="pill">Evidence refs: {_html(str(len(evidence_refs)))}</span>
+        <span class="pill">Evidence refs: {_html(evidence_ref_count_label)}</span>
       </div>
     </div>
     <div class="score">{score:.3f}<span>Priority</span></div>
@@ -1574,10 +1689,19 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int) -> str:
     <div class="field full"><label>Promotion gate</label><p>{_html(promotion_text)}</p></div>
     <div class="field"><label>Next check</label><p>{_html(action or "Review cited evidence and missing signals.")}</p></div>
     <div class="field"><label>Missing evidence</label><p>{_html("; ".join(str(item) for item in missing[:4]) or "none")}</p></div>
-    <div class="field"><label>Evidence refs</label><p>{_html(", ".join(str(item) for item in evidence_refs[:8]) or "none")}</p></div>
+    <div class="field"><label>Evidence refs</label><p>{_html((", ".join(str(item) for item in evidence_refs[:8]) or "none") + evidence_ref_overflow_note)}</p></div>
     <div class="field"><label>Caveats</label><p>{_html("; ".join(str(item) for item in caveats[:4]) or "none")}</p></div>
   </div>
 </article>"""
+
+
+def _target_evidence_ref_total_count(target: dict[str, Any], evidence_refs: list[Any]) -> int:
+    raw_total = target.get("evidence_ref_total_count")
+    try:
+        total = int(raw_total)
+    except (TypeError, ValueError):
+        total = 0
+    return max(total, len(evidence_refs))
 
 
 def _short_sha(value: str) -> str:

@@ -220,6 +220,18 @@ def provider_registry() -> list[ProviderSpec]:
             configured=_glm_configured,
         ),
         ProviderSpec(
+            provider_id="llama-agent-platform",
+            display_name="Llama on Vertex MaaS",
+            aliases=("llama", "meta-llama", "vertex-llama", "llama-agent-platform"),
+            model_name=os.environ.get("OES_LLAMA_MODEL", "llama-4-maverick-17b-128e-instruct-maas"),
+            requires_network=True,
+            requires_api_key=False,
+            supports_json_schema=True,
+            default_timeout_seconds=int(os.environ.get("OES_LLAMA_TIMEOUT_SECONDS", "240")),
+            factory=VertexOpenModelProvider.from_llama_env,
+            configured=_llama_configured,
+        ),
+        ProviderSpec(
             provider_id="claude-agent-platform",
             display_name="Claude on Vertex",
             aliases=("claude", "vertex-claude", "claude-agent-platform"),
@@ -319,6 +331,10 @@ def _qwen_configured() -> bool:
 
 def _glm_configured() -> bool:
     return bool(os.environ.get("OES_GLM_PROJECT") or _vertex_project_present())
+
+
+def _llama_configured() -> bool:
+    return bool(os.environ.get("OES_LLAMA_PROJECT") or _vertex_project_present())
 
 
 def _claude_configured() -> bool:

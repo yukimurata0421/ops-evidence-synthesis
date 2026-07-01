@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1070" viewBox="0 0 1600 1070" role="img" aria-labelledby="title desc">
   <title id="title">Ops Evidence Synthesis architecture</title>
-  <desc id="desc">Local-first evidence pipeline with sanitized code profiling, Gemini-led provider review, citation validation, canonical review graph, read-only Cloud Run UI, and more-data re-score loop.</desc>
+  <desc id="desc">Local-first evidence pipeline with sanitized code profiling, chunked Mistral provider review, citation validation, canonical review graph, read-only Cloud Run UI, and more-data re-score loop.</desc>
   <defs>
     <style>
       .bg { fill: #f6f8fb; }
@@ -48,7 +48,7 @@
 
   <rect class="band profile" x="840" y="175" width="330" height="165" rx="10" />
   <text class="text" x="870" y="222">System profile draft</text>
-  <text class="small" x="870" y="258">Gemini-focused profile</text>
+  <text class="small" x="870" y="258">Sanitized profile context</text>
   <text class="small" x="870" y="289">What is logged?</text>
   <text class="tiny" x="870" y="318">What orchestration is visible?</text>
 
@@ -65,16 +65,16 @@
   <text class="tiny" x="100" y="573">review artifacts are reproducible</text>
 
   <rect class="band ai" x="455" y="425" width="330" height="170" rx="10" />
-  <text class="text" x="485" y="475">Gemini reference</text>
-  <text class="small" x="485" y="511">Required first provider</text>
-  <text class="small" x="485" y="543">Arbiter context</text>
-  <text class="tiny" x="485" y="573">not an answer key</text>
+  <text class="text" x="485" y="475">Mistral chunks</text>
+  <text class="small" x="485" y="511">51 rate-paced calls</text>
+  <text class="small" x="485" y="543">Full Evidence Items</text>
+  <text class="tiny" x="485" y="573">not raw log rows</text>
 
   <rect class="band ai" x="840" y="425" width="330" height="170" rx="10" />
-  <text class="text" x="870" y="475">Cross-check providers</text>
-  <text class="small" x="870" y="511">gpt-oss / Mistral</text>
-  <text class="small" x="870" y="543">Qwen / GLM</text>
-  <text class="tiny" x="870" y="573">silence and disagreement are kept</text>
+  <text class="text" x="870" y="475">Recorded output</text>
+  <text class="small" x="870" y="511">Provider status</text>
+  <text class="small" x="870" y="543">Output hashes</text>
+  <text class="tiny" x="870" y="573">provider support is gated</text>
 
   <rect class="band gate" x="1225" y="425" width="305" height="170" rx="10" />
   <text class="text" x="1255" y="475">Provider stances</text>

@@ -10,14 +10,14 @@ human-reviewable targets.
 ## Demo
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 
 Submission URLs:
 
@@ -34,22 +34,24 @@ Submission URLs:
 
 Real API source-aware run:
 
-- Evidence SHA256: `7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb`
-- Public payload: `data/precomputed_review_summaries/7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb.json`
+- Evidence SHA256: `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec`
+- Public payload: `data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json`
 - Public manifest: `data/public_evidence_manifests/amazon_notify_real_api.json`
-- Run notes: [docs/real-api-qwen-glm-run.md](docs/real-api-qwen-glm-run.md)
+- Run notes: [docs/real-api-5-provider-run.md](docs/real-api-5-provider-run.md)
 
-This run used a 7-day, 23,400-row sanitized log corpus, a bounded Evidence
-Bundle model projection, sanitized source context, and Gemini / gpt-oss /
-Mistral / Qwen / GLM via real provider APIs. The 7-day window was selected after
-2-day, 5-day, and 7-day candidates were evaluated. All five provider outputs
-were `status=ok` and `schema_valid=true`.
+This run used a 14-day, 44,944-row sanitized DB coverage corpus. Every
+sanitized DB row is assigned to a coverage ledger entry before provider
+prompts, while provider prompts operate over chunked Evidence Corpora with
+chunk manifests, source Evidence Item IDs, and direct raw-row prompt count kept
+at zero. Gemini, GPT OSS, Mistral, Qwen, and GLM all returned schema-valid real
+API outputs over all 8,519 grouped Evidence Items. The 14-day window uses the
+full available amazon-notify sanitized DB corpus after shorter candidate
+windows were superseded.
 
-The cloud workflow is Gemini-led. `gemini-enterprise-agent-platform` is the
-required first analysis provider and reference point for comparison; the other
-providers act as adversarial cross-checks. Gemini is not treated as a truth
-source or answer key; cited runtime evidence and promotion gates still control
-what can move forward.
+The current public flagship run is a five-provider review. Llama and Claude are
+excluded because they were not available in this environment. Provider support
+is treated as review work, not truth; cited runtime evidence and promotion
+gates still control what can move forward.
 
 Additional stream_v3 source-aware real API runs:
 
@@ -71,10 +73,10 @@ payload, manifest, provider output hashes, and model-projection statistics.
 1. Open the Summary URL and confirm that a concrete finding appears immediately.
 2. Check the Review Graph section: provider convergence is visible, but
    incident and user-impact promotion remains separately gated.
-3. Open the Detail URL and inspect provider positions: `claimed` and `silent`
-   are visible per provider.
-4. Open the API view to inspect the five-provider run based on sanitized logs
-   and code context.
+3. Open the Detail URL and inspect provider positions, Evidence Item links, and
+   promotion gates.
+4. Open the API view to inspect the five-provider chunked run based on
+   sanitized logs and code context.
 5. Open the More data rescore demo to see `needs_more_data -> evidence_collected`
    and validation target -> primary candidate.
 6. Run `make demo && make verify-precomputed` to regenerate the same flagship
@@ -84,11 +86,14 @@ payload, manifest, provider output hashes, and model-projection statistics.
 
 - The working product is a guarded review loop, not a free-form chat summary.
 - Initial UI is precomputed and read-only.
-- Multi-provider positions are visible per review target.
+- Provider positions and provider status are visible per review target.
+- DB-backed runs assign every sanitized log row in the incident window to a
+  grouped Evidence Item before provider chunking, so low-frequency rows are not
+  dropped by count alone.
 - Convergence score is defined as claimed successful providers divided by all
   successful providers.
-- One target shows technical convergence; incident and user-impact promotion
-  remains open.
+- The current public run keeps all Mistral-supported targets in validation;
+  incident and user-impact promotion remains open.
 - The More data rescore demo shows the AI improvement cycle without public write
   access or live model execution.
 - The Agent Trace is backed by an ADK-compatible tool contract; the same tools

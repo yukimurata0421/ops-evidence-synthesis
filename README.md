@@ -15,14 +15,14 @@ incident tools sound confident before they have enough evidence.
 Live read-only demo:
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
-- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb
+- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
+- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 
 Current hackathon submission surfaces:
 
@@ -39,23 +39,25 @@ Current hackathon submission surfaces:
 
 Real API source-aware run:
 
-- Evidence SHA256: `7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb`
-- Public payload: `data/precomputed_review_summaries/7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb.json`
+- Evidence SHA256: `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec`
+- Public payload: `data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json`
 - Public manifest: `data/public_evidence_manifests/amazon_notify_real_api.json`
-- Run notes: [docs/real-api-qwen-glm-run.md](docs/real-api-qwen-glm-run.md)
+- Run notes: [docs/real-api-5-provider-run.md](docs/real-api-5-provider-run.md)
 
-This run was generated through a 7-day storeless CLI real-provider path with a
-23,400-row sanitized log corpus, a bounded Evidence Bundle model projection,
-sanitized source context, an approved profile explicitly included in provider
-prompts as human-gated interpretation context, and five schema-valid real
-provider outputs: Gemini, gpt-oss, Mistral, Qwen, and GLM. The 7-day window was
-selected after 2-day, 5-day, and 7-day candidates were evaluated.
+This run was generated through a 14-day storeless CLI real-provider path with a
+44,944-row sanitized DB coverage corpus. Every sanitized DB row is assigned to a
+coverage ledger entry before provider prompts, with coverage classes preserved
+as `pattern`, `rare`, `singleton`, and `state_transition`. Gemini, GPT OSS,
+Mistral, Qwen, and GLM then analyzed all 8,519 grouped Evidence Items through
+provider-specific chunks, preserving chunk manifests and source Evidence Item
+IDs while keeping direct raw-row prompt count at zero. The 14-day window uses
+the full available amazon-notify sanitized DB corpus. Earlier 2-day, 5-day, and
+7-day candidates were superseded by the longer evidence window.
 
-The production workflow is Gemini-led: `gemini-enterprise-agent-platform` is the
-required first provider and reference point for comparison, while gpt-oss,
-Mistral, Qwen, and GLM are adversarial cross-checks. Gemini is not treated as a
-truth source or answer key; runtime claims still need cited evidence IDs and
-promotion gates.
+The public flagship path is a five-provider real API run. Llama and Claude are
+excluded because they were not available in this environment; provider support
+is still treated as review work, not proof. Runtime claims need cited evidence
+IDs and promotion gates before they can move past human-gated validation.
 
 stream_v3 real API source-aware runs:
 
@@ -80,9 +82,9 @@ read-only UI.
 
 Deterministic local fixture:
 
-- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
-- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
+- Summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079
+- Detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079
+- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079
 
 ## What You Can Run Now
 
@@ -142,7 +144,7 @@ python -m uvicorn ops_evidence_synthesis.api:app --host 127.0.0.1 --port 8080
 Open the generated local review page:
 
 ```text
-http://127.0.0.1:8080/?evidence_sha256=c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e
+http://127.0.0.1:8080/?evidence_sha256=5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079
 ```
 
 What to look for:
@@ -172,8 +174,12 @@ High-level flow:
 ```text
 local logs
   -> sanitize locally
+  -> SQLite logs_sanitized / sanitized_events
+  -> full DB-row coverage ledger
   -> Evidence Bundle with stable SHA256
-  -> provider runs
+  -> chunked provider runs over every Evidence Item
+  -> provider_chunk_runs ledger (PostgreSQL recommended; JSONL audit fallback)
+  -> private GCS job artifacts for recorded provider output and public payload handoff
   -> ADK tool-call trace
   -> schema and evidence-reference validation
   -> review target arbitration
@@ -266,7 +272,7 @@ Optional ADK / Agent Runtime check:
 ```bash
 pip install -e ".[agent]"
 ops-evidence adk-trace \
-  --precomputed-payload data/precomputed_review_summaries/c43cb9ccb916abdb73e71e05b4f643f6419eb74de6324094be25400557f6ed1e.json \
+  --precomputed-payload data/precomputed_review_summaries/5b9dbee17fa1c07a28bbc470bccae4eef49f4448ab824f79171fe43b6971c079.json \
   --check-runtime
 ```
 
@@ -276,12 +282,12 @@ Committed public assets:
 
 - `data/amazon_notify_flagship_logs.jsonl` - public-safe 6,506-line flagship fixture.
 - `data/public_evidence_manifests/*.json` - compact public manifests for real API reviews, including URLs, evidence hashes, provider hashes, data-boundary flags, and token-compression statistics.
-- `data/precomputed_review_summaries/c43cb9c...ed1e.json` - live demo cache regenerated by `make demo` and checked by CI.
-- `data/precomputed_review_summaries/7ca07b...0ccfb.json` - real API source-aware review cache generated from a 23,400-row sanitized 7-day corpus, sanitized source context, and five real providers.
+- `data/precomputed_review_summaries/5b9dbe...1c079.json` - live demo cache regenerated by `make demo` and checked by CI.
+- `data/precomputed_review_summaries/b99da9...414ec.json` - real API full-corpus ledger review cache generated from a 44,944-row sanitized 14-day DB corpus, sanitized source context, and five schema-valid provider runs: Gemini, GPT OSS, Mistral, Qwen, and GLM.
 - `data/precomputed_review_summaries/aba039f...c778.json` - stream_v3 Dell runtime real API review cache with 11,399 sanitized runtime rows over a 7-day analysis window.
 - `data/precomputed_review_summaries/a09ee4...d267.json` - stream_v3 arena-server monitoring real API review cache with 4,747 sanitized monitoring rows.
 - `data/sample_logs.jsonl` - compact public-safe sample fixture.
-- `data/precomputed_review_summaries/1be4a214...6731.json` - compact sample cache regenerated by `make demo-sample`.
+- `data/precomputed_review_summaries/60c453...0ff5f.json` - compact sample cache regenerated by `make demo-sample`.
 - `sample_projects/profile_discovery_sample/` - small profile-discovery fixture.
 - `schemas/` - public JSON contracts for claim results and Evidence Bundles.
 
@@ -310,13 +316,25 @@ secret-leak checks can be tested. Generated databases, logs, caches, workspaces,
 Terraform state, and credential files are ignored by default.
 
 The live Cloud Run page is a read-only delivery surface. Heavy analysis and real
-provider runs are local-first by design; the public repository demonstrates
-reproducibility through deterministic fixtures.
+provider runs can execute as a private Cloud Run Job from sanitized GCS inputs,
+while the public service reads precomputed review JSON from the repository or a
+private GCS prefix.
 
 ## Safety Boundary
 
 - Raw logs stay local.
-- Model input is the sanitized Evidence Bundle.
+- The SQLite DB file is not sent to providers.
+- Model input is the sanitized Evidence Bundle: DB rows are first assigned to
+  Evidence Items, then provider calls cover those Evidence Items through chunks.
+- Sanitized bundle/profile/source-context artifacts can be staged in a private
+  GCS bucket for Cloud Run Job execution. Raw source trees and raw logs are not
+  part of that job contract.
+- Chunk execution state is not tied to SQLite. For parallel real-provider runs,
+  set `OES_CHUNK_RUN_STORE=postgres` and `OES_CHUNK_RUN_POSTGRES_DSN=...` so
+  `provider_id + prompt_sha256` can be used as a durable resume key.
+- PostgreSQL chunk orchestration stores current state in `provider_chunk_runs`,
+  append-only execution history in `provider_chunk_attempts`, and exposes a
+  `FOR UPDATE SKIP LOCKED` retry-claim query for future worker pools.
 - Source, profile, and human context can guide review, but runtime claims need cited evidence IDs.
 - API and UI reads prefer the persisted Canonical Review Graph when available.
 - Provider agreement is a review signal, not majority-vote truth.
@@ -329,8 +347,10 @@ The repository includes a production-oriented Google Cloud template for teams
 that want to operate the same contracts beyond the public demo:
 
 - Cloud Run API service
+- Cloud Run Job for private chunked review execution
+- Private GCS bucket with uniform bucket-level access and public access prevention
+- Cloud SQL for PostgreSQL provider chunk ledger
 - BigQuery schemas for evidence and synthesis artifacts
-- Cloud Workflows entry point
 - Terraform resources under `infra/terraform/`
 - Public smoke check for root/detail review pages and read-only review APIs
 

@@ -215,8 +215,11 @@ def build_parser() -> argparse.ArgumentParser:
     multi_ai.add_argument("--profile", required=True, help="approved explicit profile JSON/YAML")
     multi_ai.add_argument(
         "--providers",
-        required=True,
-        help="Comma-separated providers, e.g. local-gemini,local-gpt-oss,local-mistral",
+        default=os.environ.get("OES_MULTI_AI_DEFAULT_PROVIDERS", "mistral"),
+        help=(
+            "Comma-separated providers. Default: mistral. "
+            "Set OES_MULTI_AI_DEFAULT_PROVIDERS to override the CLI default."
+        ),
     )
     multi_ai.add_argument(
         "--mode",
@@ -351,7 +354,7 @@ def _add_provider_args(parser: argparse.ArgumentParser) -> None:
         default=[],
         help=(
             "Model provider(s) to run. Repeat or comma-separate. "
-            "Supported: local, gemini, claude, gpt-oss, mistral, qwen, glm. "
+            "Supported: local, gemini, claude, gpt-oss, mistral, qwen, glm, llama. "
             "Default: local heuristic providers."
         ),
     )
@@ -497,7 +500,7 @@ def main(argv: list[str] | None = None) -> int:
         result = run_multi_ai(
             bundle,
             approved_profile,
-            providers=[args.providers],
+            providers=[args.providers] if args.providers else None,
             mode=args.mode,
             output_dir=args.out,
             source_context=_load_json_file(args.source_context) if args.source_context else None,
