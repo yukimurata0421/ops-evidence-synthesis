@@ -201,8 +201,6 @@ def _public_global_action_links_html() -> str:
         ("Architecture", _public_architecture_url(), "system diagram"),
         ("Demo Script", _public_demo_script_url(), "3 minute walkthrough"),
     ]
-    for demo_id in _public_rescore_demo_ids():
-        links.append(("More Data Loop", f"/ui/rescore-demo?id={quote(demo_id)}", demo_id))
     video_url = _public_demo_video_url()
     if video_url:
         links.append(("Demo Video", video_url, "recorded walkthrough"))
@@ -484,6 +482,7 @@ def _public_precomputed_landing_page() -> str:
         observation_cards = "<p>No observation gap review is available.</p>"
     if not scale_cards:
         scale_cards = "<p>No scale validation review is available.</p>"
+    rescore_demo_ids = _public_rescore_demo_ids()
     demo_links = "\n".join(
         (
             f"<a class='loop-link' href='/ui/rescore-demo?id={quote(demo_id)}'>"
@@ -492,7 +491,7 @@ def _public_precomputed_landing_page() -> str:
             "<small>needs_more_data -&gt; evidence_collected</small>"
             "</a>"
         )
-        for demo_id in _public_rescore_demo_ids()
+        for demo_id in rescore_demo_ids
     )
     demo_section = f"<section><h2>Improvement Loop</h2><div class='loop-grid'>{demo_links}</div></section>" if demo_links else ""
     archive_section = (
@@ -513,6 +512,12 @@ def _public_precomputed_landing_page() -> str:
         if primary_evidence
         else "#review-set"
     )
+    rescore_demo_id = rescore_demo_ids[0] if rescore_demo_ids else ""
+    rescore_demo_url = f"/ui/rescore-demo?id={_url_quote(rescore_demo_id)}" if rescore_demo_id else "#improvement-loop"
+    primary_entry = primary_entries[0] if primary_entries else {}
+    gate_provider_total = int(primary_entry.get("provider_count") or 5)
+    gate_provider_success = int(primary_entry.get("schema_valid_count") or gate_provider_total or 5)
+    gate_signal_label = f"{gate_provider_success} / {gate_provider_total}"
     return f"""
     <!doctype html>
     <html lang="en">
@@ -564,14 +569,14 @@ def _public_precomputed_landing_page() -> str:
           .brand-mark {{
             width: 34px;
             height: 34px;
-            border-radius: 9px;
+            border-radius: 8px;
             display: grid;
             place-items: center;
             background: var(--accent);
             color: #fff;
             font: 700 13px/1 var(--mono);
           }}
-          .brand-name {{ font-weight: 750; letter-spacing: -.01em; }}
+          .brand-name {{ font-weight: 750; letter-spacing: 0; }}
           .nav-links, .nav-actions {{ display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }}
           .nav-links a, .button {{
             border: 1px solid var(--border);
@@ -618,24 +623,31 @@ def _public_precomputed_landing_page() -> str:
           }}
           h1 {{
             margin: 22px 0 14px;
-            font-size: clamp(44px, 7vw, 76px);
+            font-size: 68px;
             line-height: .94;
-            letter-spacing: -.045em;
+            letter-spacing: 0;
             max-width: 760px;
           }}
           h1 span {{ color: var(--accent); }}
+          .jp-tagline {{
+            margin: 0 0 12px;
+            color: var(--ink);
+            font-size: 15px;
+            font-weight: 800;
+            line-height: 1.5;
+          }}
           .hero-sub {{ max-width: 700px; font-size: 16.5px; color: var(--ink-2); }}
           .hero-cta {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }}
           .gate-card {{
             border: 1px solid var(--border);
-            border-radius: 18px;
+            border-radius: 8px;
             background: rgba(255,255,255,.88);
             box-shadow: var(--shadow);
             padding: 26px;
           }}
           .gate-kicker {{ color: var(--ink-3); font: 700 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }}
           .gate-big {{ display: flex; align-items: end; gap: 12px; margin-top: 20px; }}
-          .gate-big b {{ font-size: 52px; line-height: .9; letter-spacing: -.04em; }}
+          .gate-big b {{ font-size: 52px; line-height: .9; letter-spacing: 0; }}
           .gate-big span {{ color: var(--ink-2); font-size: 13px; padding-bottom: 5px; }}
           .gate-bars {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 22px; }}
           .gate-bars i {{ display: block; height: 34px; border-radius: 8px; background: var(--green); }}
@@ -647,7 +659,7 @@ def _public_precomputed_landing_page() -> str:
             gap: 12px;
             align-items: center;
             border: 1px solid var(--border);
-            border-radius: 13px;
+            border-radius: 8px;
             background: var(--amber-soft);
             padding: 14px;
           }}
@@ -657,7 +669,7 @@ def _public_precomputed_landing_page() -> str:
             display: grid;
             place-items: center;
             border: 1px solid var(--border);
-            border-radius: 9px;
+            border-radius: 8px;
             background: var(--surface);
             color: var(--amber);
             font-weight: 900;
@@ -672,12 +684,34 @@ def _public_precomputed_landing_page() -> str:
           }}
           .trust-cell {{
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 8px;
             background: rgba(255,255,255,.72);
             padding: 16px;
           }}
-          .trust-cell b {{ display: block; font-size: 22px; letter-spacing: -.02em; }}
+          .trust-cell b {{ display: block; font-size: 22px; letter-spacing: 0; }}
           .trust-cell span {{ display: block; margin-top: 6px; color: var(--ink-2); font-size: 12px; line-height: 1.4; }}
+          .agent-loop {{
+            display: grid;
+            grid-template-columns: minmax(230px, .6fr) minmax(0, 1fr);
+            gap: 14px;
+            align-items: stretch;
+            margin-bottom: 34px;
+          }}
+          .agent-panel, .agent-step {{
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            padding: 16px;
+          }}
+          .agent-panel strong {{ display: block; font-size: 17px; margin-top: 8px; }}
+          .agent-panel p {{ margin-top: 8px; font-size: 13px; }}
+          .agent-steps {{
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+          }}
+          .agent-step b {{ display: block; font-size: 12px; color: var(--ink); }}
+          .agent-step span {{ display: block; margin-top: 6px; color: var(--ink-2); font-size: 11.5px; line-height: 1.35; }}
           section {{ margin-top: 36px; }}
           .section-head {{
             display: flex;
@@ -687,7 +721,7 @@ def _public_precomputed_landing_page() -> str:
             margin-bottom: 16px;
           }}
           .kicker {{ color: var(--accent); font: 800 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }}
-          h2 {{ margin: 8px 0 0; font-size: 24px; letter-spacing: -.025em; }}
+          h2 {{ margin: 8px 0 0; font-size: 24px; letter-spacing: 0; }}
           .section-note {{ max-width: 430px; color: var(--ink-2); font-size: 13px; line-height: 1.55; text-align: right; }}
           .review-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }}
           .review-card {{
@@ -695,12 +729,12 @@ def _public_precomputed_landing_page() -> str:
             gap: 12px;
             padding: 20px;
             border: 1px solid var(--border);
-            border-radius: 16px;
+            border-radius: 8px;
             background: var(--surface);
             box-shadow: 0 10px 34px rgba(15, 27, 45, .055);
           }}
           .review-card.featured {{ grid-column: 1 / -1; border-color: #b7c9e4; }}
-          .review-card h3 {{ margin: 0; font-size: 18px; line-height: 1.35; letter-spacing: -.015em; }}
+          .review-card h3 {{ margin: 0; font-size: 18px; line-height: 1.35; letter-spacing: 0; }}
           .review-card p {{ font-size: 13px; }}
           .card-topline {{ display: flex; justify-content: space-between; gap: 12px; align-items: center; }}
           .badge {{
@@ -734,13 +768,15 @@ def _public_precomputed_landing_page() -> str:
           .archive {{ margin: 38px 0 56px; border-top: 1px solid var(--border); padding-top: 18px; }}
           summary {{ cursor: pointer; color: var(--ink-2); font-weight: 800; }}
           ul {{ list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }}
-          li {{ display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }}
+          li {{ display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }}
           @media (max-width: 900px) {{
             .shell {{ padding: 0 20px; }}
             .topbar {{ height: auto; padding: 16px 0; align-items: flex-start; flex-direction: column; }}
             .hero {{ grid-template-columns: 1fr; padding-top: 42px; }}
             .trust {{ grid-template-columns: repeat(2, 1fr); }}
             .review-grid, .loop-grid {{ grid-template-columns: 1fr; }}
+            .agent-loop {{ grid-template-columns: 1fr; }}
+            .agent-steps {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
             .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
             .section-head {{ align-items: flex-start; flex-direction: column; }}
             .section-note {{ text-align: left; }}
@@ -748,6 +784,7 @@ def _public_precomputed_landing_page() -> str:
           @media (max-width: 520px) {{
             h1 {{ font-size: 42px; }}
             .trust {{ grid-template-columns: 1fr; }}
+            .agent-steps {{ grid-template-columns: 1fr; }}
             .gate-big b {{ font-size: 42px; }}
           }}
         </style>
@@ -770,21 +807,23 @@ def _public_precomputed_landing_page() -> str:
             <div>
               <span class="eyebrow">Local-first AI-assisted DevOps incident review</span>
               <h1>Evidence before <span>certainty.</span></h1>
+              <p class="jp-tagline">AIが断定する前に、運用証拠を固定する。</p>
               <p class="hero-sub">This public surface serves read-only precomputed reviews over sanitized logs, sanitized source context, and approved system profiles. Provider convergence creates review targets, not accepted incident causes.</p>
               <div class="hero-cta">
                 <a class="button primary" href="{_html(primary_detail_url)}">Open primary review</a>
+                <a class="button primary" href="{_html(rescore_demo_url)}">Watch rescore demo</a>
                 <a class="button" href="{_html(primary_report_url)}">Read incident report</a>
                 {_public_global_action_links_html()}
               </div>
             </div>
             <aside class="gate-card" aria-label="Human gated promotion summary">
               <div class="gate-kicker">review graph arbitration</div>
-              <div class="gate-big"><b>5 / 5</b><span>provider runs recorded</span></div>
+              <div class="gate-big"><b>{_html(gate_signal_label)}</b><span>provider signal, not a verdict</span></div>
               <div class="gate-bars"><i></i><i></i><i></i><i></i><i></i></div>
               <div class="gate-div"><i></i><span>PROMOTION GATE</span><i></i></div>
               <div class="gate-badge">
                 <div class="gate-lock">HG</div>
-                <div><b>HUMAN-GATED</b><small>Incident promotion waits for user impact and operational outcome evidence.</small></div>
+                <div><b>0 AUTO-PROMOTED CAUSES</b><small>Incident promotion waits for user impact and operational outcome evidence.</small></div>
               </div>
             </aside>
           </section>
@@ -794,6 +833,20 @@ def _public_precomputed_landing_page() -> str:
             <article class="trust-cell"><b>100%</b><span>ledger coverage on curated cases</span></article>
             <article class="trust-cell"><b>0</b><span>auto-accepted incident causes</span></article>
             <article class="trust-cell"><b>Local</b><span>raw logs are not uploaded</span></article>
+          </section>
+          <section class="agent-loop" aria-label="Agent loop">
+            <div class="agent-panel">
+              <div class="kicker">Agent loop</div>
+              <strong>ADK-compatible trace included</strong>
+              <p>Each public review keeps the tool-call trace that turns sanitized evidence into review targets, missing-evidence requests, and a human gate.</p>
+            </div>
+            <div class="agent-steps">
+              <div class="agent-step"><b>Collect</b><span>sanitize logs and source context</span></div>
+              <div class="agent-step"><b>Compare</b><span>run provider-specific chunks</span></div>
+              <div class="agent-step"><b>Validate</b><span>check citations and source refs</span></div>
+              <div class="agent-step"><b>Rescore</b><span>attach more evidence when needed</span></div>
+              <div class="agent-step"><b>Gate</b><span>keep incident promotion human-owned</span></div>
+            </div>
           </section>
           <section id="review-set">
             <div class="section-head">

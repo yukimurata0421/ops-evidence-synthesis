@@ -50,8 +50,8 @@ Current reviewer-facing URLs for the hackathon submission.
 
 ## Operational Readiness
 
-- Cloud Run revision after deploy: `ops-evidence-api-00171-psv`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:3b063f30bb4c8f464e8814bfb85289971bf45a09e8f6bbd641718e1465e44b5a`
+- Cloud Run revision after deploy: `ops-evidence-api-00172-g9b`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:bd1ba9939c112ecccef49c4e3f7db3a1af0cab74528b27fb179c962e635bb530`
 - Public smoke after deploy: passed
 - Cloud Run min instances: `1`
 - Billing budget alert: `Ops Evidence Hackathon Budget`, 3000 JPY/month, project-filtered to `ops-evidence-synthesis`
