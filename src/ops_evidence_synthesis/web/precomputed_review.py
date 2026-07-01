@@ -502,64 +502,307 @@ def _public_precomputed_landing_page() -> str:
         if archived_rows
         else ""
     )
+    primary_evidence = str(primary_entries[0].get("evidence_sha") or "") if primary_entries else ""
+    primary_detail_url = (
+        f"/ui/full-review-page?evidence_sha256={_url_quote(primary_evidence)}"
+        if primary_evidence
+        else "#review-set"
+    )
+    primary_report_url = (
+        f"/ui/report.md?evidence_sha256={_url_quote(primary_evidence)}"
+        if primary_evidence
+        else "#review-set"
+    )
     return f"""
     <!doctype html>
-    <html>
+    <html lang="en">
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Ops Evidence Synthesis</title>
+        <title>Ops Evidence Synthesis - Evidence before certainty</title>
         <style>
-          :root {{ color-scheme: light; --ink:#17202a; --muted:#586579; --line:#d9e2ec; --panel:#fff; --bg:#f6f8fb; --blue:#0b5cad; }}
+          :root {{
+            color-scheme: light;
+            --bg: #eef2f7;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --ink: #0f1b2d;
+            --ink-2: #526173;
+            --ink-3: #8a97a8;
+            --border: #d9e1ec;
+            --accent: #2a6fdb;
+            --accent-soft: #e7f0fc;
+            --green: #12836b;
+            --green-soft: #dff5ee;
+            --amber: #9a5b00;
+            --amber-soft: #fff4dc;
+            --shadow: 0 18px 48px rgba(15, 27, 45, .08);
+            --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          }}
           * {{ box-sizing: border-box; }}
-          body {{ font-family: Inter, system-ui, sans-serif; margin: 0; color: var(--ink); background: var(--bg); }}
-          main {{ max-width: 1080px; margin: 0 auto; padding: 42px 20px 64px; }}
-          header {{ display: grid; gap: 14px; margin-bottom: 30px; }}
-          h1 {{ font-size: 32px; line-height: 1.15; margin: 0; }}
-          h2 {{ font-size: 18px; margin: 0 0 14px; }}
-          h3 {{ font-size: 18px; line-height: 1.35; margin: 8px 0; }}
-          p {{ color: var(--muted); line-height: 1.6; margin: 0; }}
-          a {{ color: var(--blue); font-weight: 700; text-decoration: none; }}
-          section {{ margin-top: 30px; }}
-          .hero-copy {{ max-width: 760px; }}
-          .hero-stats {{ display: flex; flex-wrap: wrap; gap: 10px; }}
-          .hero-stats span, .badge {{ border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: #fff; color: #364152; font-size: 12px; font-weight: 700; }}
+          html {{ scroll-behavior: smooth; }}
+          body {{
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            letter-spacing: 0;
+          }}
+          a {{ color: inherit; text-decoration: none; }}
+          p {{ margin: 0; color: var(--ink-2); line-height: 1.55; }}
+          .shell {{ max-width: 1180px; margin: 0 auto; padding: 0 28px; }}
+          .topbar {{
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            border-bottom: 1px solid var(--border);
+          }}
+          .brand {{ display: flex; align-items: center; gap: 12px; min-width: 236px; }}
+          .brand-mark {{
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            display: grid;
+            place-items: center;
+            background: var(--accent);
+            color: #fff;
+            font: 700 13px/1 var(--mono);
+          }}
+          .brand-name {{ font-weight: 750; letter-spacing: -.01em; }}
+          .nav-links, .nav-actions {{ display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }}
+          .nav-links a, .button {{
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: rgba(255,255,255,.72);
+            color: var(--ink-2);
+            padding: 8px 10px;
+            font-size: 12.5px;
+            font-weight: 700;
+          }}
+          .button.primary {{
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+          }}
+          .live-pill {{
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 8px 11px;
+            background: var(--surface);
+            color: var(--ink-2);
+            font-size: 12px;
+            font-weight: 750;
+          }}
+          .live-dot {{ width: 7px; height: 7px; border-radius: 50%; background: var(--green); }}
+          .hero {{
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(320px, .78fr);
+            gap: 34px;
+            align-items: center;
+            padding: 58px 0 42px;
+          }}
+          .eyebrow {{
+            display: inline-flex;
+            color: var(--accent);
+            background: var(--accent-soft);
+            border: 1px solid #d3e4fb;
+            border-radius: 999px;
+            padding: 7px 11px;
+            font: 700 12px/1 var(--mono);
+          }}
+          h1 {{
+            margin: 22px 0 14px;
+            font-size: clamp(44px, 7vw, 76px);
+            line-height: .94;
+            letter-spacing: -.045em;
+            max-width: 760px;
+          }}
+          h1 span {{ color: var(--accent); }}
+          .hero-sub {{ max-width: 700px; font-size: 16.5px; color: var(--ink-2); }}
+          .hero-cta {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }}
+          .gate-card {{
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: rgba(255,255,255,.88);
+            box-shadow: var(--shadow);
+            padding: 26px;
+          }}
+          .gate-kicker {{ color: var(--ink-3); font: 700 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }}
+          .gate-big {{ display: flex; align-items: end; gap: 12px; margin-top: 20px; }}
+          .gate-big b {{ font-size: 52px; line-height: .9; letter-spacing: -.04em; }}
+          .gate-big span {{ color: var(--ink-2); font-size: 13px; padding-bottom: 5px; }}
+          .gate-bars {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 22px; }}
+          .gate-bars i {{ display: block; height: 34px; border-radius: 8px; background: var(--green); }}
+          .gate-div {{ display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin: 24px 0 14px; }}
+          .gate-div i {{ height: 1px; background: var(--border); }}
+          .gate-div span {{ color: var(--ink-3); font: 700 10px/1 var(--mono); letter-spacing: .1em; }}
+          .gate-badge {{
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            background: var(--amber-soft);
+            padding: 14px;
+          }}
+          .gate-lock {{
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            background: var(--surface);
+            color: var(--amber);
+            font-weight: 900;
+          }}
+          .gate-badge b {{ display: block; color: var(--amber); font: 800 12px/1 var(--mono); }}
+          .gate-badge small {{ display: block; margin-top: 4px; color: var(--ink-2); font-size: 12px; }}
+          .trust {{
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 34px;
+          }}
+          .trust-cell {{
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: rgba(255,255,255,.72);
+            padding: 16px;
+          }}
+          .trust-cell b {{ display: block; font-size: 22px; letter-spacing: -.02em; }}
+          .trust-cell span {{ display: block; margin-top: 6px; color: var(--ink-2); font-size: 12px; line-height: 1.4; }}
+          section {{ margin-top: 36px; }}
+          .section-head {{
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 18px;
+            margin-bottom: 16px;
+          }}
+          .kicker {{ color: var(--accent); font: 800 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }}
+          h2 {{ margin: 8px 0 0; font-size: 24px; letter-spacing: -.025em; }}
+          .section-note {{ max-width: 430px; color: var(--ink-2); font-size: 13px; line-height: 1.55; text-align: right; }}
           .review-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }}
-          .review-card {{ display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }}
-          .review-card.featured {{ grid-column: 1 / -1; border-color: #b7cbe1; }}
+          .review-card {{
+            display: grid;
+            gap: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--surface);
+            box-shadow: 0 10px 34px rgba(15, 27, 45, .055);
+          }}
+          .review-card.featured {{ grid-column: 1 / -1; border-color: #b7c9e4; }}
+          .review-card h3 {{ margin: 0; font-size: 18px; line-height: 1.35; letter-spacing: -.015em; }}
+          .review-card p {{ font-size: 13px; }}
           .card-topline {{ display: flex; justify-content: space-between; gap: 12px; align-items: center; }}
-          .sha, small {{ color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }}
-          .metrics {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }}
-          .metrics div {{ border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }}
-          dt {{ color: var(--muted); font-size: 11px; text-transform: uppercase; }}
-          dd {{ margin: 2px 0 0; font-weight: 800; overflow-wrap: anywhere; }}
+          .badge {{
+            display: inline-flex;
+            border: 1px solid #d3e4fb;
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 11px;
+            font-weight: 800;
+          }}
+          .sha, small {{ color: var(--ink-3); font-family: var(--mono); font-size: 11.5px; }}
+          .metrics {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 4px 0 0; }}
+          .metrics div {{ border-top: 1px solid var(--border); padding-top: 10px; min-width: 0; }}
+          dt {{ color: var(--ink-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }}
+          dd {{ margin: 3px 0 0; font-weight: 820; overflow-wrap: anywhere; }}
           .actions {{ display: flex; flex-wrap: wrap; gap: 8px; }}
-          .actions a, .loop-link {{ display: inline-grid; gap: 3px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: #fbfdff; }}
-          .hero-actions {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }}
-          .hero-actions .button {{ border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: #fff; }}
+          .actions a, .loop-link {{
+            display: inline-grid;
+            gap: 3px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 9px 11px;
+            background: var(--surface-2);
+            color: var(--ink-2);
+            font-size: 12px;
+            font-weight: 800;
+          }}
           .loop-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }}
-          .archive {{ margin-top: 28px; border-top: 1px solid var(--line); padding-top: 18px; }}
-          summary {{ cursor: pointer; color: var(--muted); font-weight: 700; }}
+          .archive {{ margin: 38px 0 56px; border-top: 1px solid var(--border); padding-top: 18px; }}
+          summary {{ cursor: pointer; color: var(--ink-2); font-weight: 800; }}
           ul {{ list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }}
-          li {{ display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }}
-          @media (max-width: 760px) {{ .review-grid, .loop-grid {{ grid-template-columns: 1fr; }} .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} main {{ padding-top: 30px; }} }}
+          li {{ display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }}
+          @media (max-width: 900px) {{
+            .shell {{ padding: 0 20px; }}
+            .topbar {{ height: auto; padding: 16px 0; align-items: flex-start; flex-direction: column; }}
+            .hero {{ grid-template-columns: 1fr; padding-top: 42px; }}
+            .trust {{ grid-template-columns: repeat(2, 1fr); }}
+            .review-grid, .loop-grid {{ grid-template-columns: 1fr; }}
+            .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+            .section-head {{ align-items: flex-start; flex-direction: column; }}
+            .section-note {{ text-align: left; }}
+          }}
+          @media (max-width: 520px) {{
+            h1 {{ font-size: 42px; }}
+            .trust {{ grid-template-columns: 1fr; }}
+            .gate-big b {{ font-size: 42px; }}
+          }}
         </style>
       </head>
       <body>
-        <main>
-          <header>
-            <h1>Ops Evidence Synthesis</h1>
-            <p class="hero-copy">This public surface serves read-only precomputed reviews over sanitized logs, sanitized source context, and approved system profiles. Raw bundles, raw source, and write APIs are not exposed here.</p>
-            <p class="hero-copy">Provider convergence creates review targets, not accepted incident causes; promotion remains human-gated until user impact and operational outcome evidence are attached.</p>
-            <div class="hero-stats">
-              <span>Cloud Run read-only UI</span>
-              <span>5 provider recorded runs</span>
-              <span>100% ledger coverage on curated cases</span>
-              <span>Human-gated promotion</span>
+        <main class="shell">
+          <nav class="topbar" aria-label="Primary">
+            <div class="brand">
+              <div class="brand-mark">OE</div>
+              <div class="brand-name">Ops Evidence Synthesis</div>
             </div>
-            <div class="hero-actions">{_public_global_action_links_html()}</div>
-          </header>
-          <section>
+            <div class="nav-links">
+              <a href="/">Overview</a>
+              <a href="#review-set">Review Set</a>
+              <a href="#improvement-loop">Improvement Loop</a>
+              <span class="live-pill"><span class="live-dot"></span>Cloud Run live</span>
+            </div>
+          </nav>
+          <section class="hero">
+            <div>
+              <span class="eyebrow">Local-first AI-assisted DevOps incident review</span>
+              <h1>Evidence before <span>certainty.</span></h1>
+              <p class="hero-sub">This public surface serves read-only precomputed reviews over sanitized logs, sanitized source context, and approved system profiles. Provider convergence creates review targets, not accepted incident causes.</p>
+              <div class="hero-cta">
+                <a class="button primary" href="{_html(primary_detail_url)}">Open primary review</a>
+                <a class="button" href="{_html(primary_report_url)}">Read incident report</a>
+                {_public_global_action_links_html()}
+              </div>
+            </div>
+            <aside class="gate-card" aria-label="Human gated promotion summary">
+              <div class="gate-kicker">review graph arbitration</div>
+              <div class="gate-big"><b>5 / 5</b><span>provider runs recorded</span></div>
+              <div class="gate-bars"><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="gate-div"><i></i><span>PROMOTION GATE</span><i></i></div>
+              <div class="gate-badge">
+                <div class="gate-lock">HG</div>
+                <div><b>HUMAN-GATED</b><small>Incident promotion waits for user impact and operational outcome evidence.</small></div>
+              </div>
+            </aside>
+          </section>
+          <section class="trust" aria-label="Public review guarantees">
+            <article class="trust-cell"><b>Cloud Run</b><span>read-only UI</span></article>
+            <article class="trust-cell"><b>5</b><span>provider recorded runs</span></article>
+            <article class="trust-cell"><b>100%</b><span>ledger coverage on curated cases</span></article>
+            <article class="trust-cell"><b>0</b><span>auto-accepted incident causes</span></article>
+            <article class="trust-cell"><b>Local</b><span>raw logs are not uploaded</span></article>
+          </section>
+          <section id="review-set">
+            <div class="section-head">
+              <div>
+                <div class="kicker">Public review set</div>
+                <h2>Real API runs. Full-corpus ledgers.</h2>
+              </div>
+              <p class="section-note">Every sanitized DB row is assigned to the coverage ledger before provider chunking. Raw bundles, raw source, and write APIs are not exposed here.</p>
+            </div>
             <h2>Primary Review</h2>
             <div class="review-grid">{primary_cards}</div>
           </section>
@@ -574,6 +817,15 @@ def _public_precomputed_landing_page() -> str:
           <section>
             <h2>Cross-Domain Scale Validation</h2>
             <div class="review-grid">{scale_cards}</div>
+          </section>
+          <section id="improvement-loop">
+            <div class="section-head">
+              <div>
+                <div class="kicker">Operated as production software</div>
+                <h2>Convergence is support, not a verdict.</h2>
+              </div>
+              <p class="section-note">The AI workflow can ask for missing evidence, attach a child bundle, and re-score the review graph without exposing public write paths.</p>
+            </div>
           </section>
           {demo_section}
           {archive_section}
