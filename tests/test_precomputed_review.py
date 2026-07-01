@@ -19,6 +19,7 @@ from ops_evidence_synthesis.web.precomputed_review import (
     _precomputed_review_graph_response,
     _public_precomputed_landing_page,
     _render_precomputed_graph_page,
+    _render_precomputed_markdown_report,
     _render_precomputed_review_detail_page,
     render_rescore_demo_page,
 )
@@ -62,6 +63,7 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "Provider convergence creates review targets, not accepted incident causes" in html
     assert "Multi-AI disagreement requires validation" not in html
     assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
+    assert f"/ui/report.md?evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in html
 
 
 def test_public_landing_cards_match_linked_payloads(monkeypatch) -> None:
@@ -83,6 +85,30 @@ def test_public_landing_cards_match_linked_payloads(monkeypatch) -> None:
         assert f"<dd>{target_count}</dd>" in card
         assert f"<dd>{int(context['provider_full_corpus_chunk_count'])}</dd>" in card
         assert "100.0%" in card
+        assert f"/ui/report.md?evidence_sha256={sha}" in card
+
+
+def test_public_markdown_report_renders_human_review_boundary() -> None:
+    payload = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{STREAM_V3_DELL_REAL_API_SHA}.json")
+
+    report = _render_precomputed_markdown_report(STREAM_V3_DELL_REAL_API_SHA, payload)
+
+    assert report.startswith("# Incident Review Report:")
+    assert "This report is review material, not an accepted incident cause." in report
+    assert "## Evidence Boundary" in report
+    assert "DB coverage ledger:" in report
+    assert "Provider corpus:" in report
+    assert "## Provider Statuses" in report
+    assert "| Provider | Model | Status | Schema valid | Output hash |" in report
+    assert "## Human Review Questions" in report
+    assert "Which metrics are zero-is-good or zero-is-bad?" in report
+    assert "## Review Queries This Report Supports" in report
+    assert "List targets that are blocked by missing user-impact evidence." in report
+    assert "## Top Review Targets" in report
+    assert "Provider stance:" in report
+    assert "Promotion gate:" in report
+    assert "review urgency, not truth probability" in report
+    assert "majority-vote truth" in report
 
 
 def test_public_rescore_demo_is_renderable() -> None:

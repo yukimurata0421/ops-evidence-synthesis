@@ -65,7 +65,7 @@ https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-da
 
 ### 6. とどける
 
-Cloud Runにデプロイした読み取り専用UIとして提供しています。初回GETでlive model workを起動せず、precomputed review cacheを返すため、審査員はログインなしでSummary、Detail、Review Graph、API View、More Data Rescore Demoを確認できます。
+Cloud Runにデプロイした読み取り専用UIとして提供しています。初回GETでlive model workを起動せず、precomputed review cacheを返すため、審査員はログインなしでSummary、Detail、Review Graph、Markdown Incident Report、API View、More Data Rescore Demoを確認できます。
 
 Public entry:
 
@@ -89,6 +89,7 @@ https://ops-evidence.yukimurata0421.dev/
 
 - GitHub: https://github.com/yukimurata0421/ops-evidence-synthesis
 - Deployed project: https://ops-evidence.yukimurata0421.dev/
+- Primary incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 - Architecture image: [assets/architecture-devops-ai-agent.svg](assets/architecture-devops-ai-agent.svg)
 - Demo video script: [demo-video-script.md](demo-video-script.md)
 - Submission links: [submission-links.md](submission-links.md)

@@ -40,6 +40,15 @@ VISUAL_GRAPH_NEEDLES = [
     "review_target",
 ]
 
+REPORT_NEEDLES = [
+    "Incident Review Report",
+    "This report is review material, not an accepted incident cause.",
+    "Evidence Boundary",
+    "Human Review Questions",
+    "Top Review Targets",
+    "Promotion gate:",
+]
+
 REVIEW_TARGET_NEEDLES = [
     "precomputed_review_summary",
     "claimed",
@@ -87,6 +96,7 @@ DEEP_REVIEW_CHECKS = {
     "detail",
     "api-view",
     "visual-graph",
+    "report",
     "review-targets",
     "review-graph",
 }
@@ -95,6 +105,7 @@ TEXT_REVIEW_CHECKS = {
     "detail",
     "api-view",
     "visual-graph",
+    "report",
     "review-graph",
 }
 
@@ -147,6 +158,11 @@ def main(argv: list[str] | None = None) -> int:
             "visual-graph",
             f"{base_url}/ui/review-graph?evidence_sha256={evidence_sha}&_={stamp}",
             VISUAL_GRAPH_NEEDLES,
+        ),
+        (
+            "report",
+            f"{base_url}/ui/report.md?evidence_sha256={evidence_sha}&_={stamp}",
+            REPORT_NEEDLES,
         ),
         (
             "review-targets",
@@ -216,6 +232,11 @@ def main(argv: list[str] | None = None) -> int:
             _check_missing(
                 "retired-visual-graph",
                 f"{base_url}/ui/review-graph?evidence_sha256={missing_sha}&_={stamp}",
+                timeout_seconds=args.timeout_seconds,
+            )
+            _check_missing(
+                "retired-report",
+                f"{base_url}/ui/report.md?evidence_sha256={missing_sha}&_={stamp}",
                 timeout_seconds=args.timeout_seconds,
             )
             _check_missing(

@@ -159,6 +159,7 @@ def test_fast_review_shell_embeds_precomputed_summary(
         detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}")
         api_view = client.get(f"/ui/api?evidence_sha256={evidence_sha}")
         graph_view = client.get(f"/ui/review-graph?evidence_sha256={evidence_sha}")
+        report_view = client.get(f"/ui/report.md?evidence_sha256={evidence_sha}")
         review_targets = client.get(f"/review-targets?evidence_sha256={evidence_sha}")
         review_graph = client.get(f"/review/graph?evidence_sha256={evidence_sha}")
 
@@ -202,6 +203,11 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert graph_view.status_code == 200
     assert "Review Graph" in graph_view.text
     assert "Nodes and edges" in graph_view.text
+    assert report_view.status_code == 200
+    assert "Incident Review Report" in report_view.text
+    assert "This report is review material, not an accepted incident cause." in report_view.text
+    assert "Top Review Targets" in report_view.text
+    assert "Promotion gate:" in report_view.text
     assert review_targets.status_code == 200
     assert review_targets.json()["summary"]["source"] == "precomputed_review_summary"
     assert review_targets.json()["targets"][0]["evidence_sha256"] == evidence_sha
@@ -234,6 +240,7 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
         full_detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}&full=1")
         api_view = client.get(f"/ui/api?evidence_sha256={evidence_sha}")
         graph_view = client.get(f"/ui/review-graph?evidence_sha256={evidence_sha}")
+        report_view = client.get(f"/ui/report.md?evidence_sha256={evidence_sha}")
         summary = client.get(f"/ui/summary?evidence_sha256={evidence_sha}")
         review_targets = client.get(f"/review-targets?evidence_sha256={evidence_sha}")
         review_graph = client.get(f"/review/graph?evidence_sha256={evidence_sha}")
@@ -265,6 +272,7 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
     assert full_detail.status_code == 404
     assert api_view.status_code == 404
     assert graph_view.status_code == 404
+    assert report_view.status_code == 404
     assert summary.status_code == 404
     assert review_targets.status_code == 404
     assert review_graph.status_code == 404

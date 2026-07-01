@@ -76,6 +76,9 @@ https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb
 Detail URL:
 https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
+Markdown incident report:
+https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+
 ## Run
 
 The More data re-score demo shows the AI improvement cycle directly:
@@ -109,6 +112,7 @@ The public product path is deployed to Cloud Run behind a custom domain:
 - Public entry: https://ops-evidence.yukimurata0421.dev/
 - API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 - Visual graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Markdown incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 
 The release path runs:
 

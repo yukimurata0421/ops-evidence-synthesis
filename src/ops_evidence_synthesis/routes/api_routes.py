@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from ops_evidence_synthesis.ai.base import ModelProvider
 from ops_evidence_synthesis.ai.provider_registry import provider_infos
@@ -78,6 +78,7 @@ from ops_evidence_synthesis.web.precomputed_review import (
     public_precomputed_landing_page as _public_precomputed_landing_page,
     render_precomputed_api_page as _render_precomputed_api_page,
     render_precomputed_graph_page as _render_precomputed_graph_page,
+    render_precomputed_markdown_report as _render_precomputed_markdown_report,
     render_precomputed_review_detail_page as _render_precomputed_review_detail_page,
     render_rescore_demo_page as _render_rescore_demo_page,
     short_sha as _short_sha,
@@ -251,6 +252,7 @@ PUBLIC_PRECOMPUTED_READ_PATHS = {
     "/health",
     "/ui/api",
     "/ui/full-review-page",
+    "/ui/report.md",
     "/ui/review-graph",
     "/ui/rescore-demo",
     "/ui/summary",
@@ -414,6 +416,14 @@ def public_review_graph_view(evidence_sha256: str | None = None) -> str:
     precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
     if precomputed is not None and evidence_sha256:
         return _render_precomputed_graph_page(evidence_sha256, precomputed)
+    raise HTTPException(status_code=404, detail="precomputed review not found")
+
+
+@router.get("/ui/report.md", response_class=PlainTextResponse)
+def public_markdown_report(evidence_sha256: str | None = None) -> str:
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
+    if precomputed is not None and evidence_sha256:
+        return _render_precomputed_markdown_report(evidence_sha256, precomputed)
     raise HTTPException(status_code=404, detail="precomputed review not found")
 
 

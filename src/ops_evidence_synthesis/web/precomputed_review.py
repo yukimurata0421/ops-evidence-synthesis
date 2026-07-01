@@ -174,6 +174,7 @@ def _public_action_links_html(evidence_sha256: str, *, include_detail: bool = Tr
         [
             ("API View", f"/ui/api?evidence_sha256={evidence}", "human-readable JSON"),
             ("Review Graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions"),
+            ("Incident Report", f"/ui/report.md?evidence_sha256={evidence}", "human-readable Markdown report"),
         ]
     )
     for demo_id in _public_rescore_demo_ids():
@@ -391,6 +392,7 @@ def _review_card_html(entry: dict[str, Any], *, featured: bool = False) -> str:
     detail_url = f"/ui/full-review-page?evidence_sha256={evidence}"
     api_url = f"/ui/api?evidence_sha256={evidence}"
     graph_url = f"/ui/review-graph?evidence_sha256={evidence}"
+    report_url = f"/ui/report.md?evidence_sha256={evidence}"
     row_count = _human_count(int(entry.get("row_count") or 0))
     evidence_items = _human_count(int(entry.get("evidence_items") or 0))
     chunk_count = int(entry.get("chunk_count") or 0)
@@ -434,6 +436,7 @@ def _review_card_html(entry: dict[str, Any], *, featured: bool = False) -> str:
           <a href="{_html(detail_url)}">Detail</a>
           <a href="{_html(api_url)}">API</a>
           <a href="{_html(graph_url)}">Graph</a>
+          <a href="{_html(report_url)}">Report</a>
         </div>
       </article>
     """
@@ -1093,6 +1096,322 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
 </html>"""
 
 
+def _render_precomputed_markdown_report(evidence_sha256: str, payload: dict[str, Any]) -> str:
+    summary = _precomputed_summary(payload, evidence_sha256) or {}
+    finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
+    review = summary.get("review") if isinstance(summary.get("review"), dict) else {}
+    providers = summary.get("providers") if isinstance(summary.get("providers"), dict) else {}
+    graph_summary = payload.get("review_graph_summary") if isinstance(payload.get("review_graph_summary"), dict) else {}
+    context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
+    profile_context = payload.get("profile_context") if isinstance(payload.get("profile_context"), dict) else {}
+    provider_statuses = [row for row in payload.get("provider_statuses") or [] if isinstance(row, dict)]
+    targets = [row for row in payload.get("targets") or [] if isinstance(row, dict)]
+
+    title = _markdown_text(finding.get("title") or "Evidence review")
+    impact = _markdown_text(finding.get("impact") or "Review targets are available for human validation.")
+    service = _markdown_text(context.get("service") or "")
+    environment = _markdown_text(context.get("environment") or "")
+    window_start = _markdown_text(context.get("window_start") or "")
+    window_end = _markdown_text(context.get("window_end") or "")
+    window_text = f"{window_start} to {window_end}" if window_start or window_end else "not recorded"
+    canonical_sha = _markdown_text(summary.get("canonical_graph_sha256") or "")
+    input_sha = _markdown_text(summary.get("input_fingerprint_sha256") or "")
+    updated_at = _markdown_text(payload.get("updated_at") or summary.get("updated_at") or "")
+
+    lines: list[str] = [
+        f"# Incident Review Report: {title}",
+        "",
+        (
+            "> This report is review material, not an accepted incident cause. "
+            "Provider convergence creates validation targets; final causal judgement "
+            "and operational action remain human-gated. Provider agreement is not "
+            "majority-vote truth."
+        ),
+        "",
+        "## Run Summary",
+        "",
+        f"- Evidence SHA256: `{_markdown_text(evidence_sha256)}`",
+        f"- Updated at: {updated_at or 'not recorded'}",
+        f"- Service/environment: {service or 'unknown'} / {environment or 'unknown'}",
+        f"- Analysis window: {window_text}",
+        f"- Sanitized rows: {_human_count(int(summary.get('log_count') or context.get('sanitized_log_count') or 0))}",
+        f"- Providers: {int(providers.get('success') or 0)} / {int(providers.get('total') or 0)} schema-valid or successful outputs",
+        (
+            f"- Review targets: {int(review.get('primary_targets') or 0)} primary, "
+            f"{int(review.get('validation_targets') or 0)} validation, "
+            f"{int(review.get('monitor_only') or 0)} monitor-only, "
+            f"{int(review.get('auto_archived') or 0)} auto-archived"
+        ),
+        f"- Canonical graph SHA256: `{canonical_sha or 'not recorded'}`",
+        f"- Input fingerprint SHA256: `{input_sha or 'not recorded'}`",
+        f"- Raw log policy: {_markdown_text(summary.get('raw_log_policy') or context.get('raw_log_policy') or 'unknown')}",
+        "",
+        "## Finding Summary",
+        "",
+        impact,
+        "",
+        "## Evidence Boundary",
+        "",
+    ]
+    lines.extend(_markdown_bullets(_evidence_boundary_points(context)))
+    lines.extend(["", "## Provider Statuses", ""])
+    lines.extend(_provider_status_markdown_table(provider_statuses))
+    lines.extend(["", "## Human Review Questions", ""])
+    lines.extend(_markdown_bullets(_human_review_question_points(profile_context)))
+    lines.extend(["", "## Review Queries This Report Supports", ""])
+    lines.extend(
+        _markdown_bullets(
+            [
+                "Show the evidence behind the highest-priority primary or validation candidate.",
+                "List review units that only one provider surfaced.",
+                "List targets that are blocked by missing user-impact evidence.",
+                "Show provider stance disagreements without treating majority vote as truth.",
+                "Show which profile questions map to downstream review units.",
+            ]
+        )
+    )
+    lines.extend(["", "## Arbitration Summary", ""])
+    lines.extend(_markdown_bullets(_graph_summary_points(graph_summary)))
+    lines.extend(["", "## Top Review Targets", ""])
+    if not targets:
+        lines.append("No review targets were projected.")
+    else:
+        for index, target in enumerate(targets, start=1):
+            lines.extend(_target_markdown_section(target, index=index))
+    lines.extend(["", "## Reproducibility Notes", ""])
+    lines.extend(_markdown_bullets(_reproducibility_points(context)))
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _evidence_boundary_points(context: dict[str, Any]) -> list[str]:
+    points = [
+        "Raw logs and raw source are not exposed by the public read-only UI.",
+    ]
+    raw_source_policy = str(context.get("raw_source_policy") or "").strip()
+    if raw_source_policy:
+        points.append(f"Raw source policy: {raw_source_policy}.")
+    if context.get("source_context_sha256"):
+        points.append(f"Sanitized source context SHA256: `{context.get('source_context_sha256')}`.")
+    if context.get("source_analysis_sha256"):
+        points.append(f"Sanitized source analysis SHA256: `{context.get('source_analysis_sha256')}`.")
+    db_rows = _context_count(context.get("db_corpus_row_count") or context.get("db_ingested_log_count"))
+    covered_rows = _context_count(context.get("db_corpus_covered_row_count"))
+    db_coverage = _coverage_text(context.get("db_corpus_coverage_ratio"))
+    if db_rows or covered_rows or db_coverage:
+        points.append(
+            f"DB coverage ledger: {_human_count(covered_rows or db_rows)} / {_human_count(db_rows)} row(s)"
+            + (f" ({db_coverage})" if db_coverage else "")
+            + "."
+        )
+    provider_items = _context_count(context.get("provider_full_corpus_analyzed_evidence_items"))
+    provider_chunks = _context_count(context.get("provider_full_corpus_chunk_count"))
+    provider_coverage = _coverage_text(context.get("provider_full_corpus_coverage_ratio"))
+    if provider_items or provider_chunks or provider_coverage:
+        points.append(
+            f"Provider corpus: {_human_count(provider_items)} Evidence Item(s), "
+            f"{_human_count(provider_chunks)} chunk(s), {provider_coverage or 'unknown coverage'}."
+        )
+    unassigned = _context_count(context.get("provider_full_corpus_unassigned_evidence_items"))
+    points.append(f"Unassigned provider Evidence Items: {_human_count(unassigned)}.")
+    projection = str(context.get("model_projection_interpretation") or "").strip()
+    if projection:
+        points.append(projection)
+    points.extend(_determinism_scope_points(context))
+    return points
+
+
+def _human_review_question_points(profile_context: dict[str, Any]) -> list[str]:
+    points: list[str] = []
+    if profile_context.get("profile_id"):
+        points.append(f"Approved profile context: `{profile_context.get('profile_id')}`.")
+    if profile_context.get("confidence_action"):
+        confidence = profile_context.get("confidence_summary") if isinstance(profile_context.get("confidence_summary"), dict) else {}
+        overall = confidence.get("overall_confidence")
+        confidence_text = f"Profile confidence action: `{profile_context.get('confidence_action')}`"
+        if overall not in (None, ""):
+            confidence_text += f" with overall confidence {overall}; {_confidence_action_explanation(str(profile_context.get('confidence_action') or ''), overall)}."
+        else:
+            confidence_text += "."
+        points.append(confidence_text)
+    provisional = _string_items(profile_context.get("provisional_user_outcomes"))
+    if provisional:
+        points.append("Provisional user outcomes pending approval: " + "; ".join(provisional[:4]) + ".")
+    required = _string_items(profile_context.get("required_human_decisions"))
+    points.extend(required[:6])
+    human_questions = _string_items(profile_context.get("human_questions"))
+    points.extend(human_questions[:8])
+    links = profile_context.get("profile_to_review_links")
+    if isinstance(links, list):
+        for row in links[:5]:
+            if not isinstance(row, dict):
+                continue
+            question = str(row.get("question") or "").strip()
+            units = ", ".join(str(item) for item in row.get("review_units") or [] if str(item).strip())
+            reason = str(row.get("reason") or "").strip()
+            if question and units:
+                points.append(f"{question} -> {units}. {reason}".strip())
+    if not points:
+        points.append("No approved profile questions were attached; treat review units as candidate-only.")
+    return points
+
+
+def _graph_summary_points(graph_summary: dict[str, Any]) -> list[str]:
+    if not graph_summary:
+        return ["No graph-level arbitration summary was persisted."]
+    points = []
+    for key, label in (
+        ("provider_detection_overlap", "Provider detection overlap"),
+        ("technical_baseline", "Technical support"),
+        ("incident_gate_signal", "Incident gate signal"),
+        ("target_promotion_policy", "Target promotion policy"),
+        ("score_definition", "Score definition"),
+        ("note", "Count interpretation"),
+    ):
+        value = str(graph_summary.get(key) or "").strip()
+        if value:
+            points.append(f"{label}: {value}.")
+    points.append(
+        f"Target verdict counts: {int(graph_summary.get('convergence_count') or 0)} converged, "
+        f"{int(graph_summary.get('single_source_count') or 0)} single-source, "
+        f"{int(graph_summary.get('rule_or_context_count') or 0)} rule/context, "
+        f"{int(graph_summary.get('conflict_count') or 0)} explicit conflict(s)."
+    )
+    return points
+
+
+def _target_markdown_section(target: dict[str, Any], *, index: int) -> list[str]:
+    score = float(target.get("review_priority_score") or target.get("priority_score") or 0.0)
+    title = _markdown_text(target.get("title") or target.get("review_target_id") or f"Target {index}")
+    target_class = _markdown_text(target.get("class") or target.get("target_class") or "review_target")
+    subsystem = _markdown_text(target.get("subsystem") or target.get("canonical_review_unit") or "general")
+    evidence_refs = target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else []
+    evidence_ref_total_count = _target_evidence_ref_total_count(target, evidence_refs)
+    agreement = target.get("agreement") if isinstance(target.get("agreement"), dict) else {}
+    promotion = target.get("promotion") if isinstance(target.get("promotion"), dict) else {}
+    explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
+    review_reason = target.get("review_reason") if isinstance(target.get("review_reason"), dict) else {}
+    missing = _string_items(target.get("missing_evidence"))
+    caveats = _string_items(target.get("caveats"))
+    evidence_summary = _string_items(target.get("evidence_summary") or explanation.get("evidence_summary"))
+    counter_summary = _string_items(target.get("counter_evidence_summary") or explanation.get("counter_evidence_summary"))
+    lines = [
+        f"### Target {index}: {title}",
+        "",
+        f"- Class/subsystem: `{target_class}` / `{subsystem}`",
+        f"- Priority: {score:.3f} (review urgency, not truth probability)",
+        f"- Provider stance: {_provider_position_summary(target)}",
+        f"- Evidence tracking: {len(evidence_refs)} displayed / {evidence_ref_total_count} chunk-tracked Evidence Item association(s)",
+        f"- Agreement: {_markdown_text(_target_agreement_text(target))}",
+        f"- Promotion gate: {_markdown_text(_target_promotion_text(target))}",
+    ]
+    headline = str(review_reason.get("headline") or "").strip()
+    if headline:
+        lines.append(f"- Why this target is in review: {_markdown_text(headline)}")
+    for factor in _string_items(review_reason.get("factors"))[:4]:
+        lines.append(f"  - {_markdown_text(factor)}")
+    suspected_issue = str(target.get("suspected_issue") or explanation.get("suspected_issue") or "").strip()
+    mechanism = str(target.get("operational_mechanism") or explanation.get("operational_mechanism") or "").strip()
+    why_it_matters = str(target.get("why_it_matters") or explanation.get("why_it_matters") or "").strip()
+    next_question = str(
+        target.get("next_validation_question")
+        or explanation.get("next_validation_question")
+        or target.get("recommended_request_type")
+        or ""
+    ).strip()
+    why_not_promoted = str(target.get("why_not_promoted") or explanation.get("why_not_promoted") or "").strip()
+    for label, value in (
+        ("Suspected issue", suspected_issue),
+        ("Operational mechanism", mechanism),
+        ("Why it matters", why_it_matters),
+        ("Why not promoted", why_not_promoted),
+        ("Next validation question", next_question),
+    ):
+        if value:
+            lines.append(f"- {label}: {_markdown_text(value)}")
+    if evidence_summary:
+        lines.append("- Evidence summary:")
+        for item in evidence_summary[:6]:
+            lines.append(f"  - {_markdown_text(item)}")
+        if len(evidence_summary) > 6:
+            lines.append(f"  - {len(evidence_summary) - 6} additional summary item(s) omitted from this report view.")
+    if counter_summary:
+        lines.append("- Counter or weak signals:")
+        for item in counter_summary[:4]:
+            lines.append(f"  - {_markdown_text(item)}")
+    if missing:
+        lines.append("- Missing evidence:")
+        for item in missing[:6]:
+            lines.append(f"  - {_markdown_text(item)}")
+        if len(missing) > 6:
+            lines.append(f"  - {len(missing) - 6} additional missing-evidence item(s) omitted from this report view.")
+    elif not str(promotion.get("state") or "").lower().startswith("primary"):
+        lines.append("- Missing evidence: none listed; promotion still depends on the gate text above.")
+    if caveats:
+        lines.append("- Caveats: " + "; ".join(_markdown_text(item) for item in caveats[:4]) + ".")
+    lines.append("")
+    return lines
+
+
+def _provider_status_markdown_table(provider_statuses: list[dict[str, Any]]) -> list[str]:
+    if not provider_statuses:
+        return ["No provider status rows were persisted."]
+    rows = [
+        "| Provider | Model | Status | Schema valid | Output hash |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for row in provider_statuses:
+        rows.append(
+            "| "
+            + " | ".join(
+                [
+                    _markdown_cell(row.get("provider_id") or row.get("provider") or ""),
+                    _markdown_cell(row.get("model_name") or ""),
+                    _markdown_cell(row.get("status") or ""),
+                    _markdown_cell(str(bool(row.get("schema_valid"))).lower()),
+                    _markdown_cell(str(row.get("raw_output_sha256") or "")[:12]),
+                ]
+            )
+            + " |"
+        )
+    return rows
+
+
+def _reproducibility_points(context: dict[str, Any]) -> list[str]:
+    points = [
+        "Real provider outputs are recorded and hashed; the report does not claim live model byte-for-byte regeneration.",
+        "Canonical graph construction is deterministic over the recorded provider and chunk outputs.",
+        "Public pages are read-only and do not start collectors, model calls, or write APIs on GET.",
+    ]
+    row_assignment_sha = str(context.get("db_corpus_row_assignments_sha256") or "").strip()
+    if row_assignment_sha:
+        points.append(f"DB row assignment ledger SHA256: `{row_assignment_sha}`.")
+    manifest_hashes = context.get("provider_full_corpus_chunk_manifest_sha256s")
+    if isinstance(manifest_hashes, list) and manifest_hashes:
+        points.append(
+            "Chunk manifest SHA256 prefixes: "
+            + ", ".join(f"`{str(item)[:12]}`" for item in manifest_hashes[:6])
+            + "."
+        )
+    return points
+
+
+def _markdown_bullets(points: list[str]) -> list[str]:
+    cleaned = [_markdown_text(point) for point in points if str(point).strip()]
+    if not cleaned:
+        return ["- Not recorded."]
+    return [f"- {point}" for point in cleaned]
+
+
+def _markdown_text(value: object) -> str:
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    return "\n  ".join(part.strip() for part in text.split("\n") if part.strip())
+
+
+def _markdown_cell(value: object) -> str:
+    text = _markdown_text(value)
+    return text.replace("|", "\\|") or " "
+
+
 def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[str, Any]) -> str:
     summary = _precomputed_summary(payload, evidence_sha256) or {}
     finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
@@ -1569,7 +1888,7 @@ def _determinism_scope_points(context: dict[str, Any]) -> list[str]:
     chunk_merge = str(scope.get("chunk_merge") or "").strip()
     local_fixture = str(scope.get("local_fixture") or "").strip()
     if provider_outputs:
-        if provider_outputs == "recorded_and_hashed":
+        if provider_outputs in {"recorded_and_hashed", "recorded_and_hashed_not_recreated_byte_for_byte"}:
             points.append("Provider outputs: recorded and hashed; live model responses are not byte-regenerated.")
         else:
             points.append(f"Provider outputs: {provider_outputs}.")
@@ -1579,7 +1898,10 @@ def _determinism_scope_points(context: dict[str, Any]) -> list[str]:
         else:
             points.append(f"Chunk merge: {chunk_merge}.")
     if local_fixture:
-        if local_fixture == "deterministic_local_provider_ci":
+        if local_fixture in {
+            "deterministic_local_provider_ci",
+            "byte_equal_regeneration_for_deterministic_local_provider_ci",
+        }:
             points.append("Fixture regeneration: byte-equal CI applies to deterministic local fixtures.")
         else:
             points.append(f"Fixture regeneration: {local_fixture}.")
@@ -2506,6 +2828,7 @@ public_precomputed_landing_page = _public_precomputed_landing_page
 render_rescore_demo_page = _render_rescore_demo_page
 render_precomputed_api_page = _render_precomputed_api_page
 render_precomputed_graph_page = _render_precomputed_graph_page
+render_precomputed_markdown_report = _render_precomputed_markdown_report
 render_precomputed_review_detail_page = _render_precomputed_review_detail_page
 short_sha = _short_sha
 url_quote = _url_quote
@@ -2521,6 +2844,7 @@ __all__ = [
     "render_rescore_demo_page",
     "render_precomputed_api_page",
     "render_precomputed_graph_page",
+    "render_precomputed_markdown_report",
     "render_precomputed_review_detail_page",
     "short_sha",
     "url_quote",

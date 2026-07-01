@@ -18,6 +18,8 @@ Use these first:
 
 - Primary review: stream_v3 Dell runtime 45k detail page:
   https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Primary incident report:
+  https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 - Guarded review: amazon-notify 14-day full-corpus ledger review:
   https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo:
@@ -47,6 +49,9 @@ for stream_v3.
 
 - The public Cloudflare URL serves a precomputed summary/detail review without
   starting model work on the initial GET.
+- Each public review also exposes a Markdown incident report that states the
+  evidence boundary, provider status, human review questions, and promotion
+  blockers without converting provider agreement into an accepted cause.
 - `make demo` regenerates the flagship amazon-notify review cache from
   `data/amazon_notify_flagship_logs.jsonl` using deterministic local providers.
 - `python -m uvicorn ...` serves the same read-only review UI locally.
@@ -124,7 +129,7 @@ What to look for:
 | Analyze | Run deterministic or configured providers against the same Evidence Bundle. | `src/ops_evidence_synthesis/synthesis/pipeline.py`, `src/ops_evidence_synthesis/ai/` |
 | Orchestrate | Wrap the investigation loop as ADK tools and emit a tool-call trace for Agent Runtime / `AdkApp` deployments. | `src/ops_evidence_synthesis/agents/adk_investigator.py` |
 | Synthesize | Parse, validate, route, score, compare providers, and persist the Canonical Review Graph/review-target projection. | `src/ops_evidence_synthesis/synthesis/`, `src/ops_evidence_synthesis/precomputed_review.py` |
-| Report | Serve a fast, read-only summary/detail page from precomputed review JSON. | `src/ops_evidence_synthesis/api.py`, `src/ops_evidence_synthesis/routes/`, `src/ops_evidence_synthesis/web/`, `data/precomputed_review_summaries/` |
+| Report | Serve fast read-only summary/detail pages and Markdown incident reports from precomputed review JSON. | `src/ops_evidence_synthesis/api.py`, `src/ops_evidence_synthesis/routes/`, `src/ops_evidence_synthesis/web/`, `data/precomputed_review_summaries/` |
 
 High-level flow:
 

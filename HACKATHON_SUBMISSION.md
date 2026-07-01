@@ -11,6 +11,7 @@ human-reviewable targets.
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
 - Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Primary incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 - Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 - Guarded amazon-notify detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
@@ -38,11 +39,13 @@ for the full committed-vs-local boundary.
    incident and user-impact promotion remains separately gated.
 3. Open the Detail URL and inspect provider positions, Evidence Item links, and
    promotion gates.
-4. Open the API view to inspect the five-provider chunked run based on
+4. Open the Markdown incident report to see the same review as human-readable
+   decision material, including human questions and promotion blockers.
+5. Open the API view to inspect the five-provider chunked run based on
    sanitized logs and code context.
-5. Open the More data rescore demo to see `needs_more_data -> evidence_collected`
+6. Open the More data rescore demo to see `needs_more_data -> evidence_collected`
    and validation target -> primary candidate.
-6. Run `make demo && make verify-precomputed` to regenerate the same flagship
+7. Run `make demo && make verify-precomputed` to regenerate the same flagship
    cache from committed public-safe logs.
 
 ## Key Points
@@ -50,6 +53,9 @@ for the full committed-vs-local boundary.
 - The working product is a guarded review loop, not a free-form chat summary.
 - Initial UI is precomputed and read-only.
 - Provider positions and provider status are visible per review target.
+- Markdown reports make the evidence boundary, review questions, provider
+  status, and human-gated promotion blockers readable without asking reviewers
+  to inspect JSON.
 - DB-backed runs assign every sanitized log row in the incident window to a
   grouped Evidence Item before provider chunking, so low-frequency rows are not
   dropped by count alone.
