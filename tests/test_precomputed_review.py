@@ -16,6 +16,8 @@ from ops_evidence_synthesis.precomputed_review import (
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.synthesis.pipeline import run_pipeline
 from ops_evidence_synthesis.web.precomputed_review import (
+    _canonical_precomputed_review_sha,
+    _precomputed_review_payload,
     _precomputed_review_graph_response,
     _public_precomputed_landing_page,
     _render_precomputed_graph_page,
@@ -31,6 +33,7 @@ PUBLIC_FLAGSHIP_SHA = "3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6
 PUBLIC_REAL_API_SHA = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
 REAL_API_QWEN_GLM_SHA = "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb"
 STREAM_V3_DELL_REAL_API_SHA = "345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6"
+LEGACY_STREAM_V3_DELL_SHA = "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681"
 STREAM_V3_ARENA_REAL_API_SHA = "6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3"
 PUBLIC_PROFILE_CONTEXTS = {
     "amazon-notify": ROOT / "data" / "public_profile_contexts" / "amazon_notify_sample",
@@ -267,6 +270,18 @@ def test_precomputed_review_gcs_uri_prefixes(monkeypatch) -> None:
         f"gs://private/precomputed/{'a' * 64}.json",
         f"gs://private/backup/{'a' * 64}.json",
     ]
+
+
+def test_legacy_public_stream_v3_hash_resolves_to_canonical_primary(monkeypatch) -> None:
+    monkeypatch.delenv("OES_PRECOMPUTED_REVIEW_DIR", raising=False)
+    monkeypatch.delenv("OES_PRECOMPUTED_REVIEW_DIRS", raising=False)
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_CACHE_SECONDS", "0")
+
+    payload = _precomputed_review_payload(LEGACY_STREAM_V3_DELL_SHA)
+
+    assert _canonical_precomputed_review_sha(LEGACY_STREAM_V3_DELL_SHA) == STREAM_V3_DELL_REAL_API_SHA
+    assert payload is not None
+    assert payload["evidence_sha256"] == STREAM_V3_DELL_REAL_API_SHA
 
 
 def test_precomputed_graph_renders_analysis_context() -> None:

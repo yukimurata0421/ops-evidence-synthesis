@@ -10,6 +10,10 @@ from urllib.parse import quote
 
 _PRECOMPUTED_REVIEW_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _RESCORE_DEMO_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+PUBLIC_PRIMARY_REVIEW_SHA256 = "345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6"
+_PUBLIC_PRECOMPUTED_REVIEW_ALIASES = {
+    "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681": PUBLIC_PRIMARY_REVIEW_SHA256,
+}
 
 
 def _precomputed_review_cache_ttl_seconds() -> int:
@@ -72,6 +76,11 @@ def _precomputed_review_gcs_uris(evidence_id: str) -> list[str]:
     return uris
 
 
+def _canonical_precomputed_review_sha(evidence_sha256: str | None) -> str:
+    evidence_id = str(evidence_sha256 or "").strip().casefold()
+    return _PUBLIC_PRECOMPUTED_REVIEW_ALIASES.get(evidence_id, evidence_id)
+
+
 def _rescore_demo_dirs() -> list[Path]:
     configured = [
         Path(item)
@@ -86,7 +95,7 @@ def _rescore_demo_dirs() -> list[Path]:
 
 
 def _precomputed_review_payload(evidence_sha256: str) -> dict[str, Any] | None:
-    evidence_id = str(evidence_sha256 or "").strip()
+    evidence_id = _canonical_precomputed_review_sha(evidence_sha256)
     if not evidence_id or len(evidence_id) > 128 or any(ch not in "0123456789abcdefABCDEF-" for ch in evidence_id):
         return None
     ttl = _precomputed_review_cache_ttl_seconds()
@@ -712,6 +721,21 @@ def _public_precomputed_landing_page() -> str:
           }}
           .agent-step b {{ display: block; font-size: 12px; color: var(--ink); }}
           .agent-step span {{ display: block; margin-top: 6px; color: var(--ink-2); font-size: 11.5px; line-height: 1.35; }}
+          .mode-grid, .criteria-grid {{
+            display: grid;
+            gap: 12px;
+          }}
+          .mode-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+          .criteria-grid {{ grid-template-columns: repeat(5, minmax(0, 1fr)); }}
+          .mode-card, .criteria-card {{
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            padding: 16px;
+          }}
+          .mode-card strong, .criteria-card strong {{ display: block; color: var(--ink); font-size: 14px; }}
+          .mode-card span {{ display: block; margin-top: 6px; color: var(--accent); font: 800 11px/1.35 var(--mono); }}
+          .mode-card p, .criteria-card p {{ margin-top: 8px; font-size: 12.5px; }}
           section {{ margin-top: 36px; }}
           .section-head {{
             display: flex;
@@ -777,6 +801,7 @@ def _public_precomputed_landing_page() -> str:
             .review-grid, .loop-grid {{ grid-template-columns: 1fr; }}
             .agent-loop {{ grid-template-columns: 1fr; }}
             .agent-steps {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+            .mode-grid, .criteria-grid {{ grid-template-columns: 1fr; }}
             .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
             .section-head {{ align-items: flex-start; flex-direction: column; }}
             .section-note {{ text-align: left; }}
@@ -798,7 +823,9 @@ def _public_precomputed_landing_page() -> str:
             </div>
             <div class="nav-links">
               <a href="/">Overview</a>
+              <a href="#review-modes">Modes</a>
               <a href="#review-set">Review Set</a>
+              <a href="#judging-map">Judging Map</a>
               <a href="#improvement-loop">Improvement Loop</a>
               <span class="live-pill"><span class="live-dot"></span>Cloud Run live</span>
             </div>
@@ -846,6 +873,36 @@ def _public_precomputed_landing_page() -> str:
               <div class="agent-step"><b>Validate</b><span>check citations and source refs</span></div>
               <div class="agent-step"><b>Rescore</b><span>attach more evidence when needed</span></div>
               <div class="agent-step"><b>Gate</b><span>keep incident promotion human-owned</span></div>
+            </div>
+          </section>
+          <section id="review-modes">
+            <div class="section-head">
+              <div>
+                <div class="kicker">Review modes</div>
+                <h2>Fast path for judges, deep path for real evidence.</h2>
+              </div>
+              <p class="section-note">The public URL serves precomputed artifacts immediately. Real provider runs can spend more time because they preserve evidence boundaries before action.</p>
+            </div>
+            <div class="mode-grid">
+              <article class="mode-card"><strong>Fast Review</strong><span>initial triage</span><p>Shows provider positions, review targets, and missing evidence without claiming an accepted cause.</p></article>
+              <article class="mode-card"><strong>Evidence Rescore</strong><span>improvement loop</span><p>Attaches a child evidence bundle and shows how more data changes review priority while the gate remains explicit.</p></article>
+              <article class="mode-card"><strong>Full Forensic Review</strong><span>45k-50k rows</span><p>Runs chunked provider analysis, citation validation, and deterministic review graph merge over the full sanitized corpus.</p></article>
+            </div>
+          </section>
+          <section id="judging-map">
+            <div class="section-head">
+              <div>
+                <div class="kicker">Hackathon fit</div>
+                <h2>Built as the evidence gate before automated action.</h2>
+              </div>
+              <p class="section-note">The project focuses on the missing middle of DevOps agents: deciding whether there is enough evidence to act.</p>
+            </div>
+            <div class="criteria-grid">
+              <article class="criteria-card"><strong>Agent value</strong><p>Tool-call trace, missing-evidence routing, and rescore loop.</p></article>
+              <article class="criteria-card"><strong>Problem fit</strong><p>Prevents unsafe certainty from thin operational evidence.</p></article>
+              <article class="criteria-card"><strong>Usability</strong><p>No-login Cloud Run UI with primary review and graph links.</p></article>
+              <article class="criteria-card"><strong>Practicality</strong><p>Raw logs stay local; promotion is human-gated.</p></article>
+              <article class="criteria-card"><strong>Build depth</strong><p>5 providers, full-corpus ledger, tests, Cloud Build, Cloud Run.</p></article>
             </div>
           </section>
           <section id="review-set">
@@ -4351,6 +4408,7 @@ def _html(value: object) -> str:
 
 fast_detail_target_card = _fast_detail_target_card
 fast_review_shell = _fast_review_shell
+canonical_precomputed_review_sha = _canonical_precomputed_review_sha
 precomputed_review_graph_response = _precomputed_review_graph_response
 precomputed_review_payload = _precomputed_review_payload
 precomputed_review_target_set = _precomputed_review_target_set
@@ -4367,6 +4425,7 @@ url_quote = _url_quote
 __all__ = [
     "fast_detail_target_card",
     "fast_review_shell",
+    "canonical_precomputed_review_sha",
     "precomputed_review_graph_response",
     "precomputed_review_payload",
     "precomputed_review_target_set",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,8 @@ from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sani
 
 
 ROOT = Path(__file__).resolve().parents[1]
+STREAM_V3_DELL_REAL_API_SHA = "345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6"
+LEGACY_STREAM_V3_DELL_SHA = "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681"
 
 
 def _redaction_fixture_bundle(tmp_path: Path) -> dict[str, object]:
@@ -280,6 +283,44 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
     assert "precomputed review not found" in page.text
     assert "No persisted finding yet" not in page.text
     assert "Provider positions were not projected" not in detail.text
+
+
+def test_precomputed_only_ui_serves_legacy_public_review_links_as_canonical(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    summaries = tmp_path / "summaries"
+    summaries.mkdir()
+    shutil.copyfile(
+        ROOT / "data" / "precomputed_review_summaries" / f"{STREAM_V3_DELL_REAL_API_SHA}.json",
+        summaries / f"{STREAM_V3_DELL_REAL_API_SHA}.json",
+    )
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", str(summaries))
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_CACHE_SECONDS", "0")
+
+    with TestClient(app) as client:
+        page = client.get(f"/?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
+        detail = client.get(f"/ui/full-review-page?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
+        api_view = client.get(f"/ui/api?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
+        graph_view = client.get(f"/ui/review-graph?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
+        report_view = client.get(f"/ui/report.md?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
+        summary = client.get(f"/ui/summary?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
+        review_targets = client.get(f"/review-targets?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
+        review_graph = client.get(f"/review/graph?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
+
+    for response in (page, detail, api_view, graph_view, report_view, summary, review_targets, review_graph):
+        assert response.status_code == 200
+    for response in (page, detail, api_view, graph_view, report_view):
+        assert LEGACY_STREAM_V3_DELL_SHA[:12] not in response.text
+        assert STREAM_V3_DELL_REAL_API_SHA[:12] in response.text
+    assert f"evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in page.text
+    assert f"evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in detail.text
+    assert summary.json()["evidence_sha256"] == STREAM_V3_DELL_REAL_API_SHA
+    assert review_targets.json()["targets"][0]["evidence_sha256"] == STREAM_V3_DELL_REAL_API_SHA
+    assert review_graph.json()["canonical_graph_status"] == "precomputed"
 
 
 def test_pipeline_progress_panel_renders_canonical_states_and_reason_codes() -> None:

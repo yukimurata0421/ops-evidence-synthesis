@@ -69,6 +69,7 @@ from ops_evidence_synthesis.synthesis.review_arbitration import resolve_canonica
 from ops_evidence_synthesis.synthesis.router import RoutingResult
 from ops_evidence_synthesis.timeutils import utc_now
 from ops_evidence_synthesis.web.precomputed_review import (
+    canonical_precomputed_review_sha as _canonical_precomputed_review_sha,
     fast_detail_target_card as _fast_detail_target_card,
     fast_review_shell as _fast_review_shell,
     precomputed_review_graph_response as _precomputed_review_graph_response,
@@ -374,13 +375,15 @@ def index(evidence_sha256: str | None = None, full: bool = False) -> str:
         return _public_precomputed_landing_page()
     precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
     if evidence_sha256 and precomputed is not None:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
         if full:
             return _render_precomputed_review_detail_page(evidence_sha256, precomputed)
         if _fast_initial_ui_enabled():
             return _fast_review_shell(evidence_sha256, precomputed=precomputed)
     if evidence_sha256 and _fast_initial_ui_enabled() and not full:
         precomputed = _precomputed_review_payload(evidence_sha256)
-        return _fast_review_shell(evidence_sha256, precomputed=precomputed)
+        display_sha256 = _canonical_precomputed_review_sha(evidence_sha256) if precomputed else evidence_sha256
+        return _fast_review_shell(display_sha256, precomputed=precomputed)
     return _render_full_review_page(evidence_sha256)
 
 
@@ -388,10 +391,12 @@ def index(evidence_sha256: str | None = None, full: bool = False) -> str:
 def full_review_page(evidence_sha256: str | None = None, full: bool = False) -> str:
     precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
     if evidence_sha256 and precomputed is not None:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
         return _render_precomputed_review_detail_page(evidence_sha256, precomputed)
     if evidence_sha256 and _fast_initial_ui_enabled() and not full:
         precomputed = _precomputed_review_payload(evidence_sha256)
-        return _render_fast_review_detail_page(evidence_sha256, precomputed=precomputed)
+        display_sha256 = _canonical_precomputed_review_sha(evidence_sha256) if precomputed else evidence_sha256
+        return _render_fast_review_detail_page(display_sha256, precomputed=precomputed)
     return _render_full_review_page(evidence_sha256)
 
 
@@ -399,7 +404,9 @@ def full_review_page(evidence_sha256: str | None = None, full: bool = False) -> 
 def ui_summary(evidence_sha256: str) -> dict[str, Any]:
     if not evidence_sha256:
         raise HTTPException(status_code=400, detail="evidence_sha256 is required")
-    _require_precomputed_review_for_public_read(evidence_sha256)
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
+    if precomputed is not None:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
     return _review_summary_for_ui(evidence_sha256)
 
 
@@ -407,6 +414,7 @@ def ui_summary(evidence_sha256: str) -> dict[str, Any]:
 def public_api_view(evidence_sha256: str | None = None) -> str:
     precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
     if precomputed is not None and evidence_sha256:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
         return _render_precomputed_api_page(evidence_sha256, precomputed)
     raise HTTPException(status_code=404, detail="precomputed review not found")
 
@@ -415,6 +423,7 @@ def public_api_view(evidence_sha256: str | None = None) -> str:
 def public_review_graph_view(evidence_sha256: str | None = None) -> str:
     precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
     if precomputed is not None and evidence_sha256:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
         return _render_precomputed_graph_page(evidence_sha256, precomputed)
     raise HTTPException(status_code=404, detail="precomputed review not found")
 
@@ -423,6 +432,7 @@ def public_review_graph_view(evidence_sha256: str | None = None) -> str:
 def public_markdown_report(evidence_sha256: str | None = None) -> str:
     precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
     if precomputed is not None and evidence_sha256:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
         return _render_precomputed_markdown_report(evidence_sha256, precomputed)
     raise HTTPException(status_code=404, detail="precomputed review not found")
 
@@ -1361,6 +1371,7 @@ def plan_evidence_requests_api(payload: dict[str, Any]) -> dict[str, Any]:
 def get_review_graph_api(evidence_sha256: str, recompute: bool = False) -> dict[str, Any]:
     precomputed = _require_precomputed_review_for_public_read(evidence_sha256)
     if precomputed is not None:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
         return _precomputed_review_graph_response(precomputed, evidence_sha256=evidence_sha256)
     store = _store()
     if not recompute:
@@ -1836,6 +1847,7 @@ def list_review_targets(
 ) -> dict[str, Any]:
     precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
     if precomputed is not None and evidence_sha256:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
         return _precomputed_review_target_set(
             precomputed,
             evidence_sha256=evidence_sha256,
