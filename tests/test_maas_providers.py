@@ -148,6 +148,26 @@ def test_llama_open_model_provider_uses_meta_defaults() -> None:
     assert provider._request_model_name() == "meta/llama-4-maverick-17b-128e-instruct-maas"
 
 
+def test_gemma_open_model_provider_uses_google_defaults() -> None:
+    provider = VertexOpenModelProvider.from_gemma_env()
+
+    assert provider.provider == "gemma-agent-platform"
+    assert provider.default_publisher == "google"
+    assert provider.model_name == "gemma-4-26b-a4b-it-maas"
+    assert provider.location == "global"
+    assert provider._request_model_name() == "google/gemma-4-26b-a4b-it-maas"
+
+
+def test_grok_open_model_provider_uses_managed_model_name_without_publisher() -> None:
+    provider = VertexOpenModelProvider.from_grok_env()
+
+    assert provider.provider == "grok-agent-platform"
+    assert provider.default_publisher == "xai"
+    assert provider.model_name == "grok-4.20-reasoning"
+    assert provider.location == "global"
+    assert provider._request_model_name() == "xai/grok-4.20-reasoning"
+
+
 def test_open_model_retries_empty_content_with_larger_output_budget(monkeypatch) -> None:
     calls: list[int] = []
 

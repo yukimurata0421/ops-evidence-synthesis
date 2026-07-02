@@ -11,7 +11,7 @@ FLAGSHIP_END ?= 2026-06-26T23:32:21Z
 SAMPLE_PROFILE_DIR ?= data/public_profile_contexts/payment_api_sample
 FLAGSHIP_PROFILE_DIR ?= data/public_profile_contexts/amazon_notify_sample
 PUBLIC_ARCHIVE ?= /tmp/ops-evidence-synthesis-public.zip
-PUBLIC_SMOKE_EXTRA_ARGS ?= --expect-provider gemini-enterprise-agent-platform --expect-provider openai-gpt-oss-on-vertex --expect-provider mistral-agent-platform --expect-provider qwen-agent-platform --expect-provider glm-agent-platform
+PUBLIC_SMOKE_EXTRA_ARGS ?= --expect-provider gemini-enterprise-agent-platform --expect-provider openai-gpt-oss-on-vertex --expect-provider mistral-agent-platform --expect-provider qwen-agent-platform --expect-provider gemma-agent-platform
 
 .PHONY: demo demo-flagship demo-sample verify-precomputed verify-flagship verify-sample test ci smoke-public deploy-public archive-public
 

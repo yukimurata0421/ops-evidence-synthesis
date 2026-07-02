@@ -30,7 +30,7 @@ The system turns local sanitized logs into a SHA-fixed Evidence Bundle, assigns
 every sanitized row to a coverage ledger, runs a chunked real-provider review,
 validates cited claims, and projects the result into a Canonical Review Graph.
 
-The primary public reviewer path uses Gemini, GPT OSS, Mistral, Qwen, and GLM
+The primary public reviewer path uses Gemini, GPT OSS, Mistral, Qwen, and Gemma 4
 real API outputs over provider-specific chunks. The entry page shows the
 stream_v3 runtime run first because it has active human-gated primary
 candidates, while the amazon-notify run demonstrates guarded suppression and
@@ -66,9 +66,9 @@ runtime payload:
 - Evidence SHA256: `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6`
 - Sanitized log count: 45,000
 - Raw log policy: `not_uploaded`
-- Providers: Gemini, GPT OSS, Mistral, Qwen, and GLM
+- Providers: Gemini, GPT OSS, Mistral, Qwen, and Gemma 4
 - Maximum chunked provider calls: 33
-- Output state: 5/5 schema-valid provider outputs with 3 human-gated primary candidates
+- Output state: 5/5 schema-valid provider outputs with 2 human-gated primary candidates
 
 Live URL:
 https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6

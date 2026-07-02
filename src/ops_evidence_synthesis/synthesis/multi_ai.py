@@ -57,6 +57,7 @@ PROVIDER_CHUNK_TARGET_TOKENS = {
     "openai-gpt-oss-on-vertex": 64_000,
     "qwen-agent-platform": 80_000,
     "glm-agent-platform": 80_000,
+    "gemma-agent-platform": 80_000,
     "llama-agent-platform": 80_000,
     "mistral-agent-platform": 120_000,
     "claude-agent-platform": 48_000,
@@ -1653,7 +1654,7 @@ def _chunk_target_tokens(provider_id: str = "") -> int:
 
 def _chunk_planning_provider_id(provider_id: str = "") -> str:
     normalized_provider_id = str(provider_id or "").strip().casefold()
-    if normalized_provider_id == "llama-agent-platform":
+    if normalized_provider_id in {"gemma-agent-platform", "grok-agent-platform", "llama-agent-platform"}:
         return "gemini-enterprise-agent-platform"
     return provider_id
 

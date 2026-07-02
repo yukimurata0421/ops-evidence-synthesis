@@ -220,6 +220,30 @@ def provider_registry() -> list[ProviderSpec]:
             configured=_glm_configured,
         ),
         ProviderSpec(
+            provider_id="gemma-agent-platform",
+            display_name="Gemma on Gemini Enterprise Agent Platform",
+            aliases=("gemma", "gemma4", "gemma-4", "vertex-gemma", "gemma-agent-platform"),
+            model_name=os.environ.get("OES_GEMMA_MODEL", "gemma-4-26b-a4b-it-maas"),
+            requires_network=True,
+            requires_api_key=False,
+            supports_json_schema=True,
+            default_timeout_seconds=int(os.environ.get("OES_GEMMA_TIMEOUT_SECONDS", "240")),
+            factory=VertexOpenModelProvider.from_gemma_env,
+            configured=_gemma_configured,
+        ),
+        ProviderSpec(
+            provider_id="grok-agent-platform",
+            display_name="Grok on Gemini Enterprise Agent Platform",
+            aliases=("grok", "vertex-grok", "xai-grok", "grok-agent-platform"),
+            model_name=os.environ.get("OES_GROK_MODEL", "grok-4.20-reasoning"),
+            requires_network=True,
+            requires_api_key=False,
+            supports_json_schema=True,
+            default_timeout_seconds=int(os.environ.get("OES_GROK_TIMEOUT_SECONDS", "300")),
+            factory=VertexOpenModelProvider.from_grok_env,
+            configured=_grok_configured,
+        ),
+        ProviderSpec(
             provider_id="llama-agent-platform",
             display_name="Llama on Vertex MaaS",
             aliases=("llama", "meta-llama", "vertex-llama", "llama-agent-platform"),
@@ -331,6 +355,14 @@ def _qwen_configured() -> bool:
 
 def _glm_configured() -> bool:
     return bool(os.environ.get("OES_GLM_PROJECT") or _vertex_project_present())
+
+
+def _gemma_configured() -> bool:
+    return bool(os.environ.get("OES_GEMMA_PROJECT") or _vertex_project_present())
+
+
+def _grok_configured() -> bool:
+    return bool(os.environ.get("OES_GROK_PROJECT") or _vertex_project_present())
 
 
 def _llama_configured() -> bool:

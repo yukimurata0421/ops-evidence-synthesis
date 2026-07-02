@@ -414,8 +414,8 @@ def build_payload(
         "devops_loop": _devops_loop(
             model_items=model_items,
             model_occurrences=model_occurrences,
-            provider_count=provider_count,
-            valid_provider_count=valid_provider_count,
+            provider_statuses=provider_statuses,
+            valid_provider_statuses=valid_provider_statuses,
         ),
     }
     payload["agent_trace"] = build_adk_tool_contract_trace(payload)
@@ -1743,7 +1743,7 @@ def _agent_trace(
             "title": "Run real Vertex providers",
             "status": "completed",
             "artifact": "model_runs",
-            "summary": f"{valid_provider_count}/{provider_count} provider outputs were schema-valid; Qwen and GLM were included.",
+            "summary": f"{valid_provider_count}/{provider_count} provider outputs were schema-valid; provider identities are recorded with hashes.",
         },
         {
             "step": "arbitrate",
@@ -1766,18 +1766,25 @@ def _devops_loop(
     *,
     model_items: int,
     model_occurrences: int,
-    provider_count: int,
-    valid_provider_count: int,
+    provider_statuses: list[dict[str, Any]],
+    valid_provider_statuses: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    provider_count = len(provider_statuses)
+    valid_provider_count = len(valid_provider_statuses)
     provider_value = (
         "5 providers"
         if provider_count == 5 and valid_provider_count == 5
         else f"{valid_provider_count}/{provider_count} valid"
     )
+    provider_names = _provider_sentence(valid_provider_statuses)
     provider_detail = (
-        "Gemini, GPT OSS, Mistral, Qwen, and GLM were executed through Vertex-backed endpoints."
-        if provider_count == 5 and valid_provider_count == 5
-        else "Requested providers are recorded with status, schema validation, hashes, and retry metadata; only schema-valid outputs contribute review support."
+        f"{provider_names} were executed through Vertex-backed endpoints; provider diversity is recorded by model path, not by automatic truth voting."
+        if provider_count > 1 and valid_provider_count == provider_count and provider_names
+        else (
+            f"{provider_names} was executed through a Vertex-backed endpoint; provider identity is recorded with hashes."
+            if provider_count == 1 and valid_provider_count == provider_count and provider_names
+            else "Requested providers are recorded with status, schema validation, hashes, and retry metadata; only schema-valid outputs contribute review support."
+        )
     )
     return {
         "title": "AI workflow is operated as production software",
@@ -2036,6 +2043,7 @@ def _short_provider_label(provider_id: str) -> str:
         "openai-gpt-oss-on-vertex": "GPT OSS",
         "mistral-agent-platform": "Mistral",
         "qwen-agent-platform": "Qwen",
+        "gemma-agent-platform": "Gemma 4",
         "glm-agent-platform": "GLM",
     }
     return mapping.get(str(provider_id), str(provider_id))
@@ -2047,7 +2055,8 @@ def _provider_label_rank(provider_id: str) -> int:
         "openai-gpt-oss-on-vertex": 1,
         "mistral-agent-platform": 2,
         "qwen-agent-platform": 3,
-        "glm-agent-platform": 4,
+        "gemma-agent-platform": 4,
+        "glm-agent-platform": 5,
     }
     return order.get(provider_id, 100)
 

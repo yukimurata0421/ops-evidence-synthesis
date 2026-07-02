@@ -22,6 +22,10 @@ DEFAULT_QWEN_MODEL = "qwen/qwen3-coder-480b-a35b-instruct-maas"
 DEFAULT_QWEN_LOCATION = "global"
 DEFAULT_GLM_MODEL = "zai-org/glm-5-maas"
 DEFAULT_GLM_LOCATION = "global"
+DEFAULT_GEMMA_MODEL = "gemma-4-26b-a4b-it-maas"
+DEFAULT_GEMMA_LOCATION = "global"
+DEFAULT_GROK_MODEL = "grok-4.20-reasoning"
+DEFAULT_GROK_LOCATION = "global"
 DEFAULT_LLAMA_MODEL = "llama-4-maverick-17b-128e-instruct-maas"
 DEFAULT_LLAMA_LOCATION = "us-east5"
 DEFAULT_VERTEX_API_VERSION = "v1"
@@ -254,6 +258,23 @@ class VertexOpenModelProvider:
         )
 
     @classmethod
+    def from_gemma_env(cls) -> "VertexOpenModelProvider":
+        return cls(
+            provider="gemma-agent-platform",
+            model_name=os.environ.get("OES_GEMMA_MODEL", DEFAULT_GEMMA_MODEL),
+            default_publisher="google",
+            project_id=_open_model_project("GEMMA"),
+            location=os.environ.get("OES_GEMMA_LOCATION", DEFAULT_GEMMA_LOCATION),
+            temperature=float(os.environ.get("OES_GEMMA_TEMPERATURE", "0")),
+            max_output_tokens=int(os.environ.get("OES_GEMMA_MAX_OUTPUT_TOKENS", "8192")),
+            timeout_seconds=int(os.environ.get("OES_GEMMA_TIMEOUT_SECONDS", "240")),
+            max_evidence_items=int(os.environ.get("OES_GEMMA_MAX_EVIDENCE_ITEMS", "140")),
+            max_logs=int(os.environ.get("OES_GEMMA_MAX_LOGS", "0")),
+            max_normalized_events=int(os.environ.get("OES_GEMMA_MAX_NORMALIZED_EVENTS", "0")),
+            max_text_chars=int(os.environ.get("OES_GEMMA_MAX_TEXT_CHARS", "480")),
+        )
+
+    @classmethod
     def from_llama_env(cls) -> "VertexOpenModelProvider":
         return cls(
             provider="llama-agent-platform",
@@ -268,6 +289,23 @@ class VertexOpenModelProvider:
             max_logs=int(os.environ.get("OES_LLAMA_MAX_LOGS", "0")),
             max_normalized_events=int(os.environ.get("OES_LLAMA_MAX_NORMALIZED_EVENTS", "0")),
             max_text_chars=int(os.environ.get("OES_LLAMA_MAX_TEXT_CHARS", "480")),
+        )
+
+    @classmethod
+    def from_grok_env(cls) -> "VertexOpenModelProvider":
+        return cls(
+            provider="grok-agent-platform",
+            model_name=os.environ.get("OES_GROK_MODEL", DEFAULT_GROK_MODEL),
+            default_publisher="xai",
+            project_id=_open_model_project("GROK"),
+            location=os.environ.get("OES_GROK_LOCATION", DEFAULT_GROK_LOCATION),
+            temperature=float(os.environ.get("OES_GROK_TEMPERATURE", "0")),
+            max_output_tokens=int(os.environ.get("OES_GROK_MAX_OUTPUT_TOKENS", "8192")),
+            timeout_seconds=int(os.environ.get("OES_GROK_TIMEOUT_SECONDS", "300")),
+            max_evidence_items=int(os.environ.get("OES_GROK_MAX_EVIDENCE_ITEMS", "140")),
+            max_logs=int(os.environ.get("OES_GROK_MAX_LOGS", "0")),
+            max_normalized_events=int(os.environ.get("OES_GROK_MAX_NORMALIZED_EVENTS", "0")),
+            max_text_chars=int(os.environ.get("OES_GROK_MAX_TEXT_CHARS", "480")),
         )
 
     def run(self, bundle: dict[str, Any]) -> ModelResponse:
@@ -322,6 +360,8 @@ class VertexOpenModelProvider:
     def _request_model_name(self) -> str:
         model = self.model_name.strip()
         if "/" in model:
+            return model
+        if not self.default_publisher:
             return model
         return f"{self.default_publisher}/{model}"
 

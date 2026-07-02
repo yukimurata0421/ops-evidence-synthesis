@@ -36,13 +36,13 @@ row-level sanitized corpora are not committed.
 | Artifact | Dell runtime | arena-server monitoring |
 | --- | --- | --- |
 | Evidence SHA256 | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` |
-| API revision | `real-api-stream-v3-dell-45k-5p-20260701T122915Z` | `real-api-stream-v3-arena-50k-5p-20260701T125019Z` |
-| Canonical graph SHA256 | `39882a3aeeb9805a815164e99b9cd62bc3219d70b454db0c3572b3789e15a034` | `acf5812eb2158dad48abf469570787be624235b51dad62ec30664baf2efe196b` |
-| Input fingerprint SHA256 | `7d5b76bd2af38e20635b26db50d351f82f509ff17698710c2aa78e24b4f98c79` | `4336d93ffe4e8a8229192dee049941fb42606e8abbfe94bcd31abd12810485de` |
+| API revision | `real-api-stream-v3-dell-45k-5p-gemma4-20260702T172300Z` | `real-api-stream-v3-arena-50k-5p-gemma4-20260702T172300Z` |
+| Canonical graph SHA256 | `e5cfc53f9226b8237aa971a57d89075eab8c8748c9a07666abb8abbc0232ac49` | `786505578a25454378ebdda2404a5b62e72982761cab9d338a8e04dd0b84f530` |
+| Input fingerprint SHA256 | `6ab05ec7b1ea6eae7185b4b8a180a719411208331ed749bbab1af5ef54b791ff` | `0109197787c57eb189e2cbb66aa319a33da95e6b9eb1fcae291e4ddc8e2bfd28` |
 | Source context SHA256 | `669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2` | `669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2` |
 | Source analysis SHA256 | `451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5` | `451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5` |
 | Public payload | `data/precomputed_review_summaries/345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6.json` | `data/precomputed_review_summaries/6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3.json` |
-| Payload SHA256 | `6d7ae438a8424cd71ed4fd2848e723c15adb5fa6aee683306cd47987eb34be91` | `787ebbf85c9e63ea208986f0bb83aa3122630c344127aea06a7057809a798ce5` |
+| Payload SHA256 | `4f77e42355955ea44f3991d30069852aa9a5039abe3d2757673b8f8afb761de7` | `a24769749397829eb1dc95255f712c6437e46464ff744dcc9f7fdd590c440ef6` |
 
 ## Analysis Windows
 
@@ -119,12 +119,17 @@ blocked by missing impact or operational outcome evidence.
 
 ## Provider Results
 
+GLM was replaced by Gemma 4 in the current public stream_v3 payloads. The other
+four provider outputs are recorded real API outputs from the accepted stream_v3
+runs, and the Canonical Review Graph was recomputed over the five recorded
+outputs.
+
 ### Dell runtime
 
 | Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens |
 | --- | --- | --- | --- | ---: | ---: | ---: |
 | `gemini-enterprise-agent-platform` | `gemini-3.1-flash-lite` | ok | valid | 356,969 | 2,816,851 | 27,282 |
-| `glm-agent-platform` | `zai-org/glm-5-maas` | ok | valid | 2,047,860 | 2,126,674 | 131,652 |
+| `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 1,407,573 | 2,819,891 | 41,236 |
 | `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 463,430 | 993,715 | 12,543 |
 | `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 951,467 | 2,194,793 | 90,872 |
 | `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 658,227 | 2,211,909 | 54,521 |
@@ -134,7 +139,7 @@ blocked by missing impact or operational outcome evidence.
 | Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens |
 | --- | --- | --- | --- | ---: | ---: | ---: |
 | `gemini-enterprise-agent-platform` | `gemini-3.1-flash-lite` | ok | valid | 200,949 | 1,343,372 | 9,740 |
-| `glm-agent-platform` | `zai-org/glm-5-maas` | ok | valid | 949,143 | 1,010,033 | 65,698 |
+| `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 602,795 | 1,340,528 | 20,707 |
 | `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 50,526 | 73,326 | 1,588 |
 | `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 570,844 | 1,020,898 | 46,571 |
 | `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 332,661 | 1,030,256 | 19,589 |
@@ -143,12 +148,25 @@ Mistral finished both accepted runs. The public payload preserves provider
 hashes so a stale deployment can be detected by comparing the rendered provider
 hashes with this document.
 
+## Measured Refresh Timing
+
+The timing below was measured while refreshing the stream_v3 public payloads
+with Gemma 4 replacing GLM. Provider latency is the sum of chunk latencies
+recorded in the provider output; wall time is the actual command elapsed time
+for the Gemma 4 real API refresh.
+
+| Step | Dell runtime | arena-server monitoring |
+| --- | ---: | ---: |
+| Gemma 4 real API wall time | 380.47s | 166.85s |
+| Canonical merge recompute | 2.736s | 1.796s |
+| Public payload generation | 1.47s | 1.17s |
+
 ## Review Outcome
 
 | Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived | Incident promotion gate |
 | --- | ---: | ---: | ---: | ---: | --- |
-| Dell runtime | 3 | 13 | 2 | 2 | Open; primary candidates remain human-gated |
-| arena-server monitoring | 1 | 8 | 2 | 1 | Open; primary candidate remains human-gated |
+| Dell runtime | 2 | 11 | 2 | 3 | Open; primary candidates remain human-gated |
+| arena-server monitoring | 2 | 7 | 2 | 1 | Open; primary candidates remain human-gated |
 
 Both runs intentionally stop at human review. Provider convergence can create
 review targets and technical support, but it does not automatically authorize a

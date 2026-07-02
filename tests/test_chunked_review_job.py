@@ -29,6 +29,6 @@ def test_job_config_from_env_uses_private_gcs_inputs(monkeypatch) -> None:
 
 
 def test_job_provider_list_defaults_to_five_provider_set() -> None:
-    assert DEFAULT_JOB_PROVIDERS == ("gemini", "gpt-oss", "mistral", "qwen", "glm")
+    assert DEFAULT_JOB_PROVIDERS == ("gemini", "gpt-oss", "mistral", "qwen", "gemma")
     assert _providers_from_env("") == DEFAULT_JOB_PROVIDERS
     assert _providers_from_env(" gemini, qwen ,, glm ") == ("gemini", "qwen", "glm")

@@ -35,36 +35,44 @@ def test_provider_selection_supports_vertex_gemini(monkeypatch) -> None:
     assert providers[0].thinking_level == "medium"
 
 
-def test_provider_selection_supports_qwen_glm_and_llama(monkeypatch) -> None:
+def test_provider_selection_supports_qwen_glm_gemma_grok_and_llama(monkeypatch) -> None:
     monkeypatch.setenv("OES_VERTEX_PROJECT", "ops-evidence-synthesis")
 
-    providers = build_provider_list(["qwen,glm,llama"])
+    providers = build_provider_list(["qwen,glm,gemma,grok,llama"])
 
     assert [provider.provider for provider in providers] == [
         "qwen-agent-platform",
         "glm-agent-platform",
+        "gemma-agent-platform",
+        "grok-agent-platform",
         "llama-agent-platform",
     ]
     assert all(isinstance(provider, VertexOpenModelProvider) for provider in providers)
     assert providers[0].model_name == "qwen/qwen3-coder-480b-a35b-instruct-maas"
     assert providers[1].model_name == "zai-org/glm-5-maas"
-    assert providers[2].model_name == "llama-4-maverick-17b-128e-instruct-maas"
+    assert providers[2].model_name == "gemma-4-26b-a4b-it-maas"
+    assert providers[3].model_name == "grok-4.20-reasoning"
+    assert providers[4].model_name == "llama-4-maverick-17b-128e-instruct-maas"
 
 
-def test_provider_registry_exposes_qwen_glm_and_llama(monkeypatch) -> None:
+def test_provider_registry_exposes_qwen_glm_gemma_grok_and_llama(monkeypatch) -> None:
     monkeypatch.setenv("OES_ENABLE_REAL_AI", "1")
     monkeypatch.setenv("OES_VERTEX_PROJECT", "ops-evidence-synthesis")
 
-    providers = build_multi_ai_providers(["qwen", "glm", "llama"], mode="real_or_skip")
+    providers = build_multi_ai_providers(["qwen", "glm", "gemma", "grok", "llama"], mode="real_or_skip")
     infos = {row["provider_id"]: row for row in provider_infos()}
 
     assert [provider.provider for provider in providers] == [
         "qwen-agent-platform",
         "glm-agent-platform",
+        "gemma-agent-platform",
+        "grok-agent-platform",
         "llama-agent-platform",
     ]
     assert infos["qwen-agent-platform"]["status"] == "configured"
     assert infos["glm-agent-platform"]["status"] == "configured"
+    assert infos["gemma-agent-platform"]["status"] == "configured"
+    assert infos["grok-agent-platform"]["status"] == "configured"
     assert infos["llama-agent-platform"]["status"] == "configured"
 
 
@@ -90,12 +98,18 @@ def test_vertex_open_providers_accept_prompt_budget_env(monkeypatch) -> None:
     monkeypatch.setenv("OES_QWEN_MAX_TEXT_CHARS", "420")
     monkeypatch.setenv("OES_GLM_MAX_EVIDENCE_ITEMS", "112")
     monkeypatch.setenv("OES_GLM_MAX_TEXT_CHARS", "440")
-    monkeypatch.setenv("OES_LLAMA_MAX_EVIDENCE_ITEMS", "120")
-    monkeypatch.setenv("OES_LLAMA_MAX_TEXT_CHARS", "460")
+    monkeypatch.setenv("OES_GEMMA_MAX_EVIDENCE_ITEMS", "116")
+    monkeypatch.setenv("OES_GEMMA_MAX_TEXT_CHARS", "450")
+    monkeypatch.setenv("OES_GROK_MAX_EVIDENCE_ITEMS", "120")
+    monkeypatch.setenv("OES_GROK_MAX_TEXT_CHARS", "460")
+    monkeypatch.setenv("OES_LLAMA_MAX_EVIDENCE_ITEMS", "124")
+    monkeypatch.setenv("OES_LLAMA_MAX_TEXT_CHARS", "470")
 
     gpt_oss = VertexOpenAICompatProvider.from_env()
     qwen = VertexOpenModelProvider.from_qwen_env()
     glm = VertexOpenModelProvider.from_glm_env()
+    gemma = VertexOpenModelProvider.from_gemma_env()
+    grok = VertexOpenModelProvider.from_grok_env()
     llama = VertexOpenModelProvider.from_llama_env()
 
     assert gpt_oss.max_evidence_items == 96
@@ -104,8 +118,12 @@ def test_vertex_open_providers_accept_prompt_budget_env(monkeypatch) -> None:
     assert qwen.max_text_chars == 420
     assert glm.max_evidence_items == 112
     assert glm.max_text_chars == 440
-    assert llama.max_evidence_items == 120
-    assert llama.max_text_chars == 460
+    assert gemma.max_evidence_items == 116
+    assert gemma.max_text_chars == 450
+    assert grok.max_evidence_items == 120
+    assert grok.max_text_chars == 460
+    assert llama.max_evidence_items == 124
+    assert llama.max_text_chars == 470
 
 
 def test_root_cause_prompt_and_schema_are_generic_for_sanitized_inputs() -> None:

@@ -444,14 +444,14 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
 def test_public_real_api_guarded_review_matches_fresh_five_provider_payload() -> None:
     payload = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{PUBLIC_REAL_API_SHA}.json")
 
-    assert payload["summary"]["canonical_graph_sha256"].startswith("657eb44204cd")
+    assert payload["summary"]["canonical_graph_sha256"].startswith("5c525b636985")
     assert payload["summary"]["providers"] == {
         "success": 5,
         "total": 5,
         "pipeline_status": "succeeded",
     }
-    assert payload["summary"]["review"]["primary_targets"] == 0
-    assert payload["summary"]["review"]["validation_targets"] == 12
+    assert payload["summary"]["review"]["primary_targets"] == 2
+    assert payload["summary"]["review"]["validation_targets"] == 9
     assert payload["analysis_context"]["provider_full_corpus_chunk_count"] == 105
     assert payload["analysis_context"]["provider_full_corpus_coverage_ratio"] == 1.0
     assert all(row["status"] == "ok" and row["schema_valid"] for row in payload["provider_statuses"])
@@ -461,7 +461,8 @@ def test_public_real_api_guarded_review_matches_fresh_five_provider_payload() ->
     assert "Five real providers analyzed the 44,944-row amazon-notify corpus" in detail_html
     assert "5 / 5" in detail_html
     assert "Chunk And Merge Full Corpus" in detail_html
-    assert "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm_chunked_full_corpus" in detail_html
+    assert "real_api_vertex_gemini_gpt_oss_mistral_qwen_gemma4_chunked_full_corpus" in detail_html
+    assert "gemma-agent-platform" in detail_html
     assert "rate_limited_fail_closed" not in detail_html
     assert "Mistral did not contribute" not in detail_html
     assert "010838ba" not in detail_html
@@ -476,10 +477,10 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "log_count": 45000,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 2,
+                "auto_archived": 3,
                 "monitor_only": 2,
-                "primary_targets": 3,
-                "validation_targets": 13,
+                "primary_targets": 2,
+                "validation_targets": 11,
             },
             "projection_items": 140,
             "occurrences": 107160,
@@ -497,8 +498,8 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "review": {
                 "auto_archived": 1,
                 "monitor_only": 2,
-                "primary_targets": 1,
-                "validation_targets": 8,
+                "primary_targets": 2,
+                "validation_targets": 7,
             },
             "projection_items": 21,
             "occurrences": 63056,
@@ -581,7 +582,7 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
 
         provider_rows = {row["provider_id"]: row for row in payload["provider_statuses"]}
         assert provider_rows["qwen-agent-platform"]["schema_valid"] is True
-        assert provider_rows["glm-agent-platform"]["schema_valid"] is True
+        assert provider_rows["gemma-agent-platform"]["schema_valid"] is True
         assert provider_rows["mistral-agent-platform"]["schema_valid"] is True
         assert provider_rows["gemini-enterprise-agent-platform"]["schema_valid"] is case["gemini_valid"]
 
@@ -596,7 +597,7 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert "Why this target is in review" in detail_html
         assert "Review target created because provider convergence" in detail_html
         assert "qwen-agent-platform" in detail_html
-        assert "glm-agent-platform" in detail_html
+        assert "gemma-agent-platform" in detail_html
         assert "DB-to-model projection" in detail_html
         assert "Single-prompt projection coverage is occurrence-weighted" in detail_html
         assert "Chunk And Merge Full Corpus" in detail_html

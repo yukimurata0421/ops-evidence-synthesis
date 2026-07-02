@@ -1,8 +1,9 @@
 # Real API Source-Aware Five-Provider Run
 
 This document records the guarded public read-only amazon-notify artifact
-generated from schema-valid Gemini, GPT OSS, Mistral, Qwen, and GLM real API
-outputs. Llama and Claude are excluded because they were not available in this
+generated from schema-valid Gemini, GPT OSS, Mistral, Qwen, and Gemma 4 real
+API outputs. GLM was replaced by Gemma 4 for this public amazon-notify payload.
+Llama and Claude are excluded because they were not available in this
 environment. The public entry page shows the stream_v3 runtime run first because
 that run has active human-gated primary candidates; this amazon-notify run is
 kept as the restraint example where 5/5 provider support still stops at
@@ -20,12 +21,12 @@ validation.
 | Artifact | Value |
 | --- | --- |
 | Evidence SHA256 | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` |
-| Pipeline run | `real-api-5p-no-llama-claude-fresh-mistral-20260701` |
-| API revision | `real-api-5p-no-llama-claude-fresh-mistral-20260701T114127Z` |
-| Canonical graph SHA256 | `657eb44204cdcd616c8d7c4cdf4065b2080150f1ba65b0b6d775c0276994f643` |
-| Input fingerprint SHA256 | `73f4c0957d7864624e331f75ffa651e98a27a5e7c6b65c6103fe0f9f72dc0858` |
+| Pipeline run | `gemma-replaces-glm-combined-20260702T163000Z` |
+| API revision | `real-api-5p-gemma-replaces-glm-20260702T163000Z` |
+| Canonical graph SHA256 | `5c525b6369855440bc40975dcfab0fa90895cda8849ec7cfdc0b9f6a561d105c` |
+| Input fingerprint SHA256 | `5ab1f981a614a4075e148f9c8afd6e0c04cbfb410f3ad1f1b74037d6ffcb1af9` |
 | Public payload | `data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json` |
-| Payload SHA256 | `a34c54049c45a08c266c172f9e9025ee4edb9b03c8d5678769da74bfdce3c2f3` |
+| Payload SHA256 | `8c2b15d4fcb638ff35f9cb5889c1d3cafac1dd9ee613c982b7d5b9d64a6c64a5` |
 
 ## Window Selection
 
@@ -84,7 +85,7 @@ manifests.
 | `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 105 | 5,679,336 | 310,980 |
 | `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 51 | 5,029,427 | 51,204 |
 | `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 86 | 6,138,445 | 144,896 |
-| `glm-agent-platform` | `zai-org/glm-5-maas` | ok | valid | 86 | 5,525,534 | 397,825 |
+| `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 86 | 7,049,837 | 156,218 |
 
 Recorded provider outputs are hashed; deterministic reproduction applies to the
 canonical merge over sorted recorded chunk outputs, not to recreating a live
@@ -94,10 +95,10 @@ model response byte-for-byte.
 
 The canonical review graph produced:
 
-- 0 primary candidates
-- 12 validation targets
+- 2 primary candidates
+- 9 validation targets
 - 2 monitor-only context items
-- 2 auto-archived targets
+- 3 auto-archived targets
 - 5/5 provider detection overlap
 
 Provider convergence is technical support, not proof. Incident and user-impact
@@ -111,15 +112,15 @@ response and the matching 14-day Evidence Bundle:
 
 ```bash
 PYTHONPATH=src python scripts/generate_precomputed_review_from_multi_run.py \
-  --multi-run-json workspace/e2e_real_api_source_sanitize_20260701T003045Z/multi_ai_real_5p_no_llama_claude_combined_fresh_mistral_20260701T114127Z/multi_ai_run.json \
+  --multi-run-json workspace/e2e_real_api_source_sanitize_20260701T003045Z/multi_ai_real_5p_gemma_replaces_glm_combined_20260702T163000Z/multi_ai_run.json \
   --evidence-bundle workspace/e2e_real_api_source_sanitize_20260701T003045Z/evidence_bundle.json \
   --source-context workspace/e2e_real_api_source_sanitize_20260701T003045Z/source_context/source_context_bundle.json \
   --source-analysis workspace/e2e_real_api_source_sanitize_20260701T003045Z/source_analysis/source_analysis_bundle.json \
   --profile-draft workspace/e2e_real_api_source_sanitize_20260701T003045Z/profile_draft.json \
   --approved-profile workspace/e2e_real_api_source_sanitize_20260701T003045Z/approved_profile.json \
   --profile-id amazon_notify_e2e_20260701t003045z_approved \
-  --api-revision real-api-5p-no-llama-claude-fresh-mistral-20260701T114127Z \
-  --provider-mode real_api_vertex_gemini_gpt_oss_mistral_qwen_glm_chunked_full_corpus \
+  --api-revision real-api-5p-gemma-replaces-glm-20260702T163000Z \
+  --provider-mode real_api_vertex_gemini_gpt_oss_mistral_qwen_gemma4_chunked_full_corpus \
   --min-window-hours 24 \
   --output-dir data/precomputed_review_summaries
 ```

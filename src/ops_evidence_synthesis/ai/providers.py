@@ -29,10 +29,14 @@ def build_provider_list(names: Iterable[str] | None) -> list[ModelProvider]:
             providers.append(VertexOpenModelProvider.from_qwen_env())
         elif name in {"glm", "glm-5", "vertex-glm", "glm-agent-platform"}:
             providers.append(VertexOpenModelProvider.from_glm_env())
+        elif name in {"gemma", "gemma4", "gemma-4", "vertex-gemma", "gemma-agent-platform"}:
+            providers.append(VertexOpenModelProvider.from_gemma_env())
+        elif name in {"grok", "vertex-grok", "xai-grok", "grok-agent-platform"}:
+            providers.append(VertexOpenModelProvider.from_grok_env())
         elif name in {"llama", "meta-llama", "vertex-llama", "llama-agent-platform"}:
             providers.append(VertexOpenModelProvider.from_llama_env())
         else:
-            supported = "local, gemini, claude, gpt-oss, mistral, qwen, glm, llama"
+            supported = "local, gemini, claude, gpt-oss, mistral, qwen, glm, gemma, grok, llama"
             raise ValueError(f"unsupported provider '{name}'. Supported providers: {supported}")
     return providers
 

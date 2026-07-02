@@ -1,7 +1,7 @@
 {
-  "api_revision": "real-api-5p-no-llama-claude-fresh-mistral-20260701T114127Z",
+  "api_revision": "real-api-5p-gemma-replaces-glm-20260702T163000Z",
   "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
-  "canonical_graph_sha256": "657eb44204cdcd616c8d7c4cdf4065b2080150f1ba65b0b6d775c0276994f643",
+  "canonical_graph_sha256": "5c525b6369855440bc40975dcfab0fa90895cda8849ec7cfdc0b9f6a561d105c",
   "case_id": "amazon_notify_real_api",
   "evidence_sha256": "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
   "full_corpus_review": {
@@ -17,7 +17,7 @@
     "provider_full_corpus_analyzed_evidence_items": 8519,
     "provider_full_corpus_chunk_count_by_provider": {
       "gemini-enterprise-agent-platform": 86,
-      "glm-agent-platform": 86,
+      "gemma-agent-platform": 86,
       "mistral-agent-platform": 51,
       "openai-gpt-oss-on-vertex": 105,
       "qwen-agent-platform": 86
@@ -27,9 +27,9 @@
     "provider_full_corpus_unassigned_evidence_items": 0,
     "schema_valid_provider_count": 5
   },
-  "input_fingerprint_sha256": "73f4c0957d7864624e331f75ffa651e98a27a5e7c6b65c6103fe0f9f72dc0858",
-  "payload_sha256": "a34c54049c45a08c266c172f9e9025ee4edb9b03c8d5678769da74bfdce3c2f3",
-  "pipeline_run_id": "real-api-5p-no-llama-claude-fresh-mistral-20260701",
+  "input_fingerprint_sha256": "5ab1f981a614a4075e148f9c8afd6e0c04cbfb410f3ad1f1b74037d6ffcb1af9",
+  "payload_sha256": "8c2b15d4fcb638ff35f9cb5889c1d3cafac1dd9ee613c982b7d5b9d64a6c64a5",
+  "pipeline_run_id": "gemma-replaces-glm-combined-20260702T163000Z",
   "precomputed_payload_path": "data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json",
   "profile_gate": {
     "approved": true,
@@ -74,19 +74,22 @@
         "review_units": [
           "downstream_dependency",
           "transport_sender",
-          "background_processing"
+          "service_liveness",
+          "job_configuration",
+          "observability_contract",
+          "service_health"
         ]
       },
       {
         "question": "Which metrics are zero-is-good or zero-is-bad?",
         "reason": "Zero-count metrics can mean healthy idle, disabled routing, or broken processing; linked review targets keep that ambiguity human-gated.",
         "review_units": [
-          "job_configuration",
-          "observability_contract",
           "downstream_dependency",
           "transport_sender",
-          "runtime_recovery",
-          "service_liveness"
+          "service_liveness",
+          "observability_contract",
+          "service_health",
+          "runtime_recovery"
         ]
       },
       {
@@ -95,7 +98,10 @@
         "review_units": [
           "downstream_dependency",
           "transport_sender",
-          "background_processing"
+          "service_liveness",
+          "job_configuration",
+          "observability_contract",
+          "service_health"
         ]
       }
     ],
@@ -158,13 +164,13 @@
         "chunk_status_counts": {
           "ok": 86
         },
-        "display_name": "GLM on Vertex MaaS",
+        "display_name": "Gemma on Gemini Enterprise Agent Platform",
         "failure_reason": "",
-        "input_tokens": 5525534,
-        "latency_ms": 5439487,
-        "model_name": "zai-org/glm-5-maas",
-        "output_tokens": 397825,
-        "parsed_json_sha256": "d0de11368d81ae6cf12f24742a2032722ceee8ee02ced744cf9d580199550088",
+        "input_tokens": 7049837,
+        "latency_ms": 5001049,
+        "model_name": "gemma-4-26b-a4b-it-maas",
+        "output_tokens": 156218,
+        "parsed_json_sha256": "35b83ed70de673a16a99a25ea4a5ce2b8bba11c40e1a38476f960f8cc1ee7334",
         "partial_chunk_result": {
           "failure_count": 0,
           "min_success_ratio": 0.8,
@@ -174,14 +180,14 @@
           "total_chunk_count": 86,
           "usable": true
         },
-        "provider_id": "glm-agent-platform",
-        "raw_output_sha256": "c606eec288d490be8391b9a35e26fcb8237f4722fcefb030fe9274d95a5a8792",
+        "provider_id": "gemma-agent-platform",
+        "raw_output_sha256": "99f025e432359053342ee2c4fa7b7c84990629dae3ab6b02dcd05f2d8c153b88",
         "retry": {
-          "attempts": 89,
+          "attempts": 86,
           "exception_type": "",
           "failure_reason": "",
           "max_attempts": 172,
-          "retried": true,
+          "retried": false,
           "retryable": false
         },
         "schema_errors": [],
@@ -307,20 +313,20 @@
     "profile_id": "amazon_notify_e2e_20260701t003045z_approved",
     "source_analysis_sha256": "ff03ba3c897a183683fc2fa318b1ef44e043bf9d7e1592cbedc433b1634e0657",
     "source_context_sha256": "d5232d61ce08835bd048ddf611880c644d1eaba60e045029fcdb80da82690be4",
-    "updated_at": "",
-    "window_selection_note": "14-day sanitized DB corpus selected from the amazon-notify input; chunk classification was rebuilt from the public-side sanitized DB coverage ledger before real provider API execution. The latest public payload uses five schema-valid real providers: Gemini, GPT OSS, fresh Mistral, Qwen, and GLM; Llama and Claude are excluded."
+    "updated_at": "2026-07-02T16:30:00Z",
+    "window_selection_note": "14-day sanitized DB corpus selected from the amazon-notify input; chunk classification was rebuilt from the public-side sanitized DB coverage ledger before real provider API execution. The latest public payload uses five schema-valid real providers: Gemini, GPT OSS, Mistral, Qwen, and Gemma 4; GLM was replaced by Gemma 4, and Llama and Claude are excluded."
   },
   "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
   "review_summary": {
-    "auto_archived": 2,
+    "auto_archived": 3,
     "incident_baseline": "established",
     "incident_gate_signal": "signal_present",
     "monitor_only": 2,
-    "primary_targets": 0,
+    "primary_targets": 2,
     "provider_detection_overlap": "5/5",
     "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
     "technical_baseline": "established",
-    "validation_targets": 12
+    "validation_targets": 9
   },
   "sanitized_corpus": {
     "analysis_window_hours": 354.578611,

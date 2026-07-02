@@ -14,7 +14,7 @@ from ops_evidence_synthesis.precomputed_review import stable_precomputed_review_
 from ops_evidence_synthesis.synthesis.multi_ai import run_multi_ai
 
 
-DEFAULT_JOB_PROVIDERS = ("gemini", "gpt-oss", "mistral", "qwen", "glm")
+DEFAULT_JOB_PROVIDERS = ("gemini", "gpt-oss", "mistral", "qwen", "gemma")
 
 
 @dataclass(frozen=True, slots=True)
