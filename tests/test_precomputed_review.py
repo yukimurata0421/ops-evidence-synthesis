@@ -53,6 +53,8 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert STREAM_V3_ARENA_REAL_API_SHA[:12] in html
     assert "Primary Review" in html
     assert "Cross-Domain Scale Validation" in html
+    assert "Scale validation is the curated review set above, not a fourth hidden run." in html
+    assert "No scale validation review is available." not in html
     assert "Archived recorded runs" in html
     assert "Rows" in html
     assert "Chunks" in html
@@ -76,6 +78,8 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "Full Forensic AI Review" in html
     assert "measured review graph generation is about 11 seconds" in html
     assert "Built as the evidence gate before automated action." in html
+    assert "Markdown incident report" in html
+    assert "Review graph" in html
     assert "Multi-AI disagreement requires validation" not in html
     assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
     assert f"/ui/report.md?evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in html

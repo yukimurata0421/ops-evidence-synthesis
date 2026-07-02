@@ -33,8 +33,8 @@ is for a different event.
 - Cloud Run service: `ops-evidence-api`
 - Cloud Run region: `asia-northeast1`
 - Public custom domain: https://ops-evidence.yukimurata0421.dev/
-- Deployed revision: `ops-evidence-api-00179-vv2`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:26bc0130edd630e5a6b0544d349270c8c97fc2c1a7ab1141a421ff640567f2b9`
+- Deployed revision: `ops-evidence-api-00182-z45`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:184a3d7974f7c6609920e2e5f2d5506d6708db7340ac39efa90fea57417e822f`
 - Public smoke after deploy: passed
 - Digest note: this digest is a public demo release attestation, not a private
   execution identifier.
