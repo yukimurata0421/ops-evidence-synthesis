@@ -4365,26 +4365,35 @@ def _render_rescore_demo_page(demo_id: str) -> str:
     control = payload.get("control_plane") if isinstance(payload.get("control_plane"), dict) else {}
     verification = payload.get("verification") if isinstance(payload.get("verification"), dict) else {}
     rows = loop.get("collected_rows") if isinstance(loop.get("collected_rows"), list) else []
-    row_html = "".join(
-        f"""
-        <article class="cell">
-          <label>{_html(str(row.get("timestamp") or ""))}</label>
-          <strong>{_html(str(row.get("message_template") or ""))}</strong>
-          <p>{_html(str(row.get("summary") or ""))}</p>
-        </article>
-        """
-        for row in rows
-        if isinstance(row, dict)
-    )
+    row_html = "".join(_rescore_evidence_row_html(row) for row in rows if isinstance(row, dict))
     providers = control.get("cross_check_providers") if isinstance(control.get("cross_check_providers"), list) else []
     provider_text = ", ".join(str(item) for item in providers if str(item))
     before_reasons = ", ".join(str(item) for item in before.get("blocked_reasons") or []) or "none"
     after_reasons = ", ".join(str(item) for item in after.get("blocked_reasons") or []) or "none"
     before_provider_positions = _rescore_provider_positions_html(before.get("provider_positions"))
     after_provider_positions = _rescore_provider_positions_html(after.get("provider_positions"))
+    before_stance = _rescore_provider_stance_label(before.get("provider_positions"))
+    after_stance = _rescore_provider_stance_label(after.get("provider_positions"))
     source_evidence_sha = str(payload.get("source_evidence_sha256") or "")
     action_links = _public_action_links_html(source_evidence_sha) if source_evidence_sha else ""
     source_trace_html = _rescore_source_trace_html(payload)
+    source_review_url = str(payload.get("source_review_url") or "#")
+    before_score = float(before.get("promotion_score") or 0)
+    after_score = float(after.get("promotion_score") or 0)
+    before_width = max(0, min(100, before_score * 100))
+    after_width = max(0, min(100, after_score * 100))
+    status_transition = str(loop.get("status_transition") or "needs_more_data -> evidence_collected")
+    child_evidence_sha = str(loop.get("child_evidence_sha256") or "")
+    ledger_html = "\n".join(
+        _rescore_ledger_row_html(field, old, new)
+        for field, old, new in [
+            ("State", str(before.get("state") or ""), str(after.get("state") or "")),
+            ("Promotion score", f"{before_score:.2f}", f"{after_score:.2f}"),
+            ("Blocked reasons", before_reasons, after_reasons),
+            ("Provider stance", before_stance, after_stance),
+            ("Decision", "needs_more_data", "evidence_collected"),
+        ]
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -4392,77 +4401,465 @@ def _render_rescore_demo_page(demo_id: str) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>More data rescore demo</title>
   <style>
-    :root {{ --ink: #17202a; --muted: #647184; --line: #d8dee8; --bg: #f7f8fb; --panel: #fff; --accent: #166d6b; --warn: #a15c00; }}
+    :root {{
+      color-scheme: light;
+      --bg: #eef2f7;
+      --surface: #ffffff;
+      --surface-2: #f6f9fd;
+      --line: #d9e1ec;
+      --ink: #0f1b2d;
+      --ink-2: #51617a;
+      --ink-3: #8a97ab;
+      --accent: #2a6fdb;
+      --accent-soft: #e7f0fc;
+      --claimed: #12836b;
+      --claimed-soft: #e1f1ec;
+      --silent: #a2aebf;
+      --amber: #b26a00;
+      --amber-soft: #f8ecd6;
+      --shadow: 0 1px 2px rgba(16, 27, 45, .05), 0 18px 50px -22px rgba(16, 27, 45, .28);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }}
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); letter-spacing: 0; }}
-    header {{ padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }}
-    main {{ max-width: 1120px; margin: 0 auto; padding: 18px 24px 40px; display: grid; gap: 16px; }}
-    h1 {{ margin: 0; font-size: 22px; }}
-    h2 {{ margin: 0; font-size: 20px; }}
-    p {{ margin: 0; color: var(--muted); line-height: 1.45; }}
-    code {{ overflow-wrap: anywhere; }}
-    .panel {{ border: 1px solid var(--line); border-left: 5px solid var(--accent); border-radius: 8px; background: var(--panel); padding: 16px; display: grid; gap: 12px; }}
-    .panel.warn {{ border-left-color: var(--warn); }}
-    .grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }}
-    .cell {{ border: 1px solid var(--line); border-radius: 6px; background: #fbfcfe; padding: 10px; min-width: 0; }}
-    .positions {{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }}
-    .position {{ border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 8px; min-width: 0; }}
-    .actions {{ display: flex; flex-wrap: wrap; gap: 10px; }}
-    label {{ display: block; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }}
-    strong {{ display: block; font-size: 18px; line-height: 1.25; overflow-wrap: anywhere; }}
-    a.button {{ display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--ink); text-decoration: none; font-weight: 700; }}
-    @media (max-width: 760px) {{ main {{ padding: 14px; }} .grid, .positions {{ grid-template-columns: 1fr; }} }}
+    body {{
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }}
+    a {{ color: inherit; text-decoration: none; }}
+    p {{ margin: 0; color: var(--ink-2); line-height: 1.55; }}
+    code {{ font-family: var(--mono); overflow-wrap: anywhere; }}
+    .shell {{ width: min(calc(100% - 48px), 1720px); margin: 0 auto; padding: 0 0 56px; }}
+    .topbar {{
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+    }}
+    .brand {{ display: flex; align-items: center; gap: 12px; min-width: 230px; }}
+    .brand-mark {{
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--accent);
+      color: #fff;
+      font: 800 13px/1 var(--mono);
+    }}
+    .brand-name {{ font-weight: 800; }}
+    .chips {{ display: flex; align-items: center; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }}
+    .chip {{
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: rgba(255,255,255,.74);
+      color: var(--ink-2);
+      font-size: 12px;
+      font-weight: 750;
+    }}
+    .dot {{ width: 7px; height: 7px; border-radius: 50%; background: var(--claimed); }}
+    .hero {{
+      display: grid;
+      grid-template-columns: minmax(620px, 1.05fr) minmax(460px, .85fr);
+      gap: clamp(28px, 4vw, 72px);
+      align-items: center;
+      padding: 44px 0 30px;
+    }}
+    .kicker {{ color: var(--accent); font: 800 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }}
+    h1 {{
+      max-width: 960px;
+      margin: 14px 0 0;
+      font-size: clamp(42px, 3.8vw, 64px);
+      line-height: 1.02;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }}
+    h2 {{ margin: 10px 0 0; font-size: 24px; letter-spacing: 0; overflow-wrap: anywhere; }}
+    h3 {{ margin: 0; font-size: 20px; letter-spacing: 0; line-height: 1.25; overflow-wrap: anywhere; }}
+    .hero p {{ max-width: 820px; margin-top: 16px; font-size: 16px; }}
+    .source-link {{ display: inline-flex; align-items: center; flex-wrap: wrap; max-width: 100%; gap: 8px; margin-top: 20px; color: var(--accent); font-size: 13px; font-weight: 800; overflow-wrap: anywhere; }}
+    .source-trace h2 {{ font-size: clamp(20px, 1.5vw, 24px); }}
+    .control-plane, .target-card, .bundle-card, .ledger-card, .verify-card {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }}
+    .control-plane {{
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+      padding: 18px 22px;
+    }}
+    .control-icon {{
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: var(--accent-soft);
+    }}
+    .control-icon span {{ width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }}
+    .control-plane strong {{ display: block; font-size: 14.5px; }}
+    .control-plane p {{ margin-top: 3px; font-size: 12.5px; }}
+    .console-head {{
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }}
+    .segments {{
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-2);
+    }}
+    .segments button {{
+      border: 0;
+      border-radius: 9px;
+      padding: 8px 16px;
+      background: transparent;
+      color: var(--ink-3);
+      font: 800 12.5px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+    }}
+    .segments button.active {{ background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(16,27,45,.12); }}
+    .rescore-grid {{
+      display: grid;
+      grid-template-columns: minmax(640px, 1.2fr) minmax(380px, .8fr);
+      gap: 20px;
+      margin-top: 22px;
+      align-items: start;
+    }}
+    .hero > *, .rescore-grid > * {{ min-width: 0; }}
+    .target-card {{ padding: 28px; }}
+    .phase-view[hidden] {{ display: none; }}
+    .target-head {{ display: flex; justify-content: space-between; gap: 16px; align-items: start; }}
+    .state-chip {{
+      display: inline-flex;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .02em;
+      background: var(--surface-2);
+      color: var(--ink-2);
+    }}
+    .state-chip.primary {{ background: var(--amber-soft); color: var(--amber); }}
+    .unit {{ margin-left: 8px; color: var(--ink-3); font: 700 11.5px/1 var(--mono); }}
+    .score {{ text-align: right; flex: none; }}
+    .score strong {{ display: block; font-size: 38px; line-height: 1; letter-spacing: 0; }}
+    .score span {{ display: block; margin-top: 4px; color: var(--ink-3); font-size: 10.5px; }}
+    .scorebar {{ height: 12px; border-radius: 6px; background: var(--line); overflow: hidden; margin-top: 20px; }}
+    .scorebar i {{ display: block; height: 100%; border-radius: inherit; background: var(--accent); }}
+    .scorebar i.promoted {{ background: var(--claimed); }}
+    .note {{ margin-top: 7px; color: var(--ink-3); font-size: 11px; }}
+    .provider-block {{ margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }}
+    .provider-head {{ display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }}
+    .provider-head b {{ font-size: 12px; }}
+    .provider-head span {{ color: var(--ink-2); font: 700 12px/1 var(--mono); }}
+    .positions {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }}
+    .position {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+    }}
+    .position .marker {{ width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--silent); }}
+    .position.claimed .marker {{ background: var(--claimed); }}
+    .position b {{ min-width: 0; color: var(--ink); font-size: 12px; overflow-wrap: anywhere; }}
+    .position small {{ margin-left: auto; color: var(--ink-3); font-size: 11px; font-weight: 800; }}
+    .position.claimed small {{ color: var(--claimed); }}
+    .gate-box {{
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      margin-top: 20px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--amber-soft);
+    }}
+    .gate-box.promoted {{ background: var(--claimed-soft); }}
+    .gate-icon {{
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      font-weight: 900;
+    }}
+    .gate-box b {{ color: var(--amber); font-size: 13px; letter-spacing: .02em; }}
+    .gate-box.promoted b {{ color: var(--claimed); }}
+    .gate-box p {{ margin-top: 3px; font-size: 12px; }}
+    .bundle-card {{ padding: 24px; }}
+    .bundle-card.active {{ border-color: var(--claimed); box-shadow: 0 18px 50px -22px rgba(18,131,107,.4); }}
+    .bundle-top {{ display: flex; justify-content: space-between; gap: 12px; align-items: center; }}
+    .mono {{ color: var(--ink-2); font: 700 11.5px/1 var(--mono); overflow-wrap: anywhere; }}
+    .phase-chip {{ border-radius: 999px; padding: 5px 10px; background: var(--amber-soft); color: var(--amber); font-size: 11px; font-weight: 850; }}
+    .bundle-card.active .phase-chip {{ background: var(--claimed-soft); color: var(--claimed); }}
+    .bundle-card h3 {{ margin-top: 14px; font-size: 16px; }}
+    .bundle-card p {{ margin-top: 5px; font-size: 12.5px; }}
+    .evidence-list {{ display: grid; gap: 10px; margin-top: 18px; }}
+    .evidence-row {{
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+    }}
+    .bundle-card.active .evidence-row {{ background: var(--claimed-soft); }}
+    .evidence-row div {{ display: flex; align-items: center; justify-content: space-between; gap: 10px; }}
+    .evidence-row time {{ color: var(--ink-3); font: 700 11px/1 var(--mono); }}
+    .evidence-row span {{ border-radius: 999px; padding: 4px 10px; background: var(--surface); color: var(--claimed); font-size: 11px; font-weight: 800; }}
+    .evidence-row p {{ margin-top: 7px; color: var(--ink); font-size: 12.5px; }}
+    .transition {{ display: flex; gap: 8px; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); font: 800 12px/1 var(--mono); }}
+    .transition span:first-child {{ color: var(--ink-3); }}
+    .transition span:nth-child(2) {{ color: var(--accent); }}
+    .transition span:last-child {{ color: var(--claimed); }}
+    .source-trace {{ margin-top: 18px; }}
+    .trace-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }}
+    .trace-cell {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.72);
+      padding: 12px;
+      min-width: 0;
+    }}
+    .trace-cell label, .ledger-head div {{
+      display: block;
+      color: var(--ink-3);
+      font: 800 10.5px/1 var(--mono);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }}
+    .trace-cell strong {{ display: block; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }}
+    .trace-cell p {{ margin-top: 5px; font-size: 12px; }}
+    .ledger-section {{ padding-top: 46px; }}
+    .ledger-card {{ overflow: hidden; margin-top: 18px; }}
+    .ledger-head, .ledger-row {{ display: grid; grid-template-columns: minmax(180px, .7fr) minmax(0, 1fr) minmax(0, 1fr); }}
+    .ledger-head {{ background: var(--surface-2); }}
+    .ledger-head div, .ledger-row div {{ padding: 14px 20px; border-bottom: 1px solid var(--line); }}
+    .ledger-row:last-child div {{ border-bottom: 0; }}
+    .ledger-row b {{ color: var(--ink); font-size: 13px; }}
+    .ledger-row code {{ color: var(--ink-2); font-size: 12.5px; }}
+    .ledger-row .after code {{ color: var(--claimed); font-weight: 800; }}
+    .verify-card {{
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      margin-top: 32px;
+      padding: 20px 22px;
+      background: var(--surface-2);
+      box-shadow: none;
+    }}
+    .verify-card b {{ display: block; font-size: 13px; }}
+    .verify-card code {{ color: var(--ink-2); font-size: 11.5px; }}
+    .footer {{
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 36px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      color: var(--ink-2);
+      font-size: 12.5px;
+    }}
+    .actions {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+    .actions .button, .footer a {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 8px 10px;
+      color: var(--ink-2);
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    @media (max-width: 1180px) {{
+      .hero, .rescore-grid {{ grid-template-columns: 1fr; }}
+    }}
+    @media (max-width: 900px) {{
+      .shell {{ width: min(calc(100% - 32px), 1720px); }}
+      .topbar {{ align-items: flex-start; flex-direction: column; padding: 16px 0; }}
+      .hero {{ padding-top: 36px; }}
+      .positions, .trace-grid {{ grid-template-columns: 1fr; }}
+      .ledger-card {{ overflow-x: auto; }}
+      .ledger-head, .ledger-row {{ min-width: 720px; }}
+    }}
+    @media (max-width: 520px) {{
+      h1 {{ font-size: 42px; }}
+      .target-head {{ display: grid; }}
+      .score {{ text-align: left; }}
+      .segments {{ width: 100%; }}
+      .segments button {{ flex: 1; padding-inline: 10px; }}
+    }}
   </style>
 </head>
 <body>
-  <header><h1>More data rescore demo</h1></header>
-  <main>
-    <section class="panel">
-      <label>Read-only DevOps loop</label>
-      <h2>{_html(str(payload.get("title") or "More data child bundle changed the promotion decision"))}</h2>
-      <p>Shows the AI improvement cycle judges can inspect without starting model runs from the public URL.</p>
-      <p>Source review: <a href="{_html(str(payload.get("source_review_url") or "#"))}">{_html(str(payload.get("source_evidence_sha256") or ""))}</a></p>
+  <main class="shell">
+    <nav class="topbar" aria-label="Primary">
+      <a class="brand" href="/">
+        <span class="brand-mark">OE</span>
+        <span class="brand-name">Ops Evidence Synthesis</span>
+      </a>
+      <div class="chips">
+        <span class="chip">read_only_precomputed</span>
+        <span class="chip"><span class="dot"></span>raw logs {_html(str(verification.get("raw_log_policy") or "not_uploaded"))}</span>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div>
+        <div class="kicker">Read-only DevOps improvement loop</div>
+        <h1>More data changed the promotion decision.</h1>
+        <p>The AI improvement cycle judges can inspect without starting a single model run. A child Evidence Bundle adds user-impact evidence, and one review target crosses from validation work to a promoted primary candidate. Every step remains auditable.</p>
+        <a class="source-link" href="{_html(source_review_url)}">Source review - {_html(_short_sha(source_evidence_sha))}</a>
+      </div>
       {source_trace_html}
     </section>
-    <section class="panel">
-      <label>Gemini-led control plane</label>
-      <h2>{_html(str(control.get("primary_provider") or "gemini-enterprise-agent-platform"))}</h2>
-      <p>{_html(str(control.get("policy") or ""))}</p>
-      <p>Cross-check providers: {_html(provider_text)}</p>
-    </section>
-    <section class="panel warn">
-      <label>Before child evidence</label>
-      <div class="grid">
-        <article class="cell"><label>State</label><strong>{_html(str(before.get("state") or ""))}</strong><p>{_html(str(before.get("title") or ""))}</p></article>
-        <article class="cell"><label>Promotion score</label><strong>{float(before.get("promotion_score") or 0):.2f}</strong><p>Priority is not truth probability.</p></article>
-        <article class="cell"><label>Blocked reasons</label><strong>{_html(before_reasons)}</strong><p>Missing user-impact evidence blocks promotion.</p></article>
+
+    <section class="control-plane">
+      <div class="control-icon"><span></span></div>
+      <div>
+        <strong>Gemini-led control plane - {_html(str(control.get("primary_provider") or "gemini-enterprise-agent-platform"))}</strong>
+        <p>{_html(str(control.get("policy") or ""))} Cross-checks: {_html(provider_text)}.</p>
       </div>
-      <label>Provider positions</label>
-      <div class="positions">{before_provider_positions}</div>
     </section>
-    <section class="panel">
-      <label>More data refresh</label>
-      <h2>{_html(str(loop.get("status_transition") or "needs_more_data -> evidence_collected"))}</h2>
-      <p>Child Evidence Bundle <code>{_html(str(loop.get("child_evidence_sha256") or ""))}</code> added {int(loop.get("added_evidence_ref_count") or 0)} evidence refs and {int(loop.get("added_log_count") or 0)} log rows.</p>
-      <div class="grid">{row_html}</div>
-    </section>
-    <section class="panel">
-      <label>After re-score</label>
-      <div class="grid">
-        <article class="cell"><label>State</label><strong>{_html(str(after.get("state") or ""))}</strong><p>{_html(str(after.get("title") or ""))}</p></article>
-        <article class="cell"><label>Promotion score</label><strong>{float(after.get("promotion_score") or 0):.2f}</strong><p>Review priority increased after child evidence.</p></article>
-        <article class="cell"><label>Blocked reasons</label><strong>{_html(after_reasons)}</strong><p>Primary promotion gate is now closed.</p></article>
+
+    <section>
+      <div class="console-head">
+        <div>
+          <div class="kicker">Rescore console - interactive</div>
+          <h2>Toggle the child evidence bundle.</h2>
+        </div>
+        <div class="segments" role="tablist" aria-label="Rescore phase">
+          <button type="button" class="active" data-phase-button="before">Before more data</button>
+          <button type="button" data-phase-button="after">After more data</button>
+        </div>
       </div>
-      <label>Provider positions</label>
-      <div class="positions">{after_provider_positions}</div>
+
+      <div class="rescore-grid">
+        <article class="target-card">
+          <div class="phase-view" data-phase-view="before">
+            <div class="target-head">
+              <div>
+                <span class="state-chip">{_html(str(before.get("state") or ""))}</span>
+                <span class="unit">notifier_restart_loop</span>
+                <h3>{_html(str(before.get("title") or ""))}</h3>
+              </div>
+              <div class="score"><strong>{before_score:.2f}</strong><span>promotion score</span></div>
+            </div>
+            <div class="scorebar"><i style="width: {before_width:.0f}%"></i></div>
+            <div class="note">Priority is review urgency, not truth probability.</div>
+            <div class="provider-block">
+              <div class="provider-head"><b>Provider positions</b><span>{_html(before_stance)}</span></div>
+              <div class="positions">{before_provider_positions}</div>
+            </div>
+            <div class="gate-box">
+              <div class="gate-icon">HG</div>
+              <div><b>HUMAN-GATED - promotion blocked</b><p>Blocked reasons: {_html(before_reasons)}. Missing user-impact evidence blocks promotion.</p></div>
+            </div>
+          </div>
+
+          <div class="phase-view" data-phase-view="after" hidden>
+            <div class="target-head">
+              <div>
+                <span class="state-chip primary">{_html(str(after.get("state") or ""))}</span>
+                <span class="unit">notifier_restart_loop</span>
+                <h3>{_html(str(after.get("title") or ""))}</h3>
+              </div>
+              <div class="score"><strong>{after_score:.2f}</strong><span>promotion score</span></div>
+            </div>
+            <div class="scorebar"><i class="promoted" style="width: {after_width:.0f}%"></i></div>
+            <div class="note">Review priority increased after child evidence. Score is still review urgency, not truth probability.</div>
+            <div class="provider-block">
+              <div class="provider-head"><b>Provider positions</b><span>{_html(after_stance)}</span></div>
+              <div class="positions">{after_provider_positions}</div>
+            </div>
+            <div class="gate-box promoted">
+              <div class="gate-icon">OK</div>
+              <div><b>GATE CLOSED - promoted to primary</b><p>Blocked reasons: {_html(after_reasons)}. The primary promotion gate is now closed.</p></div>
+            </div>
+          </div>
+        </article>
+
+        <aside class="bundle-card" data-bundle-card>
+          <div class="bundle-top">
+            <span class="mono">{_html(child_evidence_sha or "public-demo-child-user-impact")}</span>
+            <span class="phase-chip" data-phase-chip>needs_more_data</span>
+          </div>
+          <h3>Child Evidence Bundle</h3>
+          <p>Adds <b>{int(loop.get("added_evidence_ref_count") or 0)} evidence refs</b> and <b>{int(loop.get("added_log_count") or 0)} log rows</b> tying the restart loop to user-visible impact.</p>
+          <div class="evidence-list">{row_html}</div>
+          <div class="transition" aria-label="{_html(status_transition)}"><span>needs_more_data</span><span>-&gt;</span><span>evidence_collected</span></div>
+        </aside>
+      </div>
     </section>
-    <section class="panel">
-      <label>Verification</label>
-      <p>Covered by <code>{_html(str(verification.get("local_test") or ""))}</code>. Public mode: <code>{_html(str(verification.get("public_mode") or ""))}</code>. Raw logs: <code>{_html(str(verification.get("raw_log_policy") or ""))}</code>.</p>
-      <p><a class="button" href="/">Back to public index</a></p>
-      <div class="actions">{action_links}</div>
+
+    <section class="ledger-section">
+      <div class="kicker">State transition ledger</div>
+      <h2>Auditable before -> after diff.</h2>
+      <div class="ledger-card">
+        <div class="ledger-head"><div>Field</div><div>Before</div><div>After</div></div>
+        {ledger_html}
+      </div>
     </section>
+
+    <section class="verify-card">
+      <div class="gate-icon">OK</div>
+      <div>
+        <b>Covered by an automated test - not a live write path</b>
+        <p><code>{_html(str(verification.get("local_test") or ""))}</code></p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Ops Evidence Synthesis - read-only Cloud Run delivery</span>
+      <div class="actions">
+        <a class="button" href="/">Summary</a>
+        {action_links}
+      </div>
+    </footer>
   </main>
+  <script>
+    (() => {{
+      const buttons = [...document.querySelectorAll("[data-phase-button]")];
+      const views = [...document.querySelectorAll("[data-phase-view]")];
+      const bundle = document.querySelector("[data-bundle-card]");
+      const chip = document.querySelector("[data-phase-chip]");
+      const setPhase = (phase) => {{
+        buttons.forEach((button) => button.classList.toggle("active", button.dataset.phaseButton === phase));
+        views.forEach((view) => {{ view.hidden = view.dataset.phaseView !== phase; }});
+        if (bundle) bundle.classList.toggle("active", phase === "after");
+        if (chip) chip.textContent = phase === "after" ? "evidence_collected" : "needs_more_data";
+      }};
+      buttons.forEach((button) => button.addEventListener("click", () => setPhase(button.dataset.phaseButton || "before")));
+      setPhase("before");
+    }})();
+  </script>
 </body>
 </html>"""
 
@@ -4482,20 +4879,66 @@ def _rescore_source_trace_html(payload: dict[str, Any]) -> str:
         except (TypeError, ValueError):
             score_text = str(score or "")
         identity_html = f"""
-        <div class="grid">
-          <article class="cell"><label>Before target</label><strong>{_html(str(identity.get("title") or ""))}</strong><p>{_html(str(identity.get("state") or ""))}</p></article>
-          <article class="cell"><label>Stored score</label><strong>{_html(score_text)}</strong><p>{_html(blocked_reasons)}</p></article>
-          <article class="cell"><label>Stored stance</label><strong>{_html(str(identity.get("provider_stance") or ""))}</strong><p>Fixture-level trace, not a live write path.</p></article>
+        <div class="trace-grid">
+          <article class="trace-cell"><label>Before target</label><strong>{_html(str(identity.get("title") or ""))}</strong><p>{_html(str(identity.get("state") or ""))}</p></article>
+          <article class="trace-cell"><label>Stored score</label><strong>{_html(score_text)}</strong><p>{_html(blocked_reasons)}</p></article>
+          <article class="trace-cell"><label>Stored stance</label><strong>{_html(str(identity.get("provider_stance") or ""))}</strong><p>Fixture-level trace, not a live write path.</p></article>
         </div>
         """
     return f"""
-      <div class="cell">
-        <label>Source trace</label>
-        <strong>{_html(str(trace.get("status") or "recorded"))}</strong>
+      <aside class="source-trace">
+        <div class="kicker">Source trace</div>
+        <h2>{_html(str(trace.get("status") or "recorded"))}</h2>
         <p>Before target present in current source review: {_html(contained)}. {_html(str(trace.get("note") or ""))}</p>
-      </div>
-      {identity_html}
+        {identity_html}
+      </aside>
     """
+
+
+def _rescore_evidence_row_html(row: dict[str, Any]) -> str:
+    return f"""
+      <article class="evidence-row">
+        <div>
+          <time>{_html(str(row.get("timestamp") or ""))}</time>
+          <span>{_html(str(row.get("message_template") or "notification_not_delivered"))}</span>
+        </div>
+        <p>{_html(str(row.get("summary") or ""))}</p>
+      </article>
+    """
+
+
+def _rescore_ledger_row_html(field: str, before: str, after: str) -> str:
+    return f"""
+      <div class="ledger-row">
+        <div><b>{_html(field)}</b></div>
+        <div><code>{_html(before)}</code></div>
+        <div class="after"><code>{_html(after)}</code></div>
+      </div>
+    """
+
+
+def _rescore_provider_stance_label(positions: object) -> str:
+    rows = [row for row in positions if isinstance(row, dict)] if isinstance(positions, list) else []
+    claimed = sum(1 for row in rows if str(row.get("stance") or "").casefold() == "claimed")
+    silent = sum(1 for row in rows if str(row.get("stance") or "").casefold() == "silent")
+    if not rows:
+        return "not recorded"
+    return f"{claimed} claimed - {silent} silent"
+
+
+def _rescore_provider_short_name(provider_id: str) -> str:
+    provider = provider_id.casefold()
+    if "gemini" in provider:
+        return "Gemini"
+    if "gpt-oss" in provider or "openai" in provider:
+        return "GPT-OSS"
+    if "mistral" in provider:
+        return "Mistral"
+    if "qwen" in provider:
+        return "Qwen"
+    if "glm" in provider:
+        return "GLM"
+    return provider_id[:18] if provider_id else "provider"
 
 
 def _rescore_provider_positions_html(positions: object) -> str:
@@ -4506,14 +4949,16 @@ def _rescore_provider_positions_html(positions: object) -> str:
             continue
         provider_id = str(row.get("provider_id") or "")
         stance = str(row.get("stance") or "")
+        stance_class = "claimed" if stance.casefold() == "claimed" else "silent"
         cells.append(
-            "<article class='position'>"
-            f"<label>{_html(provider_id)}</label>"
-            f"<strong>{_html(stance)}</strong>"
+            f"<article class='position {stance_class}' title='{_html(provider_id)}'>"
+            "<span class='marker'></span>"
+            f"<b>{_html(_rescore_provider_short_name(provider_id))}</b>"
+            f"<small>{_html(stance)}</small>"
             "</article>"
         )
     if not cells:
-        return "<article class='position'><strong>not recorded</strong></article>"
+        return "<article class='position'><b>not recorded</b></article>"
     return "\n".join(cells)
 
 
