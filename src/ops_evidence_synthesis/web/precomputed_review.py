@@ -1859,6 +1859,199 @@ def _target_class_label(target: dict[str, Any]) -> str:
     return _display_policy(str(target.get("class") or target.get("target_class") or "review_target"))
 
 
+def _target_unit_label(target: dict[str, Any]) -> str:
+    return str(
+        target.get("canonical_review_unit")
+        or target.get("subsystem")
+        or target.get("component")
+        or target.get("title")
+        or "review_target"
+    )
+
+
+def _workspace_provider_counts(target: dict[str, Any]) -> tuple[int, int, int]:
+    counts = _provider_position_counts(target)
+    claimed = counts.get("claimed", 0)
+    silent = counts.get("silent", 0)
+    total = sum(counts.values()) or int(target.get("provider_count") or 0)
+    return claimed, silent, total
+
+
+def _workspace_provider_label(provider_id: str) -> str:
+    normalized = provider_id.lower()
+    if "gemini" in normalized:
+        return "Gemini"
+    if "gpt" in normalized or "openai" in normalized:
+        return "GPT-OSS"
+    if "mistral" in normalized:
+        return "Mistral"
+    if "qwen" in normalized:
+        return "Qwen"
+    if "glm" in normalized:
+        return "GLM"
+    return provider_id or "Provider"
+
+
+def _workspace_provider_subtitle(provider_id: str) -> str:
+    normalized = provider_id.lower()
+    if "gemini" in normalized:
+        return "reference / arbiter"
+    if "vertex" in normalized:
+        return "on Vertex"
+    if "agent" in normalized:
+        return "agent-platform"
+    return "provider output"
+
+
+def _workspace_queue_item_html(target: dict[str, Any], *, index: int) -> str:
+    target_id = _target_anchor_id(target, index=index)
+    unit = _target_unit_label(target)
+    score = _target_score_value(target)
+    claimed, _silent, total = _workspace_provider_counts(target)
+    total = max(total, 1)
+    width = (claimed / total) * 100
+    active = " active" if index == 1 else ""
+    return f"""
+        <button class="workspace-queue-item{active}" type="button" data-target-id="{_html(target_id)}" data-target-group="{_html(_target_group_key(target))}">
+          <span class="queue-title-row">
+            <strong>{_html(unit)}</strong>
+            <b>{score:.2f}</b>
+          </span>
+          <span class="queue-meta-row">
+            <span class="pill">{_html(_target_class_label(target))}</span>
+            <span>{claimed}/{total} claimed</span>
+          </span>
+          <span class="workspace-progress" aria-hidden="true">
+            <span style="width:{width:.1f}%"></span>
+          </span>
+        </button>
+    """
+
+
+def _workspace_provider_cards_html(target: dict[str, Any]) -> str:
+    positions = [row for row in target.get("provider_positions") or [] if isinstance(row, dict)]
+    if not positions:
+        return "<p>Provider positions were not projected for this persisted target.</p>"
+    rows = []
+    for row in positions:
+        provider_id = str(row.get("provider_id") or "provider")
+        stance = str(row.get("stance") or "silent")
+        rows.append(
+            f"""
+          <article class="workspace-provider-card { _html(stance) }">
+            <span class="provider-dot"></span>
+            <div>
+              <strong>{_html(_workspace_provider_label(provider_id))}</strong>
+              <small>{_html(_workspace_provider_subtitle(provider_id))}</small>
+            </div>
+            <b>{_html(stance)}</b>
+          </article>
+        """
+        )
+    return f'<div class="workspace-provider-grid">{"".join(rows)}</div>'
+
+
+def _workspace_chip_list(items: list[str], *, limit: int = 6, empty: str = "none") -> str:
+    values = [str(item) for item in items if str(item).strip()]
+    if not values:
+        return f"<p>{_html(empty)}</p>"
+    chips = "".join(f'<span class="workspace-chip">{_html(item)}</span>' for item in values[:limit])
+    if len(values) > limit:
+        chips += f'<span class="workspace-chip muted">+ {len(values) - limit} more</span>'
+    return f'<div class="workspace-chip-list">{chips}</div>'
+
+
+def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
+    unit = _target_unit_label(target)
+    score = _target_score_value(target)
+    target_class = _target_class_label(target)
+    claimed, silent, total = _workspace_provider_counts(target)
+    total = max(total, 1)
+    agreement = target.get("agreement") if isinstance(target.get("agreement"), dict) else {}
+    convergence_score = _target_score_value({"review_priority_score": agreement.get("convergence_score")})
+    explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
+    suspected_issue = str(target.get("suspected_issue") or explanation.get("suspected_issue") or target.get("claim") or unit)
+    operational_mechanism = str(
+        target.get("operational_mechanism")
+        or explanation.get("operational_mechanism")
+        or "Operational mechanism was not supplied by the provider output."
+    )
+    why_it_matters = str(
+        target.get("why_it_matters")
+        or explanation.get("why_it_matters")
+        or "Outcome impact is not proven by this target alone."
+    )
+    evidence_refs = [str(item) for item in target.get("evidence_refs") or [] if str(item).strip()]
+    counter_items = _string_items(target.get("counter_evidence_summary") or explanation.get("counter_evidence_summary"))
+    caveats = [str(item) for item in target.get("caveats") or [] if str(item).strip()]
+    missing = [str(item) for item in target.get("missing_evidence") or [] if str(item).strip()]
+    promotion = target.get("promotion") if isinstance(target.get("promotion"), dict) else {}
+    blocked_reason = str(promotion.get("blocked_reason") or "human_review_required")
+    why_not_promoted = str(
+        target.get("why_not_promoted")
+        or explanation.get("why_not_promoted")
+        or promotion.get("explanation")
+        or "Human review is required before incident promotion."
+    )
+    next_check = str(
+        target.get("next_validation_question")
+        or explanation.get("next_validation_question")
+        or target.get("recommended_request_type")
+        or "Review cited evidence and missing signals."
+    )
+    provider_cards = _workspace_provider_cards_html(target)
+    counter_html = _workspace_chip_list(counter_items or caveats, limit=4, empty="No counter or caveat signal was persisted.")
+    missing_html = _workspace_chip_list(missing, limit=4, empty="No missing evidence was persisted.")
+    refs_html = _workspace_chip_list(evidence_refs, limit=8, empty="No cited evidence refs were persisted.")
+    return f"""
+      <div class="workspace-detail-inner" id="{_html(_target_anchor_id(target, index=index))}">
+        <span class="workspace-sr">What this target means operationally. Provider positions. Promotion gate.</span>
+        <div class="workspace-detail-head">
+          <div>
+            <div class="workspace-tag-row">
+              <span class="pill">{_html(target_class)}</span>
+              <span class="pill">subsystem {_html(unit)}</span>
+            </div>
+            <h3>{_html(unit)}</h3>
+          </div>
+          <div class="workspace-score">{score:.2f}<span>review priority</span></div>
+        </div>
+        <div class="workspace-convergence">
+          <span>Provider convergence / {_html(str(agreement.get("verdict") or "pending").replace("_", " "))}</span>
+          <b>{claimed} claimed / {silent} silent / {convergence_score:.2f}</b>
+          {_stance_bar_html(target)}
+        </div>
+        {provider_cards}
+        <div class="workspace-three">
+          <div><label>Suspected issue</label><p>{_html(suspected_issue)}</p></div>
+          <div><label>Operational mechanism</label><p>{_html(operational_mechanism)}</p></div>
+          <div><label>Why it matters</label><p>{_html(why_it_matters)}</p></div>
+        </div>
+        <div class="workspace-evidence-row">
+          <div><label>Cited evidence</label>{refs_html}</div>
+          <div><label>Counter / weak signals</label>{counter_html}</div>
+        </div>
+        <div class="workspace-gate">
+          <span class="gate-mark">HG</span>
+          <div>
+            <label>Promotion gate</label>
+            <strong>HUMAN-GATED - not promoted</strong>
+            <p>{_html(why_not_promoted)}</p>
+            <span class="workspace-chip">{_html(blocked_reason)}</span>
+          </div>
+        </div>
+        <div class="workspace-next-check">
+          <b>next check -></b>
+          <span>{_html(next_check)}</span>
+        </div>
+        <div>
+          <label>Top missing evidence</label>
+          {missing_html}
+        </div>
+      </div>
+    """
+
+
 def _detail_review_workbench(targets: list[dict[str, Any]], target_cards: str) -> str:
     if not targets:
         return """
@@ -1876,44 +2069,84 @@ def _detail_review_workbench(targets: list[dict[str, Any]], target_cards: str) -
         "single": sum(1 for target in targets if _target_group_key(target) == "single"),
     }
     filters = "".join(
-        f'<span class="filter-chip">{_html(label)} <strong>{count}</strong></span>'
-        for label, count in (
-            ("All", counts["all"]),
-            ("Primary", counts["primary"]),
-            ("Convergence", counts["convergence"]),
-            ("Single-source", counts["single"]),
+        f'<button class="filter-chip{active}" type="button" data-target-filter="{_html(key)}">{_html(label)} <strong>{count}</strong></button>'
+        for key, label, count, active in (
+            ("all", "All", counts["all"], " active"),
+            ("primary", "Primary", counts["primary"], ""),
+            ("convergence", "Convergence", counts["convergence"], ""),
+            ("single", "Single-source", counts["single"], ""),
         )
     )
-    preview_limit = 6
-    preview_rows = "".join(
-        _target_preview_card_html(target, index=index + 1)
-        for index, target in enumerate(targets[:preview_limit])
+    queue_rows = "".join(
+        _workspace_queue_item_html(target, index=index + 1)
+        for index, target in enumerate(targets)
     )
-    remaining = max(0, len(targets) - preview_limit)
-    remaining_text = (
-        f"{remaining} additional target(s) are retained below and in the API / review graph views."
-        if remaining
-        else "All persisted targets are shown in this review preview."
+    first_detail = _workspace_target_detail_html(targets[0], index=1)
+    templates = "".join(
+        f'<template data-target-template="{_html(_target_anchor_id(target, index=index + 1))}">'
+        f'{_workspace_target_detail_html(target, index=index + 1)}</template>'
+        for index, target in enumerate(targets)
     )
     return f"""
     <section class="section-block review-section" id="review-targets">
       <div class="section-heading">
-        <span class="eyebrow">Review targets</span>
-        <h2>Target queue preview stays human-gated.</h2>
-        <p>Primary candidates, converged targets, and single-source hypotheses are summarized here without turning provider agreement into an accepted incident cause.</p>
+        <span class="eyebrow">Review workspace / {len(targets)} targets</span>
+        <h2>Every target carries its own evidence and gate.</h2>
+        <p>Filter the priority queue, then open a target. Silent providers, counter-signals, and the blocking reason travel with the card - the next evidence question is always explicit.</p>
       </div>
       <div class="filter-row">{filters}</div>
-      <div class="target-preview-grid">{preview_rows}</div>
-      <p class="section-note">{_html(remaining_text)}</p>
+      <div class="review-workspace" data-review-workspace>
+        <aside class="workspace-queue" aria-label="Review target priority queue">
+          <div class="workspace-queue-list">
+            {queue_rows}
+          </div>
+        </aside>
+        <article class="workspace-detail" data-workspace-detail>
+          {first_detail}
+        </article>
+        <div class="workspace-templates" aria-hidden="true">{templates}</div>
+      </div>
       <details class="detail-drawer">
         <summary>
-          <span>Open full target details</span>
-          <small>{len(targets)} persisted target(s), provider positions, evidence refs, and promotion gates</small>
+          <span>Open expanded target cards</span>
+          <small>Full persisted provider positions, evidence refs, promotion gates, and review explanations</small>
         </summary>
         <div class="target-detail-list">
           {target_cards}
         </div>
       </details>
+      <script>
+      (() => {{
+        const workspace = document.querySelector('[data-review-workspace]');
+        if (!workspace) return;
+        const detail = workspace.querySelector('[data-workspace-detail]');
+        const buttons = Array.from(workspace.querySelectorAll('[data-target-id]'));
+        const filters = Array.from(document.querySelectorAll('[data-target-filter]'));
+        const templates = new Map(Array.from(workspace.querySelectorAll('template[data-target-template]')).map((template) => [template.dataset.targetTemplate, template]));
+        const selectTarget = (targetId) => {{
+          const template = templates.get(targetId);
+          if (!template || !detail) return;
+          detail.innerHTML = template.innerHTML;
+          buttons.forEach((button) => button.classList.toggle('active', button.dataset.targetId === targetId));
+        }};
+        buttons.forEach((button) => {{
+          button.addEventListener('click', () => selectTarget(button.dataset.targetId || ''));
+        }});
+        filters.forEach((filter) => {{
+          filter.addEventListener('click', () => {{
+            const group = filter.dataset.targetFilter || 'all';
+            filters.forEach((item) => item.classList.toggle('active', item === filter));
+            let firstVisible = null;
+            buttons.forEach((button) => {{
+              const visible = group === 'all' || button.dataset.targetGroup === group;
+              button.hidden = !visible;
+              if (visible && !firstVisible) firstVisible = button;
+            }});
+            if (firstVisible) selectTarget(firstVisible.dataset.targetId || '');
+          }});
+        }});
+      }})();
+      </script>
     </section>"""
 
 
@@ -2225,8 +2458,254 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       font-weight: 800;
     }}
     .filter-row {{ display: flex; flex-wrap: wrap; gap: 6px; }}
-    .filter-chip {{ padding: 5px 8px; font-size: 11px; }}
+    .filter-chip {{
+      padding: 5px 8px;
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }}
+    .filter-chip.active {{
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }}
     .filter-chip strong {{ display: inline; font-size: 11px; }}
+    .review-section {{
+      width: auto;
+      max-width: none;
+      margin-left: calc(-1 * clamp(0px, (100vw - 1180px) / 2, 180px));
+      margin-right: calc(-1 * clamp(0px, (100vw - 1180px) / 2, 180px));
+    }}
+    .review-workspace {{
+      display: grid;
+      grid-template-columns: minmax(340px, .8fr) minmax(620px, 1.2fr);
+      gap: 28px;
+      align-items: start;
+      min-width: 0;
+    }}
+    .workspace-queue {{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,.55);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      max-height: 700px;
+      overflow: auto;
+      min-width: 0;
+    }}
+    .workspace-queue-list {{
+      display: grid;
+      gap: 12px;
+    }}
+    .workspace-queue-item {{
+      display: grid;
+      gap: 10px;
+      width: 100%;
+      padding: 15px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      min-width: 0;
+    }}
+    .workspace-queue-item[hidden] {{
+      display: none;
+    }}
+    .workspace-queue-item:hover, .workspace-queue-item.active {{
+      border-color: var(--accent);
+      box-shadow: inset 3px 0 0 var(--accent);
+    }}
+    .queue-title-row, .queue-meta-row, .workspace-detail-head, .workspace-convergence {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }}
+    .queue-title-row strong {{
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+    }}
+    .queue-title-row b {{
+      font-size: 16px;
+      flex: none;
+    }}
+    .queue-meta-row {{
+      color: var(--ink-2);
+      font-size: 12px;
+    }}
+    .workspace-progress {{
+      display: block;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--silent);
+      overflow: hidden;
+    }}
+    .workspace-progress span {{
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--accent);
+    }}
+    .workspace-detail {{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 32px;
+      min-width: 0;
+    }}
+    .workspace-detail-inner {{
+      display: grid;
+      gap: 24px;
+      min-width: 0;
+    }}
+    .workspace-detail h3 {{
+      margin: 12px 0 0;
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 28px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }}
+    .workspace-tag-row {{
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }}
+    .workspace-score {{
+      color: var(--ink);
+      font-size: 34px;
+      font-weight: 800;
+      text-align: right;
+      flex: none;
+    }}
+    .workspace-score span {{
+      display: block;
+      color: var(--ink-3);
+      font-size: 11px;
+      font-weight: 800;
+      margin-top: 3px;
+    }}
+    .workspace-convergence {{
+      align-items: end;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+      color: var(--ink-2);
+      font-size: 13px;
+      font-weight: 800;
+      flex-wrap: wrap;
+    }}
+    .workspace-convergence .stance-meter {{
+      flex-basis: 100%;
+      height: 14px;
+      margin-top: 6px;
+    }}
+    .workspace-provider-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }}
+    .workspace-provider-card {{
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 12px;
+      min-width: 0;
+    }}
+    .workspace-provider-card small {{
+      display: block;
+      color: var(--ink-3);
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      margin-top: 2px;
+    }}
+    .workspace-provider-card b {{
+      color: var(--ink-3);
+      font-size: 12px;
+    }}
+    .workspace-provider-card.claimed b {{ color: var(--claimed); }}
+    .provider-dot {{
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--silent);
+    }}
+    .workspace-provider-card.claimed .provider-dot {{ background: var(--claimed); }}
+    .workspace-provider-card.contradicted .provider-dot {{ background: var(--danger); }}
+    .workspace-three, .workspace-evidence-row, .workspace-chip-list {{
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }}
+    .workspace-three {{
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 0;
+    }}
+    .workspace-evidence-row {{
+      grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+    }}
+    .workspace-chip-list {{
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .workspace-chip {{
+      display: inline-flex;
+      align-items: center;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      color: var(--ink-2);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.3;
+      padding: 8px 10px;
+      overflow-wrap: anywhere;
+    }}
+    .workspace-chip.muted {{ color: var(--ink-3); }}
+    .workspace-gate {{
+      display: flex;
+      gap: 14px;
+      align-items: start;
+      border: 1px solid rgba(178,106,0,.2);
+      border-radius: 10px;
+      background: var(--amber-soft);
+      padding: 18px;
+    }}
+    .workspace-gate strong {{
+      color: var(--amber);
+      font-size: 14px;
+    }}
+    .workspace-next-check {{
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+      border-top: 1px solid rgba(178,106,0,.22);
+      padding-top: 14px;
+    }}
+    .workspace-next-check b {{
+      color: var(--accent);
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      flex: none;
+    }}
+    .workspace-templates, .workspace-sr {{
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }}
     .target-nav {{ display: grid; gap: 8px; }}
     .target-nav-card {{
       display: grid;
@@ -2530,7 +3009,15 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       .stat-grid, .metrics, .trace-grid, .provider-grid, .graph-summary-grid, .target-preview-grid {{
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }}
+      .review-section {{
+        margin-left: 0;
+        margin-right: 0;
+      }}
       .review-arbitration-grid {{ grid-template-columns: minmax(0, 1fr); }}
+      .review-workspace, .workspace-three, .workspace-evidence-row {{
+        grid-template-columns: minmax(0, 1fr);
+      }}
+      .workspace-queue {{ max-height: 520px; }}
       .review-workbench {{ grid-template-columns: 1fr; }}
       .queue-panel {{ position: static; max-height: none; }}
     }}
@@ -2539,9 +3026,12 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       .topbar {{ display: grid; align-items: start; }}
       h1 {{ font-size: 30px; }}
       h2 {{ font-size: 22px; }}
-      .stat-grid, .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row, .target-preview-grid, .target-explanation, .metric-matrix {{
+      .stat-grid, .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row, .target-preview-grid, .target-explanation, .metric-matrix, .workspace-provider-grid, .workspace-chip-list {{
         grid-template-columns: minmax(0, 1fr);
       }}
+      .workspace-detail {{ padding: 18px; }}
+      .workspace-detail-head, .workspace-convergence, .workspace-next-check {{ display: grid; }}
+      .workspace-score {{ text-align: left; }}
       .detail-drawer summary, .supplemental-details summary {{ display: grid; }}
       .detail-drawer summary small, .supplemental-details summary small {{ text-align: left; }}
       .score {{ text-align: left; }}
