@@ -69,6 +69,10 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "ADK-compatible trace included" in html
     assert "provider signal, not a verdict" in html
     assert "0 AUTO-PROMOTED CAUSES" in html
+    assert "Fast Review" in html
+    assert "Evidence Rescore" in html
+    assert "Full Forensic Review" in html
+    assert "Built as the evidence gate before automated action." in html
     assert "Multi-AI disagreement requires validation" not in html
     assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
     assert f"/ui/report.md?evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in html

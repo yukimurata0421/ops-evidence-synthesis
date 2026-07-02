@@ -64,6 +64,7 @@ Public documentation should stay stable and reviewer-oriented:
 - current product gaps
 - deployment baseline
 
-It should not publish raw logs, internal operator paths, cloud project IDs,
-image digests, secrets, private URLs, dated work logs, or machine-specific
-incident evidence.
+It should not publish raw logs, internal operator paths, secrets, private URLs,
+dated work logs, or machine-specific incident evidence. Public review Evidence
+SHA values and the deployed demo image digest are allowed only in reviewer-link
+or release-readiness documents where they act as public artifact identifiers.

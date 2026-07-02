@@ -30,6 +30,20 @@ The full copy/paste URL set for submission is kept in
 committed-vs-local artifact split are documented in
 [docs/data-boundary.md](docs/data-boundary.md).
 
+## Why This Matters
+
+Most incident AI demos answer: "What caused the incident?"
+
+Ops Evidence Synthesis answers a safer question:
+
+> What evidence did each model actually use, where do they disagree, what is
+> still missing, and when is it safe for a human to promote a cause candidate?
+
+This is a guarded DevOps Review Agent. Raw logs stay local, sanitized Evidence
+Bundles are SHA-fixed, Gemini-led workflows review evidence chunks, multiple
+providers are compared, unsupported claims are not promoted, missing evidence
+becomes the next review task, and final causal judgement remains human-gated.
+
 ## Public Review Set
 
 | Case | Public role | Evidence SHA256 | Notes |
@@ -44,6 +58,32 @@ Detailed run records are intentionally kept in one place:
 [docs/real-api-5-provider-run.md](docs/real-api-5-provider-run.md) for
 amazon-notify and [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
 for stream_v3.
+
+## Review Modes
+
+OES separates speed from evidence depth. The public URL uses precomputed
+artifacts so reviewers can inspect the result immediately without waiting for
+live model work.
+
+| Mode | Purpose | Public reviewer path |
+| --- | --- | --- |
+| Fast Review | First-pass triage: show likely review units, provider positions, and missing evidence without claiming a cause. | Public entry and primary detail page. |
+| Evidence Rescore | Show the improvement loop: a child evidence bundle can move a target from validation work toward a stronger primary candidate while preserving the human gate. | More Data Rescore demo. |
+| Full Forensic Review | Deep production-style synthesis over 45k-50k sanitized rows, chunked provider execution, citation validation, and deterministic graph merge. | Precomputed stream_v3 and amazon-notify real API runs. |
+
+The project is not trying to be the fastest tool that jumps from incident to
+fix. It is the review layer before action: the system asks whether there is
+enough evidence to act.
+
+## Hackathon Judging Map
+
+| Judging concern | How this repository answers |
+| --- | --- |
+| AI Agent value is central | ADK-compatible tool traces, Gemini-led orchestration, provider chunk comparison, missing-evidence requests, and rescore flow. |
+| Clear problem and approach | Targets the unsafe-certainty failure mode in incident AI: confident answers before evidence is sufficient. |
+| Usable reviewer experience | Cloud Run read-only UI, no login, top-level primary review, rescore demo, API view, review graph, and Markdown report. |
+| Practical DevOps value | Full-corpus coverage ledger, raw-log local-first boundary, source-aware sanitized profile context, and human-gated incident promotion. |
+| Implementation depth | 5 provider real API runs, provider chunk ledgers, canonical review graph, pytest coverage, Cloud Build, Cloud Run, private GCS / Cloud Run Job / PostgreSQL deployment template. |
 
 ## What You Can Run Now
 
