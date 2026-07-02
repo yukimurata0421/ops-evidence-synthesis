@@ -65,7 +65,7 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "sanitized source context" in html
     assert "AIが断定する前に、運用証拠を固定する。" in html
     assert "Provider convergence creates review targets, not accepted incident causes" in html
-    assert "Watch rescore demo" in html
+    assert "Watch rescore loop" in html
     assert "ADK-compatible trace included" in html
     assert "provider signal, not a verdict" in html
     assert "0 AUTO-PROMOTED CAUSES" in html

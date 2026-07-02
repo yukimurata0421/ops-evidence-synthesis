@@ -838,7 +838,7 @@ def _public_precomputed_landing_page() -> str:
               <p class="hero-sub">This public surface serves read-only precomputed reviews over sanitized logs, sanitized source context, and approved system profiles. Provider convergence creates review targets, not accepted incident causes.</p>
               <div class="hero-cta">
                 <a class="button primary" href="{_html(primary_detail_url)}">Open primary review</a>
-                <a class="button primary" href="{_html(rescore_demo_url)}">Watch rescore demo</a>
+                <a class="button primary" href="{_html(rescore_demo_url)}">Watch rescore loop</a>
                 <a class="button" href="{_html(primary_report_url)}">Read incident report</a>
                 {_public_global_action_links_html()}
               </div>
