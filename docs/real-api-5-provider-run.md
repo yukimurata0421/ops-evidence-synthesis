@@ -6,8 +6,9 @@ API outputs. GLM was replaced by Gemma 4 for this public amazon-notify payload.
 Llama and Claude are excluded because they were not available in this
 environment. The public entry page shows the stream_v3 runtime run first because
 that run has active human-gated primary candidates; this amazon-notify run is
-kept as the restraint example where 5/5 provider support still stops at
-validation.
+kept as the restraint example where 5/5 provider support can create primary
+candidates, but still does not auto-accept an incident cause or operational
+action.
 
 ## Public URLs
 
@@ -90,6 +91,20 @@ manifests.
 Recorded provider outputs are hashed; deterministic reproduction applies to the
 canonical merge over sorted recorded chunk outputs, not to recreating a live
 model response byte-for-byte.
+
+## Measured Gemma 4 Refresh Timing
+
+The Gemma 4 replacement run did not store a separate shell `time` output, so
+the wall time below is derived from the earliest `started_at` and latest
+`finished_at` timestamps in the Gemma provider chunk ledger. Provider latency
+is the sum of chunk latencies recorded in the provider output and is not the
+same as elapsed wall time.
+
+| Step | Value |
+| --- | ---: |
+| Gemma 4 real API wall time from chunk timestamps | 1,386.0s |
+| Gemma 4 provider latency sum | 5,001,049 ms |
+| Gemma 4 successful chunks | 86 |
 
 ## Review Outcome
 

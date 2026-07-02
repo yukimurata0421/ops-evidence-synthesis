@@ -63,7 +63,8 @@ for the full committed-vs-local boundary.
   successful providers.
 - The public primary path shows stream_v3 runtime targets with 5/5 providers
   and human-gated primary candidates; amazon-notify shows the restrained case
-  where 5/5 provider support still remains validation work.
+  where 5/5 provider support can create primary candidates, but still does not
+  auto-accept an incident cause or operational action.
 - The More data rescore demo shows the AI improvement cycle without public write
   access or live model execution.
 - The Agent Trace is backed by an ADK-compatible tool contract; the same tools

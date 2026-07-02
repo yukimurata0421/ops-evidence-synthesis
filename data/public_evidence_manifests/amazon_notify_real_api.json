@@ -4,6 +4,13 @@
   "canonical_graph_sha256": "5c525b6369855440bc40975dcfab0fa90895cda8849ec7cfdc0b9f6a561d105c",
   "case_id": "amazon_notify_real_api",
   "evidence_sha256": "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
+  "execution_timing": {
+    "gemma_provider_latency_sum_ms": 5001049,
+    "gemma_real_api_wall_seconds": 1386.0,
+    "gemma_successful_chunks": 86,
+    "measurement_note": "Gemma 4 wall time is derived from provider_chunk_runs started_at/finished_at timestamps. Provider latency is the sum of chunk latencies, not elapsed wall time.",
+    "measurement_source": "workspace/e2e_real_api_source_sanitize_20260701T003045Z/multi_ai_gemma_replaces_glm_20260702T160243Z/provider_chunk_runs.jsonl"
+  },
   "full_corpus_review": {
     "chunk_manifest_sha256s": [
       "80d04030975707f2075c50800f5f52726338e52aa62c0ebe4f315eefe90bae35",
@@ -305,7 +312,7 @@
   "public_positioning": {
     "landing_rank": 20,
     "landing_role": "guarded_review",
-    "note": "Shows restraint: 5/5 providers and 100% ledger coverage still stop at validation until profile outcomes and user impact are approved. The More Data Loop shows how new evidence can change promotion.",
+    "note": "Shows restraint: 5/5 providers and 100% ledger coverage can create primary candidates, but incident cause and operational action still are not auto-accepted. The More Data Loop shows how new evidence can change promotion.",
     "title": "Guarded review: amazon-notify 44,944 rows, 0 auto-promoted causes"
   },
   "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec",
