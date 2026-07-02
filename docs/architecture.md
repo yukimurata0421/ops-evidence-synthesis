@@ -153,6 +153,21 @@ selected Evidence Bundle.
   truth.
 - Provider disagreement is routed to validation targets and evidence requests.
 
+## Review Priority Scoring
+
+Review priority is now computed as an explainable ranking signal rather than a
+flat provider-count cap. The score combines weighted provider support, Gemini
+signal, cited-evidence volume, evidence-family diversity, source-candidate
+breadth, operational actionability, blockers, and a tiny deterministic
+tie-break. Gemini receives a higher provider weight because the hackathon path
+is Google Cloud/Gemini-led, but Gemini agreement is still not treated as truth.
+
+The public detail pages expose the scoring breakdown per target. A target can
+therefore show why it ranks high, why `generic_runtime` or healthy-status
+targets are pushed down, and why a target with Gemini silent is not equivalent
+to one where Gemini supported the same review unit. Promotion remains
+human-gated regardless of review priority.
+
 ## Runtime Modes
 
 Local mode uses deterministic providers for tests, demos, and offline

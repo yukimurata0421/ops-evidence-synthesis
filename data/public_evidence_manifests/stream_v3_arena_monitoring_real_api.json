@@ -5,7 +5,7 @@
   "case_id": "stream_v3_arena_monitoring_real_api",
   "evidence_sha256": "6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3",
   "input_fingerprint_sha256": "4336d93ffe4e8a8229192dee049941fb42606e8abbfe94bcd31abd12810485de",
-  "payload_sha256": "11fe5ab19747c01aa6ecbace34135d7ae4f17ab6d00034681d1c6ec37909a31e",
+  "payload_sha256": "787ebbf85c9e63ea208986f0bb83aa3122630c344127aea06a7057809a798ce5",
   "pipeline_run_id": "",
   "precomputed_payload_path": "data/precomputed_review_summaries/6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3.json",
   "profile_gate": {
@@ -54,11 +54,11 @@
         "question": "What is the critical user outcome?",
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
-          "youtube_health",
-          "observability_contract",
-          "chromium_capture",
           "resource_pressure",
           "external_ingest",
+          "observability_contract",
+          "youtube_health",
+          "chromium_capture",
           "generic_runtime"
         ]
       },
@@ -69,20 +69,20 @@
           "audio_energy",
           "runtime_recovery",
           "transport_sender",
-          "youtube_health",
+          "resource_pressure",
           "observability_contract",
-          "chromium_capture"
+          "youtube_health"
         ]
       },
       {
         "question": "Which logs indicate user impact rather than diagnostic noise?",
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
-          "youtube_health",
-          "observability_contract",
-          "chromium_capture",
           "resource_pressure",
           "external_ingest",
+          "observability_contract",
+          "youtube_health",
+          "chromium_capture",
           "generic_runtime"
         ]
       },
@@ -90,11 +90,11 @@
         "question": "Confirm critical user outcomes.",
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
-          "youtube_health",
-          "observability_contract",
-          "chromium_capture",
           "resource_pressure",
           "external_ingest",
+          "observability_contract",
+          "youtube_health",
+          "chromium_capture",
           "generic_runtime"
         ]
       }
@@ -228,7 +228,7 @@
   },
   "schema_version": "public_evidence_manifest.v1",
   "source_boundary": {
-    "model_projection_policy": "Gemini, GPT OSS, Mistral, Qwen, and GLM analyzed chunked sanitized Evidence Items, not raw logs; every sanitized DB row in the current stream_v3_monitoring window remains assigned through the coverage ledger.",
+    "model_projection_policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts.",
     "public_artifact_type": "manifest_and_precomputed_review",
     "raw_log_policy": "not_uploaded",
     "raw_logs_committed": false,
@@ -247,7 +247,7 @@
     "model_projection_evidence_items": 21,
     "model_projection_occurrence_count": 63056,
     "model_projection_occurrence_coverage_ratio": 1.0,
-    "policy": "Gemini, GPT OSS, Mistral, Qwen, and GLM analyzed chunked sanitized Evidence Items, not raw logs; every sanitized DB row in the current stream_v3_monitoring window remains assigned through the coverage ledger.",
+    "policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts.",
     "provider_full_corpus_analyzed_evidence_items": 21,
     "provider_full_corpus_chunk_count": 18,
     "provider_full_corpus_coverage_ratio": 1.0,

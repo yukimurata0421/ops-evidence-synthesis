@@ -25,7 +25,7 @@ validation.
 | Canonical graph SHA256 | `657eb44204cdcd616c8d7c4cdf4065b2080150f1ba65b0b6d775c0276994f643` |
 | Input fingerprint SHA256 | `73f4c0957d7864624e331f75ffa651e98a27a5e7c6b65c6103fe0f9f72dc0858` |
 | Public payload | `data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json` |
-| Payload SHA256 | `b53506032e0741d2a31c6c43db463d0bec152f441b6ebf05b4b37469266f6894` |
+| Payload SHA256 | `a34c54049c45a08c266c172f9e9025ee4edb9b03c8d5678769da74bfdce3c2f3` |
 
 ## Window Selection
 

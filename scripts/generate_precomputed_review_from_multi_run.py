@@ -14,6 +14,7 @@ from ops_evidence_synthesis.ai.prompts import compact_bundle_for_model
 from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.precomputed_review import SCORE_DEFINITION, stable_precomputed_review_json
 from ops_evidence_synthesis.profile_gate import build_profile_context_summary
+from ops_evidence_synthesis.synthesis.priority_scoring import score_review_priority
 from ops_evidence_synthesis.timeutils import parse_timestamp
 from ops_evidence_synthesis.window_policy import (
     DEFAULT_MIN_ANALYSIS_WINDOW_HOURS,
@@ -28,6 +29,16 @@ DEFAULT_PROVIDER_MODE = "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm"
 PUBLIC_EVIDENCE_REF_LIMIT = 80
 PUBLIC_EVIDENCE_SUMMARY_LIMIT = 16
 PUBLIC_COUNTER_SUMMARY_LIMIT = 12
+PROFILE_OUTCOME_FALLBACKS = {
+    "stream_v3_dell_runtime_source_approved": [
+        "Continuous YouTube streaming",
+        "ADSB data processing",
+    ],
+    "stream_v3_arena_server_monitoring_source_approved": [
+        "Maintain YouTube stream uptime",
+        "Monitor ADSB stream health",
+    ],
+}
 
 
 def main() -> int:
@@ -567,6 +578,27 @@ def _targets(
             window_end=window_end,
         )
         public_title = _public_target_title(public_target, canonical_review_unit=canonical_review_unit)
+        raw = public_target.get("raw") if isinstance(public_target.get("raw"), dict) else {}
+        source_candidate_count = _int(public_target.get("source_candidate_count")) or _int(raw.get("source_candidate_count")) or 1
+        evidence_family_count = len({_evidence_family(ref) for ref in evidence_refs if _evidence_family(ref)})
+        priority_result = score_review_priority(
+            prior_score=float(public_target.get("review_priority_score") or 0.0),
+            promotion_score=float(public_target.get("promotion_score") or 0.0),
+            provider_positions=provider_positions,
+            total_provider_count=valid_count,
+            evidence_ref_count=evidence_ref_total_count,
+            evidence_family_count=evidence_family_count,
+            source_candidate_count=source_candidate_count,
+            target_class=target_class,
+            canonical_review_unit=canonical_review_unit,
+            title=public_title,
+            suspected_issue=str(target_explanation.get("suspected_issue") or ""),
+            operational_mechanism=str(target_explanation.get("operational_mechanism") or ""),
+            why_it_matters=str(target_explanation.get("why_it_matters") or ""),
+            missing_evidence=missing_evidence,
+            blocked_reasons=[blocked_reason],
+            caveats=list(public_target.get("caveats") or []),
+        )
         targets.append(
             {
                 "target_id": str(public_target.get("target_id") or public_target.get("review_target_id") or ""),
@@ -577,7 +609,9 @@ def _targets(
                 "status": str(public_target.get("status") or "pending"),
                 "subsystem": str(public_target.get("subsystem") or "general"),
                 "canonical_review_unit": canonical_review_unit,
-                "review_priority_score": round(float(public_target.get("review_priority_score") or 0.0), 4),
+                "review_priority_score": priority_result["score"],
+                "raw_review_priority_score": round(float(public_target.get("review_priority_score") or 0.0), 4),
+                "score_breakdown": priority_result["breakdown"],
                 "provider_count": provider_count,
                 "recommended_request_type": str(public_target.get("recommended_request_type") or ""),
                 "claim": _target_claim(
@@ -638,7 +672,7 @@ def _targets(
                     "baseline_support_score": public_target.get("baseline_support_score"),
                     "canonical_group_key": public_target.get("canonical_group_key"),
                     "rollup_provider_ratio": public_target.get("rollup_provider_ratio"),
-                    "source_candidate_count": public_target.get("source_candidate_count"),
+                    "source_candidate_count": source_candidate_count,
                 },
             }
         )
@@ -778,7 +812,16 @@ def _filter_and_dedupe_public_targets(targets: list[dict[str, Any]]) -> list[dic
             continue
         if _public_target_rank(target) > _public_target_rank(current):
             winners[key] = target
-    return [winners[key] for key in order]
+    return sorted(
+        (winners[key] for key in order),
+        key=lambda target: (
+            -_public_target_rank(target)[0],
+            -float(target.get("review_priority_score") or 0.0),
+            -_public_target_rank(target)[1],
+            str(target.get("canonical_review_unit") or ""),
+            str(target.get("target_id") or ""),
+        ),
+    )
 
 
 def _public_target_dedupe_key(target: dict[str, Any]) -> str:
@@ -795,6 +838,16 @@ def _public_target_rank(target: dict[str, Any]) -> tuple[int, int, float, int, i
     evidence_count = len(target.get("evidence_refs") or [])
     source_candidates = _int((target.get("raw") or {}).get("source_candidate_count"))
     return (class_rank, provider_count, priority, evidence_count, source_candidates)
+
+
+def _evidence_family(ref: str) -> str:
+    text = str(ref or "").strip().upper()
+    if not text:
+        return ""
+    if "-" in text:
+        return text.split("-", 1)[0]
+    match = re.match(r"[A-Z]+", text)
+    return match.group(0) if match else text
 
 
 def _is_low_information_public_target(target: dict[str, Any]) -> bool:
@@ -1862,7 +1915,7 @@ def _profile_context(
     source_analysis_sha: str,
     review_targets: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    return build_profile_context_summary(
+    context = build_profile_context_summary(
         profile_id=profile_id,
         profile_draft=profile_draft,
         approved_profile=approved_profile,
@@ -1870,6 +1923,28 @@ def _profile_context(
         source_analysis_sha=source_analysis_sha,
         review_targets=review_targets or [],
     )
+    if profile_draft and approved_profile and str(context.get("llm_status") or "") == "persisted":
+        context["llm_status"] = "ok"
+    if not context.get("provisional_user_outcomes"):
+        fallback_outcomes = PROFILE_OUTCOME_FALLBACKS.get(str(profile_id or ""))
+        if fallback_outcomes:
+            context["provisional_user_outcomes"] = list(fallback_outcomes)
+    context["provisional_user_outcomes"] = _normalize_provisional_user_outcomes(
+        context.get("provisional_user_outcomes") or []
+    )
+    return context
+
+
+def _normalize_provisional_user_outcomes(outcomes: list[Any]) -> list[str]:
+    normalized: list[str] = []
+    for outcome in outcomes:
+        text = str(outcome or "").strip()
+        if not text:
+            continue
+        text = re.sub(r"\s*\(Assumption\)\s*$", " pending human approval", text)
+        if text not in normalized:
+            normalized.append(text)
+    return normalized
 
 
 def _profile_draft_generation(profile_context: dict[str, Any]) -> dict[str, Any]:

@@ -3919,6 +3919,7 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int, anchor_id: s
     promotion_text = _target_promotion_text(target)
     review_reason = _target_review_reason_html(target)
     target_explanation = _target_explanation_html(target)
+    priority_scoring = _priority_scoring_html(target)
     tie_breaker = _priority_tie_breaker_text(target, index=index, evidence_ref_total_count=evidence_ref_total_count)
     missing_total = len(missing)
     missing_label = "Top missing evidence" if missing_total > 4 else "Missing evidence"
@@ -3948,6 +3949,7 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int, anchor_id: s
   <div class="target-grid">
     <div class="field full"><label>What this target means operationally</label>{target_explanation}</div>
     <div class="field full"><label>Why this target is in review</label>{review_reason}</div>
+    {priority_scoring}
     <div class="field full"><label>Observed claim</label><p>{_html(claim or title)}</p></div>
     <div class="field full"><label>Provider positions</label>{provider_positions}</div>
     <div class="field full"><label>Agreement and promotion gates</label><p>{_html(agreement_text)}</p></div>
@@ -3967,6 +3969,40 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int, anchor_id: s
     <div class="field"><label>Caveats</label><p>{_html("; ".join(str(item) for item in caveats[:4]) or "none")}</p></div>
   </div>
 </article>"""
+
+
+def _priority_scoring_html(target: dict[str, Any]) -> str:
+    breakdown = target.get("score_breakdown") if isinstance(target.get("score_breakdown"), dict) else {}
+    model = breakdown.get("priority_model") if isinstance(breakdown.get("priority_model"), dict) else breakdown
+    if not isinstance(model, dict) or str(model.get("schema_version") or "") != "review_priority_score.v2":
+        return ""
+    penalties = model.get("penalties") if isinstance(model.get("penalties"), dict) else {}
+    rows = [
+        ("Weighted provider support", model.get("weighted_provider_support")),
+        ("Gemini claimed", "yes" if model.get("gemini_claimed") else "no"),
+        ("Evidence volume", model.get("evidence_volume_signal")),
+        ("Evidence diversity", model.get("evidence_diversity_signal")),
+        ("Source breadth", model.get("source_candidate_signal")),
+        ("Actionability", model.get("actionability_signal")),
+        ("Penalty", penalties.get("total_penalty")),
+        ("Tie-break", model.get("deterministic_tie_break")),
+    ]
+    items = []
+    for label, value in rows:
+        if isinstance(value, (int, float)):
+            rendered = f"{float(value):.3f}"
+        else:
+            rendered = str(value)
+        items.append(f"<li><b>{_html(label)}:</b> {_html(rendered)}</li>")
+    formula = str(model.get("formula") or "")
+    note = str(model.get("score_note") or "Priority is review urgency, not truth probability.")
+    return (
+        "<div class=\"field full\"><label>Priority scoring</label>"
+        f"<p>{_html(note)}</p>"
+        f"<ul>{''.join(items)}</ul>"
+        f"<p>{_html(formula)}</p>"
+        "</div>"
+    )
 
 
 def _priority_tie_breaker_text(target: dict[str, Any], *, index: int, evidence_ref_total_count: int) -> str:

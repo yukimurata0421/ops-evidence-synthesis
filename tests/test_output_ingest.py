@@ -165,7 +165,7 @@ def test_canonical_observation_groups_roll_up_same_subsystem_even_when_type_diff
     )
 
     graph = resolution["canonical_review_graph"]
-    assert graph["arbitration_version"] == "review_arbitration.v5"
+    assert graph["arbitration_version"] == "review_arbitration.v6"
     assert graph["summary"]["validation_count"] == 1
     target = graph["validation_targets"][0]
     assert target["source_candidate_count"] == 2

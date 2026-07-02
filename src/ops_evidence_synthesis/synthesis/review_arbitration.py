@@ -8,12 +8,13 @@ from ops_evidence_synthesis.synthesis.output_ingest import (
     merge_candidate_observations,
     observation_groups_from_graph,
 )
+from ops_evidence_synthesis.synthesis.priority_scoring import score_review_priority
 from ops_evidence_synthesis.timeutils import utc_now
 SCORE_NOTE = "Score is review priority, not truth probability."
 
 
 CANONICAL_REVIEW_GRAPH_SCHEMA_VERSION = "canonical_review_graph.v1"
-REVIEW_ARBITRATION_VERSION = "review_arbitration.v5"
+REVIEW_ARBITRATION_VERSION = "review_arbitration.v6"
 
 RUNTIME_EVIDENCE_PREFIXES = ("EVIDENCE-", "LOG-", "METRIC-", "PATTERN-", "OPS-")
 SEVERITY_ONLY_SIGNALS = {"info", "warning", "debug"}
@@ -1010,13 +1011,28 @@ def _arbitrate_candidate(
     reasons = _unique(reasons)
     original = str(candidate.get("original_class") or "candidate")
     promotion_score = score_after
-    review_priority_score = _review_priority_score(
-        promotion_score=promotion_score,
-        score_with_convergence=score_with_convergence,
-        rollup=rollup,
-        reasons=reasons,
-        runtime=runtime,
+    total_provider_count = int(
+        (agreement_dimensions.get("provider_detection_overlap") or {}).get("total_provider_count") or 0
     )
+    priority_result = score_review_priority(
+        prior_score=score_with_convergence,
+        promotion_score=promotion_score,
+        claimed_provider_ids=_unique(candidate.get("providers") or []),
+        total_provider_count=total_provider_count,
+        evidence_ref_count=evidence_diversity,
+        evidence_family_count=int(rollup.get("evidence_family_count") or 0),
+        source_candidate_count=int(rollup.get("source_candidate_count") or 1),
+        target_class=original,
+        canonical_review_unit=str(candidate.get("canonical_review_unit") or candidate.get("subsystem") or ""),
+        title=str(candidate.get("title") or ""),
+        suspected_issue=str(candidate.get("suspected_issue") or candidate.get("impact_summary") or ""),
+        operational_mechanism=str(candidate.get("operational_mechanism") or ""),
+        why_it_matters=str(candidate.get("why_it_matters") or ""),
+        missing_evidence=_unique(candidate.get("missing_evidence") or []),
+        blocked_reasons=reasons,
+        caveats=_unique(candidate.get("caveats") or []),
+    )
+    review_priority_score = float(priority_result["score"])
     final_class = _final_class(original, runtime=runtime, reasons=reasons, score=promotion_score)
     state = {
         "primary_candidate": "primary_candidate",
@@ -1068,6 +1084,7 @@ def _arbitrate_candidate(
             "score_with_convergence": round(score_with_convergence, 4),
             "promotion_score": round(promotion_score, 4),
             "review_priority_score": round(review_priority_score, 4),
+            "priority_model": priority_result["breakdown"],
             "rollup": rollup,
         },
         "score_caps_applied": score_caps,
@@ -1119,6 +1136,7 @@ def _arbitrate_candidate(
         "score_after": round(promotion_score, 4),
         "review_priority_score": round(review_priority_score, 4),
         "convergence_bonus": round(convergence_bonus, 4),
+        "priority_model": priority_result["breakdown"],
         "baseline_support_score": float(rollup.get("baseline_support_score") or 0.0),
         "score_caps_applied": score_caps,
     }
