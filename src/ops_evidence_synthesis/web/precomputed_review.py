@@ -565,7 +565,11 @@ def _public_precomputed_landing_page() -> str:
           }}
           a {{ color: inherit; text-decoration: none; }}
           p {{ margin: 0; color: var(--ink-2); line-height: 1.55; }}
-          .shell {{ max-width: 1180px; margin: 0 auto; padding: 0 28px; }}
+          .shell {{
+            width: min(calc(100% - 48px), 1720px);
+            margin: 0 auto;
+            padding: 0;
+          }}
           .topbar {{
             height: 70px;
             display: flex;
@@ -616,10 +620,10 @@ def _public_precomputed_landing_page() -> str:
           .live-dot {{ width: 7px; height: 7px; border-radius: 50%; background: var(--green); }}
           .hero {{
             display: grid;
-            grid-template-columns: minmax(0, 1.1fr) minmax(320px, .78fr);
-            gap: 34px;
+            grid-template-columns: minmax(620px, 1.45fr) minmax(420px, .85fr);
+            gap: clamp(28px, 4vw, 72px);
             align-items: center;
-            padding: 58px 0 42px;
+            padding: 46px 0 34px;
           }}
           .eyebrow {{
             display: inline-flex;
@@ -631,11 +635,11 @@ def _public_precomputed_landing_page() -> str:
             font: 700 12px/1 var(--mono);
           }}
           h1 {{
-            margin: 22px 0 14px;
-            font-size: 68px;
-            line-height: .94;
+            margin: 20px 0 14px;
+            font-size: clamp(58px, 4.1vw, 76px);
+            line-height: .96;
             letter-spacing: 0;
-            max-width: 760px;
+            max-width: 1080px;
           }}
           h1 span {{ color: var(--accent); }}
           .jp-tagline {{
@@ -645,8 +649,9 @@ def _public_precomputed_landing_page() -> str:
             font-weight: 800;
             line-height: 1.5;
           }}
-          .hero-sub {{ max-width: 700px; font-size: 16.5px; color: var(--ink-2); }}
+          .hero-sub {{ max-width: 980px; font-size: 16.5px; line-height: 1.48; color: var(--ink-2); }}
           .hero-cta {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }}
+          .hero-cta .button {{ white-space: nowrap; }}
           .gate-card {{
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -656,8 +661,8 @@ def _public_precomputed_landing_page() -> str:
           }}
           .gate-kicker {{ color: var(--ink-3); font: 700 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }}
           .gate-big {{ display: flex; align-items: end; gap: 12px; margin-top: 20px; }}
-          .gate-big b {{ font-size: 52px; line-height: .9; letter-spacing: 0; }}
-          .gate-big span {{ color: var(--ink-2); font-size: 13px; padding-bottom: 5px; }}
+          .gate-big b {{ flex: 0 0 auto; font-size: 52px; line-height: .9; letter-spacing: 0; white-space: nowrap; }}
+          .gate-big span {{ flex: 1 1 auto; color: var(--ink-2); font-size: 13px; padding-bottom: 5px; }}
           .gate-bars {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 22px; }}
           .gate-bars i {{ display: block; height: 34px; border-radius: 8px; background: var(--green); }}
           .gate-div {{ display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin: 24px 0 14px; }}
@@ -701,7 +706,7 @@ def _public_precomputed_landing_page() -> str:
           .trust-cell span {{ display: block; margin-top: 6px; color: var(--ink-2); font-size: 12px; line-height: 1.4; }}
           .agent-loop {{
             display: grid;
-            grid-template-columns: minmax(230px, .6fr) minmax(0, 1fr);
+            grid-template-columns: minmax(320px, .45fr) minmax(0, 1fr);
             gap: 14px;
             align-items: stretch;
             margin-bottom: 34px;
@@ -746,8 +751,8 @@ def _public_precomputed_landing_page() -> str:
           }}
           .kicker {{ color: var(--accent); font: 800 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }}
           h2 {{ margin: 8px 0 0; font-size: 24px; letter-spacing: 0; }}
-          .section-note {{ max-width: 430px; color: var(--ink-2); font-size: 13px; line-height: 1.55; text-align: right; }}
-          .review-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }}
+          .section-note {{ max-width: 660px; color: var(--ink-2); font-size: 13px; line-height: 1.55; text-align: right; }}
+          .review-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; }}
           .review-card {{
             display: grid;
             gap: 12px;
@@ -793,8 +798,14 @@ def _public_precomputed_landing_page() -> str:
           summary {{ cursor: pointer; color: var(--ink-2); font-weight: 800; }}
           ul {{ list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }}
           li {{ display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }}
+          @media (min-width: 1500px) {{
+            .review-grid {{ grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }}
+          }}
+          @media (max-width: 1180px) {{
+            .hero {{ grid-template-columns: 1fr; }}
+          }}
           @media (max-width: 900px) {{
-            .shell {{ padding: 0 20px; }}
+            .shell {{ width: min(calc(100% - 32px), 1720px); }}
             .topbar {{ height: auto; padding: 16px 0; align-items: flex-start; flex-direction: column; }}
             .hero {{ grid-template-columns: 1fr; padding-top: 42px; }}
             .trust {{ grid-template-columns: repeat(2, 1fr); }}
