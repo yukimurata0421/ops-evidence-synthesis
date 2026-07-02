@@ -50,8 +50,8 @@ Current reviewer-facing URLs for the hackathon submission.
 
 ## Operational Readiness
 
-- Cloud Run revision after deploy: `ops-evidence-api-00177-hw4`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:3b7b6488ea2c29930e4e68e0a0444edb134d8f0c255bb459224a45da1b2f7d55`
+- Cloud Run revision after deploy: `ops-evidence-api-00179-vv2`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:26bc0130edd630e5a6b0544d349270c8c97fc2c1a7ab1141a421ff640567f2b9`
 - Digest note: this digest is a public demo release attestation, not a private
   execution identifier.
 - Public smoke after deploy: passed

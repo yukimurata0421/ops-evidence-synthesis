@@ -13,6 +13,7 @@ operator history or raw incident material.
 | `SECURITY.md` | Public data-boundary and secret-handling policy. | Keep |
 | `docs/data-boundary.md` | Public artifact boundary, local-only data policy, and token-compression explanation for real-provider runs. | Keep |
 | `docs/architecture.md` | Main architecture overview for the local-first evidence pipeline. | Keep |
+| `docs/review-modes-runbook.md` | Mode naming, measured public replay results, and guidance that replay timing is not a live AI benchmark. | Keep |
 | `docs/evidence_bundle.md` | Sanitized Evidence Bundle contract and evidence/context boundary. | Keep |
 | `docs/current-vs-architecture-gap.md` | Public implementation status and product hardening roadmap. | Keep |
 | `docs/submission-links.md` | Copy/paste URL set for the current hackathon submission surfaces and demo pages. | Keep |

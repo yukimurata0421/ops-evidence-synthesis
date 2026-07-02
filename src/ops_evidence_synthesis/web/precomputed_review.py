@@ -730,7 +730,7 @@ def _public_precomputed_landing_page() -> str:
             display: grid;
             gap: 12px;
           }}
-          .mode-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+          .mode-grid {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
           .criteria-grid {{ grid-template-columns: repeat(5, minmax(0, 1fr)); }}
           .mode-card, .criteria-card {{
             border: 1px solid var(--border);
@@ -890,14 +890,15 @@ def _public_precomputed_landing_page() -> str:
             <div class="section-head">
               <div>
                 <div class="kicker">Review modes</div>
-                <h2>Fast path for judges, deep path for real evidence.</h2>
+                <h2>Replay path for reproducibility, AI path for real evidence.</h2>
               </div>
-              <p class="section-note">The public URL serves precomputed artifacts immediately. Real provider runs can spend more time because they preserve evidence boundaries before action.</p>
+              <p class="section-note">The public URL serves recorded artifacts immediately. Deterministic replay proves reproducibility; real provider runs spend more time preserving evidence boundaries before action.</p>
             </div>
             <div class="mode-grid">
-              <article class="mode-card"><strong>Fast Review</strong><span>initial triage</span><p>Shows provider positions, review targets, and missing evidence without claiming an accepted cause.</p></article>
-              <article class="mode-card"><strong>Evidence Rescore</strong><span>improvement loop</span><p>Attaches a child evidence bundle and shows how more data changes review priority while the gate remains explicit.</p></article>
-              <article class="mode-card"><strong>Full Forensic Review</strong><span>45k-50k rows</span><p>Runs chunked provider analysis, citation validation, and deterministic review graph merge over the full sanitized corpus.</p></article>
+              <article class="mode-card"><strong>Public Replay</strong><span>deterministic local</span><p>Replays the public 6,506-line sanitized fixture without external AI API keys; measured review graph generation is about 11 seconds.</p></article>
+              <article class="mode-card"><strong>More Data Rescore</strong><span>evidence promotion demo</span><p>Shows `validation_target -&gt; primary_candidate` in about 1 second while the human gate remains explicit.</p></article>
+              <article class="mode-card"><strong>Live AI Review</strong><span>Gemini / ADK-compatible</span><p>Uses the real provider path to review Evidence Bundles, compare claims, and route missing evidence.</p></article>
+              <article class="mode-card"><strong>Full Forensic AI Review</strong><span>45k-50k rows</span><p>Uses precomputed artifacts from larger real ops corpora for deep multi-provider synthesis.</p></article>
             </div>
           </section>
           <section id="judging-map">

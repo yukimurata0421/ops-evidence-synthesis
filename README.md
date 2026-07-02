@@ -59,21 +59,22 @@ Detailed run records are intentionally kept in one place:
 amazon-notify and [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
 for stream_v3.
 
-## Review Modes
+## Review Modes and Replay Path
 
-OES separates speed from evidence depth. The public URL uses precomputed
-artifacts so reviewers can inspect the result immediately without waiting for
-live model work.
+OES separates provider choice from review depth. The public URL uses
+precomputed artifacts so reviewers can inspect the result immediately, while
+recorded real API runs preserve the larger evidence boundary.
 
 | Mode | Purpose | Public reviewer path |
 | --- | --- | --- |
-| Fast Review | First-pass triage: show likely review units, provider positions, and missing evidence without claiming a cause. | Public entry and primary detail page. |
-| Evidence Rescore | Show the improvement loop: a child evidence bundle can move a target from validation work toward a stronger primary candidate while preserving the human gate. | More Data Rescore demo. |
-| Full Forensic Review | Deep production-style synthesis over 45k-50k sanitized rows, chunked provider execution, citation validation, and deterministic graph merge. | Precomputed stream_v3 and amazon-notify real API runs. |
+| Public Deterministic Replay | Regenerate a committed public-safe fixture without external AI API calls. This is the reproducibility path, not a live AI benchmark. | `make demo` and the offline amazon-notify fixture. |
+| More Data Rescore | Show the improvement loop: a child evidence bundle can move a target from validation work toward a stronger primary candidate while preserving the human gate. | More Data Rescore demo. |
+| Live AI Review | Run the real provider path over sanitized Evidence Bundles, compare claims, route missing evidence, and stop at the human gate. | Gemini-led real API workflow and ADK-compatible trace. |
+| Full Forensic AI Review | Deep production-style synthesis over 45k-50k sanitized rows, chunked provider execution, citation validation, and deterministic graph merge over recorded provider outputs. | Precomputed stream_v3 and amazon-notify real API runs. |
 
-The project is not trying to be the fastest tool that jumps from incident to
-fix. It is the review layer before action: the system asks whether there is
-enough evidence to act.
+Ops Evidence Synthesis focuses on the missing step before action:
+evidence-grounded review. The measured local replay commands and interpretation
+are recorded in [docs/review-modes-runbook.md](docs/review-modes-runbook.md).
 
 ## Hackathon Judging Map
 
