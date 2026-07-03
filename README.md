@@ -24,6 +24,8 @@ Use these first:
   https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo:
   https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
+- Fast GCP Review:
+  https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
 
 The full copy/paste URL set for submission is kept in
 [docs/submission-links.md](docs/submission-links.md). The data boundary and
@@ -59,6 +61,10 @@ Detailed run records are intentionally kept in one place:
 amazon-notify and [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
 for stream_v3.
 
+Primary candidate is not an accepted cause. It means the target is strong
+enough for prioritized human review while final cause and operational action
+remain gated.
+
 ## Review Modes and Replay Path
 
 OES separates provider choice from review depth. The public URL uses
@@ -69,7 +75,7 @@ recorded real API runs preserve the larger evidence boundary.
 | --- | --- | --- |
 | Public Deterministic Replay | Regenerate a committed public-safe fixture without external AI API calls. This is the reproducibility path, not a live AI benchmark. | `make demo` and the offline amazon-notify fixture. |
 | More Data Rescore | Show the improvement loop: a child evidence bundle can move a target from validation work toward a stronger primary candidate while preserving the human gate. | More Data Rescore demo. |
-| Live AI Review | Run the real provider path over sanitized Evidence Bundles, compare claims, route missing evidence, and stop at the human gate. | Gemini-led real API workflow and ADK-compatible trace. |
+| Fast GCP Review | Run a fixed sanitized amazon-notify sample from Cloud Run through Vertex Gemini Flash Lite and return a review URL with measured wall time. | Public `/ui/fast-gcp-review` action. |
 | Full Forensic AI Review | Deep production-style synthesis over 45k-50k sanitized rows, chunked provider execution, citation validation, and deterministic graph merge over recorded provider outputs. | Precomputed stream_v3 and amazon-notify real API runs. |
 
 Ops Evidence Synthesis focuses on the missing step before action:
@@ -90,6 +96,9 @@ are recorded in [docs/review-modes-runbook.md](docs/review-modes-runbook.md).
 
 - The public Cloudflare URL serves a precomputed summary/detail review without
   starting model work on the initial GET.
+- The Fast GCP Review page runs only a fixed sanitized amazon-notify sample,
+  calls Vertex Gemini Flash Lite from Cloud Run, records wall time, and returns
+  a review URL. It does not accept arbitrary logs, URLs, or file paths.
 - Each public review also exposes a Markdown incident report that states the
   evidence boundary, provider status, human review questions, and promotion
   blockers without converting provider agreement into an accepted cause.

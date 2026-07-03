@@ -22,7 +22,7 @@ from ops_evidence_synthesis.ai.prompts import (
 )
 
 
-DEFAULT_VERTEX_MODEL = "gemini-3.1-flash-lite"
+DEFAULT_VERTEX_MODEL = "gemini-3.1-pro-preview"
 DEFAULT_VERTEX_LOCATION = "global"
 DEFAULT_VERTEX_API_VERSION = "v1"
 DEFAULT_VERTEX_THINKING_LEVEL = "medium"

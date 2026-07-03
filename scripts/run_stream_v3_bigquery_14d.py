@@ -31,7 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--environment", default="stream_v3")
     parser.add_argument("--service", default="stream_v3-aggregate")
     parser.add_argument("--lookback-minutes", type=int, default=0)
-    parser.add_argument("--model", default="gemini-3.1-flash-lite")
+    parser.add_argument("--model", default="gemini-3.1-pro-preview")
     parser.add_argument("--out", default="workspace/stream_v3_14d_sanitized.bigquery.jsonl")
     parser.add_argument("--max-rows", type=int, default=0)
     return parser

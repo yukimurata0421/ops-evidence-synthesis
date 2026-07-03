@@ -29,6 +29,7 @@ DEFAULT_PROVIDER_MODE = "real_api_vertex_gemini_gpt_oss_mistral_qwen_glm"
 PUBLIC_EVIDENCE_REF_LIMIT = 80
 PUBLIC_EVIDENCE_SUMMARY_LIMIT = 16
 PUBLIC_COUNTER_SUMMARY_LIMIT = 12
+PRIMARY_CANDIDATE_MIN_EVIDENCE_REFS = 3
 PROFILE_OUTCOME_FALLBACKS = {
     "stream_v3_dell_runtime_source_approved": [
         "Continuous YouTube streaming",
@@ -460,6 +461,37 @@ def _provider_statuses(api_response: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: row["provider_id"])
 
 
+def _provider_position_for_target(
+    provider_id: str,
+    provider_status: dict[str, Any],
+    *,
+    claimed: bool,
+    model_run_hash: str,
+) -> dict[str, str]:
+    if provider_status and (
+        str(provider_status.get("status") or "") != "ok" or not bool(provider_status.get("schema_valid"))
+    ):
+        failure = str(provider_status.get("failure_reason") or "").strip()
+        if not failure:
+            failure = "Provider output was not schema-valid for this run."
+        return {
+            "provider_id": provider_id,
+            "stance": "provider_error",
+            "model_run_hash": model_run_hash,
+            "one_line": f"{failure} Excluded from convergence denominator.",
+        }
+    return {
+        "provider_id": provider_id,
+        "stance": "claimed" if claimed else "silent",
+        "model_run_hash": model_run_hash,
+        "one_line": (
+            "Projected this canonical review unit from the real API run."
+            if claimed
+            else "Did not surface this normalized review target."
+        ),
+    }
+
+
 def _bundle_time_window(bundle: dict[str, Any]) -> dict[str, str]:
     time_window = bundle.get("time_window") if isinstance(bundle.get("time_window"), dict) else {}
     start = str(
@@ -522,6 +554,7 @@ def _targets(
     window_end: str,
 ) -> list[dict[str, Any]]:
     provider_ids = [str(row["provider_id"]) for row in provider_statuses]
+    provider_status_by_id = {str(row["provider_id"]): row for row in provider_statuses}
     run_hashes = {str(row["provider_id"]): str(row.get("raw_output_sha256") or "")[:12] for row in provider_statuses}
     valid_count = max(1, sum(1 for row in provider_statuses if row.get("status") == "ok" and row.get("schema_valid")))
     targets = []
@@ -530,16 +563,12 @@ def _targets(
             continue
         claimed = {str(provider) for provider in target.get("providers") or []}
         provider_positions = [
-            {
-                "provider_id": provider_id,
-                "stance": "claimed" if provider_id in claimed else "silent",
-                "model_run_hash": run_hashes.get(provider_id, ""),
-                "one_line": (
-                    "Projected this canonical review unit from the real API run."
-                    if provider_id in claimed
-                    else "Did not surface this normalized review target."
-                ),
-            }
+            _provider_position_for_target(
+                provider_id,
+                provider_status_by_id.get(provider_id, {}),
+                claimed=provider_id in claimed,
+                model_run_hash=run_hashes.get(provider_id, ""),
+            )
             for provider_id in provider_ids
         ]
         provider_count = sum(1 for row in provider_positions if row["stance"] == "claimed")
@@ -553,10 +582,16 @@ def _targets(
         )
         if source_evidence_refs and not evidence_refs:
             continue
-        target_class = str(target.get("class") or "validation_target")
-        promotion_state = "primary_candidate" if target_class == "primary_candidate" else "validation"
-        blocked_reason = _blocked_reason(target, provider_count=provider_count)
-        missing_evidence = _public_missing_evidence(target, blocked_reason=blocked_reason)
+        original_target_class = str(target.get("class") or "validation_target")
+        preliminary_blocked_reason = _blocked_reason(
+            target,
+            provider_count=provider_count,
+            target_class=original_target_class,
+        )
+        preliminary_missing_evidence = _public_missing_evidence(
+            target,
+            blocked_reason=preliminary_blocked_reason,
+        )
         canonical_review_unit = _public_canonical_review_unit(
             target,
             evidence_refs=evidence_refs,
@@ -572,7 +607,7 @@ def _targets(
         target_explanation = _public_target_explanation(
             public_target,
             evidence_refs=public_evidence_refs,
-            blocked_reason=blocked_reason,
+            blocked_reason=preliminary_blocked_reason,
             evidence_lookup=evidence_lookup,
             window_start=window_start,
             window_end=window_end,
@@ -581,6 +616,32 @@ def _targets(
         raw = public_target.get("raw") if isinstance(public_target.get("raw"), dict) else {}
         source_candidate_count = _int(public_target.get("source_candidate_count")) or _int(raw.get("source_candidate_count")) or 1
         evidence_family_count = len({_evidence_family(ref) for ref in evidence_refs if _evidence_family(ref)})
+        target_class, classification = _public_target_class(
+            public_target,
+            original_class=original_target_class,
+            provider_count=provider_count,
+            valid_count=valid_count,
+            evidence_ref_count=evidence_ref_total_count,
+            evidence_family_count=evidence_family_count,
+            source_candidate_count=source_candidate_count,
+            target_explanation=target_explanation,
+            missing_evidence=preliminary_missing_evidence,
+            blocked_reason=preliminary_blocked_reason,
+        )
+        blocked_reason = (
+            "evidence_thin_primary_candidate; human_review_required; core_evidence_or_user_impact_unverified"
+            if classification.get("adjustment") == "demoted_primary_candidate_evidence_thin"
+            else preliminary_blocked_reason
+        )
+        missing_evidence = _public_missing_evidence(target, blocked_reason=blocked_reason)
+        if classification.get("adjustment") == "demoted_primary_candidate_evidence_thin":
+            missing_evidence = _unique_strings(
+                [
+                    *missing_evidence,
+                    "Evidence strength sufficient for primary candidacy, not just provider agreement.",
+                ]
+            )
+        promotion_state = "primary_candidate" if target_class == "primary_candidate" else "validation"
         priority_result = score_review_priority(
             prior_score=float(public_target.get("review_priority_score") or 0.0),
             promotion_score=float(public_target.get("promotion_score") or 0.0),
@@ -605,6 +666,8 @@ def _targets(
                 "review_target_id": str(public_target.get("review_target_id") or public_target.get("target_id") or ""),
                 "title": public_title,
                 "class": target_class,
+                "original_class": original_target_class,
+                "classification": classification,
                 "state": str(public_target.get("state") or target_class),
                 "status": str(public_target.get("status") or "pending"),
                 "subsystem": str(public_target.get("subsystem") or "general"),
@@ -838,6 +901,136 @@ def _public_target_rank(target: dict[str, Any]) -> tuple[int, int, float, int, i
     evidence_count = len(target.get("evidence_refs") or [])
     source_candidates = _int((target.get("raw") or {}).get("source_candidate_count"))
     return (class_rank, provider_count, priority, evidence_count, source_candidates)
+
+
+def _public_target_class(
+    target: dict[str, Any],
+    *,
+    original_class: str,
+    provider_count: int,
+    valid_count: int,
+    evidence_ref_count: int,
+    evidence_family_count: int,
+    source_candidate_count: int,
+    target_explanation: dict[str, Any],
+    missing_evidence: list[str],
+    blocked_reason: str,
+) -> tuple[str, dict[str, Any]]:
+    original = str(original_class or "validation_target")
+    classification = {
+        "schema_version": "public_target_classification.v1",
+        "original_class": original,
+        "final_class": original,
+        "adjustment": "",
+        "reason": "",
+        "provider_support": f"{provider_count}/{max(valid_count, 1)}",
+        "evidence_ref_count": evidence_ref_count,
+        "evidence_family_count": evidence_family_count,
+        "source_candidate_count": source_candidate_count,
+        "policy": (
+            "Provider convergence can create high-priority validation work, but primary candidacy "
+            "requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates."
+        ),
+    }
+    if original != "primary_candidate":
+        return original, classification
+    if _primary_candidate_is_evidence_thin(
+        target,
+        evidence_ref_count=evidence_ref_count,
+        evidence_family_count=evidence_family_count,
+        source_candidate_count=source_candidate_count,
+        target_explanation=target_explanation,
+        missing_evidence=missing_evidence,
+        blocked_reason=blocked_reason,
+    ):
+        classification.update(
+            {
+                "final_class": "validation_target",
+                "adjustment": "demoted_primary_candidate_evidence_thin",
+                "reason": (
+                    "Provider support is treated as technical review signal only because cited runtime "
+                    "evidence, source breadth, or user-impact evidence is too thin for public primary candidacy."
+                ),
+            }
+        )
+        return "validation_target", classification
+    return original, classification
+
+
+def _primary_candidate_is_evidence_thin(
+    target: dict[str, Any],
+    *,
+    evidence_ref_count: int,
+    evidence_family_count: int,
+    source_candidate_count: int,
+    target_explanation: dict[str, Any],
+    missing_evidence: list[str],
+    blocked_reason: str,
+) -> bool:
+    if evidence_ref_count < PRIMARY_CANDIDATE_MIN_EVIDENCE_REFS:
+        return True
+    if evidence_family_count < 2:
+        return True
+    if source_candidate_count <= 1 and evidence_ref_count <= PRIMARY_CANDIDATE_MIN_EVIDENCE_REFS:
+        return True
+    text = _classification_evidence_text(
+        target,
+        target_explanation=target_explanation,
+        missing_evidence=missing_evidence,
+        blocked_reason=blocked_reason,
+    )
+    if any(
+        phrase in text
+        for phrase in (
+            "no specific failure signals",
+            "no explicit failure signal",
+            "no error logs",
+            "no metric spikes",
+            "no audio energy",
+            "not confirmed",
+            "cannot confirm",
+            "insufficient evidence",
+            "evidence is thin",
+            "missing evidence",
+            "core_missing_evidence",
+            "user_impact_unverified",
+        )
+    ):
+        return True
+    if any(
+        phrase in text
+        for phrase in (
+            "specific error logs",
+            "metric time-series",
+            "status logs",
+            "measurement logs",
+            "operational outcome evidence",
+        )
+    ):
+        return True
+    return False
+
+
+def _classification_evidence_text(
+    target: dict[str, Any],
+    *,
+    target_explanation: dict[str, Any],
+    missing_evidence: list[str],
+    blocked_reason: str,
+) -> str:
+    parts: list[str] = [blocked_reason, *missing_evidence]
+    for key in (
+        "suspected_issue",
+        "operational_mechanism",
+        "why_it_matters",
+        "why_not_promoted",
+        "next_validation_question",
+    ):
+        parts.append(str(target_explanation.get(key) or target.get(key) or ""))
+    for key in ("evidence_summary", "counter_evidence_summary"):
+        values = target_explanation.get(key) or target.get(key) or []
+        parts.extend(str(item) for item in values if str(item).strip())
+    return " ".join(parts).casefold()
 
 
 def _evidence_family(ref: str) -> str:
@@ -1814,8 +2007,8 @@ def _devops_loop(
     }
 
 
-def _blocked_reason(target: dict[str, Any], *, provider_count: int) -> str:
-    if str(target.get("class") or "") == "primary_candidate":
+def _blocked_reason(target: dict[str, Any], *, provider_count: int, target_class: str | None = None) -> str:
+    if str(target_class if target_class is not None else target.get("class") or "") == "primary_candidate":
         return "primary_candidate_only; incident_baseline_not_auto_accepted; human_review_required"
     reasons = [str(reason) for reason in target.get("promotion_blocked_reasons") or [] if str(reason)]
     if reasons:

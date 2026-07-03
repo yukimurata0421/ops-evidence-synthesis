@@ -12,7 +12,7 @@ from ops_evidence_synthesis.ai.base import ModelResponse
 from ops_evidence_synthesis.ai.prompts import root_cause_prompt
 
 
-DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
+DEFAULT_GEMINI_MODEL = "gemini-3.1-pro-preview"
 DEFAULT_GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_GEMINI_THINKING_LEVEL = "medium"
 GEMINI_THINKING_LEVELS = {"minimal", "low", "medium", "high"}

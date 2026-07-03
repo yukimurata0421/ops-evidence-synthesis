@@ -33,9 +33,10 @@ is for a different event.
 - Cloud Run service: `ops-evidence-api`
 - Cloud Run region: `asia-northeast1`
 - Public custom domain: https://ops-evidence.yukimurata0421.dev/
-- Deployed revision: `ops-evidence-api-00183-hl6`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:02da07df7bba6780a7f8ec25a29d40a382c99e2946b51173c1f14a409794661c`
+- Deployed revision: `ops-evidence-api-00195-pwc`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:ef85fd4457b6aa937eb5e8a206588dadb8a29752ec1371f42dcf83d7eb78c47f`
 - Public smoke after deploy: passed
+- Fast GCP Review smoke: passed with `gemini-3.1-flash-lite`, 240 fixed sanitized amazon-notify rows, wall time 5.515s.
 - Digest note: this digest is a public demo release attestation, not a private
   execution identifier.
 - Cloud Run min instances: `1`

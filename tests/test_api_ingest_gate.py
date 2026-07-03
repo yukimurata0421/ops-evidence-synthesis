@@ -73,6 +73,46 @@ def test_write_token_guard_blocks_mutations_when_configured(
     assert allowed.status_code == 200
 
 
+def test_public_fast_gcp_review_uses_fixed_sample_without_write_token(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    summaries = tmp_path / "summaries"
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
+    monkeypatch.setenv("OES_API_WRITE_TOKEN", "secret-token")
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_PROVIDER_MODE", "local")
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_SAMPLE_ROWS", "20")
+    monkeypatch.setenv("OES_PUBLIC_FAST_GCP_REVIEW_CACHE_SECONDS", "0")
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_OUTPUT_DIR", str(summaries))
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", str(summaries))
+
+    with TestClient(app) as client:
+        page = client.get("/ui/fast-gcp-review")
+        result = client.post("/public/fast-gcp-review", json={})
+        blocked = client.post("/ai/multi-run", json={})
+
+    assert page.status_code == 200, page.text
+    assert "Gemini Flash Lite" in page.text
+    assert result.status_code == 200, result.text
+    payload = result.json()
+    assert payload["status"] == "ok"
+    assert payload["input"]["sample"] == "amazon-notify"
+    assert payload["input"]["arbitrary_input_accepted"] is False
+    assert payload["provider"]["provider_id"] == "local-gemini"
+    assert payload["timing"]["wall_seconds"] >= 0
+    assert payload["urls"]["detail"].startswith("/ui/full-review-page?evidence_sha256=")
+    assert blocked.status_code == 403
+
+    with TestClient(app) as client:
+        detail = client.get(payload["urls"]["detail"])
+        graph = client.get(payload["urls"]["graph"])
+
+    assert detail.status_code == 200, detail.text
+    assert graph.status_code == 200, graph.text
+
+
 def test_write_token_guard_accepts_header_and_body_token(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

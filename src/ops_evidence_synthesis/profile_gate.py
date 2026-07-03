@@ -120,6 +120,120 @@ def build_profile_context_summary(
     return context
 
 
+def build_focused_profile_context_summary(
+    *,
+    profile_id: str,
+    focused_profile: dict[str, Any],
+    review_targets: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Summarize an existing focused operational profile for the human gate."""
+    profile = _as_dict(focused_profile)
+    generation = _as_dict(profile.get("focused_profile_generation"))
+    draft = {
+        "schema_version": str(profile.get("schema_version") or ""),
+        "profile_generation": generation,
+        "source_discovery_sha256": str(
+            profile.get("source_discovery_sha256") or generation.get("source_discovery_sha256") or ""
+        ),
+        "required_profile_questions": _to_text_list(profile.get("human_review_required")),
+        "required_human_decisions": _to_text_list(profile.get("human_review_required")),
+    }
+    approved = focused_profile_to_approved_profile(
+        profile_id=profile_id,
+        focused_profile=profile,
+    )
+    return build_profile_context_summary(
+        profile_id=profile_id,
+        profile_draft=draft,
+        approved_profile=approved,
+        source_context_sha=str(profile.get("source_context_sha256") or generation.get("source_context_sha256") or ""),
+        source_analysis_sha=str(profile.get("source_analysis_sha256") or generation.get("source_analysis_sha256") or ""),
+        review_targets=review_targets,
+    )
+
+
+def focused_profile_to_approved_profile(
+    *,
+    profile_id: str,
+    focused_profile: dict[str, Any],
+) -> dict[str, Any]:
+    profile = _as_dict(focused_profile)
+    summary = _as_dict(profile.get("system_summary"))
+    generation = _as_dict(profile.get("focused_profile_generation"))
+    system_profile = {
+        "system_type": str(summary.get("system_type") or ""),
+        "purpose": str(summary.get("primary_purpose") or ""),
+        "logged_subject": str(summary.get("logged_subject") or ""),
+        "operational_boundary": str(summary.get("operational_boundary") or ""),
+        "confidence": _float(summary.get("confidence")),
+        "profile_source": "focused_operational_profile",
+    }
+    component_map = {
+        str(row.get("component_id") or row.get("name") or f"component_{index:03d}"): {
+            "name": str(row.get("name") or ""),
+            "role": str(row.get("role") or ""),
+            "confidence": _float(row.get("confidence")),
+            "source_context_refs": _to_text_list(row.get("source_context_refs")),
+            "evidence_refs": _to_text_list(row.get("evidence_refs")),
+        }
+        for index, row in enumerate(_as_dict_list(profile.get("runtime_components")), start=1)
+    }
+    observability = _as_dict(profile.get("observability_contract"))
+    metric_semantics = {
+        str(row.get("metric_name") or f"metric_{index:03d}"): {
+            "meaning": str(row.get("meaning") or ""),
+            "healthy_direction": str(row.get("healthy_direction") or "unknown"),
+            "confidence": _profile_row_confidence(row, default=_float(summary.get("confidence"))),
+            "source_context_refs": _to_text_list(row.get("source_context_refs")),
+            "evidence_refs": _to_text_list(row.get("evidence_refs")),
+        }
+        for index, row in enumerate(_as_dict_list(observability.get("metrics")), start=1)
+        if str(row.get("metric_name") or "").strip()
+    }
+    collector_mappings: dict[str, dict[str, Any]] = {}
+    for index, row in enumerate(_as_dict_list(profile.get("read_only_collectors")), start=1):
+        name = str(row.get("collector") or f"collector_{index:03d}")
+        collector_mappings[name] = {
+            "purpose": str(row.get("purpose") or ""),
+            "safety_level": str(row.get("safety_level") or "read_only"),
+            "confidence": _profile_row_confidence(row, default=_float(summary.get("confidence"))),
+        }
+    for index, row in enumerate(_as_dict_list(observability.get("logs")), start=1):
+        name = str(row.get("source") or f"log_source_{index:03d}")
+        collector_mappings.setdefault(
+            name,
+            {
+                "purpose": str(row.get("meaning") or ""),
+                "safety_level": "read_only",
+                "confidence": _profile_row_confidence(row, default=_float(summary.get("confidence"))),
+            },
+        )
+    confidence_summary = _focused_confidence_summary(
+        summary=summary,
+        component_map=component_map,
+        metric_semantics=metric_semantics,
+        collector_mappings=collector_mappings,
+    )
+    return {
+        "profile_id": profile_id or str(profile.get("system_label") or ""),
+        "profile_discovery_approval": {
+            "approved": True,
+            "explicit_profile": True,
+            "source_discovery_sha256": str(
+                profile.get("source_discovery_sha256") or generation.get("source_discovery_sha256") or ""
+            ),
+        },
+        "system_profile": system_profile,
+        "component_map": component_map,
+        "metric_semantics": metric_semantics,
+        "collector_mappings": collector_mappings,
+        "confidence_summary": confidence_summary,
+        "human_questions": _to_text_list(profile.get("human_review_required")),
+        "required_profile_questions": _to_text_list(profile.get("human_review_required")),
+        "action_constraints": _to_text_list(_as_dict(profile.get("profile_limits")).get("notes")),
+    }
+
+
 def build_approved_profile_model_context(profile: dict[str, Any]) -> dict[str, Any]:
     if not profile:
         return {
@@ -384,6 +498,10 @@ def _as_list(value: object) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
+def _as_dict_list(value: object) -> list[dict[str, Any]]:
+    return [item for item in _as_list(value) if isinstance(item, dict)]
+
+
 def _to_text_list(value: object) -> list[str]:
     if isinstance(value, list):
         return [str(item).strip() for item in value if str(item).strip()]
@@ -413,3 +531,41 @@ def _float(value: object) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _profile_row_confidence(row: dict[str, Any], *, default: float | None) -> float | None:
+    return _float(row.get("confidence")) if _float(row.get("confidence")) is not None else default
+
+
+def _focused_confidence_summary(
+    *,
+    summary: dict[str, Any],
+    component_map: dict[str, Any],
+    metric_semantics: dict[str, Any],
+    collector_mappings: dict[str, Any],
+) -> dict[str, Any]:
+    component_scores = [
+        score
+        for score in (_float(_as_dict(value).get("confidence")) for value in component_map.values())
+        if score is not None
+    ]
+    metric_scores = [
+        score
+        for score in (_float(_as_dict(value).get("confidence")) for value in metric_semantics.values())
+        if score is not None
+    ]
+    collector_scores = [
+        score
+        for score in (_float(_as_dict(value).get("confidence")) for value in collector_mappings.values())
+        if score is not None
+    ]
+    component_confidence = round(mean(component_scores), 3) if component_scores else _float(summary.get("confidence"))
+    metric_confidence = round(mean(metric_scores), 3) if metric_scores else None
+    collector_confidence = round(mean(collector_scores), 3) if collector_scores else None
+    scores = [score for score in (component_confidence, metric_confidence, collector_confidence) if score is not None]
+    return {
+        "overall_confidence": round(mean(scores), 3) if scores else _float(summary.get("confidence")),
+        "component_mapping_confidence": component_confidence,
+        "metric_semantics_confidence": metric_confidence,
+        "collector_mapping_confidence": collector_confidence,
+    }

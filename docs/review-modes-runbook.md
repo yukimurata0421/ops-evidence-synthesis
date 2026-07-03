@@ -12,7 +12,7 @@ evidence coverage.
 | --- | --- | --- |
 | Public Deterministic Replay | A committed public-safe fixture can regenerate a review graph locally without external AI API calls. | It is not a live AI latency benchmark. |
 | More Data Rescore / Evidence Promotion Demo | New evidence can change a review target from `validation_target` to `primary_candidate` while preserving the human gate. | It does not auto-accept an incident cause. |
-| Live AI Review | Gemini-led, ADK-compatible tooling can run the real provider path over sanitized Evidence Bundles, compare claims, route missing evidence, and stop at the human gate. | It is not the same as the deterministic public replay path. |
+| Fast GCP Review | The deployed Cloud Run service can run a fixed sanitized amazon-notify sample through Vertex Gemini Flash Lite and return a measured review URL. | It is not the 45k-50k row forensic path and it does not accept arbitrary logs or URLs. |
 | Full Forensic AI Review | Larger real operations corpora can be reviewed through chunk fan-out, provider disagreement handling, and canonical graph merge. | It is served publicly as a precomputed artifact for immediate judge inspection. |
 
 ## Measured Public Replay Results
@@ -38,6 +38,12 @@ fixture can regenerate reviewer-visible artifacts quickly and reproducibly. The
 strongest speed number is the More Data Rescore path: it demonstrates that once
 evidence is attached, promotion-state recomputation can happen in about one
 second while the human gate remains explicit.
+
+Fast GCP Review is the short public live path. It uses a fixed sanitized
+amazon-notify sample, runs from Cloud Run, calls Vertex Gemini Flash Lite, and
+returns a normal review URL plus wall-clock timing. It is intentionally separate
+from the larger full-forensic runs so judges can verify live GCP execution
+without waiting for 45k-50k row chunk fan-out.
 
 The larger real API runs should be described separately as recorded full
 forensic reviews. Their value is full-corpus evidence accounting, chunked

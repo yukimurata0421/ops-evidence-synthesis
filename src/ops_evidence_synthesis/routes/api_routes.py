@@ -4,9 +4,13 @@ import hmac
 import json
 import logging
 import os
+import tempfile
+import threading
 import time
+import uuid
 from copy import deepcopy
 from dataclasses import asdict
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Callable
 
@@ -34,6 +38,7 @@ from ops_evidence_synthesis.ingest import ingest_log_files, sanitize_logs
 from ops_evidence_synthesis.local_first import validate_evidence_bundle_for_upload
 from ops_evidence_synthesis.models import IncidentWindow, RawLog, SanitizedLog
 from ops_evidence_synthesis.observability import log_event
+from ops_evidence_synthesis.precomputed_review import stable_precomputed_review_json
 from ops_evidence_synthesis.pipeline_progress import (
     analysis_pipeline_status_from_store,
     finish_pipeline_run,
@@ -53,7 +58,7 @@ from ops_evidence_synthesis.source_context import (
     validate_source_analysis_bundle_for_upload,
     validate_source_context_bundle_for_upload,
 )
-from ops_evidence_synthesis.storage.sqlite_store import DEFAULT_DB_PATH
+from ops_evidence_synthesis.storage.sqlite_store import DEFAULT_DB_PATH, SQLiteStore
 from ops_evidence_synthesis.synthesis.clustering import persist_proposition_clusters
 from ops_evidence_synthesis.synthesis.comparison import compare_providers
 from ops_evidence_synthesis.synthesis.more_data import analyze_more_data_queries
@@ -67,7 +72,7 @@ from ops_evidence_synthesis.synthesis.pipeline import (
 )
 from ops_evidence_synthesis.synthesis.review_arbitration import resolve_canonical_review_graph_snapshot
 from ops_evidence_synthesis.synthesis.router import RoutingResult
-from ops_evidence_synthesis.timeutils import utc_now
+from ops_evidence_synthesis.timeutils import format_timestamp, parse_timestamp, utc_now
 from ops_evidence_synthesis.web.precomputed_review import (
     canonical_precomputed_review_sha as _canonical_precomputed_review_sha,
     fast_detail_target_card as _fast_detail_target_card,
@@ -77,6 +82,7 @@ from ops_evidence_synthesis.web.precomputed_review import (
     precomputed_review_target_set as _precomputed_review_target_set,
     precomputed_summary as _precomputed_summary,
     public_precomputed_landing_page as _public_precomputed_landing_page,
+    remember_precomputed_review_payload as _remember_precomputed_review_payload,
     render_precomputed_api_page as _render_precomputed_api_page,
     render_precomputed_graph_page as _render_precomputed_graph_page,
     render_precomputed_markdown_report as _render_precomputed_markdown_report,
@@ -100,6 +106,8 @@ from ops_evidence_synthesis.web.review_page import (
 LOGGER = logging.getLogger("ops_evidence_synthesis.api.routes")
 router = APIRouter()
 _TARGET_SET_CACHE: dict[tuple[str, str, int, bool], tuple[float, dict[str, Any]]] = {}
+_FAST_GCP_REVIEW_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_FAST_GCP_REVIEW_LOCK = threading.Lock()
 
 _STORE_FACTORY: Callable[[], Any] | None = None
 _GEMINI_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
@@ -251,6 +259,7 @@ def _require_precomputed_review_for_public_read(
 PUBLIC_PRECOMPUTED_READ_PATHS = {
     "/",
     "/health",
+    "/ui/fast-gcp-review",
     "/ui/api",
     "/ui/full-review-page",
     "/ui/report.md",
@@ -260,6 +269,22 @@ PUBLIC_PRECOMPUTED_READ_PATHS = {
     "/review-targets",
     "/review/graph",
 }
+
+
+def _public_fast_gcp_review_enabled() -> bool:
+    return os.environ.get("OES_PUBLIC_FAST_GCP_REVIEW_ENABLED", "1").strip().casefold() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def _public_fast_gcp_review_write_allowed(request: Request) -> bool:
+    if not _public_fast_gcp_review_enabled():
+        return False
+    path = request.url.path.rstrip("/") or "/"
+    return request.method.upper() == "POST" and path == "/public/fast-gcp-review"
 
 
 def _public_precomputed_read_guard(request: Request, request_id: str) -> JSONResponse | None:
@@ -444,6 +469,415 @@ def public_rescore_demo_view(id: str = "amazon-notify-more-data-rescore") -> str
         raise HTTPException(status_code=404, detail="rescore demo not found")
     return html
 
+
+@router.get("/ui/fast-gcp-review", response_class=HTMLResponse)
+def public_fast_gcp_review_view() -> str:
+    if not _public_fast_gcp_review_enabled():
+        raise HTTPException(status_code=404, detail="fast GCP review is disabled")
+    return _render_fast_gcp_review_view()
+
+
+@router.post("/public/fast-gcp-review")
+def public_fast_gcp_review(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    if not _public_fast_gcp_review_enabled():
+        raise HTTPException(status_code=404, detail="fast GCP review is disabled")
+    payload = payload if isinstance(payload, dict) else {}
+    force = bool(payload.get("force")) and _truthy_env("OES_PUBLIC_FAST_GCP_REVIEW_ALLOW_FORCE")
+    cache_key = _fast_gcp_review_cache_key()
+    ttl = _fast_gcp_review_cache_seconds()
+    with _FAST_GCP_REVIEW_LOCK:
+        cached = _FAST_GCP_REVIEW_CACHE.get(cache_key)
+        if not force and ttl > 0 and cached and time.monotonic() - cached[0] < ttl:
+            cached_payload = deepcopy(cached[1])
+            cached_payload["cache"] = {
+                "status": "served_from_recent_public_fast_review_cache",
+                "ttl_seconds": ttl,
+                "live_api_called": False,
+            }
+            return cached_payload
+        result = _run_public_fast_gcp_review()
+        if ttl > 0:
+            _FAST_GCP_REVIEW_CACHE[cache_key] = (time.monotonic(), deepcopy(result))
+        return result
+
+
+def _render_fast_gcp_review_view() -> str:
+    model = _fast_gcp_review_model_name()
+    sample_rows = _fast_gcp_review_sample_rows()
+    full_review_sha = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
+    return f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fast GCP Review - Ops Evidence Synthesis</title>
+    <style>
+      :root {{
+        color-scheme: light;
+        --bg: #eef2f7;
+        --surface: #fff;
+        --ink: #0f1b2d;
+        --muted: #526173;
+        --line: #d9e1ec;
+        --accent: #2a6fdb;
+        --green: #12836b;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }}
+      * {{ box-sizing: border-box; }}
+      body {{ margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+      main {{ width: min(calc(100% - 40px), 1120px); margin: 0 auto; padding: 42px 0; }}
+      .panel {{ border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 24px; box-shadow: 0 18px 48px rgba(15,27,45,.08); }}
+      .top {{ display: flex; justify-content: space-between; gap: 16px; align-items: start; margin-bottom: 22px; }}
+      h1 {{ margin: 0 0 10px; font-size: clamp(36px, 6vw, 64px); line-height: .96; letter-spacing: 0; }}
+      p {{ margin: 0; color: var(--muted); line-height: 1.55; }}
+      .badge {{ display: inline-flex; border: 1px solid #d3e4fb; border-radius: 999px; padding: 7px 10px; background: #e7f0fc; color: var(--accent); font: 800 12px/1 var(--mono); }}
+      .grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 22px 0; }}
+      .metric {{ border: 1px solid var(--line); border-radius: 8px; padding: 13px; background: #f8fafc; }}
+      .metric span {{ display: block; color: var(--muted); font-size: 12px; font-weight: 800; }}
+      .metric b {{ display: block; margin-top: 7px; font-size: 18px; overflow-wrap: anywhere; }}
+      button, a.button {{ display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: #fff; padding: 11px 14px; font-weight: 850; text-decoration: none; cursor: pointer; }}
+      a.secondary {{ background: #fff; color: var(--ink); border-color: var(--line); }}
+      .actions {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }}
+      pre {{ margin: 18px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: 8px; background: #0f1b2d; color: #e6edf7; padding: 14px; font: 12px/1.5 var(--mono); }}
+      .status {{ margin-top: 16px; color: var(--muted); font-weight: 750; }}
+      .ok {{ color: var(--green); }}
+      @media (max-width: 760px) {{ .top, .grid {{ grid-template-columns: 1fr; display: grid; }} }}
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel">
+        <div class="top">
+          <div>
+            <span class="badge">Fast GCP Review</span>
+            <h1>Run a fixed sanitized sample on GCP.</h1>
+            <p>This public action uses a bundled amazon-notify sanitized sample only. It calls Vertex Gemini Flash Lite from Cloud Run, records the elapsed time, and returns a review URL. It does not accept arbitrary logs or URLs.</p>
+          </div>
+          <a class="button secondary" href="/">Back</a>
+        </div>
+        <div class="grid">
+          <div class="metric"><span>Sample</span><b>amazon-notify</b></div>
+          <div class="metric"><span>Rows</span><b>{_human_count(sample_rows)}</b></div>
+          <div class="metric"><span>Model</span><b>{_html(model)}</b></div>
+          <div class="metric"><span>Mode</span><b>fixed input only</b></div>
+        </div>
+        <div class="actions">
+          <button id="run-fast-review" type="button">Run Fast GCP Review</button>
+          <a class="button secondary" href="/ui/full-review-page?evidence_sha256={full_review_sha}">Open Full Forensic Review</a>
+        </div>
+        <p class="status" id="status">Ready. The first uncached run calls the live model API; recent repeated clicks may return the short public cache.</p>
+        <div class="actions" id="result-links" hidden></div>
+        <pre id="result" hidden></pre>
+      </section>
+    </main>
+    <script>
+      const button = document.getElementById("run-fast-review");
+      const statusEl = document.getElementById("status");
+      const resultEl = document.getElementById("result");
+      const linksEl = document.getElementById("result-links");
+      button.addEventListener("click", async () => {{
+        button.disabled = true;
+        statusEl.textContent = "Running fixed sample on Cloud Run with Vertex Gemini Flash Lite...";
+        resultEl.hidden = true;
+        linksEl.hidden = true;
+        linksEl.innerHTML = "";
+        try {{
+          const response = await fetch("/public/fast-gcp-review", {{
+            method: "POST",
+            headers: {{ "content-type": "application/json" }},
+            body: JSON.stringify({{}})
+          }});
+          const payload = await response.json();
+          if (!response.ok) {{
+            throw new Error(payload.detail || JSON.stringify(payload));
+          }}
+          statusEl.innerHTML = "<span class='ok'>Completed.</span> Wall time " + payload.timing.wall_seconds + "s, model " + payload.provider.model_name + ".";
+          const links = [
+            ["Detail", payload.urls.detail],
+            ["API", payload.urls.api],
+            ["Graph", payload.urls.graph],
+            ["Full Forensic Review", "/ui/full-review-page?evidence_sha256={full_review_sha}"]
+          ];
+          linksEl.innerHTML = links.map(([label, url]) => "<a class='button secondary' href='" + url + "'>" + label + "</a>").join("");
+          linksEl.hidden = false;
+          resultEl.textContent = JSON.stringify(payload, null, 2);
+          resultEl.hidden = false;
+        }} catch (error) {{
+          statusEl.textContent = "Fast review failed: " + error.message;
+        }} finally {{
+          button.disabled = false;
+        }}
+      }});
+    </script>
+  </body>
+</html>"""
+
+
+def _fast_gcp_review_cache_seconds() -> int:
+    return int(os.environ.get("OES_PUBLIC_FAST_GCP_REVIEW_CACHE_SECONDS", "120"))
+
+
+def _fast_gcp_review_sample_rows() -> int:
+    return max(20, int(os.environ.get("OES_FAST_GCP_REVIEW_SAMPLE_ROWS", "240")))
+
+
+def _fast_gcp_review_model_name() -> str:
+    if _fast_gcp_review_provider_mode() == "local":
+        return "local-gemini"
+    return os.environ.get("OES_FAST_GCP_GEMINI_MODEL", "gemini-3.1-flash-lite")
+
+
+def _fast_gcp_review_provider_mode() -> str:
+    return os.environ.get("OES_FAST_GCP_REVIEW_PROVIDER_MODE", "real").strip().casefold()
+
+
+def _fast_gcp_review_provider_name() -> str:
+    return "local-gemini" if _fast_gcp_review_provider_mode() == "local" else "gemini-fast-lite"
+
+
+def _fast_gcp_review_cache_key() -> str:
+    return ":".join(
+        [
+            "amazon-notify",
+            str(_fast_gcp_review_sample_rows()),
+            _fast_gcp_review_provider_mode(),
+            _fast_gcp_review_model_name(),
+        ]
+    )
+
+
+def _run_public_fast_gcp_review() -> dict[str, Any]:
+    run_started = time.perf_counter()
+    run_id = f"fast-gcp-{uuid.uuid4().hex[:12]}"
+    with tempfile.TemporaryDirectory(prefix="oes-fast-gcp-") as tmp:
+        temp_dir = Path(tmp)
+        store = SQLiteStore(temp_dir / "fast_review.sqlite3")
+        store.init_schema()
+        sanitized_rows = _load_fixed_fast_review_sample()
+        if not sanitized_rows:
+            raise HTTPException(status_code=500, detail="fixed fast review sample is empty")
+        store.insert_sanitized_logs(sanitized_rows)
+        start = min(row.timestamp for row in sanitized_rows)
+        end = format_timestamp(parse_timestamp(max(row.timestamp for row in sanitized_rows)) + timedelta(seconds=1))
+        bundle = EvidenceBundleBuilder(store).build(
+            IncidentWindow(
+                service="amazon-notify",
+                environment="prod",
+                incident_start=start,
+                incident_end=end,
+                lookback_minutes=int(os.environ.get("OES_FAST_GCP_REVIEW_LOOKBACK_MINUTES", "15")),
+            )
+        )
+        source_context, source_analysis, profile_draft, approved_profile = _fast_gcp_profile_context()
+        provider_mode = "local" if _fast_gcp_review_provider_mode() == "local" else "real_or_skip"
+        api_response = run_multi_ai(
+            bundle,
+            approved_profile,
+            providers=[_fast_gcp_review_provider_name()],
+            mode=provider_mode,
+            store=store,
+            source_context=source_context,
+            source_analysis=source_analysis,
+        )
+        provider_success = sum(
+            1
+            for row in api_response.get("model_runs") or []
+            if isinstance(row, dict) and row.get("status") == "ok" and row.get("schema_valid") is True
+        )
+        if provider_success < 1:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "message": "fast GCP review provider did not produce a schema-valid result",
+                    "provider_mode": provider_mode,
+                    "provider": _fast_gcp_review_provider_name(),
+                    "model_runs": api_response.get("model_runs") or [],
+                },
+            )
+        public_payload = _fast_gcp_public_payload(
+            api_response=api_response,
+            bundle=bundle,
+            source_context=source_context,
+            source_analysis=source_analysis,
+            profile_draft=profile_draft,
+            approved_profile=approved_profile,
+            run_id=run_id,
+        )
+        _persist_fast_gcp_public_payload(public_payload)
+    wall_seconds = round(time.perf_counter() - run_started, 3)
+    evidence_sha = str(public_payload.get("evidence_sha256") or "")
+    provider_statuses = public_payload.get("provider_statuses") if isinstance(public_payload.get("provider_statuses"), list) else []
+    first_provider = provider_statuses[0] if provider_statuses and isinstance(provider_statuses[0], dict) else {}
+    return {
+        "schema_version": "public_fast_gcp_review_result.v1",
+        "status": "ok",
+        "run_id": run_id,
+        "cache": {
+            "status": "live_api_result",
+            "ttl_seconds": _fast_gcp_review_cache_seconds(),
+            "live_api_called": _fast_gcp_review_provider_mode() != "local",
+        },
+        "input": {
+            "sample": "amazon-notify",
+            "sample_rows": len(sanitized_rows),
+            "raw_log_policy": "not_uploaded",
+            "arbitrary_input_accepted": False,
+            "window_start": str(public_payload.get("analysis_context", {}).get("window_start") or ""),
+            "window_end": str(public_payload.get("analysis_context", {}).get("window_end") or ""),
+        },
+        "gcp_runtime": {
+            "service": os.environ.get("K_SERVICE", ""),
+            "revision": os.environ.get("K_REVISION", ""),
+            "configuration": os.environ.get("K_CONFIGURATION", ""),
+            "project": os.environ.get("OES_VERTEX_PROJECT")
+            or os.environ.get("GOOGLE_CLOUD_PROJECT")
+            or os.environ.get("GCP_PROJECT")
+            or "",
+            "location": os.environ.get("OES_FAST_GCP_VERTEX_LOCATION") or os.environ.get("OES_VERTEX_LOCATION", "global"),
+        },
+        "provider": {
+            "provider_id": str(first_provider.get("provider_id") or _fast_gcp_review_provider_name()),
+            "model_name": str(first_provider.get("model_name") or _fast_gcp_review_model_name()),
+            "status": str(first_provider.get("status") or ""),
+            "schema_valid": bool(first_provider.get("schema_valid")),
+            "latency_ms": int(first_provider.get("latency_ms") or 0),
+            "input_tokens": int(first_provider.get("input_tokens") or 0),
+            "output_tokens": int(first_provider.get("output_tokens") or 0),
+            "raw_output_sha256": str(first_provider.get("raw_output_sha256") or ""),
+        },
+        "timing": {
+            "wall_seconds": wall_seconds,
+            "provider_latency_ms": int(first_provider.get("latency_ms") or 0),
+        },
+        "review": {
+            "evidence_sha256": evidence_sha,
+            "payload_sha256": str((public_payload.get("generation") or {}).get("payload_sha256") or ""),
+            "canonical_graph_sha256": str(public_payload.get("summary", {}).get("canonical_graph_sha256") or ""),
+            "primary_targets": int(public_payload.get("summary", {}).get("review", {}).get("primary_targets") or 0),
+            "validation_targets": int(public_payload.get("summary", {}).get("review", {}).get("validation_targets") or 0),
+        },
+        "urls": {
+            "detail": f"/ui/full-review-page?evidence_sha256={_url_quote(evidence_sha)}",
+            "api": f"/ui/api?evidence_sha256={_url_quote(evidence_sha)}",
+            "graph": f"/ui/review-graph?evidence_sha256={_url_quote(evidence_sha)}",
+            "report": f"/ui/report.md?evidence_sha256={_url_quote(evidence_sha)}",
+        },
+    }
+
+
+def _load_fixed_fast_review_sample() -> list[SanitizedLog]:
+    sample_path = Path(os.environ.get("OES_FAST_GCP_REVIEW_SAMPLE_PATH", "data/amazon_notify_flagship_logs.jsonl"))
+    raw_rows: list[RawLog] = []
+    limit = _fast_gcp_review_sample_rows()
+    with sample_path.open("r", encoding="utf-8", errors="replace") as handle:
+        for index, line in enumerate(handle, start=1):
+            if index > limit:
+                break
+            stripped = line.strip()
+            if not stripped:
+                continue
+            payload = json.loads(stripped)
+            if not isinstance(payload, dict):
+                continue
+            raw_rows.append(RawLog.from_mapping(payload))
+    return sanitize_logs(raw_rows, service="amazon-notify", environment="prod")
+
+
+def _fast_gcp_profile_context() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    profile_dir = Path(
+        os.environ.get("OES_FAST_GCP_REVIEW_PROFILE_DIR", "data/public_profile_contexts/amazon_notify_sample")
+    )
+    source_context = _load_optional_json(profile_dir / "source_context_bundle.json")
+    source_analysis = _load_optional_json(profile_dir / "source_analysis_bundle.json")
+    profile_draft = _load_optional_json(profile_dir / "profile_draft.json")
+    approved_profile = _load_optional_json(profile_dir / "approved_profile.json")
+    return source_context, source_analysis, profile_draft, approved_profile
+
+
+def _load_optional_json(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return payload
+
+
+def _fast_gcp_public_payload(
+    *,
+    api_response: dict[str, Any],
+    bundle: dict[str, Any],
+    source_context: dict[str, Any],
+    source_analysis: dict[str, Any],
+    profile_draft: dict[str, Any],
+    approved_profile: dict[str, Any],
+    run_id: str,
+) -> dict[str, Any]:
+    from scripts.generate_precomputed_review_from_multi_run import build_payload
+
+    payload = build_payload(
+        api_response,
+        bundle,
+        source_context=source_context,
+        source_analysis=source_analysis,
+        profile_draft=profile_draft,
+        approved_profile=approved_profile,
+        api_revision="public-fast-gcp-review-v1",
+        profile_id=str(approved_profile.get("profile_id") or "amazon_notify_fast_sample_approved"),
+        updated_at=utc_now(),
+        source_note=(
+            "generated by the public Fast GCP Review path from a fixed sanitized amazon-notify sample; "
+            "arbitrary logs and URLs are not accepted"
+        ),
+        provider_mode=(
+            "fast_gcp_vertex_gemini_flash_lite"
+            if _fast_gcp_review_provider_mode() != "local"
+            else "fast_gcp_local_test"
+        ),
+        model_projection_policy=(
+            "Fast GCP Review uses a deliberately small fixed sanitized sample so judges can see a live Cloud Run "
+            "to Vertex model call quickly. Full 44k-50k reviews remain the recorded forensic artifacts."
+        ),
+        log_observations=[
+            (
+                "Fast GCP Review is the short live execution path. It proves the deployed service can build a "
+                "sanitized Evidence Bundle, call the configured model, persist a public review payload, and return a URL."
+            )
+        ],
+        min_window_hours=0,
+    )
+    payload.setdefault("generation", {})["fast_gcp_review"] = {
+        "schema_version": "public_fast_gcp_review_generation.v1",
+        "run_id": run_id,
+        "sample": "amazon-notify",
+        "sample_rows": _fast_gcp_review_sample_rows(),
+        "provider": _fast_gcp_review_provider_name(),
+        "model_name": _fast_gcp_review_model_name(),
+        "public_input_policy": "fixed_sample_only",
+    }
+    return payload
+
+
+def _persist_fast_gcp_public_payload(payload: dict[str, Any]) -> None:
+    evidence_sha = str(payload.get("evidence_sha256") or "")
+    if not evidence_sha:
+        raise RuntimeError("fast GCP payload is missing evidence_sha256")
+    text = stable_precomputed_review_json(payload)
+    output_dir = os.environ.get("OES_FAST_GCP_REVIEW_OUTPUT_DIR", "").strip()
+    if output_dir:
+        path = Path(output_dir) / f"{evidence_sha}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    gcs_prefix = (
+        os.environ.get("OES_FAST_GCP_REVIEW_GCS_PREFIX", "").strip()
+        or os.environ.get("OES_PRECOMPUTED_REVIEW_GCS_PREFIX", "").strip()
+    )
+    if gcs_prefix.startswith("gs://"):
+        from ops_evidence_synthesis.gcp.storage import write_text
+
+        write_text(f"{gcs_prefix.rstrip('/')}/{evidence_sha}.json", text, content_type="application/json")
+    _remember_precomputed_review_payload(payload)
 
 
 
@@ -2905,6 +3339,8 @@ def _float_env(key: str, default: float) -> float:
 
 async def _write_guard_response(request: Request, request_id: str) -> JSONResponse | None:
     expected = os.environ.get("OES_API_WRITE_TOKEN", "").strip()
+    if _public_fast_gcp_review_write_allowed(request):
+        return None
     if not expected or request.method.upper() in {"GET", "HEAD", "OPTIONS"}:
         return None
     supplied = (request.headers.get("x-oes-write-token") or request.query_params.get("api_token") or "").strip()

@@ -31,7 +31,7 @@ def test_provider_selection_supports_vertex_gemini(monkeypatch) -> None:
     assert isinstance(providers[0], VertexGeminiProvider)
     assert providers[0].provider == "gemini-enterprise-agent-platform"
     assert providers[0].project_id == "ops-evidence-synthesis"
-    assert providers[0].model_name == "gemini-3.1-flash-lite"
+    assert providers[0].model_name == "gemini-3.1-pro-preview"
     assert providers[0].thinking_level == "medium"
 
 

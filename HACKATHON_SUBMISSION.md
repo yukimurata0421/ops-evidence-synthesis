@@ -15,6 +15,7 @@ human-reviewable targets.
 - Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 - Guarded amazon-notify detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
+- Fast GCP Review: https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
 - Full submission URL pack: [docs/submission-links.md](docs/submission-links.md)
 - Checklist and remaining manual actions: [docs/submission-checklist.md](docs/submission-checklist.md)
 
@@ -32,26 +33,35 @@ proof is the live URL, fixed payload, manifest, provider hashes, and
 model-projection statistics. See [docs/data-boundary.md](docs/data-boundary.md)
 for the full committed-vs-local boundary.
 
+Primary candidate is not an accepted cause. It means the target is strong
+enough for prioritized human review; final cause and operational action remain
+human-gated.
+
 ## 30-Second Reviewer Path
 
 1. Open the public entry and confirm that concrete recorded reviews appear immediately.
-2. Check the Review Graph section: provider convergence is visible, but
+2. Open Fast GCP Review to run a fixed sanitized amazon-notify sample from
+   Cloud Run through Vertex Gemini Flash Lite and receive a measured result URL.
+3. Check the Review Graph section: provider convergence is visible, but
    incident and user-impact promotion remains separately gated.
-3. Open the Detail URL and inspect provider positions, Evidence Item links, and
+4. Open the Detail URL and inspect provider positions, Evidence Item links, and
    promotion gates.
-4. Open the Markdown incident report to see the same review as human-readable
+5. Open the Markdown incident report to see the same review as human-readable
    decision material, including human questions and promotion blockers.
-5. Open the API view to inspect the five-provider chunked run based on
+6. Open the API view to inspect the five-provider chunked run based on
    sanitized logs and code context.
-6. Open the More data rescore demo to see `needs_more_data -> evidence_collected`
+7. Open the More data rescore demo to see `needs_more_data -> evidence_collected`
    and validation target -> primary candidate.
-7. Run `make demo && make verify-precomputed` to regenerate the same flagship
+8. Run `make demo && make verify-precomputed` to regenerate the same flagship
    cache from committed public-safe logs.
 
 ## Key Points
 
 - The working product is a guarded review loop, not a free-form chat summary.
 - Initial UI is precomputed and read-only.
+- Fast GCP Review is the public live-GCP action: fixed sanitized sample only,
+  Cloud Run runtime, Vertex Gemini Flash Lite, measured wall time, and a result
+  URL. It does not accept arbitrary logs or URLs.
 - Provider positions and provider status are visible per review target.
 - Markdown reports make the evidence boundary, review questions, provider
   status, and human-gated promotion blockers readable without asking reviewers

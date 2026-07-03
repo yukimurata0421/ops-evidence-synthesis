@@ -8,6 +8,10 @@ from pathlib import Path
 
 from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.ai.base import ModelResponse
+from ops_evidence_synthesis.ai.prompts import (
+    compact_focused_profile_input_for_model,
+    focused_operational_profile_prompt,
+)
 from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sanitize_input, verify_sanitized_output
 from ops_evidence_synthesis.profile_discovery import (
     approve_profile_draft,
@@ -214,6 +218,73 @@ def _bundle_with_script_and_metric(tmp_path: Path) -> dict[str, object]:
         "job_configuration_mismatch_count"
     )
     return bundle
+
+
+def test_focused_profile_prompt_preserves_runtime_ownership_boundary() -> None:
+    prompt = focused_operational_profile_prompt(
+        {
+            "llm_task": "focused_operational_profile",
+            "schema_version": "focused_operational_profile_model_input.v1",
+            "profile_discovery": {},
+            "source_context": {},
+            "source_analysis": {},
+            "focused_profile_policy": {
+                "raw_source_sent_to_provider": False,
+                "raw_logs_sent_to_provider": False,
+            },
+        }
+    )
+
+    assert "Preserve ownership boundaries" in prompt
+    assert "does not own the runtime process" in prompt
+    assert "request/propose/coordinate/validate" in prompt
+    assert "Avoid ambiguous phrases" in prompt
+    assert "execute ExecutionPlan" in prompt
+    assert "observed dependencies" in prompt
+    assert "dashboard FAIL/CHANGED" in prompt
+
+
+def test_focused_profile_compaction_keeps_local_ownership_docs() -> None:
+    rows = [
+        {
+            "item_id": f"SRC-noise-{index:03d}",
+            "relative_path": f"src/helpers/noise_{index}.py",
+            "excerpt_sanitized": ["def helper(): pass"],
+        }
+        for index in range(100)
+    ]
+    rows.append(
+        {
+            "item_id": "SRC-runtime-ownership",
+            "relative_path": "docs/v3/25_decisions/2026-05-29_02_streaming_monitoring_ownership_split.md",
+            "excerpt_sanitized": [
+                "配信端末は DJ、描写、音声、FFmpeg/NVENC、fast recovery を担う。",
+                "arena-server は監視と段階的復旧要求を担当するが、配信 FFmpeg の owner にはしない。",
+            ],
+        }
+    )
+    rows.append(
+        {
+            "item_id": "SRC-arena-runbook",
+            "relative_path": "docs/v3/20_runbooks/2026-05-29_02_arena_monitoring_health_check.md",
+            "excerpt_sanitized": [
+                "arena-server は観測層であり、配信 FFmpeg を持たない。",
+                "dashboard の FAIL は raw metric と evidence を対応づける。",
+            ],
+        }
+    )
+
+    compacted = compact_focused_profile_input_for_model(
+        {
+            "llm_task": "focused_operational_profile",
+            "source_context": {"source_items": rows},
+        }
+    )
+
+    selected = compacted["source_context"]["source_items"]
+    selected_ids = {row["item_id"] for row in selected}
+    assert "SRC-runtime-ownership" in selected_ids
+    assert "SRC-arena-runbook" in selected_ids
 
 
 def test_discover_profile_generates_sanitized_bundle_and_links_entities(tmp_path: Path) -> None:

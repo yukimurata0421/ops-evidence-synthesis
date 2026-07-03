@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ops_evidence_synthesis.profile_gate import (
     build_approved_profile_model_context,
+    build_focused_profile_context_summary,
     build_profile_context_summary,
     profile_confidence_action,
 )
@@ -124,6 +125,95 @@ def test_profile_context_summary_without_context_still_exports_gate_policy() -> 
     assert summary["confidence_action"] == "not_available"
     assert summary["profile_review_policy"]["runtime_support_must_cite_evidence_id"] is True
     assert summary.get("profile_to_review_links", []) == []
+
+
+def test_focused_profile_context_summary_uses_existing_profile_output() -> None:
+    focused_profile = {
+        "schema_version": "focused_operational_profile.v1",
+        "system_label": "stream_v3_arena_monitoring",
+        "source_context_sha256": "c" * 64,
+        "source_analysis_sha256": "a" * 64,
+        "source_discovery_sha256": "d" * 64,
+        "focused_profile_generation": {
+            "llm_status": "ok",
+            "generation_mode": "gemini_focused_operational_profile",
+            "model_name": "gemini-3.1-pro-preview",
+        },
+        "system_summary": {
+            "system_type": "systemd_service",
+            "primary_purpose": "Observe stream health and coordinate guarded recovery requests.",
+            "logged_subject": "stream health and recovery request logs",
+            "operational_boundary": "monitoring plane; runtime owner remains separate",
+            "confidence": 0.8,
+        },
+        "runtime_components": [
+            {
+                "component_id": "stream_v3_arena_monitor",
+                "name": "stream-v3-arena-monitor.service",
+                "role": "monitoring control loop",
+                "confidence": 0.9,
+            }
+        ],
+        "observability_contract": {
+            "metrics": [
+                {
+                    "metric_name": "stream_v3_youtube_warn_count",
+                    "meaning": "YouTube warning count",
+                    "healthy_direction": "zero",
+                    "confidence": 0.8,
+                }
+            ],
+            "logs": [
+                {
+                    "source": "systemd_journal",
+                    "meaning": "service status logs",
+                }
+            ],
+        },
+        "read_only_collectors": [
+            {
+                "collector": "journalctl",
+                "purpose": "read service logs",
+                "safety_level": "read_only",
+            }
+        ],
+        "human_review_required": [
+            "What is the critical user outcome?",
+            "Which metrics are zero-is-good or zero-is-bad?",
+        ],
+    }
+    summary = build_focused_profile_context_summary(
+        profile_id="stream_v3_arena_monitoring_focused_approved",
+        focused_profile=focused_profile,
+        review_targets=[
+            {
+                "canonical_review_unit": "youtube_health",
+                "target_explanation": {"evidence_summary": ["stream_v3_youtube_warn_count=0"]},
+                "promotion": {"blocked_reason": "user_impact_unverified"},
+                "missing_evidence": ["User impact or operational outcome evidence tied to this review unit."],
+            }
+        ],
+    )
+
+    assert summary["profile_id"] == "stream_v3_arena_monitoring_focused_approved"
+    assert summary["profile_status"] == "approved_context_human_gated_outcomes"
+    assert summary["generation_mode"] == "profile_draft_and_approved_profile"
+    assert summary["llm_status"] == "ok"
+    assert summary["draft_schema_version"] == "focused_operational_profile.v1"
+    assert summary["source_context_sha256"] == "c" * 64
+    assert summary["source_analysis_sha256"] == "a" * 64
+    assert summary["source_discovery_sha256"] == "d" * 64
+    assert summary["system_type"] == "systemd_service"
+    assert summary["component_count"] == 1
+    assert summary["metric_semantics_count"] == 1
+    assert summary["collector_mapping_count"] == 2
+    assert summary["confidence_action"] == "use_for_subsystem_routing_human_gated"
+    zero_link = next(
+        row
+        for row in summary["profile_to_review_links"]
+        if row["question"] == "Which metrics are zero-is-good or zero-is-bad?"
+    )
+    assert zero_link["review_units"] == ["youtube_health"]
 
 
 def test_profile_confidence_action_thresholds() -> None:

@@ -39,12 +39,14 @@ schema-valid with 86 successful chunk results.
 
 ## GLM Replacement Combined Run
 
-The combined comparison used the existing recorded outputs for Gemini, GPT OSS,
-Mistral, and Qwen, then replaced GLM with the new Gemma 4 output.
+The combined comparison first used the existing recorded outputs for Gemini,
+GPT OSS, Mistral, and Qwen, then replaced GLM with the new Gemma 4 output.
+The final public artifact subsequently refreshed the Gemini leg with Gemini 3.1
+Pro and recomputed the canonical graph over the five recorded outputs.
 
 | Provider | Model | Status | Schema |
 | --- | --- | --- | --- |
-| `gemini-enterprise-agent-platform` | `gemini-3.1-flash-lite` | ok | valid |
+| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid |
 | `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid |
 | `mistral-agent-platform` | `mistral-medium-3` | ok | valid |
 | `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid |
@@ -52,32 +54,34 @@ Mistral, and Qwen, then replaced GLM with the new Gemma 4 output.
 
 Combined graph:
 
-- Canonical graph SHA256: `5c525b6369855440bc40975dcfab0fa90895cda8849ec7cfdc0b9f6a561d105c`
+- Canonical graph SHA256: `8ad416a42a0a564ffe9221033cb50dde6a493ae3c8107bf6a69bf358b423d002`
 - Successful providers: `5`
 - Failed providers: `0`
-- Canonical primary targets: `2`
-- Canonical validation targets: `13`
+- Canonical primary targets: `1`
+- Canonical validation targets: `14`
 
 ## stream_v3 Refresh Trial
 
-The same replacement was applied to the two public stream_v3 review paths. In
-both cases Gemma 4 used the same chunk-planning path as Gemini, then the
-Canonical Review Graph was recomputed over recorded Gemini, GPT OSS, Mistral,
-Qwen, and Gemma 4 outputs.
+The same replacement was applied to the two public stream_v3 review paths. A
+later source-aware reinterpretation pass reused the focused code profiles,
+called the current five-provider set again, and recomputed the Canonical Review
+Graph over recorded Gemini 3.1 Pro, GPT OSS, Mistral, Qwen, and Gemma 4 outputs.
 
-| Corpus | Evidence SHA256 | Rows | Chunks | Gemma 4 wall time | Merge time | Payload generation |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Dell runtime | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | 45,000 | 32 | 380.47s | 2.736s | 1.47s |
-| arena-server monitoring | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | 50,000 | 18 | 166.85s | 1.796s | 1.17s |
+| Corpus | Evidence SHA256 | Rows | Chunks | Reinterpretation wall time | Provider status |
+| --- | --- | ---: | ---: | ---: | --- |
+| Dell runtime | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | 45,000 | 33 | 207.108s after cached resume | 5/5 schema-valid |
+| arena-server monitoring | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | 50,000 | 18 | 497.909s | 4/5 schema-valid; GPT OSS partial failure visible |
 
-Final public graphs:
+Current public graphs:
 
-- Dell runtime Canonical graph SHA256: `e5cfc53f9226b8237aa971a57d89075eab8c8748c9a07666abb8abbc0232ac49`
-- arena-server monitoring Canonical graph SHA256: `786505578a25454378ebdda2404a5b62e72982761cab9d338a8e04dd0b84f530`
+- Dell runtime Canonical graph SHA256: `7b8bbf364706cda1b558476b5a08c882356449710612989dbf86ca8a68cb9266`
+- arena-server monitoring Canonical graph SHA256: `2350ddd8b2ac0d2dce23f3f637136871630d48f735b27769249d2d8907bca8da`
 
 ## Recommendation
 
 Gemma 4 is a viable GLM replacement candidate for the public hackathon story
 because it keeps the cross-check model set on Google Cloud and avoids adding
-another China-based provider. It is slower than a small smoke test suggests, so
-large reviews should keep chunking and ledger accounting enabled.
+another China-based provider. Treat this as a provider-set refresh rather than
+a blanket speed improvement: stream_v3 finished quickly, while amazon-notify
+was slower at 44,944 rows. Large reviews should keep chunking and ledger
+accounting enabled.

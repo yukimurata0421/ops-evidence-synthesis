@@ -3,10 +3,10 @@ from __future__ import annotations
 from ops_evidence_synthesis.ai.gemini import GeminiRestProvider
 
 
-def test_gemini_rest_defaults_to_flash_lite_with_medium_thinking() -> None:
+def test_gemini_rest_defaults_to_pro_with_medium_thinking() -> None:
     provider = GeminiRestProvider()
 
-    assert provider.model_name == "gemini-3.1-flash-lite"
+    assert provider.model_name == "gemini-3.1-pro-preview"
     assert provider._generation_config()["thinkingConfig"] == {"thinkingLevel": "medium"}
 
 

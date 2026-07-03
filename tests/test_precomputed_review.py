@@ -25,6 +25,7 @@ from ops_evidence_synthesis.web.precomputed_review import (
     _render_precomputed_review_detail_page,
     render_rescore_demo_page,
 )
+from scripts.generate_precomputed_review_from_multi_run import _public_target_class
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,7 +75,8 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "Replay path for reproducibility, AI path for real evidence." in html
     assert "Public Replay" in html
     assert "More Data Rescore" in html
-    assert "Live AI Review" in html
+    assert "Fast GCP Review" in html
+    assert "Gemini Flash Lite" in html
     assert "Full Forensic AI Review" in html
     assert "measured review graph generation is about 11 seconds" in html
     assert "Built as the evidence gate before automated action." in html
@@ -444,14 +446,14 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
 def test_public_real_api_guarded_review_matches_fresh_five_provider_payload() -> None:
     payload = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{PUBLIC_REAL_API_SHA}.json")
 
-    assert payload["summary"]["canonical_graph_sha256"].startswith("5c525b636985")
+    assert payload["summary"]["canonical_graph_sha256"].startswith("8ad416a42a0a")
     assert payload["summary"]["providers"] == {
         "success": 5,
         "total": 5,
         "pipeline_status": "succeeded",
     }
-    assert payload["summary"]["review"]["primary_targets"] == 2
-    assert payload["summary"]["review"]["validation_targets"] == 9
+    assert payload["summary"]["review"]["primary_targets"] == 1
+    assert payload["summary"]["review"]["validation_targets"] == 10
     assert payload["analysis_context"]["provider_full_corpus_chunk_count"] == 105
     assert payload["analysis_context"]["provider_full_corpus_coverage_ratio"] == 1.0
     assert all(row["status"] == "ok" and row["schema_valid"] for row in payload["provider_statuses"])
@@ -461,7 +463,9 @@ def test_public_real_api_guarded_review_matches_fresh_five_provider_payload() ->
     assert "Five real providers analyzed the 44,944-row amazon-notify corpus" in detail_html
     assert "5 / 5" in detail_html
     assert "Chunk And Merge Full Corpus" in detail_html
-    assert "real_api_vertex_gemini_gpt_oss_mistral_qwen_gemma4_chunked_full_corpus" in detail_html
+    assert "real_api_vertex_gemini_3_1_pro_gpt_oss_mistral_qwen_gemma4_chunked_full_corpus" in detail_html
+    assert "gemini-3.1-pro-preview" in detail_html
+    assert "gemini-3.1-flash-lite" not in detail_html
     assert "gemma-agent-platform" in detail_html
     assert "rate_limited_fail_closed" not in detail_html
     assert "Mistral did not contribute" not in detail_html
@@ -477,9 +481,9 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "log_count": 45000,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 3,
+                "auto_archived": 4,
                 "monitor_only": 2,
-                "primary_targets": 2,
+                "primary_targets": 0,
                 "validation_targets": 11,
             },
             "projection_items": 140,
@@ -487,26 +491,28 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "coverage": 0.991928,
             "full_corpus_items": 1012,
             "chunk_count": 33,
-            "gemini_valid": True,
+            "profile_generation_status": "persisted",
+            "provisional_user_outcomes": ["Continuous YouTube streaming", "ADSB data processing"],
         },
         {
             "sha": STREAM_V3_ARENA_REAL_API_SHA,
-            "title": "Five real providers",
+            "title": "Recorded chunked review",
             "service": "stream_v3_monitoring",
             "log_count": 50000,
-            "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
+            "providers": {"success": 4, "total": 5, "pipeline_status": "partial"},
             "review": {
-                "auto_archived": 1,
+                "auto_archived": 2,
                 "monitor_only": 2,
-                "primary_targets": 2,
-                "validation_targets": 7,
+                "primary_targets": 0,
+                "validation_targets": 9,
             },
             "projection_items": 21,
             "occurrences": 63056,
             "coverage": 1.0,
             "full_corpus_items": 21,
             "chunk_count": 18,
-            "gemini_valid": True,
+            "profile_generation_status": "persisted",
+            "provisional_user_outcomes": ["Maintain YouTube stream uptime", "Monitor ADSB stream health"],
         },
     ]
 
@@ -544,13 +550,13 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
                 "targets": payload["targets"],
             }
         )
-        assert payload["profile_draft_generation"]["llm_status"] == "ok"
+        assert payload["profile_draft_generation"]["llm_status"] == case["profile_generation_status"]
         assert payload["profile_context"]["profile_id"]
         assert payload["profile_context"]["schema_version"] == "profile_context_summary.v2"
         assert payload["profile_context"]["profile_status"] == "approved_context_human_gated_outcomes"
-        assert payload["profile_context"]["confidence_action"] == "candidate_only_requires_profile_review"
+        assert payload["profile_context"]["confidence_action"] == "use_for_subsystem_routing_human_gated"
         assert payload["profile_context"]["confirmed_user_outcomes"] == []
-        assert payload["profile_context"]["provisional_user_outcomes"]
+        assert payload["profile_context"]["provisional_user_outcomes"] == case["provisional_user_outcomes"]
         assert "assumed_critical_outcomes" not in json.dumps(payload["profile_context"])
         assert payload["profile_context"]["profile_to_review_links"]
         assert payload["analysis_context"]["source_context_sha256"]
@@ -584,7 +590,21 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert provider_rows["qwen-agent-platform"]["schema_valid"] is True
         assert provider_rows["gemma-agent-platform"]["schema_valid"] is True
         assert provider_rows["mistral-agent-platform"]["schema_valid"] is True
-        assert provider_rows["gemini-enterprise-agent-platform"]["schema_valid"] is case["gemini_valid"]
+        assert provider_rows["gemini-enterprise-agent-platform"]["schema_valid"] is True
+        if case["sha"] == STREAM_V3_ARENA_REAL_API_SHA:
+            assert provider_rows["openai-gpt-oss-on-vertex"]["status"] == "failed"
+            assert provider_rows["openai-gpt-oss-on-vertex"]["schema_valid"] is False
+            audio_target = next(
+                target
+                for target in payload["targets"]
+                if target["canonical_review_unit"] == "audio_energy"
+            )
+            assert audio_target["class"] == "validation_target"
+            assert audio_target["agreement"]["summary"].startswith("1/4 schema-valid providers")
+            assert any(
+                row["provider_id"] == "openai-gpt-oss-on-vertex" and row["stance"] == "provider_error"
+                for row in audio_target["provider_positions"]
+            )
 
         detail_html = _render_precomputed_review_detail_page(case["sha"], payload)
         graph_html = _render_precomputed_graph_page(case["sha"], payload)
@@ -603,11 +623,59 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert "Chunk And Merge Full Corpus" in detail_html
         assert "Incident gate signal" in detail_html
         assert str(case["occurrences"]) in detail_html.replace(",", "")
+        if case["sha"] == STREAM_V3_ARENA_REAL_API_SHA:
+            assert "audio_energy" in detail_html
+            assert "1/4 claimed + 1 error" in detail_html
+            assert "1 claimed / 3 silent / 1 provider error / 0.25" in detail_html
+            assert "provider_error" in detail_html
         assert "qwen-agent-platform" in graph_html
         assert "Incident gate signal" in graph_html
         assert graph["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]
         assert graph["canonical_review_graph"]["summary"]["validation_count"] == case["review"]["validation_targets"]
         assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "signal present"
+
+
+def test_public_target_classification_demotes_evidence_thin_primary_candidate() -> None:
+    final_class, classification = _public_target_class(
+        {"canonical_review_unit": "audio_energy"},
+        original_class="primary_candidate",
+        provider_count=4,
+        valid_count=5,
+        evidence_ref_count=2,
+        evidence_family_count=2,
+        source_candidate_count=1,
+        target_explanation={
+            "why_not_promoted": "No specific failure signals, error logs, or metric spikes were provided.",
+            "counter_evidence_summary": ["No audio energy measurement logs were provided."],
+        },
+        missing_evidence=["Specific error logs", "Metric time-series data"],
+        blocked_reason="primary_candidate_only; incident_baseline_not_auto_accepted; human_review_required",
+    )
+
+    assert final_class == "validation_target"
+    assert classification["adjustment"] == "demoted_primary_candidate_evidence_thin"
+    assert classification["original_class"] == "primary_candidate"
+
+
+def test_public_target_classification_keeps_evidence_supported_primary_candidate() -> None:
+    final_class, classification = _public_target_class(
+        {"canonical_review_unit": "runtime_recovery"},
+        original_class="primary_candidate",
+        provider_count=4,
+        valid_count=5,
+        evidence_ref_count=6,
+        evidence_family_count=3,
+        source_candidate_count=4,
+        target_explanation={
+            "why_not_promoted": "",
+            "evidence_summary": ["PATTERN, METRIC, and OPS evidence jointly show the runtime path."],
+        },
+        missing_evidence=[],
+        blocked_reason="primary_candidate_only; incident_baseline_not_auto_accepted; human_review_required",
+    )
+
+    assert final_class == "primary_candidate"
+    assert classification["adjustment"] == ""
 
 
 def test_flagship_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_path: Path) -> None:

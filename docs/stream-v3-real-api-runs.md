@@ -10,10 +10,10 @@ Both runs used sanitized stream_v3 source context and double-sanitized log
 corpora. Raw logs and raw source stayed local. The public URLs serve fixed
 precomputed payloads and do not run providers on page load.
 
-The accepted public runs prioritize the user's requested scale target: about
-40,000 to 50,000 recent rows while still satisfying the minimum 24-hour analysis
-policy. Larger source files were staged locally for baseline context, but
-row-level sanitized corpora are not committed.
+The current run is a source-aware reinterpretation pass: the pipeline returns to
+sanitized code/profile context, then reinterprets each sanitized log corpus with
+real provider APIs. Dell runtime and arena-server monitoring use different
+approved focused profiles and different source context hashes.
 
 ## Public URLs
 
@@ -36,27 +36,25 @@ row-level sanitized corpora are not committed.
 | Artifact | Dell runtime | arena-server monitoring |
 | --- | --- | --- |
 | Evidence SHA256 | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` |
-| API revision | `real-api-stream-v3-dell-45k-5p-gemma4-20260702T172300Z` | `real-api-stream-v3-arena-50k-5p-gemma4-20260702T172300Z` |
-| Canonical graph SHA256 | `e5cfc53f9226b8237aa971a57d89075eab8c8748c9a07666abb8abbc0232ac49` | `786505578a25454378ebdda2404a5b62e72982761cab9d338a8e04dd0b84f530` |
-| Input fingerprint SHA256 | `6ab05ec7b1ea6eae7185b4b8a180a719411208331ed749bbab1af5ef54b791ff` | `0109197787c57eb189e2cbb66aa319a33da95e6b9eb1fcae291e4ddc8e2bfd28` |
-| Source context SHA256 | `669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2` | `669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2` |
-| Source analysis SHA256 | `451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5` | `451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5` |
+| API revision | `real-api-stream-v3-dell-45k-5p-reinterpret-20260703T003058Z` | `real-api-stream-v3-arena-50k-5p-reinterpret-20260703T003058Z` |
+| Canonical graph SHA256 | `7b8bbf364706cda1b558476b5a08c882356449710612989dbf86ca8a68cb9266` | `2350ddd8b2ac0d2dce23f3f637136871630d48f735b27769249d2d8907bca8da` |
+| Input fingerprint SHA256 | `372a6d7c8ef29935ff040b53e45342854491fe5f4c37941dadef0faf7e965f4c` | `7faf89f3256066acad93992aa7f11f13138466240c1acba77fd27dd3ffcb938d` |
+| Source context SHA256 | `3b124da80b8ba7176004f06223742a6a1779225f3008ed3251b03dfbe2db12d2` | `a312fd5e4df8c2085f259581fa811cfee54978e14ad32b788708fb36e346fbd4` |
+| Source analysis SHA256 | `6832aa7e5926dbc0ecb4f9d9e4d16e97cac27630853a2bb9e627c52f4c34b0cb` | `6af86a8571062130eedb5e62de03b07b0fdf2d10fc4d6eddb5b05c3b1079c65c` |
 | Public payload | `data/precomputed_review_summaries/345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6.json` | `data/precomputed_review_summaries/6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3.json` |
-| Payload SHA256 | `4f77e42355955ea44f3991d30069852aa9a5039abe3d2757673b8f8afb761de7` | `a24769749397829eb1dc95255f712c6437e46464ff744dcc9f7fdd590c440ef6` |
+| Payload SHA256 | `3052f72169715f416f168e72fe970c7be6f2bc209fbcd201cd9b8660673fc7f3` | `9e54f51f0259be8524d35518378b76ce6ad3f95e145e0af2b7528e760c96df74` |
 
 ## Analysis Windows
 
 The local source files used for staging contained more than the accepted public
-window:
+window. The accepted public windows satisfy both constraints: roughly 40,000 to
+50,000 rows and at least 24 hours of evidence. The row-level files remain local
+only.
 
-| Corpus | Local staged source rows | Local staged range | Accepted public rows | Accepted public range | Window hours |
-| --- | ---: | --- | ---: | --- | ---: |
-| Dell runtime | 185,338 | 2026-06-02T00:00:11Z to 2026-06-15T23:59:51Z | 45,000 | 2026-06-14T23:15:50Z to 2026-06-15T23:59:52Z | 24.733889 |
-| arena-server monitoring | 347,107 | 2026-06-01T00:00:10Z to 2026-06-19T10:48:54Z | 50,000 | 2026-06-18T09:54:00Z to 2026-06-19T10:48:55Z | 24.915278 |
-
-The accepted windows were selected because they satisfy both constraints:
-roughly 40,000 to 50,000 rows and at least 24 hours of evidence. The row-level
-files remain local only.
+| Corpus | Accepted public rows | Accepted public range | Window hours |
+| --- | ---: | --- | ---: |
+| Dell runtime | 45,000 | 2026-06-14T23:15:50Z to 2026-06-15T23:59:52Z | 24.733889 |
+| arena-server monitoring | 50,000 | 2026-06-18T09:54:00Z to 2026-06-19T10:48:55Z | 24.915278 |
 
 ## Data Boundary
 
@@ -101,72 +99,88 @@ The merge is deterministic over recorded provider outputs: provider responses
 are hashed, then chunk claims are sorted and deduplicated before canonical
 review graph generation.
 
+## Public Classification Policy
+
+Provider agreement is not enough to create a public primary candidate. If a
+provider-converged target has thin cited runtime evidence, unresolved core
+missing evidence, or no user-impact confirmation, the public payload keeps it as
+a validation target. The review priority score can still be high; it is review
+urgency, not truth probability.
+
 ## Profile Gate
 
 Both stream_v3 profiles are generated from sanitized source/profile discovery
-context and are not incident evidence. They are intentionally treated as lower
-confidence routing context:
+context and are not incident evidence. The current focused profiles are strong
+enough for subsystem routing, but user outcomes and incident promotion remain
+human-gated:
 
 | Corpus | Profile status | Confidence action | Overall confidence | Confirmed outcomes | Provisional outcomes |
 | --- | --- | --- | ---: | --- | --- |
-| Dell runtime | `approved_context_human_gated_outcomes` | `candidate_only_requires_profile_review` | 0.69 | none | Continuous YouTube streaming; ADSB data processing |
-| arena-server monitoring | `approved_context_human_gated_outcomes` | `candidate_only_requires_profile_review` | 0.69 | none | Maintain YouTube stream uptime; Monitor ADSB stream health |
+| Dell runtime | `approved_context_human_gated_outcomes` | `use_for_subsystem_routing_human_gated` | 0.828 | none | Continuous YouTube streaming, ADSB data processing |
+| arena-server monitoring | `approved_context_human_gated_outcomes` | `use_for_subsystem_routing_human_gated` | 0.826 | none | Maintain YouTube stream uptime, Monitor ADSB stream health |
 
-The provisional outcomes are not accepted facts. They create human-gated
-questions about user impact, metric semantics, and diagnostic noise. In the
-public payload, those questions are linked to review units whose promotion is
-blocked by missing impact or operational outcome evidence.
+The focused profiles do not accept critical user outcomes as facts. They create
+human-gated questions about user impact, metric semantics, and diagnostic noise.
+In the public payload, those questions are linked to review units whose promotion
+is blocked by missing impact or operational outcome evidence.
 
 ## Provider Results
 
-GLM was replaced by Gemma 4 in the current public stream_v3 payloads. The other
-four provider outputs are recorded real API outputs from the accepted stream_v3
-runs, and the Canonical Review Graph was recomputed over the five recorded
-outputs.
+The current provider set is Gemini 3.1 Pro, GPT OSS, Mistral, Qwen, and Gemma 4.
+Provider failures are not converted to silent positions. For arena-server
+monitoring, GPT OSS fell below the partial-chunk usability threshold and is
+exposed as a provider failure in this reinterpretation payload.
 
 ### Dell runtime
 
-| Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens |
-| --- | --- | --- | --- | ---: | ---: | ---: |
-| `gemini-enterprise-agent-platform` | `gemini-3.1-flash-lite` | ok | valid | 356,969 | 2,816,851 | 27,282 |
-| `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 1,407,573 | 2,819,891 | 41,236 |
-| `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 463,430 | 993,715 | 12,543 |
-| `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 951,467 | 2,194,793 | 90,872 |
-| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 658,227 | 2,211,909 | 54,521 |
+| Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens | Chunk status |
+| --- | --- | --- | --- | ---: | ---: | ---: | --- |
+| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 3,835,306 | 1,606,707 | 24,487 | ok=32 |
+| `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 878,425 | 1,574,835 | 41,527 | ok=32 |
+| `mistral-agent-platform` | `mistral-small-2503` | ok | valid | 124,824 | 601,032 | 11,393 | ok=7, schema_invalid=1 |
+| `openai-gpt-oss-on-vertex` | `gpt-oss-20b-maas` | ok | valid | 557,410 | 1,185,529 | 88,070 | ok=32, provider_error=1 |
+| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 451,496 | 1,289,925 | 44,581 | ok=32 |
 
 ### arena-server monitoring
 
-| Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens |
-| --- | --- | --- | --- | ---: | ---: | ---: |
-| `gemini-enterprise-agent-platform` | `gemini-3.1-flash-lite` | ok | valid | 200,949 | 1,343,372 | 9,740 |
-| `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 602,795 | 1,340,528 | 20,707 |
-| `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 50,526 | 73,326 | 1,588 |
-| `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 570,844 | 1,020,898 | 46,571 |
-| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 332,661 | 1,030,256 | 19,589 |
+| Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens | Chunk status |
+| --- | --- | --- | --- | ---: | ---: | ---: | --- |
+| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 1,693,220 | 771,031 | 9,809 | ok=16, timeout=2 |
+| `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 503,930 | 849,344 | 20,429 | ok=18 |
+| `mistral-agent-platform` | `mistral-small-2503` | ok | valid | 20,786 | 50,852 | 1,985 | not chunked |
+| `openai-gpt-oss-on-vertex` | `gpt-oss-20b-maas` | failed | invalid | 348,607 | 513,654 | 35,363 | ok=14, provider_error=4 |
+| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 210,207 | 670,814 | 21,821 | ok=18 |
 
-Mistral finished both accepted runs. The public payload preserves provider
-hashes so a stale deployment can be detected by comparing the rendered provider
-hashes with this document.
+The public payload preserves provider hashes so a stale deployment can be
+detected by comparing the rendered provider hashes with this document.
 
-## Measured Refresh Timing
+## Measured Reinterpretation Timing
 
-The timing below was measured while refreshing the stream_v3 public payloads
-with Gemma 4 replacing GLM. Provider latency is the sum of chunk latencies
-recorded in the provider output; wall time is the actual command elapsed time
-for the Gemma 4 real API refresh.
+The timing below measures the source-aware reinterpretation path over existing
+sanitized Evidence Bundles and focused profiles. Provider latency is the sum of
+chunk latencies recorded in provider outputs; wall time is the command elapsed
+time for the reinterpretation run that produced the public payload.
 
 | Step | Dell runtime | arena-server monitoring |
 | --- | ---: | ---: |
-| Gemma 4 real API wall time | 380.47s | 166.85s |
-| Canonical merge recompute | 2.736s | 1.796s |
-| Public payload generation | 1.47s | 1.17s |
+| Real API reinterpretation wall time | 207.108s | 497.909s |
+| Total provider latency sum | 5,847,461 ms | 2,776,750 ms |
+| Gemini 3.1 Pro provider latency sum | 3,835,306 ms | 1,693,220 ms |
+| Schema-valid providers | 5/5 | 4/5 |
+| Public review targets | 11 | 9 |
+
+Dell's measured wall time is the successful resume after cached chunks from an
+earlier full attempt; the first attempt was stopped after roughly 28 minutes
+while provider rate-limit recovery was still active. The arena-server run
+completed in one measured pass and preserved the GPT OSS partial failure as a
+visible provider status.
 
 ## Review Outcome
 
 | Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived | Incident promotion gate |
 | --- | ---: | ---: | ---: | ---: | --- |
-| Dell runtime | 2 | 11 | 2 | 3 | Open; primary candidates remain human-gated |
-| arena-server monitoring | 2 | 7 | 2 | 1 | Open; primary candidates remain human-gated |
+| Dell runtime | 0 | 11 | 2 | 4 | Open; all targets remain human-gated |
+| arena-server monitoring | 0 | 9 | 2 | 2 | Open; all targets remain human-gated |
 
 Both runs intentionally stop at human review. Provider convergence can create
 review targets and technical support, but it does not automatically authorize a

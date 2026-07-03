@@ -90,6 +90,25 @@ def test_sanitize_source_generates_safe_source_context_bundle(tmp_path: Path) ->
     assert "Source context may not match" in source_context["version_context"]["caveat"]
 
 
+def test_sanitize_source_includes_operational_markdown_docs(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    (project / "docs" / "v3" / "25_decisions").mkdir(parents=True)
+    (project / "src").mkdir()
+    (project / "src" / "worker.py").write_text("def main():\n    pass\n", encoding="utf-8")
+    (project / "docs" / "v3" / "25_decisions" / "ownership_split.md").write_text(
+        "配信端末は FFmpeg を担う。arena-server は監視と段階的復旧要求を担当するが、"
+        "配信 FFmpeg の owner にはしない。\n",
+        encoding="utf-8",
+    )
+
+    source_out = tmp_path / "source_context"
+    sanitize_source(project, service="stream-v3", environment="test", output_dir=source_out)
+    source_context = json.loads((source_out / "source_context_bundle.json").read_text(encoding="utf-8"))
+
+    source_paths = {str(row.get("relative_path") or "") for row in source_context["source_items"]}
+    assert "docs/v3/25_decisions/ownership_split.md" in source_paths
+
+
 def test_analyze_source_generates_safe_source_analysis_bundle(tmp_path: Path) -> None:
     source_context, source_analysis, _source_out, analysis_out = _source_context_and_analysis(tmp_path)
     assert (analysis_out / "source_analysis_bundle.json").exists()

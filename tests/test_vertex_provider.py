@@ -8,7 +8,7 @@ def test_vertex_global_endpoint_uses_aiplatform_host() -> None:
 
     assert provider._generate_content_url() == (
         "https://aiplatform.googleapis.com/v1/projects/ops-evidence-synthesis/"
-        "locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent"
+        "locations/global/publishers/google/models/gemini-3.1-pro-preview:generateContent"
     )
 
 

@@ -132,6 +132,13 @@ def _precomputed_review_payload(evidence_sha256: str) -> dict[str, Any] | None:
     return None
 
 
+def _remember_precomputed_review_payload(payload: dict[str, Any]) -> None:
+    evidence_id = _canonical_precomputed_review_sha(str(payload.get("evidence_sha256") or ""))
+    if not evidence_id:
+        return
+    _PRECOMPUTED_REVIEW_CACHE[evidence_id] = (time.monotonic(), deepcopy(payload))
+
+
 def _rescore_demo_payload(demo_id: str) -> dict[str, Any] | None:
     safe_id = str(demo_id or "").strip()
     if not safe_id or len(safe_id) > 96 or any(not (ch.isalnum() or ch in "-_") for ch in safe_id):
@@ -936,6 +943,7 @@ def _public_precomputed_landing_page() -> str:
             <p class="hero-sub">This public entry serves read-only precomputed reviews, sanitized logs, sanitized source context, and approved system profiles. Raw logs stay local; sanitized bundles reach Google Cloud for review. Provider convergence creates review targets, not accepted incident causes.</p>
             <div class="hero-cta">
               <a class="button primary" href="{_html(primary_detail_url)}">Open primary review -&gt;</a>
+              <a class="button" href="/ui/fast-gcp-review">Run Fast GCP Review</a>
               <a class="button" href="{_html(primary_report_url)}">Read incident report</a>
               <a class="button" href="{_html(rescore_demo_url)}">Watch rescore loop</a>
               {_public_global_action_links_html()}
@@ -1023,9 +1031,9 @@ def _public_precomputed_landing_page() -> str:
             </div>
             <div class="mode-grid">
               <article class="mode-card"><strong>Public Replay</strong><span>deterministic local</span><p>Replays the public 6,506-line sanitized fixture without external AI API keys; measured review graph generation is about 11 seconds.</p></article>
-              <article class="mode-card"><strong>More Data Rescore</strong><span>evidence promotion demo</span><p>Shows validation_target -&gt; primary_candidate in about 1 second while the human gate remains explicit.</p></article>
-              <article class="mode-card"><strong>Live AI Review</strong><span>Gemini / ADK-compatible</span><p>Uses the real provider path to review Evidence Bundles, compare claims, and route missing evidence. ADK-compatible trace included.</p></article>
-              <article class="mode-card"><strong>Full Forensic AI Review</strong><span>45k-50k rows</span><p>Uses precomputed artifacts from larger real ops corpora for deep multi-provider synthesis.</p></article>
+              <article class="mode-card"><strong>More Data Rescore</strong><span>evidence promotion demo</span><p>Shows `validation_target -&gt; primary_candidate` in about 1 second while the human gate remains explicit.</p></article>
+              <article class="mode-card"><strong>Fast GCP Review</strong><span>Gemini Flash Lite</span><p>Runs a fixed sanitized amazon-notify sample from Cloud Run through Vertex Gemini Flash Lite and returns a review URL with measured wall time.</p></article>
+              <article class="mode-card"><strong>Full Forensic AI Review</strong><span>45k-50k rows</span><p>Uses precomputed artifacts from larger real ops corpora for deep multi-provider synthesis. ADK-compatible trace included.</p></article>
             </div>
           </section>
           <section id="review-set" class="wrap">
@@ -2728,8 +2736,44 @@ def _workspace_provider_counts(target: dict[str, Any]) -> tuple[int, int, int]:
     counts = _provider_position_counts(target)
     claimed = counts.get("claimed", 0)
     silent = counts.get("silent", 0)
-    total = sum(counts.values()) or int(target.get("provider_count") or 0)
+    total = (
+        counts.get("claimed", 0)
+        + counts.get("contradicted", 0)
+        + counts.get("silent", 0)
+    ) or int(target.get("provider_count") or 0)
     return claimed, silent, total
+
+
+def _workspace_provider_error_count(target: dict[str, Any]) -> int:
+    counts = _provider_position_counts(target)
+    return sum(
+        count
+        for stance, count in counts.items()
+        if stance not in {"claimed", "contradicted", "silent"}
+    )
+
+
+def _workspace_convergence_label(
+    *,
+    claimed: int,
+    silent: int,
+    provider_error_count: int,
+    score: float,
+) -> str:
+    parts = [f"{claimed} claimed", f"{silent} silent"]
+    if provider_error_count:
+        parts.append(f"{provider_error_count} provider error")
+    parts.append(f"{score:.2f}")
+    return " / ".join(parts)
+
+
+def _workspace_queue_claim_label(target: dict[str, Any]) -> str:
+    claimed, _silent, total = _workspace_provider_counts(target)
+    error_count = _workspace_provider_error_count(target)
+    label = f"{claimed}/{max(total, 1)} claimed"
+    if error_count:
+        label += f" + {error_count} error"
+    return label
 
 
 def _workspace_provider_label(provider_id: str) -> str:
@@ -2774,7 +2818,7 @@ def _workspace_queue_item_html(target: dict[str, Any], *, index: int) -> str:
           </span>
           <span class="queue-meta-row">
             <span class="pill">{_html(_target_class_label(target))}</span>
-            <span>{claimed}/{total} claimed</span>
+            <span>{_html(_workspace_queue_claim_label(target))}</span>
           </span>
           <span class="workspace-progress" aria-hidden="true">
             <span style="width:{width:.1f}%"></span>
@@ -2821,6 +2865,7 @@ def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
     score = _target_score_value(target)
     target_class = _target_class_label(target)
     claimed, silent, total = _workspace_provider_counts(target)
+    provider_error_count = _workspace_provider_error_count(target)
     total = max(total, 1)
     agreement = target.get("agreement") if isinstance(target.get("agreement"), dict) else {}
     convergence_score = _target_score_value({"review_priority_score": agreement.get("convergence_score")})
@@ -2873,7 +2918,7 @@ def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
         </div>
         <div class="workspace-convergence">
           <span>Provider convergence / {_html(str(agreement.get("verdict") or "pending").replace("_", " "))}</span>
-          <b>{claimed} claimed / {silent} silent / {convergence_score:.2f}</b>
+          <b>{_html(_workspace_convergence_label(claimed=claimed, silent=silent, provider_error_count=provider_error_count, score=convergence_score))}</b>
           {_stance_bar_html(target)}
         </div>
         {provider_cards}
@@ -3486,6 +3531,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       font-size: 12px;
     }}
     .workspace-provider-card.claimed b {{ color: var(--claimed); }}
+    .workspace-provider-card.provider_error b {{ color: var(--danger); }}
     .provider-dot {{
       width: 10px;
       height: 10px;
@@ -3494,6 +3540,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     }}
     .workspace-provider-card.claimed .provider-dot {{ background: var(--claimed); }}
     .workspace-provider-card.contradicted .provider-dot {{ background: var(--danger); }}
+    .workspace-provider-card.provider_error .provider-dot {{ background: var(--danger); }}
     .workspace-three, .workspace-evidence-row, .workspace-chip-list {{
       display: grid;
       gap: 14px;
@@ -3824,6 +3871,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     .stance-fill.claimed {{ background: var(--claimed); }}
     .stance-fill.contradicted {{ background: var(--danger); }}
     .stance-fill.silent {{ background: var(--silent); }}
+    .stance-fill.provider_error {{ background: var(--danger); }}
     .human-gate {{
       display: flex;
       gap: 12px;
@@ -4035,6 +4083,7 @@ def _precomputed_provider_panel(payload: dict[str, Any], providers_summary: dict
         <article class="provider-row">
           <label>{_html(str(row.get("provider_id") or ""))}</label>
           <strong>{_html(str(row.get("status") or "unknown"))}</strong>
+          <p>model={_html(str(row.get("model_name") or "unknown"))}</p>
           <p>schema_valid={_html(str(bool(row.get("schema_valid"))).lower())}</p>
           <p><code>{_html(str(row.get("raw_output_sha256") or "")[:12])}</code></p>
         </article>
@@ -4433,8 +4482,9 @@ def _stance_bar_html(target: dict[str, Any]) -> str:
         if stance in {"claimed", "contradicted", "silent"} or count <= 0:
             continue
         width = (count / total) * 100
+        css_class = "provider_error" if stance == "provider_error" else "silent"
         segments.append(
-            f'<span class="stance-fill silent" style="width:{width:.1f}%" title="{_html(stance)} {count}"></span>'
+            f'<span class="stance-fill {css_class}" style="width:{width:.1f}%" title="{_html(stance)} {count}"></span>'
         )
     return f'<div class="stance-meter" aria-hidden="true">{"".join(segments)}</div>'
 
@@ -5690,6 +5740,7 @@ fast_review_shell = _fast_review_shell
 canonical_precomputed_review_sha = _canonical_precomputed_review_sha
 precomputed_review_graph_response = _precomputed_review_graph_response
 precomputed_review_payload = _precomputed_review_payload
+remember_precomputed_review_payload = _remember_precomputed_review_payload
 precomputed_review_target_set = _precomputed_review_target_set
 precomputed_summary = _precomputed_summary
 public_precomputed_landing_page = _public_precomputed_landing_page
@@ -5707,6 +5758,7 @@ __all__ = [
     "canonical_precomputed_review_sha",
     "precomputed_review_graph_response",
     "precomputed_review_payload",
+    "remember_precomputed_review_payload",
     "precomputed_review_target_set",
     "precomputed_summary",
     "public_precomputed_landing_page",

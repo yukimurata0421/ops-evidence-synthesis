@@ -1,32 +1,56 @@
 {
-  "api_revision": "real-api-stream-v3-arena-50k-5p-gemma4-20260702T172300Z",
+  "api_revision": "real-api-stream-v3-arena-50k-5p-reinterpret-20260703T003058Z",
   "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3",
-  "canonical_graph_sha256": "786505578a25454378ebdda2404a5b62e72982761cab9d338a8e04dd0b84f530",
+  "canonical_graph_sha256": "2350ddd8b2ac0d2dce23f3f637136871630d48f735b27769249d2d8907bca8da",
   "case_id": "stream_v3_arena_monitoring_real_api",
   "evidence_sha256": "6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3",
   "execution_timing": {
-    "canonical_merge_seconds": 1.796,
-    "gemma_real_api_wall_seconds": 166.85,
-    "measured_finish_utc": "2026-07-02T17:24:30Z",
-    "measured_start_utc": "2026-07-02T17:19:41Z",
-    "measurement_note": "Gemma 4 was newly executed through the real Vertex API; the other four provider outputs are recorded real API outputs from the accepted stream_v3 run. Canonical merge was recomputed over the five recorded outputs.",
-    "precomputed_payload_generation_seconds": 1.17,
-    "schema_version": "public_review_execution_timing.v1"
+    "gemini_pro_provider_latency_sum_ms": 1693220,
+    "measurement_note": "Measured wall time for the arena-server monitoring reinterpretation run; GPT OSS fell below the partial-chunk usability threshold and remains visible as a provider failure. Provider latency is the sum of chunk latencies and is not wall-clock time.",
+    "measurement_source": "stream_v3_reinterpret_run_summary.v1",
+    "provider_count": 5,
+    "provider_latency_sum_ms": 2776750,
+    "real_api_wall_seconds": 497.909,
+    "review_target_count": 9,
+    "schema_valid_provider_count": 4,
+    "schema_version": "public_execution_timing.v2"
   },
-  "input_fingerprint_sha256": "0109197787c57eb189e2cbb66aa319a33da95e6b9eb1fcae291e4ddc8e2bfd28",
-  "payload_sha256": "a24769749397829eb1dc95255f712c6437e46464ff744dcc9f7fdd590c440ef6",
-  "pipeline_run_id": "stream-v3-arena-monitoring-gemma-replaces-glm-combined-20260702T172300Z",
+  "full_corpus_review": {
+    "chunk_manifest_sha256s": [
+      "228c7c8395b819051954634569d391644f0ea92362b7c71ea8cd440875c2c692",
+      "f371dc5c9c3329238ca1769541ead8230f01ca57187d6bbead7ac09fd6c2d83e"
+    ],
+    "interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_monitoring bundle keeps 50,000 rows and 21 grouped Evidence Items, while the bounded projection tracks 21 high-signal Evidence Items representing 63,056 repeated occurrences. Multi-provider synthesis then covered 21/21 grouped Evidence Items through chunked provider calls across up to 18 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency.",
+    "max_chunk_count": 18,
+    "policy": "provider prompts use chunked Evidence Item corpora; raw rows are not sent directly to providers",
+    "provider_count": 5,
+    "provider_full_corpus_analyzed_evidence_items": 21,
+    "provider_full_corpus_chunk_count_by_provider": {
+      "gemini-enterprise-agent-platform": 18,
+      "gemma-agent-platform": 18,
+      "mistral-agent-platform": 0,
+      "openai-gpt-oss-on-vertex": 18,
+      "qwen-agent-platform": 18
+    },
+    "provider_full_corpus_coverage_ratio": 1.0,
+    "provider_full_corpus_evidence_items": 21,
+    "provider_full_corpus_unassigned_evidence_items": 0,
+    "schema_valid_provider_count": 4
+  },
+  "input_fingerprint_sha256": "7faf89f3256066acad93992aa7f11f13138466240c1acba77fd27dd3ffcb938d",
+  "payload_sha256": "9e54f51f0259be8524d35518378b76ce6ad3f95e145e0af2b7528e760c96df74",
+  "pipeline_run_id": "stream-v3-arena_monitoring-reinterpret-resume-20260703T003058Z",
   "precomputed_payload_path": "data/precomputed_review_summaries/6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3.json",
   "profile_gate": {
     "approved": true,
-    "collector_mapping_count": 4,
-    "component_count": 392,
-    "confidence_action": "candidate_only_requires_profile_review",
+    "collector_mapping_count": 5,
+    "component_count": 9,
+    "confidence_action": "use_for_subsystem_routing_human_gated",
     "confidence_summary": {
-      "collector_mapping_confidence": 0.7,
-      "component_mapping_confidence": 0.67,
-      "metric_semantics_confidence": 0.72,
-      "overall_confidence": 0.69
+      "collector_mapping_confidence": 0.8,
+      "component_mapping_confidence": 0.878,
+      "metric_semantics_confidence": 0.8,
+      "overall_confidence": 0.826
     },
     "confidence_thresholds": {
       "candidate_only_human_gate": 0.6,
@@ -34,9 +58,9 @@
     },
     "confirmed_user_outcomes": [],
     "context_is_not_incident_evidence": true,
-    "draft_schema_version": "profile_draft.v1",
+    "draft_schema_version": "",
     "explicit_profile": true,
-    "generation_mode": "profile_draft_and_approved_profile",
+    "generation_mode": "approved_profile_context",
     "human_questions": [
       "What is the critical user outcome?",
       "Which component is the main service path?",
@@ -45,10 +69,10 @@
       "Which logs indicate user impact rather than diagnostic noise?",
       "Which discovered component roles are correct?",
       "Which metric semantics should become explicit profile rules?",
-      "Confirm critical user outcomes."
+      "Approve or edit the focused profile before using it as an explicit system profile."
     ],
-    "llm_status": "ok",
-    "metric_semantics_count": 367,
+    "llm_status": "persisted",
+    "metric_semantics_count": 6,
     "profile_id": "stream_v3_arena_server_monitoring_source_approved",
     "profile_review_policy": {
       "confirmed_outcomes_required_for_promotion": true,
@@ -64,22 +88,22 @@
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
           "runtime_recovery",
-          "resource_pressure",
+          "observability_contract",
+          "user_experience",
           "youtube_health",
           "chromium_capture",
-          "generic_runtime"
+          "audio_energy"
         ]
       },
       {
         "question": "Which metrics are zero-is-good or zero-is-bad?",
         "reason": "Zero-count metrics can mean healthy idle, disabled routing, or broken processing; linked review targets keep that ambiguity human-gated.",
         "review_units": [
-          "audio_energy",
-          "observability_contract",
           "transport_sender",
           "runtime_recovery",
-          "resource_pressure",
-          "youtube_health"
+          "observability_contract",
+          "audio_energy",
+          "external_ingest"
         ]
       },
       {
@@ -87,21 +111,11 @@
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
           "runtime_recovery",
-          "resource_pressure",
+          "observability_contract",
+          "user_experience",
           "youtube_health",
           "chromium_capture",
-          "generic_runtime"
-        ]
-      },
-      {
-        "question": "Confirm critical user outcomes.",
-        "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
-        "review_units": [
-          "runtime_recovery",
-          "resource_pressure",
-          "youtube_health",
-          "chromium_capture",
-          "generic_runtime"
+          "audio_energy"
         ]
       }
     ],
@@ -109,54 +123,53 @@
       "Maintain YouTube stream uptime",
       "Monitor ADSB stream health"
     ],
-    "purpose": "Draft profile generated from sanitized log-observed entities and project structure.",
+    "purpose": "Arena monitoring control loop, remote recovery coordination, and stream health observation",
     "required_human_decisions": [
-      "Approve or edit component roles before using this as an explicit profile.",
-      "Approve metric zero/increase/decrease semantics.",
-      "Confirm critical user outcomes.",
-      "Confirm read-only collector mappings before collection."
+      "Approve profile context before treating it as an explicit operational profile.",
+      "Keep source context separate from runtime evidence."
     ],
     "schema_version": "profile_context_summary.v2",
-    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
-    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
-    "source_discovery_sha256": "457f35eb1be42e7214a3eb71b3db33cbd9c0ca17695e159f32b4a3706b560a37",
+    "source_analysis_sha256": "6af86a8571062130eedb5e62de03b07b0fdf2d10fc4d6eddb5b05c3b1079c65c",
+    "source_context_sha256": "a312fd5e4df8c2085f259581fa811cfee54978e14ad32b788708fb36e346fbd4",
+    "source_discovery_sha256": "8ef1970c5325e027d6efcd663130d9dcccb9493d4822eee984da384c58548a7b",
     "summary": "Profile context was generated or approved from sanitized discovery; it constrains routing and questions, but runtime claims still require Evidence Item IDs and human-approved user outcomes.",
     "system_type": "systemd_service"
   },
   "provider_summary": {
-    "pipeline_status": "succeeded",
+    "pipeline_status": "partial",
     "provider_count": 5,
     "providers": [
       {
-        "chunk_failure_count": 0,
+        "chunk_failure_count": 2,
         "chunk_status_counts": {
-          "ok": 18
+          "ok": 16,
+          "timeout": 2
         },
         "display_name": "Vertex Gemini",
         "failure_reason": "",
-        "input_tokens": 1343372,
-        "latency_ms": 200949,
-        "model_name": "gemini-3.1-flash-lite",
-        "output_tokens": 9740,
-        "parsed_json_sha256": "a0f8c84930ce819396cf238b61f4c4bcb34edeab5b1213c634f1924e6135ace6",
+        "input_tokens": 771031,
+        "latency_ms": 1693220,
+        "model_name": "gemini-3.1-pro-preview",
+        "output_tokens": 9809,
+        "parsed_json_sha256": "f43be7e6f248ad0debcd84c184f5fad8e42f72cb335834abdfe115443a4a3d7f",
         "partial_chunk_result": {
-          "failure_count": 0,
+          "failure_count": 2,
           "min_success_ratio": 0.8,
           "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
-          "success_chunk_count": 18,
-          "success_ratio": 1.0,
+          "success_chunk_count": 16,
+          "success_ratio": 0.888889,
           "total_chunk_count": 18,
           "usable": true
         },
         "provider_id": "gemini-enterprise-agent-platform",
-        "raw_output_sha256": "d86dd7f991fdb64eb902b8150b0d07cbe7919fd8d990fc3aad3bcd022d2a6320",
+        "raw_output_sha256": "1f47947c33b05e2a4a450005ec9634b7fb4fb53891f7b27af282e8555c204167",
         "retry": {
-          "attempts": 19,
-          "exception_type": "",
+          "attempts": 24,
+          "exception_type": "TimeoutError",
           "failure_reason": "",
           "max_attempts": 36,
           "retried": true,
-          "retryable": false
+          "retryable": true
         },
         "schema_errors": [],
         "schema_valid": true,
@@ -169,11 +182,11 @@
         },
         "display_name": "Gemma on Gemini Enterprise Agent Platform",
         "failure_reason": "",
-        "input_tokens": 1340528,
-        "latency_ms": 602795,
+        "input_tokens": 849344,
+        "latency_ms": 503930,
         "model_name": "gemma-4-26b-a4b-it-maas",
-        "output_tokens": 20707,
-        "parsed_json_sha256": "541d164713666083d519df56dfc8e082a6891137e7bda72f040a9d884c83d51d",
+        "output_tokens": 20429,
+        "parsed_json_sha256": "62b783a6e1cc5503a52f3c40a9383ebc3119aa7a2c34c0d6b07941dc0189e371",
         "partial_chunk_result": {
           "failure_count": 0,
           "min_success_ratio": 0.8,
@@ -184,7 +197,7 @@
           "usable": true
         },
         "provider_id": "gemma-agent-platform",
-        "raw_output_sha256": "aed4d464f18cdbdfd0c94fdfd0e4e0174286250254b98da8c22ac54cead92219",
+        "raw_output_sha256": "9f111c5360d85bd01de9d99f85ffd451e36b2740542f10655ea62b2795c9d32e",
         "retry": {
           "attempts": 18,
           "exception_type": "",
@@ -202,54 +215,19 @@
         "chunk_status_counts": {},
         "display_name": "Mistral on Vertex MaaS",
         "failure_reason": "",
-        "input_tokens": 73326,
-        "latency_ms": 50526,
-        "model_name": "mistral-medium-3",
-        "output_tokens": 1588,
-        "parsed_json_sha256": "e81751ba676dd5d8c1fb488257d513838d0a2ba6ba0db22f2581c13bbb9ad5c1",
+        "input_tokens": 50852,
+        "latency_ms": 20786,
+        "model_name": "mistral-small-2503",
+        "output_tokens": 1985,
+        "parsed_json_sha256": "744b22dddaebc14c541facf382d75e68ad0a8092b6d0105e64ee162bfdca6301",
         "partial_chunk_result": {},
         "provider_id": "mistral-agent-platform",
-        "raw_output_sha256": "b98a884d9860ef0f466a128877f7873a379b93d1d438f5458f731dff50e45533",
+        "raw_output_sha256": "c9ca2a2993932c14f04edef0d9499eb8db9018024f4abec9dc3ce115cee6ff1c",
         "retry": {
-          "attempts": 2,
+          "attempts": 1,
           "exception_type": "",
           "failure_reason": "",
           "max_attempts": 2,
-          "retried": true,
-          "retryable": false
-        },
-        "schema_errors": [],
-        "schema_valid": true,
-        "status": "ok"
-      },
-      {
-        "chunk_failure_count": 0,
-        "chunk_status_counts": {
-          "ok": 18
-        },
-        "display_name": "gpt-oss on Vertex MaaS",
-        "failure_reason": "",
-        "input_tokens": 1020898,
-        "latency_ms": 570844,
-        "model_name": "gpt-oss-120b-maas",
-        "output_tokens": 46571,
-        "parsed_json_sha256": "76e191c0702dd4fe01db6eb5a0093388b681617f4ef0510d625d6de8de0ba7ce",
-        "partial_chunk_result": {
-          "failure_count": 0,
-          "min_success_ratio": 0.8,
-          "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
-          "success_chunk_count": 18,
-          "success_ratio": 1.0,
-          "total_chunk_count": 18,
-          "usable": true
-        },
-        "provider_id": "openai-gpt-oss-on-vertex",
-        "raw_output_sha256": "045f86e322f39dfdca4f1a68a4d852fca4cc88880f4a54bf20f0d4217314a5e7",
-        "retry": {
-          "attempts": 18,
-          "exception_type": "",
-          "failure_reason": "",
-          "max_attempts": 36,
           "retried": false,
           "retryable": false
         },
@@ -258,17 +236,58 @@
         "status": "ok"
       },
       {
+        "chunk_failure_count": 4,
+        "chunk_status_counts": {
+          "ok": 14,
+          "provider_error": 4
+        },
+        "display_name": "gpt-oss on Vertex MaaS",
+        "failure_reason": "chunked_full_corpus_provider_error",
+        "input_tokens": 513654,
+        "latency_ms": 348607,
+        "model_name": "gpt-oss-20b-maas",
+        "output_tokens": 35363,
+        "parsed_json_sha256": "aa42446ec9e3f1a9bb137d5048b7d6c47faa7de499f7901127c4e0ff95d67b11",
+        "partial_chunk_result": {
+          "failure_count": 4,
+          "min_success_ratio": 0.8,
+          "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+          "success_chunk_count": 14,
+          "success_ratio": 0.777778,
+          "total_chunk_count": 18,
+          "usable": false
+        },
+        "provider_id": "openai-gpt-oss-on-vertex",
+        "raw_output_sha256": "c4f70fd7ffc1f176388888f68ada3583410d538c42e266171482d0ef3d518d3a",
+        "retry": {
+          "attempts": 18,
+          "exception_type": "RuntimeError",
+          "failure_reason": "provider_exception",
+          "max_attempts": 36,
+          "retried": false,
+          "retryable": false
+        },
+        "schema_errors": [
+          "chunk 1: provider_error: provider_failed | parsed_original | provider_exception | RuntimeError | provider_error | provider_exception | Vertex OpenAI-compatible response content was empty | RuntimeError",
+          "chunk 13: provider_error: provider_failed | parsed_original | provider_exception | RuntimeError | provider_error | provider_exception | Vertex OpenAI-compatible response content was empty | RuntimeError",
+          "chunk 14: provider_error: provider_failed | parsed_original | provider_exception | RuntimeError | provider_error | provider_exception | Vertex OpenAI-compatible response content was empty | RuntimeError",
+          "chunk 16: provider_error: provider_failed | parsed_original | provider_exception | RuntimeError | provider_error | provider_exception | Vertex OpenAI-compatible response content was empty | RuntimeError"
+        ],
+        "schema_valid": false,
+        "status": "failed"
+      },
+      {
         "chunk_failure_count": 0,
         "chunk_status_counts": {
           "ok": 18
         },
         "display_name": "Qwen on Vertex MaaS",
         "failure_reason": "",
-        "input_tokens": 1030256,
-        "latency_ms": 332661,
+        "input_tokens": 670814,
+        "latency_ms": 210207,
         "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
-        "output_tokens": 19589,
-        "parsed_json_sha256": "7144afd1cacfffccbb6516feacb9cc72e1e6e9f0ee84b6b18695e354db7b19bb",
+        "output_tokens": 21821,
+        "parsed_json_sha256": "1d30d2c77d58218c46037f4c30698cb4bc27de2f5a6e1153953ce1e577bc0198",
         "partial_chunk_result": {
           "failure_count": 0,
           "min_success_ratio": 0.8,
@@ -279,7 +298,7 @@
           "usable": true
         },
         "provider_id": "qwen-agent-platform",
-        "raw_output_sha256": "9435ecaca42d0f47775cc899f9bb0d339ddfbc6ae8714d3d59979bf63399d1fd",
+        "raw_output_sha256": "224032e5a4efaf60d888e5fe40279b22705dbb47340b403180325405fe7372ec",
         "retry": {
           "attempts": 18,
           "exception_type": "",
@@ -293,41 +312,63 @@
         "status": "ok"
       }
     ],
-    "schema_valid_provider_count": 5
+    "schema_valid_provider_count": 4
   },
   "public_positioning": {
     "landing_rank": 30,
     "landing_role": "observation_gap",
-    "note": "Monitoring-plane validation: 50,000 rows compress to 21 repeated Evidence Items with 63,056 counted occurrences, 100% chunk coverage, and 2 human-gated primary candidates after Gemma 4 replaced GLM.",
-    "title": "Observation gap: stream_v3 monitoring 50k, repeated-pattern coverage"
+    "note": "arena-server monitoring-plane reinterpretation kept separate from Dell runtime; GPT OSS partial failure is visible and excluded from convergence denominators.",
+    "title": "Observation-gap review: arena-server monitoring 50k reinterpretation"
   },
   "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3",
   "public_verification": {
     "profile_id": "stream_v3_arena_server_monitoring_source_approved",
-    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
-    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2",
-    "updated_at": "2026-07-02T17:24:30Z",
-    "window_selection_note": "The public stream_v3 arena-server monitoring review was refreshed from a locally staged multi-week sanitized BigQuery corpus. The accepted public run uses 50,000 double-sanitized rows, covers 24.9 hours, replaces GLM with Gemma 4, and keeps row-level data out of the public repo."
+    "source_analysis_sha256": "6af86a8571062130eedb5e62de03b07b0fdf2d10fc4d6eddb5b05c3b1079c65c",
+    "source_context_sha256": "a312fd5e4df8c2085f259581fa811cfee54978e14ad32b788708fb36e346fbd4",
+    "source_discovery_sha256": "8ef1970c5325e027d6efcd663130d9dcccb9493d4822eee984da384c58548a7b",
+    "updated_at": "2026-07-03T01:17:25Z",
+    "window_selection_note": "stream_v3_monitoring reinterpretation run used the focused profile stream_v3_arena_server_monitoring_source_approved; canonical graph 2350ddd8b2ac distinguishes this run from earlier published payloads."
   },
   "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3",
   "review_summary": {
-    "auto_archived": 1,
+    "auto_archived": 2,
     "incident_baseline": "established",
     "incident_gate_signal": "signal_present",
     "monitor_only": 2,
-    "primary_targets": 2,
-    "provider_detection_overlap": "5/5",
+    "primary_targets": 0,
+    "provider_detection_overlap": "4/4",
     "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
     "technical_baseline": "established",
-    "validation_targets": 7
+    "validation_targets": 9
   },
   "sanitized_corpus": {
     "analysis_window_hours": 24.915278,
+    "db_corpus_coverage_class_counts": {
+      "pattern": 49998,
+      "rare": 2
+    },
+    "db_corpus_coverage_ratio": 1.0,
+    "db_corpus_covered_row_count": 50000,
+    "db_corpus_direct_prompt_row_count": 0,
+    "db_corpus_pattern_count": 5,
+    "db_corpus_raw_rows_sent_to_providers": false,
+    "db_corpus_row_assignments_sha256": "af93c5405b9a0f2340adf8b753e024b34f0193affb8bb6f7d890b15f16de137e",
+    "db_corpus_row_count": 50000,
+    "db_corpus_singleton_pattern_count": 0,
     "db_ingested_log_count": 50000,
     "environment": "arena_server",
+    "evidence_item_accounting": {
+      "db_pattern_groups": 5,
+      "derived_metric_or_operational_items": 16,
+      "explanation": "Evidence Item count can exceed DB pattern groups because deterministic metric, state, or operational boundary items are added after row-level grouping.",
+      "schema_version": "evidence_item_accounting.v1",
+      "total_evidence_items": 21
+    },
+    "evidence_item_count": 21,
     "min_analysis_window_hours": 24,
-    "public_note": "The full row-level sanitized corpus was not committed; the public repo carries this manifest, the SHA-fixed review payload, and the public URL for reviewer inspection.",
+    "public_note": "Row-level sanitized events are intentionally not committed; this manifest records the coverage ledger boundary.",
     "public_row_level_file": null,
+    "sanitized_log_count": 50000,
     "sanitized_row_count": 50000,
     "service": "stream_v3_monitoring",
     "window_end": "2026-06-19T10:48:55Z",
@@ -344,8 +385,9 @@
     "raw_source_policy": "not_uploaded",
     "raw_source_uploaded_to_model": false,
     "row_level_sanitized_events_committed": false,
-    "source_analysis_sha256": "451320fbd76572c4bf00be20b0ab43825d99eaa518a1b1b99c54ebf7a31e33a5",
-    "source_context_sha256": "669dc2f9d33ff9ab9d73f04d8c17f8718386815d0c6e536dde14b627232637d2"
+    "source_analysis_sha256": "6af86a8571062130eedb5e62de03b07b0fdf2d10fc4d6eddb5b05c3b1079c65c",
+    "source_context_sha256": "a312fd5e4df8c2085f259581fa811cfee54978e14ad32b788708fb36e346fbd4",
+    "source_discovery_sha256": "8ef1970c5325e027d6efcd663130d9dcccb9493d4822eee984da384c58548a7b"
   },
   "title": "stream_v3 arena-server monitoring 50k real API source-aware review",
   "token_compression": {
@@ -357,7 +399,13 @@
     "policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts.",
     "provider_full_corpus_analyzed_evidence_items": 21,
     "provider_full_corpus_chunk_count": 18,
+    "provider_full_corpus_chunk_manifest_count": 18,
+    "provider_full_corpus_chunk_manifest_sha256s": [
+      "228c7c8395b819051954634569d391644f0ea92362b7c71ea8cd440875c2c692",
+      "f371dc5c9c3329238ca1769541ead8230f01ca57187d6bbead7ac09fd6c2d83e"
+    ],
     "provider_full_corpus_coverage_ratio": 1.0,
+    "provider_full_corpus_evidence_items": 21,
     "provider_full_corpus_unassigned_evidence_items": 0
   }
 }

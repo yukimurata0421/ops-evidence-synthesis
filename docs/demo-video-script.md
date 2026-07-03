@@ -1,7 +1,8 @@
 # Three Minute Demo Script
 
-Target length: 2:45 to 3:00. Use the live Cloud Run URL and avoid starting any
-write path from the public surface.
+Target length: 2:45 to 3:00. Use the live Cloud Run URL. The only public write
+path shown is Fast GCP Review, which accepts no arbitrary input and runs a fixed
+sanitized sample.
 
 ## 0:00-0:20 Problem
 
@@ -27,7 +28,7 @@ Show:
 
 - Raw log policy: `not_uploaded`
 - 45,000-row sanitized runtime corpus
-- 33 provider-specific chunks
+- 39 provider-specific chunks
 - 3 human-gated primary candidates
 - Agent Trace
 - Review Graph Arbitration
@@ -60,7 +61,27 @@ becomes review work, but incident support and user impact still gate promotion.
 That is why the system can investigate automatically while keeping causal
 judgement human-gated.
 
-## 1:35-2:20 Run
+## 1:35-2:00 Run Fast GCP Review
+
+Open Fast GCP Review and click the run button.
+
+URL:
+https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
+
+Show:
+
+- fixed `amazon-notify` sanitized sample
+- `gemini-3.1-flash-lite`
+- wall time and provider latency
+- generated review URL
+
+Narration:
+For live GCP verification, the public app runs a fixed sanitized sample from
+Cloud Run through Vertex Gemini Flash Lite. It does not accept arbitrary logs or
+URLs, but it proves the deployed project can execute the evidence pipeline and
+return a review URL.
+
+## 2:00-2:30 Rescore Loop
 
 Open the More data rescore demo.
 
@@ -81,7 +102,7 @@ signal, attaches a child Evidence Bundle, reruns the scoring projection, and
 changes the promotion decision only after the missing evidence appears. This is
 not a one-shot answer; it is an AI workflow that can improve under evidence.
 
-## 2:20-2:45 Deliver
+## 2:30-2:50 Deliver
 
 Open the API view or review graph.
 
@@ -96,7 +117,7 @@ reviewers can inspect the same fixed artifacts without credentials, raw logs, or
 live model calls. Locally, `make demo`, `make ci`, and `make smoke-public`
 regenerate and verify the review path.
 
-## 2:45-3:00 Close
+## 2:50-3:00 Close
 
 Show [submission-links.md](submission-links.md) or the README.
 

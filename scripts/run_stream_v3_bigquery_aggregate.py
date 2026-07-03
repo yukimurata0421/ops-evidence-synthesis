@@ -50,7 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--end", default=DEFAULT_END)
     parser.add_argument("--environment", default="stream_v3")
     parser.add_argument("--service", default="stream_v3-aggregate")
-    parser.add_argument("--model", default="gemini-3.1-flash-lite")
+    parser.add_argument("--model", default="gemini-3.1-pro-preview")
     parser.add_argument("--pattern-limit", type=int, default=80)
     parser.add_argument("--sample-limit", type=int, default=50)
     parser.add_argument("--incident-start", default="")

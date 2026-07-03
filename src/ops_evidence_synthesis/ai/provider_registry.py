@@ -163,12 +163,24 @@ def provider_registry() -> list[ProviderSpec]:
             provider_id="gemini-enterprise-agent-platform",
             display_name="Vertex Gemini",
             aliases=("gemini", "vertex-gemini", "gemini-enterprise-agent-platform"),
-            model_name=os.environ.get("OES_GEMINI_MODEL", "gemini-3.1-flash-lite"),
+            model_name=os.environ.get("OES_GEMINI_MODEL", "gemini-3.1-pro-preview"),
             requires_network=True,
             requires_api_key=False,
             supports_json_schema=True,
             default_timeout_seconds=int(os.environ.get("OES_GEMINI_TIMEOUT_SECONDS", "60")),
             factory=VertexGeminiProvider.from_env,
+            configured=_vertex_ai_configured,
+        ),
+        ProviderSpec(
+            provider_id="gemini-fast-lite-agent-platform",
+            display_name="Vertex Gemini Flash Lite",
+            aliases=("gemini-fast-lite", "vertex-gemini-fast-lite", "fast-gemini", "fast-gcp-gemini"),
+            model_name=os.environ.get("OES_FAST_GCP_GEMINI_MODEL", "gemini-3.1-flash-lite"),
+            requires_network=True,
+            requires_api_key=False,
+            supports_json_schema=True,
+            default_timeout_seconds=int(os.environ.get("OES_FAST_GCP_GEMINI_TIMEOUT_SECONDS", "45")),
+            factory=_fast_gemini_provider,
             configured=_vertex_ai_configured,
         ),
         ProviderSpec(
@@ -339,6 +351,26 @@ def _vertex_project_present() -> bool:
 
 def _vertex_ai_configured() -> bool:
     return _vertex_project_present()
+
+
+def _fast_gemini_provider() -> VertexGeminiProvider:
+    return VertexGeminiProvider(
+        provider="gemini-fast-lite-agent-platform",
+        model_name=os.environ.get("OES_FAST_GCP_GEMINI_MODEL", "gemini-3.1-flash-lite"),
+        prompt_name="root-cause",
+        project_id=(
+            os.environ.get("OES_VERTEX_PROJECT")
+            or os.environ.get("GOOGLE_CLOUD_PROJECT")
+            or os.environ.get("GCP_PROJECT")
+            or ""
+        ),
+        location=os.environ.get("OES_FAST_GCP_VERTEX_LOCATION") or os.environ.get("OES_VERTEX_LOCATION", "global"),
+        temperature=float(os.environ.get("OES_FAST_GCP_GEMINI_TEMPERATURE", "0")),
+        max_output_tokens=int(os.environ.get("OES_FAST_GCP_GEMINI_MAX_OUTPUT_TOKENS", "4096")),
+        timeout_seconds=int(os.environ.get("OES_FAST_GCP_GEMINI_TIMEOUT_SECONDS", "45")),
+        api_version=os.environ.get("OES_FAST_GCP_VERTEX_API_VERSION", "v1"),
+        thinking_level=os.environ.get("OES_FAST_GCP_GEMINI_THINKING_LEVEL", "minimal"),
+    )
 
 
 def _gpt_oss_configured() -> bool:

@@ -1,7 +1,7 @@
 # Real API Source-Aware Five-Provider Run
 
 This document records the guarded public read-only amazon-notify artifact
-generated from schema-valid Gemini, GPT OSS, Mistral, Qwen, and Gemma 4 real
+generated from schema-valid Gemini 3.1 Pro, GPT OSS, Mistral, Qwen, and Gemma 4 real
 API outputs. GLM was replaced by Gemma 4 for this public amazon-notify payload.
 Llama and Claude are excluded because they were not available in this
 environment. The public entry page shows the stream_v3 runtime run first because
@@ -22,12 +22,12 @@ action.
 | Artifact | Value |
 | --- | --- |
 | Evidence SHA256 | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` |
-| Pipeline run | `gemma-replaces-glm-combined-20260702T163000Z` |
-| API revision | `real-api-5p-gemma-replaces-glm-20260702T163000Z` |
-| Canonical graph SHA256 | `5c525b6369855440bc40975dcfab0fa90895cda8849ec7cfdc0b9f6a561d105c` |
-| Input fingerprint SHA256 | `5ab1f981a614a4075e148f9c8afd6e0c04cbfb410f3ad1f1b74037d6ffcb1af9` |
+| Pipeline run | `amazon-notify-gemini-pro-gemma4-combined-20260702T224500Z` |
+| API revision | `real-api-5p-gemini-pro-gemma4-20260702T224500Z` |
+| Canonical graph SHA256 | `8ad416a42a0a564ffe9221033cb50dde6a493ae3c8107bf6a69bf358b423d002` |
+| Input fingerprint SHA256 | `3c9fd8af64ea816956c44d78d6f42516f67c93463902fa7de2459eef230b9840` |
 | Public payload | `data/precomputed_review_summaries/b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec.json` |
-| Payload SHA256 | `8c2b15d4fcb638ff35f9cb5889c1d3cafac1dd9ee613c982b7d5b9d64a6c64a5` |
+| Payload SHA256 | `26b43ac39b671cd09c2fa2f9c87d3faef10a2573482643002f9b3acf261caffa` |
 
 ## Window Selection
 
@@ -82,7 +82,7 @@ manifests.
 
 | Provider | Model | Status | Schema | Chunks | Input tokens | Output tokens |
 | --- | --- | --- | --- | ---: | ---: | ---: |
-| `gemini-enterprise-agent-platform` | `gemini-3.1-flash-lite` | ok | valid | 86 | 7,135,493 | 97,655 |
+| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 86 | 7,135,493 | 54,636 |
 | `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 105 | 5,679,336 | 310,980 |
 | `mistral-agent-platform` | `mistral-medium-3` | ok | valid | 51 | 5,029,427 | 51,204 |
 | `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 86 | 6,138,445 | 144,896 |
@@ -92,26 +92,25 @@ Recorded provider outputs are hashed; deterministic reproduction applies to the
 canonical merge over sorted recorded chunk outputs, not to recreating a live
 model response byte-for-byte.
 
-## Measured Gemma 4 Refresh Timing
+## Measured Gemini 3.1 Pro Refresh Timing
 
-The Gemma 4 replacement run did not store a separate shell `time` output, so
-the wall time below is derived from the earliest `started_at` and latest
-`finished_at` timestamps in the Gemma provider chunk ledger. Provider latency
-is the sum of chunk latencies recorded in the provider output and is not the
-same as elapsed wall time.
+Gemini 3.1 Pro replaced the earlier Flash Lite provider output for this public
+artifact. Wall time is command elapsed time for the Gemini-only real API run;
+provider latency is the sum of chunk latencies recorded in the provider output
+and is not the same as elapsed wall time.
 
 | Step | Value |
 | --- | ---: |
-| Gemma 4 real API wall time from chunk timestamps | 1,386.0s |
-| Gemma 4 provider latency sum | 5,001,049 ms |
-| Gemma 4 successful chunks | 86 |
+| Gemini 3.1 Pro real API wall time | 3,127.13s |
+| Gemini 3.1 Pro provider latency sum | 7,608,922 ms |
+| Gemini 3.1 Pro successful chunks | 86 |
 
 ## Review Outcome
 
 The canonical review graph produced:
 
-- 2 primary candidates
-- 9 validation targets
+- 1 primary candidate
+- 10 validation targets
 - 2 monitor-only context items
 - 3 auto-archived targets
 - 5/5 provider detection overlap
@@ -127,15 +126,15 @@ response and the matching 14-day Evidence Bundle:
 
 ```bash
 PYTHONPATH=src python scripts/generate_precomputed_review_from_multi_run.py \
-  --multi-run-json workspace/e2e_real_api_source_sanitize_20260701T003045Z/multi_ai_real_5p_gemma_replaces_glm_combined_20260702T163000Z/multi_ai_run.json \
+  --multi-run-json workspace/e2e_real_api_source_sanitize_20260701T003045Z/multi_ai_real_5p_gemini_pro_gemma4_combined_20260702T224500Z/multi_ai_run.json \
   --evidence-bundle workspace/e2e_real_api_source_sanitize_20260701T003045Z/evidence_bundle.json \
   --source-context workspace/e2e_real_api_source_sanitize_20260701T003045Z/source_context/source_context_bundle.json \
   --source-analysis workspace/e2e_real_api_source_sanitize_20260701T003045Z/source_analysis/source_analysis_bundle.json \
   --profile-draft workspace/e2e_real_api_source_sanitize_20260701T003045Z/profile_draft.json \
   --approved-profile workspace/e2e_real_api_source_sanitize_20260701T003045Z/approved_profile.json \
   --profile-id amazon_notify_e2e_20260701t003045z_approved \
-  --api-revision real-api-5p-gemma-replaces-glm-20260702T163000Z \
-  --provider-mode real_api_vertex_gemini_gpt_oss_mistral_qwen_gemma4_chunked_full_corpus \
+  --api-revision real-api-5p-gemini-pro-gemma4-20260702T224500Z \
+  --provider-mode real_api_vertex_gemini_3_1_pro_gpt_oss_mistral_qwen_gemma4_chunked_full_corpus \
   --min-window-hours 24 \
   --output-dir data/precomputed_review_summaries
 ```

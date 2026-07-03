@@ -198,6 +198,21 @@ def focused_operational_profile_prompt(payload: dict[str, Any]) -> str:
         "Prefer 5 to 12 high-value runtime components. Do not exhaustively list every identifier. "
         "Prefer concrete service units, workers, watchdogs, collectors, media/process runners, queues, "
         "publishers, schedulers, and recovery controllers over helper libraries. "
+        "Preserve ownership boundaries. Distinguish the component that owns a runtime process from a "
+        "monitor, classifier, dashboard, or remote requester that only observes it. If the sanitized "
+        "context says a monitoring plane may request, propose, stage, or coordinate recovery but does "
+        "not own the runtime process, do not describe that flow as executing the runtime action. Use "
+        "request/propose/coordinate/validate wording instead. Only use execute/restart/kill wording "
+        "when the same sanitized context shows the component owns that process or action primitive. "
+        "Avoid ambiguous phrases such as 'execute recovery plan' or 'execute ExecutionPlan' for "
+        "cross-plane monitoring flows. Prefer 'emit an action plan', 'render an action plan', "
+        "'validate an action gate', 'request the allowlisted executor', or 'hand off to the runtime owner'. "
+        "In monitoring-plane profiles, delivery components such as media runners, encoders, and audio "
+        "workers should be described as observed dependencies unless they are actually owned in that scope. "
+        "If the context separates delivery/runtime, observability/control, source-chain, and public "
+        "snapshot/publication planes, keep those as separate operational boundaries. "
+        "Treat dashboard FAIL/CHANGED, stale metrics, report-missing signals, and public snapshot gaps "
+        "as observability candidates unless fresh runtime evidence connects them to delivery impact. "
         "The input contains only sanitized artifacts: Profile Discovery, optional sanitized Evidence Bundle, "
         "optional sanitized Source Context, and optional sanitized Source Analysis. Analyze sanitized code/config "
         "context when it is present, but do not treat it as runtime evidence. Runtime claims must cite evidence_id "
@@ -745,6 +760,32 @@ def _compact_source_analysis(context: dict[str, Any], *, max_text_chars: int) ->
 
 
 _FOCUSED_PROFILE_KEYWORDS = (
+    "ownership",
+    "owner",
+    "runtime contract",
+    "program map",
+    "failure taxonomy",
+    "runbook",
+    "playbook",
+    "decision",
+    "sli",
+    "same-url",
+    "same url",
+    "false positive",
+    "stale",
+    "dashboard",
+    "delivery plane",
+    "observability plane",
+    "control plane",
+    "public snapshot",
+    "action plan",
+    "action gate",
+    "allowlist",
+    "guarded",
+    "request",
+    "propose",
+    "coordinate",
+    "validate",
     "systemd",
     ".service",
     "watchdog",
@@ -777,6 +818,22 @@ _FOCUSED_PROFILE_KEYWORDS = (
     "cron",
     "health",
     "liveness",
+    "配信端末",
+    "配信専用",
+    "観測層",
+    "監視層",
+    "arena-server",
+    "責務",
+    "所有",
+    "復旧要求",
+    "段階的復旧",
+    "誤表示",
+    "誤報",
+    "raw metrics",
+    "根拠",
+    "証跡",
+    "同一url",
+    "same url",
 )
 
 
@@ -791,6 +848,22 @@ def _focused_rows(rows: Any, *, limit: int) -> list[dict[str, Any]]:
 def _focused_row_score(row: dict[str, Any]) -> float:
     text = pretty_json(_truncate_nested(row, 240)).casefold()
     score = 0.0
+    path = str(row.get("relative_path") or row.get("path") or row.get("source_path") or "").casefold()
+    if "/docs/" in f"/{path}" or path.startswith("docs/"):
+        score += 12.0
+    for path_hint in (
+        "10_current",
+        "20_runbooks",
+        "25_decisions",
+        "65_programs",
+        "80_templates",
+        "runtime-contract",
+        "failure-taxonomy",
+        "ownership",
+        "program-map",
+    ):
+        if path_hint in path:
+            score += 10.0
     for keyword in _FOCUSED_PROFILE_KEYWORDS:
         if keyword in text:
             score += 4.0

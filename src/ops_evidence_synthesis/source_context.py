@@ -1262,7 +1262,43 @@ def _looks_text(path: Path) -> bool:
 
 
 def _is_source_file(path: Path) -> bool:
-    return path.suffix in {".py", ".js", ".ts", ".sh"} and not _is_env_file(path)
+    return (
+        path.suffix in {".py", ".js", ".ts", ".sh"}
+        or _is_operational_markdown(path)
+    ) and not _is_env_file(path)
+
+
+def _is_operational_markdown(path: Path) -> bool:
+    if path.suffix != ".md":
+        return False
+    parts = {part.casefold() for part in path.parts}
+    if "docs" not in parts:
+        return False
+    name = path.name.casefold()
+    rel = "/".join(path.parts).casefold()
+    return any(
+        marker in rel or marker in name
+        for marker in (
+            "10_current",
+            "20_runbooks",
+            "25_decisions",
+            "45_routine_checks",
+            "50_ops_logs",
+            "65_programs",
+            "80_templates",
+            "runtime",
+            "ownership",
+            "failure",
+            "taxonomy",
+            "runbook",
+            "sli",
+            "observability",
+            "monitoring",
+            "recovery",
+            "program",
+            "prompt",
+        )
+    )
 
 
 def _is_env_file(path: Path) -> bool:
