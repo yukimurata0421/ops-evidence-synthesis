@@ -2610,8 +2610,9 @@ def _detail_case_label(payload: dict[str, Any], review: dict[str, Any]) -> str:
     context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
     service = str(context.get("service") or "").strip()
     service_labels = {
-        "stream_v3_runtime": "stream_v3 Dell runtime",
-        "stream_v3_arena_monitoring": "stream_v3 arena-server monitoring",
+        "stream_v3_runtime": "stream_v3 runtime",
+        "stream_v3_arena_monitoring": "stream_v3 monitoring",
+        "stream_v3_monitoring": "stream_v3 monitoring",
     }
     if service:
         return service_labels.get(service, service.replace("_", " "))
@@ -2669,9 +2670,14 @@ def _detail_summary_cells_html(
     rows = []
     for value, label, note in cells:
         note_html = f"<small>{_html(note)}</small>" if note else ""
+        safe_class = ""
+        if label == "raw logs" and str(value).strip().lower() in {"local", "not uploaded", "not_uploaded"}:
+            safe_class = " safe"
+        if label == "primary candidates" and str(value).strip() == "0":
+            safe_class = " safe"
         rows.append(
             f"""
-        <article class="stat-cell">
+        <article class="stat-cell{safe_class}">
           <strong>{_html(value)}</strong>
           <span>{_html(label)}</span>
           {note_html}
@@ -2686,7 +2692,7 @@ def _detail_action_links_html(evidence_sha256: str) -> str:
     links = [
         ("API view", f"/ui/api?evidence_sha256={evidence}", "human-readable JSON"),
         ("Review graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions"),
-        ("GitHub", _public_repo_url(), "repository"),
+        ("Markdown report", f"/ui/report.md?evidence_sha256={evidence}", "human-readable Markdown report"),
     ]
     return "".join(
         f'<a class="button" href="{_html(url)}" title="{_html(title)}">{_html(label)}</a>'
@@ -3954,7 +3960,368 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       .detail-drawer summary, .supplemental-details summary {{ display: grid; }}
       .detail-drawer summary small, .supplemental-details summary small {{ text-align: left; }}
       .score {{ text-align: left; }}
-      .footer {{ display: grid; }}
+    .footer {{ display: grid; }}
+    }}
+    :root {{
+      --bg: #f4f2ec;
+      --bg-2: #faf8f2;
+      --surface: #fffdf8;
+      --surface-2: #fbf8f1;
+      --border: #e4dccb;
+      --border-strong: #d3c8b3;
+      --ink: #181611;
+      --ink-2: #514b40;
+      --ink-3: #8b8375;
+      --accent: #3f63a8;
+      --accent-strong: #2f55a0;
+      --accent-soft: #eef2f9;
+      --claimed: #208a61;
+      --silent: #b8c0cb;
+      --amber: #b17a40;
+      --amber-soft: #f4ead8;
+      --danger: #b42318;
+      --green-soft: #ecf6f1;
+      --shadow: 0 20px 58px -44px rgba(60, 50, 30, .36);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --serif: Georgia, "Times New Roman", serif;
+    }}
+    body {{
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }}
+    .page {{
+      max-width: none;
+      padding: 0 0 72px;
+    }}
+    .topbar {{
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      width: auto;
+      margin: 0;
+      padding: 16px max(24px, calc((100vw - 1156px) / 2));
+      border-bottom: 1px solid var(--border);
+      background: rgba(250, 248, 242, .94);
+      backdrop-filter: blur(8px);
+    }}
+    main {{
+      width: min(calc(100% - 48px), 1156px);
+      margin: 0 auto;
+      gap: 0;
+    }}
+    .mark {{
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: var(--ink);
+      color: var(--bg);
+      font: 800 11px/1 var(--mono);
+    }}
+    .breadcrumb {{
+      display: flex;
+      gap: 11px;
+      align-items: center;
+      color: var(--ink-3);
+      font-size: 13px;
+    }}
+    .breadcrumb strong {{
+      display: inline;
+      color: var(--ink);
+      font-weight: 800;
+    }}
+    .status-row {{
+      color: var(--ink-3);
+      font-size: 13px;
+    }}
+    .status-chip, .evidence-chip, .filter-chip, .pill {{
+      border-color: var(--border);
+      background: rgba(255, 253, 248, .78);
+      color: var(--ink-2);
+      border-radius: 999px;
+    }}
+    .status-chip.live {{
+      border-color: #bfe0cd;
+      background: var(--green-soft);
+      color: var(--claimed);
+      font: 800 11.5px/1 var(--mono);
+    }}
+    .top-link {{
+      color: var(--ink-2);
+      text-decoration: none;
+      font-size: 13px;
+    }}
+    .top-link:hover {{ color: var(--ink); }}
+    .hero {{
+      padding: 78px 0 40px;
+      gap: 24px;
+    }}
+    .eyebrow, label {{
+      color: var(--amber);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .16em;
+      line-height: 1.2;
+    }}
+    h1 {{
+      max-width: 860px;
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: clamp(40px, 4.2vw, 52px);
+      font-weight: 600;
+      line-height: 1.03;
+      letter-spacing: 0;
+      overflow-wrap: normal;
+    }}
+    h2 {{
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: clamp(28px, 3vw, 34px);
+      font-weight: 500;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }}
+    h3 {{
+      color: var(--ink);
+      letter-spacing: 0;
+    }}
+    p {{
+      color: var(--ink-2);
+      line-height: 1.58;
+    }}
+    .hero p {{
+      max-width: 760px;
+      color: var(--ink-2);
+      font-size: 17px;
+      line-height: 1.62;
+    }}
+    .actions {{
+      gap: 12px;
+      margin-top: 6px;
+    }}
+    .actions a, .actions a.button {{
+      border-color: var(--border-strong);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink);
+      padding: 11px 18px;
+      font-size: 14px;
+    }}
+    .actions a:hover, .actions a.button:hover {{
+      border-color: var(--ink);
+      color: var(--ink);
+      background: #efe9db;
+    }}
+    .stat-grid {{
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--border);
+      box-shadow: none;
+    }}
+    .stat-cell {{
+      background: rgba(255, 253, 248, .78);
+      padding: 19px 18px;
+    }}
+    .stat-cell.safe {{
+      background: var(--green-soft);
+    }}
+    .stat-cell strong {{
+      color: var(--ink);
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1;
+    }}
+    .stat-cell.safe strong {{
+      color: var(--claimed);
+    }}
+    .stat-cell span, .stat-cell small {{
+      color: var(--ink-3);
+      font-size: 11px;
+    }}
+    .section-block {{
+      padding: 52px 0;
+      border-top: 1px solid var(--border);
+      gap: 24px;
+    }}
+    .section-heading {{
+      max-width: 780px;
+      gap: 9px;
+    }}
+    .section-heading p, .section-note {{
+      color: var(--ink-3);
+      font-size: 14px;
+    }}
+    .panel, .distribution-card, .detail-drawer, .supplemental-details, .workspace-queue, .workspace-detail, .metric-matrix {{
+      border-color: var(--border);
+      border-radius: 12px;
+      background: rgba(255, 253, 248, .76);
+      box-shadow: var(--shadow);
+    }}
+    .panel.secondary, .metric, .trace-step, .provider-row, .graph-cell, .target-preview, .workspace-provider-card, .workspace-chip, .target, .target-nav-card, .workspace-queue-item {{
+      border-color: var(--border);
+      background: var(--surface);
+    }}
+    .review-section {{
+      margin-left: 0;
+      margin-right: 0;
+    }}
+    .review-workspace {{
+      grid-template-columns: minmax(320px, .76fr) minmax(0, 1.24fr);
+      gap: 22px;
+    }}
+    .workspace-queue {{
+      background: rgba(255, 253, 248, .56);
+      max-height: 650px;
+    }}
+    .workspace-queue-item {{
+      border-radius: 10px;
+      box-shadow: none;
+    }}
+    .workspace-queue-item:hover, .workspace-queue-item.active {{
+      border-color: #c8d5ee;
+      box-shadow: inset 3px 0 0 var(--accent);
+    }}
+    .workspace-progress span {{
+      background: var(--accent);
+    }}
+    .workspace-detail {{
+      padding: 28px;
+      background: var(--surface);
+    }}
+    .workspace-detail h3 {{
+      color: var(--ink);
+      font-size: 27px;
+    }}
+    .workspace-score {{
+      color: var(--ink);
+      font-size: 32px;
+    }}
+    .workspace-gate, .human-gate {{
+      border-color: #ead4b4;
+      background: var(--amber-soft);
+    }}
+    .gate-mark {{
+      background: var(--surface);
+      color: var(--amber);
+    }}
+    .review-arbitration-grid {{
+      grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(340px, 1.15fr);
+      gap: 16px;
+    }}
+    .arbitration-stat, .arbitration-gate {{
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255, 253, 248, .78);
+      padding: 24px 18px;
+    }}
+    .arbitration-stat strong {{
+      color: var(--ink);
+      font-size: 28px;
+      font-weight: 900;
+    }}
+    .arbitration-stat.primary strong {{
+      color: var(--accent);
+    }}
+    .arbitration-stat.safe strong {{
+      color: var(--claimed);
+    }}
+    .arbitration-stat span {{
+      display: block;
+      margin-top: 8px;
+      color: var(--ink-3);
+      font-size: 12px;
+    }}
+    .arbitration-gate {{
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: var(--accent-soft);
+      border-color: #cbd8ef;
+    }}
+    .arbitration-gate strong {{
+      color: var(--ink);
+      font-size: 14px;
+    }}
+    .arbitration-gate p {{
+      color: #4f5f7b;
+      font-size: 13px;
+    }}
+    .trace-grid {{
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .trace-step {{
+      border-radius: 10px;
+      padding: 18px;
+    }}
+    .provider-grid {{
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }}
+    .graph-summary-grid {{
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }}
+    .footer {{
+      width: min(calc(100% - 48px), 1156px);
+      margin: 0 auto;
+      padding-top: 22px;
+      border-color: var(--border);
+    }}
+    @media (max-width: 1180px) {{
+      .topbar {{
+        padding-left: 24px;
+        padding-right: 24px;
+      }}
+      .review-arbitration-grid {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
+      .arbitration-gate {{
+        grid-column: 1 / -1;
+      }}
+    }}
+    @media (max-width: 900px) {{
+      main, .footer {{
+        width: min(calc(100% - 32px), 1156px);
+      }}
+      .hero {{
+        padding-top: 54px;
+      }}
+      .stat-grid, .review-arbitration-grid, .trace-grid {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
+      .review-workspace {{
+        grid-template-columns: 1fr;
+      }}
+    }}
+    @media (max-width: 760px) {{
+      .topbar {{
+        position: static;
+        padding: 14px 16px;
+      }}
+      .breadcrumb, .status-row {{
+        align-items: flex-start;
+      }}
+      h1 {{
+        font-size: 31px;
+        line-height: 1.08;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }}
+      .hero p {{
+        font-size: 16px;
+        overflow-wrap: anywhere;
+      }}
+      .stat-grid, .review-arbitration-grid, .trace-grid {{
+        grid-template-columns: 1fr;
+      }}
+      .arbitration-gate {{
+        display: grid;
+      }}
+      .workspace-detail {{
+        padding: 18px;
+      }}
     }}
   </style>
 </head>
@@ -3963,11 +4330,12 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     <header class="topbar">
       <div class="brand-row">
         <div class="mark">OE</div>
-        <div class="breadcrumb">Reviews / <strong>{_html(case_label)}</strong></div>
+        <div class="breadcrumb"><span>/</span><span>Reviews</span><span>/</span><strong>{_html(case_label)}</strong></div>
       </div>
       <div class="status-row">
-        <span class="status-chip"><span class="status-dot"></span>Persisted Review Result</span>
         <span class="evidence-chip">evidence {_html(_short_sha(evidence_sha256))}</span>
+        <a class="top-link" href="{_html(_public_repo_url())}">GitHub</a>
+        <span class="status-chip live"><span class="status-dot"></span>Cloud Run live</span>
       </div>
     </header>
     <main>
@@ -4347,31 +4715,9 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
         return ""
     converged = int(summary.get("convergence_count") or 0)
     single_source = int(summary.get("single_source_count") or 0)
-    rule_or_context = int(summary.get("rule_or_context_count") or 0)
     partial_overlap = int(summary.get("partial_overlap_count") or 0)
     conflicts = int(summary.get("conflict_count") or 0)
     auto_archived = int(summary.get("auto_archived_count") or 0)
-    verdict_total = max(1, converged + single_source + rule_or_context)
-    converged_width = (converged / verdict_total) * 100
-    single_width = (single_source / verdict_total) * 100
-    context_width = (rule_or_context / verdict_total) * 100
-    stat_cells = [
-        (str(converged), "converged targets"),
-        (str(single_source), "single-source targets"),
-        (str(partial_overlap), "partial overlap overlay"),
-        (str(conflicts), "explicit conflicts"),
-        (str(summary.get("provider_detection_overlap") or "unknown"), "detection overlap"),
-        (str(auto_archived), "auto-archived (post-window)"),
-    ]
-    stat_html = "".join(
-        f"""
-        <article class="matrix-cell">
-          <strong>{_html(value)}</strong>
-          <span>{_html(label)}</span>
-        </article>
-        """
-        for value, label in stat_cells
-    )
     note = str(summary.get("note") or "")
     score_definition = str(summary.get("score_definition") or "")
     promotion_policy = str(summary.get("target_promotion_policy") or "")
@@ -4380,6 +4726,23 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     policy_text = promotion_policy or "Each target promotion remains human-gated until impact and operational outcome evidence are attached."
     score_text = score_definition or "Convergence score = claimed successful providers / all successful providers."
     note_text = note or "Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent."
+    stat_cells = [
+        (str(converged), "converged targets", "primary"),
+        (str(single_source), "single-source targets", ""),
+        (str(partial_overlap), "partial overlap", ""),
+        (str(conflicts), "explicit conflicts", "safe" if conflicts == 0 else ""),
+    ]
+    stat_html = "".join(
+        f"""
+        <article class="arbitration-stat {css_class}">
+          <strong>{_html(value)}</strong>
+          <span>{_html(label)}</span>
+        </article>
+        """
+        for value, label, css_class in stat_cells
+    )
+    archived_note = f"{auto_archived} auto-archived post-window" if auto_archived else "no post-window auto-archive"
+    detail_note = f"{_html(score_text)} {_html(note_text)} {_html(archived_note)}"
     return f"""
     <section class="section-block graph-arbitration">
       <div class="section-heading">
@@ -4388,33 +4751,20 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
         <p>{_html(summary_text)}</p>
       </div>
       <div class="review-arbitration-grid">
-        <article class="distribution-card">
-          <strong class="distribution-title">Target verdict distribution</strong>
-          <div class="distribution-bar" aria-label="Target verdict distribution">
-            <span class="bar-converged" style="width:{converged_width:.1f}%"></span>
-            <span class="bar-single" style="width:{single_width:.1f}%"></span>
-            <span class="bar-context" style="width:{context_width:.1f}%"></span>
-          </div>
-          <div class="legend-row">
-            <span><span class="legend-dot bar-converged"></span>{converged} converged</span>
-            <span><span class="legend-dot bar-single"></span>{single_source} single-source</span>
-            <span><span class="legend-dot bar-context"></span>{partial_overlap} partial overlap</span>
-          </div>
-          <div class="human-gate">
-            <span class="gate-mark">HG</span>
-            <div>
-              <strong>Incident gate { _html(incident_gate) } · promotion human-gated</strong>
-              <p>{_html(f"{conflicts} explicit conflicts · each target promotes on its own evidence")}</p>
-              <details class="inline-details">
-                <summary>Arbitration notes</summary>
-                <p>{_html(policy_text)}</p>
-                <p>{_html(score_text)}</p>
-                <p>Target promotion: per-target human-gated. Incident gate signal: {_html(incident_gate)}. {_html(note_text)}</p>
-              </details>
-            </div>
+        {stat_html}
+        <article class="arbitration-gate">
+          <span class="gate-mark">HG</span>
+          <div>
+            <strong>Incident gate { _html(incident_gate) } · promotion human-gated</strong>
+            <p>A graph-level support signal is not a verdict. Each target promotes on its own evidence; promotion stays human-gated until impact evidence is attached.</p>
+            <details class="inline-details">
+              <summary>Arbitration notes</summary>
+              <p>{_html(policy_text)}</p>
+              <p>{detail_note}</p>
+              <p>Target promotion: per-target human-gated. Incident gate signal: {_html(incident_gate)}.</p>
+            </details>
           </div>
         </article>
-        <div class="metric-matrix">{stat_html}</div>
       </div>
     </section>"""
 
