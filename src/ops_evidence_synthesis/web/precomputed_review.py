@@ -2623,6 +2623,42 @@ def _detail_case_label(payload: dict[str, Any], review: dict[str, Any]) -> str:
     return "Full Review"
 
 
+def _detail_service_id(payload: dict[str, Any]) -> str:
+    context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
+    return str(context.get("service") or "").strip()
+
+
+def _detail_is_observation_gap(payload: dict[str, Any]) -> bool:
+    return _detail_service_id(payload) in {"stream_v3_arena_monitoring", "stream_v3_monitoring"}
+
+
+def _detail_hero_copy(
+    *,
+    payload: dict[str, Any],
+    review: dict[str, Any],
+    providers: dict[str, Any],
+    finding_title: str,
+    finding_impact: str,
+    log_count: int,
+) -> tuple[str, str]:
+    if not _detail_is_observation_gap(payload):
+        return finding_title, finding_impact
+    provider_success = int(providers.get("success") or 0)
+    provider_total = int(providers.get("total") or 0)
+    primary_targets = int(review.get("primary_targets") or 0)
+    validation_targets = int(review.get("validation_targets") or 0)
+    row_count = _human_count(log_count)
+    title = "Zero accepted causes. This is the system showing restraint."
+    impact = (
+        f"{finding_title}. Across {row_count} monitoring rows, "
+        f"{provider_success} / {provider_total} schema-valid providers raised "
+        f"{primary_targets} primary candidate(s) and {validation_targets} validation target(s). "
+        "The UI keeps those signals human-gated because missing liveness and weak observation are review work, "
+        "not accepted incident causes."
+    )
+    return title, impact
+
+
 def _detail_coverage_label(payload: dict[str, Any]) -> str:
     context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
     for key in (
@@ -2651,21 +2687,22 @@ def _detail_summary_cells_html(
         + int(review.get("monitor_only") or 0)
         + int(review.get("auto_archived") or 0)
     )
+    primary_targets = int(review.get("primary_targets") or 0)
+    raw_policy_normalized = str(raw_policy).strip().lower().replace("_", " ")
+    raw_logs_local = raw_policy_normalized in {"not uploaded", "local"}
+    raw_logs_value = "local" if raw_logs_local else _display_policy(raw_policy)
+    raw_logs_note = "raw logs not uploaded" if raw_logs_local else _human_count(log_count)
     cells = [
         (
             f"{int(providers.get('success') or 0)} / {int(providers.get('total') or 0)}",
             "schema-valid providers",
             _display_policy(str(providers.get("pipeline_status") or "precomputed")),
         ),
-        (str(int(review.get("primary_targets") or 0)), "primary candidates", "not auto-promoted"),
+        (str(primary_targets), "primary candidates", "restraint" if primary_targets == 0 else "human-gated"),
         (str(int(review.get("validation_targets") or 0)), "validation targets", "human review work"),
         (str(target_count), "review targets", "canonical queue"),
         (_detail_coverage_label(payload), "ledger coverage", "sanitized corpus"),
-        (
-            _display_policy(raw_policy),
-            "raw logs",
-            "" if str(raw_policy).strip().lower() in {"not_uploaded", "not uploaded"} else _human_count(log_count),
-        ),
+        (raw_logs_value, "raw logs", raw_logs_note),
     ]
     rows = []
     for value, label, note in cells:
@@ -3152,13 +3189,28 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
         log_count=log_count,
     )
     review_workbench = _detail_review_workbench(targets, target_cards)
+    observation_gap = _detail_is_observation_gap(payload)
+    visible_provider_panel = (
+        f'<section class="section-block provider-frontier-visible">{provider_panel}</section>'
+        if observation_gap and provider_panel
+        else ""
+    )
     supplemental_sections = _detail_supplemental_sections(
-        provider_panel,
+        "" if observation_gap else provider_panel,
         analysis_context_panel,
         devops_loop_panel,
     )
     finding_title = str(finding.get("title") or "No persisted finding yet")
     finding_impact = str(finding.get("impact") or "Run analysis to create a persisted review result.")
+    hero_title, hero_impact = _detail_hero_copy(
+        payload=payload,
+        review=review,
+        providers=providers,
+        finding_title=finding_title,
+        finding_impact=finding_impact,
+        log_count=log_count,
+    )
+    observation_badge = '<span class="eyebrow-pill">Observation Gap</span>' if observation_gap else ""
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -4000,13 +4052,13 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       z-index: 20;
       width: auto;
       margin: 0;
-      padding: 16px max(24px, calc((100vw - 1156px) / 2));
+      padding: 16px max(24px, calc((100vw - 1220px) / 2));
       border-bottom: 1px solid var(--border);
       background: rgba(250, 248, 242, .94);
       backdrop-filter: blur(8px);
     }}
     main {{
-      width: min(calc(100% - 48px), 1156px);
+      width: min(calc(100% - 48px), 1220px);
       margin: 0 auto;
       gap: 0;
     }}
@@ -4063,13 +4115,32 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       letter-spacing: .16em;
       line-height: 1.2;
     }}
+    .hero .eyebrow {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 0;
+    }}
+    .eyebrow-pill {{
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #e0d8c7;
+      border-radius: 999px;
+      background: #efe9db;
+      color: #8a857a;
+      padding: 4px 10px;
+      font-size: 10px;
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }}
     h1 {{
-      max-width: 860px;
+      max-width: 920px;
       color: var(--ink);
       font-family: var(--serif);
-      font-size: clamp(40px, 4.2vw, 52px);
-      font-weight: 600;
-      line-height: 1.03;
+      font-size: clamp(38px, 3.7vw, 48px);
+      font-weight: 500;
+      line-height: 1.08;
       letter-spacing: 0;
       overflow-wrap: normal;
     }}
@@ -4090,9 +4161,9 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       line-height: 1.58;
     }}
     .hero p {{
-      max-width: 760px;
+      max-width: 780px;
       color: var(--ink-2);
-      font-size: 17px;
+      font-size: 16.5px;
       line-height: 1.62;
     }}
     .actions {{
@@ -4130,7 +4201,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     }}
     .stat-cell strong {{
       color: var(--ink);
-      font-size: 24px;
+      font-size: 23px;
       font-weight: 900;
       line-height: 1;
     }}
@@ -4264,7 +4335,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     }}
     .footer {{
-      width: min(calc(100% - 48px), 1156px);
+      width: min(calc(100% - 48px), 1220px);
       margin: 0 auto;
       padding-top: 22px;
       border-color: var(--border);
@@ -4283,7 +4354,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     }}
     @media (max-width: 900px) {{
       main, .footer {{
-        width: min(calc(100% - 32px), 1156px);
+        width: min(calc(100% - 32px), 1220px);
       }}
       .hero {{
         padding-top: 54px;
@@ -4340,9 +4411,9 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     </header>
     <main>
       <section class="hero">
-        <span class="eyebrow">Canonical Review Graph / {_html(provider_mode)}</span>
-        <h1>{_html(finding_title)}</h1>
-        <p>{_html(finding_impact)}</p>
+        <span class="eyebrow">Canonical Review Graph / {_html(provider_mode)} {observation_badge}</span>
+        <h1>{_html(hero_title)}</h1>
+        <p>{_html(hero_impact)}</p>
         <div class="actions">
           {action_links}
         </div>
@@ -4351,6 +4422,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       {graph_summary_panel}
       {trace_panel}
       {review_workbench}
+      {visible_provider_panel}
       {supplemental_sections}
       <footer class="footer">
         <span>Ops Evidence Synthesis / read-only delivery / Yuki Murata</span>
@@ -4726,6 +4798,28 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     policy_text = promotion_policy or "Each target promotion remains human-gated until impact and operational outcome evidence are attached."
     score_text = score_definition or "Convergence score = claimed successful providers / all successful providers."
     note_text = note or "Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent."
+    is_observation_gap = _detail_is_observation_gap(payload)
+    section_heading = (
+        "Absence of evidence is not evidence of health."
+        if is_observation_gap
+        else "Convergence is technical support. Impact stays human-gated."
+    )
+    if is_observation_gap:
+        summary_text = (
+            f"{converged} review units had at least two provider positions. "
+            "The corpus can show normal throughput while positive liveness evidence is still missing, "
+            "so every promoted signal remains a question to answer, not a cause to accept."
+        )
+    gate_title = (
+        "Human gate active - no accepted incident cause"
+        if is_observation_gap
+        else f"Incident gate {incident_gate} - promotion human-gated"
+    )
+    gate_body = (
+        "The graph preserves observation gaps, weak signals, and missing evidence instead of collapsing them into a health claim."
+        if is_observation_gap
+        else "A graph-level support signal is not a verdict. Each target promotes on its own evidence; promotion stays human-gated until impact evidence is attached."
+    )
     stat_cells = [
         (str(converged), "converged targets", "primary"),
         (str(single_source), "single-source targets", ""),
@@ -4747,7 +4841,7 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     <section class="section-block graph-arbitration">
       <div class="section-heading">
         <span class="eyebrow">Review Graph Arbitration</span>
-        <h2>Convergence is technical support. Impact stays human-gated.</h2>
+        <h2>{_html(section_heading)}</h2>
         <p>{_html(summary_text)}</p>
       </div>
       <div class="review-arbitration-grid">
@@ -4755,8 +4849,8 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
         <article class="arbitration-gate">
           <span class="gate-mark">HG</span>
           <div>
-            <strong>Incident gate { _html(incident_gate) } · promotion human-gated</strong>
-            <p>A graph-level support signal is not a verdict. Each target promotes on its own evidence; promotion stays human-gated until impact evidence is attached.</p>
+            <strong>{_html(gate_title)}</strong>
+            <p>{_html(gate_body)}</p>
             <details class="inline-details">
               <summary>Arbitration notes</summary>
               <p>{_html(policy_text)}</p>
