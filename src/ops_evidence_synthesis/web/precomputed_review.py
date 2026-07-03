@@ -933,7 +933,7 @@ def _public_precomputed_landing_page() -> str:
             <h1>Trace any AI claim to its evidence.</h1>
             <p class="hero-tagline" data-ja="AIが断定する前に、運用証拠を固定する。">Freeze operational evidence before the model sounds certain.</p>
             <p class="hero-lead">Do not trust the summary. Trace it. Every AI verdict breaks into cited Evidence IDs, provider stances, missing evidence, and a human gate.</p>
-            <p class="hero-sub">Raw logs stay local. Only sanitized bundles reach Google Cloud, where five models review the evidence and a human still says yes. Provider convergence creates review targets, not accepted incident causes.</p>
+            <p class="hero-sub">This public entry serves read-only precomputed reviews, sanitized logs, sanitized source context, and approved system profiles. Raw logs stay local; sanitized bundles reach Google Cloud for review. Provider convergence creates review targets, not accepted incident causes.</p>
             <div class="hero-cta">
               <a class="button primary" href="{_html(primary_detail_url)}">Open primary review -&gt;</a>
               <a class="button" href="{_html(primary_report_url)}">Read incident report</a>
