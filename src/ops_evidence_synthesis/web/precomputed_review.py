@@ -1361,10 +1361,45 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
     finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
     providers = summary.get("providers") if isinstance(summary.get("providers"), dict) else {}
     review = summary.get("review") if isinstance(summary.get("review"), dict) else {}
+    raw_policy = str(summary.get("raw_log_policy") or "unknown")
+    log_count = int(summary.get("log_count") or 0)
     context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
+    full_targets = [target for target in payload.get("targets") or [] if isinstance(target, dict)]
     log_observations = [str(item) for item in context.get("log_observations") or [] if str(item).strip()]
     source_observations = [str(item) for item in context.get("source_observations") or [] if str(item).strip()]
     conclusion_points = [str(item) for item in context.get("analysis_conclusion") or [] if str(item).strip()]
+    case_label = _detail_case_label(payload, review)
+    provider_mode = _detail_provider_mode_label(payload)
+    finding_title = str(finding.get("title") or "Evidence review")
+    finding_impact = str(finding.get("impact") or "The API result is available for review.")
+    hero_title, hero_impact = _detail_hero_copy(
+        payload=payload,
+        review=review,
+        providers=providers,
+        finding_title=finding_title,
+        finding_impact=finding_impact,
+        log_count=log_count,
+    )
+    observation_badge = (
+        '<span class="eyebrow-pill">Observation Gap</span>' if _detail_is_observation_gap(payload) else ""
+    )
+    summary_cells = _detail_summary_cells_html(
+        payload=payload,
+        review=review,
+        providers=providers,
+        targets=full_targets,
+        raw_policy=raw_policy,
+        log_count=log_count,
+    )
+    evidence = _url_quote(evidence_sha256)
+    action_links = "".join(
+        f'<a class="button" href="{_html(url)}">{_html(label)}</a>'
+        for label, url in (
+            ("Full review", f"/ui/full-review-page?evidence_sha256={evidence}"),
+            ("Review graph", f"/ui/review-graph?evidence_sha256={evidence}"),
+            ("Markdown report", f"/ui/report.md?evidence_sha256={evidence}"),
+        )
+    )
     provider_rows = "\n".join(
         f"""
         <tr>
@@ -1425,6 +1460,9 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
         """
         for title, href, sample in links
     )
+    log_points = "".join(f"<li>{_html(item)}</li>" for item in log_observations) or "<li>Sanitized evidence bundle was analyzed.</li>"
+    source_points = "".join(f"<li>{_html(item)}</li>" for item in source_observations) or "<li>Sanitized source context was attached when available.</li>"
+    conclusion_html = "".join(f"<li>{_html(item)}</li>" for item in conclusion_points) or "<li>Review targets remain human-gated; raw logs are not exposed.</li>"
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1432,69 +1470,421 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ops Evidence API View</title>
   <style>
-    body {{ margin: 0; background: #f7f8fb; color: #17202a; font-family: Inter, system-ui, sans-serif; }}
-    main {{ max-width: 1120px; margin: 0 auto; padding: 28px 20px 44px; display: grid; gap: 14px; }}
-    h1, h2, p {{ margin: 0; }}
-    h1 {{ font-size: 28px; }}
-    h2 {{ font-size: 18px; }}
-    p {{ color: #5c6878; line-height: 1.5; }}
-    .hero, .readable, .api-card {{ display: grid; gap: 10px; padding: 16px; border: 1px solid #d9e0ea; border-radius: 8px; background: #fff; }}
-    .hero {{ border-left: 5px solid #166d6b; }}
-    .readable {{ border-left: 5px solid #a15c00; }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }}
-    .metric {{ padding: 10px; border: 1px solid #d9e0ea; border-radius: 6px; background: #fbfcfe; }}
-    .metric strong {{ display: block; font-size: 22px; }}
-    ul {{ margin: 0; padding-left: 20px; color: #334155; line-height: 1.5; }}
-    table {{ width: 100%; border-collapse: collapse; overflow: hidden; border: 1px solid #d9e0ea; border-radius: 6px; }}
-    th, td {{ padding: 9px 10px; border-bottom: 1px solid #d9e0ea; text-align: left; vertical-align: top; }}
-    th {{ background: #f2f5f9; color: #5c6878; font-size: 12px; text-transform: uppercase; }}
+    :root {{
+      color-scheme: light;
+      --bg: #f4f2ec;
+      --surface: #fffdf8;
+      --surface-2: #fbf8f1;
+      --border: #e4dccb;
+      --border-strong: #d3c8b3;
+      --ink: #181611;
+      --ink-2: #514b40;
+      --ink-3: #8b8375;
+      --accent: #3f63a8;
+      --accent-soft: #eef2f9;
+      --claimed: #208a61;
+      --amber: #b17a40;
+      --green-soft: #ecf6f1;
+      --shadow: 0 20px 58px -44px rgba(60, 50, 30, .36);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --serif: Georgia, "Times New Roman", serif;
+    }}
+    * {{ box-sizing: border-box; }}
+    html {{ max-width: 100%; overflow-x: hidden; }}
+    body {{
+      margin: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }}
+    a {{ color: inherit; text-decoration: none; overflow-wrap: anywhere; }}
+    code, pre {{ font-family: var(--mono); }}
+    p {{ margin: 0; color: var(--ink-2); line-height: 1.58; }}
+    .page {{
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      padding: 0 0 72px;
+    }}
+    .topbar {{
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px max(24px, calc((100vw - 1220px) / 2));
+      border-bottom: 1px solid var(--border);
+      background: rgba(250, 248, 242, .94);
+      backdrop-filter: blur(8px);
+    }}
+    .brand-row, .status-row, .actions {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-width: 0;
+      max-width: 100%;
+    }}
+    .mark {{
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--ink);
+      color: var(--bg);
+      font: 800 11px/1 var(--mono);
+      flex: none;
+    }}
+    .breadcrumb {{
+      display: flex;
+      gap: 11px;
+      align-items: center;
+      min-width: 0;
+      max-width: 100%;
+      color: var(--ink-3);
+      font-size: 13px;
+    }}
+    .breadcrumb strong {{ display: inline; color: var(--ink); font-weight: 800; }}
+    .status-chip, .evidence-chip {{
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255, 253, 248, .78);
+      color: var(--ink-2);
+      font: 800 11.5px/1 var(--mono);
+      padding: 7px 10px;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }}
+    .status-chip.live {{
+      border-color: #bfe0cd;
+      background: var(--green-soft);
+      color: var(--claimed);
+    }}
+    .status-dot {{
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--claimed);
+      flex: none;
+    }}
+    .top-link {{ color: var(--ink-2); font-size: 13px; }}
+    .top-link:hover {{ color: var(--ink); }}
+    main {{
+      width: min(calc(100% - 48px), 1220px);
+      margin: 0 auto;
+      display: grid;
+      gap: 0;
+      min-width: 0;
+    }}
+    h1, h2, h3 {{ margin: 0; color: var(--ink); letter-spacing: 0; }}
+    h1 {{
+      max-width: 920px;
+      font-family: var(--serif);
+      font-size: clamp(38px, 3.7vw, 48px);
+      font-weight: 500;
+      line-height: 1.08;
+    }}
+    h2 {{
+      font-family: var(--serif);
+      font-size: clamp(28px, 3vw, 34px);
+      font-weight: 500;
+      line-height: 1.08;
+    }}
+    h3 {{ font-size: 16px; }}
+    label, .eyebrow {{
+      display: block;
+      color: var(--amber);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .16em;
+      line-height: 1.2;
+    }}
+    .hero {{
+      display: grid;
+      gap: 24px;
+      padding: 78px 0 40px;
+    }}
+    .hero .eyebrow {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 0;
+    }}
+    .eyebrow-pill {{
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #e0d8c7;
+      border-radius: 999px;
+      background: #efe9db;
+      color: #8a857a;
+      padding: 4px 10px;
+      font-size: 10px;
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }}
+    .hero p {{
+      max-width: 780px;
+      color: var(--ink-2);
+      font-size: 16.5px;
+      line-height: 1.62;
+    }}
+    .button {{
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink);
+      padding: 11px 18px;
+      font-size: 14px;
+      font-weight: 800;
+    }}
+    .button:hover {{ border-color: var(--ink); background: #efe9db; }}
+    .stat-grid {{
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--border);
+      overflow: hidden;
+    }}
+    .stat-cell {{
+      min-width: 0;
+      background: rgba(255, 253, 248, .78);
+      padding: 19px 18px;
+    }}
+    .stat-cell.safe {{ background: var(--green-soft); }}
+    .stat-cell strong {{
+      display: block;
+      color: var(--ink);
+      font-size: 23px;
+      font-weight: 900;
+      line-height: 1;
+      overflow-wrap: anywhere;
+    }}
+    .stat-cell.safe strong {{ color: var(--claimed); }}
+    .stat-cell span, .stat-cell small {{
+      display: block;
+      margin-top: 6px;
+      color: var(--ink-3);
+      font-size: 11px;
+      line-height: 1.35;
+    }}
+    .section-block {{
+      display: grid;
+      gap: 22px;
+      padding: 52px 0;
+      border-top: 1px solid var(--border);
+      min-width: 0;
+    }}
+    .section-heading {{
+      display: grid;
+      gap: 9px;
+      max-width: 780px;
+    }}
+    .analysis-grid, .api-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      align-items: start;
+    }}
+    .readable, .api-card {{
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 253, 248, .76);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }}
+    .readable ul {{
+      margin: 0;
+      padding-left: 19px;
+      color: var(--ink-2);
+      line-height: 1.55;
+      font-size: 13.5px;
+    }}
+    .table-card {{
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }}
+    .table-scroll {{
+      min-width: 0;
+      max-width: 100%;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }}
+    table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
+    th, td {{
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+      color: var(--ink-2);
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }}
+    th {{
+      background: var(--surface-2);
+      color: var(--ink-3);
+      font: 800 10px/1.2 var(--mono);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }}
     tr:last-child td {{ border-bottom: 0; }}
-    .api-card {{ display: grid; gap: 10px; padding: 16px; border: 1px solid #d9e0ea; border-left: 5px solid #2f5f9e; border-radius: 8px; background: #fff; }}
-    label {{ color: #5c6878; font-size: 12px; font-weight: 800; text-transform: uppercase; }}
-    a {{ color: #0b5cad; font-weight: 800; overflow-wrap: anywhere; }}
-    pre {{ margin: 0; padding: 12px; border-radius: 6px; background: #f2f5f9; overflow: auto; font-size: 13px; }}
-    code {{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }}
+    .api-card a {{
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 13px;
+    }}
+    pre {{
+      margin: 0;
+      max-height: 260px;
+      overflow: auto;
+      max-width: 100%;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      color: var(--ink-2);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }}
+    .boundary-note {{
+      color: var(--ink-3);
+      font-size: 13px;
+    }}
+    .footer {{
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding-top: 22px;
+      border-top: 1px solid var(--border);
+      color: var(--ink-3);
+      font-size: 12px;
+    }}
+    @media (max-width: 900px) {{
+      main {{ width: min(calc(100% - 32px), 1220px); }}
+      .topbar {{ position: static; align-items: flex-start; flex-direction: column; padding: 14px 16px; }}
+      .hero {{ padding-top: 54px; }}
+      .stat-grid, .analysis-grid, .api-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    }}
+    @media (max-width: 760px) {{
+      h1 {{ font-size: 31px; line-height: 1.08; overflow-wrap: anywhere; word-break: break-word; }}
+      html, body, .page {{ overflow-x: clip; }}
+      .topbar {{ width: 100vw; max-width: 100vw; }}
+      main {{ width: calc(100vw - 32px); max-width: calc(100vw - 32px); }}
+      .hero p {{ font-size: 16px; overflow-wrap: anywhere; }}
+      .stat-grid, .analysis-grid, .api-grid {{ grid-template-columns: 1fr; }}
+      .breadcrumb, .status-row {{ align-items: flex-start; }}
+      .footer {{ display: grid; }}
+    }}
   </style>
 </head>
 <body>
-  <main>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand-row">
+        <div class="mark">OE</div>
+        <div class="breadcrumb"><span>/</span><span>API</span><span>/</span><strong>{_html(case_label)}</strong></div>
+      </div>
+      <div class="status-row">
+        <span class="evidence-chip">evidence {_html(_short_sha(evidence_sha256))}</span>
+        <a class="top-link" href="{_html(_public_repo_url())}">GitHub</a>
+        <span class="status-chip live"><span class="status-dot"></span>Cloud Run live</span>
+      </div>
+    </header>
+    <main>
     <section class="hero">
-      <label>Read-only API View</label>
-      <h1>{_html(str(finding.get("title") or "Evidence review"))}</h1>
-      <p>{_html(str(finding.get("impact") or "The API result is available for review."))}</p>
-      <div class="grid">
-        <div class="metric"><label>Evidence</label><strong>{_html(evidence_sha256[:12])}</strong></div>
-        <div class="metric"><label>Sanitized Logs</label><strong>{_html(str(summary.get("log_count") or 0))}</strong></div>
-        <div class="metric"><label>Providers</label><strong>{_html(str(providers.get("success") or 0))}/{_html(str(providers.get("total") or 0))}</strong></div>
-        <div class="metric"><label>Validation Targets</label><strong>{_html(str(review.get("validation_targets") or 0))}</strong></div>
+      <span class="eyebrow">Read-only API View / {_html(provider_mode)} {observation_badge}</span>
+      <h1>{_html(hero_title)}</h1>
+      <p>{_html(hero_impact)}</p>
+      <div class="actions">
+        {action_links}
+      </div>
+      <div class="stat-grid">{summary_cells}</div>
+    </section>
+    <section class="section-block">
+      <div class="section-heading">
+        <span class="eyebrow">Human-readable analysis</span>
+        <h2>The API is a review surface, not an execution surface.</h2>
+        <p>These cards expose the same precomputed evidence boundary as JSON while keeping raw bundles and write APIs out of the public page.</p>
+      </div>
+      <div class="analysis-grid">
+        <article class="readable">
+          <label>What was analyzed</label>
+          <ul>{log_points}</ul>
+        </article>
+        <article class="readable">
+          <label>Code context used</label>
+          <ul>{source_points}</ul>
+        </article>
+        <article class="readable">
+          <label>Conclusion</label>
+          <ul>{conclusion_html}</ul>
+        </article>
       </div>
     </section>
-    <section class="readable">
-      <label>Human-readable analysis</label>
-      <h2>What was analyzed</h2>
-      <ul>{''.join(f'<li>{_html(item)}</li>' for item in log_observations) or '<li>Sanitized evidence bundle was analyzed.</li>'}</ul>
-      <h2>Code context used</h2>
-      <ul>{''.join(f'<li>{_html(item)}</li>' for item in source_observations) or '<li>Sanitized source context was attached when available.</li>'}</ul>
-      <h2>Conclusion</h2>
-      <ul>{''.join(f'<li>{_html(item)}</li>' for item in conclusion_points) or '<li>Review targets remain human-gated; raw logs are not exposed.</li>'}</ul>
+    <section class="section-block">
+      <div class="section-heading">
+        <span class="eyebrow">Endpoint contract</span>
+        <h2>Machine-readable JSON stays inspectable.</h2>
+      </div>
+      <div class="api-grid">{cards}</div>
     </section>
-    <section class="readable">
-      <label>Provider outputs</label>
-      <table>
-        <thead><tr><th>Provider</th><th>Model</th><th>Status</th><th>Schema</th><th>Output hash</th></tr></thead>
-        <tbody>{provider_rows or '<tr><td colspan="5">No provider status was persisted.</td></tr>'}</tbody>
-      </table>
+    <section class="section-block">
+      <article class="table-card">
+        <label>Provider outputs</label>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Provider</th><th>Model</th><th>Status</th><th>Schema</th><th>Output hash</th></tr></thead>
+            <tbody>{provider_rows or '<tr><td colspan="5">No provider status was persisted.</td></tr>'}</tbody>
+          </table>
+        </div>
+      </article>
+      <article class="table-card">
+        <label>Review targets</label>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>#</th><th>Target</th><th>Claim</th><th>Agreement</th><th>Displayed refs</th></tr></thead>
+            <tbody>{target_rows or '<tr><td colspan="5">No review targets were projected.</td></tr>'}</tbody>
+          </table>
+        </div>
+      </article>
     </section>
-    <section class="readable">
-      <label>Review targets</label>
-      <table>
-        <thead><tr><th>#</th><th>Target</th><th>Claim</th><th>Agreement</th><th>Displayed refs</th></tr></thead>
-        <tbody>{target_rows or '<tr><td colspan="5">No review targets were projected.</td></tr>'}</tbody>
-      </table>
-    </section>
-    <p>The linked endpoints return machine-readable JSON; writes, raw bundles, and execution APIs are not exposed here.</p>
-    {cards}
-  </main>
+    <footer class="footer">
+      <span>The linked endpoints return machine-readable JSON; writes, raw bundles, and execution APIs are not exposed here.</span>
+      <span><code>canonical_review_graph.v1</code></span>
+    </footer>
+    </main>
+  </div>
 </body>
 </html>"""
 
