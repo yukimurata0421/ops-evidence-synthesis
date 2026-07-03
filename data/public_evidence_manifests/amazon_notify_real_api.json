@@ -9,7 +9,7 @@
     "gemma_real_api_wall_seconds": 1386.0,
     "gemma_successful_chunks": 86,
     "measurement_note": "Gemma 4 wall time is derived from provider_chunk_runs started_at/finished_at timestamps. Provider latency is the sum of chunk latencies, not elapsed wall time.",
-    "measurement_source": "workspace/e2e_real_api_source_sanitize_20260701T003045Z/multi_ai_gemma_replaces_glm_20260702T160243Z/provider_chunk_runs.jsonl"
+    "measurement_source": "public real-api provider chunk run ledger"
   },
   "full_corpus_review": {
     "chunk_manifest_sha256s": [
