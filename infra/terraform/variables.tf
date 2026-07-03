@@ -134,7 +134,12 @@ variable "runtime_env" {
     OES_FAST_GCP_GEMINI_THINKING_LEVEL    = "minimal"
     OES_FAST_GCP_GEMINI_MAX_OUTPUT_TOKENS = "4096"
     OES_FAST_GCP_GEMINI_TIMEOUT_SECONDS   = "45"
-    OES_FAST_GCP_REVIEW_SAMPLE_ROWS       = "240"
+    OES_GEMMA_MODEL                       = "gemma-4-26b-a4b-it-maas"
+    OES_GEMMA_LOCATION                    = "global"
+    OES_GEMMA_MAX_OUTPUT_TOKENS           = "8192"
+    OES_GEMMA_TIMEOUT_SECONDS             = "240"
+    OES_MULTI_AI_MAX_WORKERS              = "2"
+    OES_FAST_GCP_REVIEW_SAMPLE_ROWS       = "2000"
     OES_WORKFLOW_MAX_ESTIMATED_COST_USD   = "0"
   }
 }

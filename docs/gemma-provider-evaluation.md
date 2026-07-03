@@ -70,12 +70,34 @@ Graph over recorded Gemini 3.1 Pro, GPT OSS, Mistral, Qwen, and Gemma 4 outputs.
 | Corpus | Evidence SHA256 | Rows | Chunks | Reinterpretation wall time | Provider status |
 | --- | --- | ---: | ---: | ---: | --- |
 | Dell runtime | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | 45,000 | 33 | 207.108s after cached resume | 5/5 schema-valid |
-| arena-server monitoring | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | 50,000 | 18 | 497.909s | 4/5 schema-valid; GPT OSS partial failure visible |
+| arena-server monitoring | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | 50,000 | 18 | 497.909s + 239s GPT OSS retry | 5/5 schema-valid after GPT OSS 120B rerun |
 
 Current public graphs:
 
 - Dell runtime Canonical graph SHA256: `7b8bbf364706cda1b558476b5a08c882356449710612989dbf86ca8a68cb9266`
-- arena-server monitoring Canonical graph SHA256: `2350ddd8b2ac0d2dce23f3f637136871630d48f735b27769249d2d8907bca8da`
+- arena-server monitoring Canonical graph SHA256: `b78f802e6fcac1e3562aefdf7ff595a71a7898aa0c9af14366ea50a9239ea6ae`
+
+## Fast Cross-Check Lite Measurement
+
+Gemma 4 was also tested in the public Fast GCP Review path against the same
+2,000-row fixed sanitized amazon-notify sample as Gemini Flash Lite. The path
+uses `run_multi_ai` with `gemini-fast-lite` and `gemma`, so provider execution is
+parallel and successful outputs are merged into a separate public review artifact.
+
+| Variant | Providers | Server wall time | Client wall time | Provider latency sum | Result |
+| --- | --- | ---: | ---: | ---: | --- |
+| Fast GCP Review | Gemini Flash Lite | 11.509s | 11.717s | 27.543s | 1/1 schema-valid, 0 primary / 3 validation |
+| Fast Cross-check Lite | Gemini Flash Lite + Gemma 4 | 255.603s | 255.908s | 798.648s | 2/2 schema-valid, 0 primary / 9 validation |
+
+Generated public review IDs:
+
+- Fast GCP Review: `94f8135156127826ed74cb32c6de5f000293fc0a827c84b6e6f97d55a1427b20`
+- Fast Cross-check Lite: `32ca03ecb0188e3da835344798210a9e0d817ba03630aca608b600a14e36a503`
+
+Both variants used the same Evidence SHA256 because they read the same fixed
+input: `9fa67b71c3f1a3a3a39dc712ae7692e199c4694a3393dcfb3bd4b3ba3a4d9e51`.
+The public UI therefore stores generated review artifacts under a separate
+`public_review_id` so repeated runs do not overwrite each other by evidence hash.
 
 ## Recommendation
 
@@ -83,5 +105,7 @@ Gemma 4 is a viable GLM replacement candidate for the public hackathon story
 because it keeps the cross-check model set on Google Cloud and avoids adding
 another China-based provider. Treat this as a provider-set refresh rather than
 a blanket speed improvement: stream_v3 finished quickly, while amazon-notify
-was slower at 44,944 rows. Large reviews should keep chunking and ledger
-accounting enabled.
+was slower at 44,944 rows and the 2,000-row public cross-check took 255.603s.
+Large reviews should keep chunking and ledger accounting enabled, and the live
+judge-facing fast path should keep Gemini Flash Lite as the default while
+exposing Gemma 4 as an optional cross-check.

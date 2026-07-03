@@ -13,6 +13,7 @@ evidence coverage.
 | Public Deterministic Replay | A committed public-safe fixture can regenerate a review graph locally without external AI API calls. | It is not a live AI latency benchmark. |
 | More Data Rescore / Evidence Promotion Demo | New evidence can change a review target from `validation_target` to `primary_candidate` while preserving the human gate. | It does not auto-accept an incident cause. |
 | Fast GCP Review | The deployed Cloud Run service can run a fixed sanitized amazon-notify sample through Vertex Gemini Flash Lite and return a measured review URL. | It is not the 45k-50k row forensic path and it does not accept arbitrary logs or URLs. |
+| Fast Cross-check Lite | The same fixed sample can run Gemini Flash Lite and Gemma 4 in parallel and persist a separate public review artifact. | It is not the default fast path because Gemma 4 is materially slower on this sample. |
 | Full Forensic AI Review | Larger real operations corpora can be reviewed through chunk fan-out, provider disagreement handling, and canonical graph merge. | It is served publicly as a precomputed artifact for immediate judge inspection. |
 
 ## Measured Public Replay Results
@@ -25,6 +26,8 @@ These measurements were taken on the committed public-safe amazon-notify fixture
 | Public Replay - scoped initial review | 11.24s | 6,506 | 68 | 3/3 deterministic local | 0 primary / 1 validation | `265efc80247662d799b57b6a641509541b2e019ff3822825f2517687ab9954e8` |
 | More Data Rescore | 1.12s | Existing parent + child bundle | n/a | n/a | `validation_target -> primary_candidate`, score 0.84 | preserved demo snapshot |
 | Public Replay - full fixture review | 11.61s | 6,506 | 106 | 3/3 deterministic local | 0 primary / 1 validation | `3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d` |
+| Fast GCP Review - live Cloud Run | 11.509s server / 11.717s client | 2,000 | 570 | 1/1 real Vertex model | 0 primary / 3 validation | `94f8135156127826ed74cb32c6de5f000293fc0a827c84b6e6f97d55a1427b20` public review ID |
+| Fast Cross-check Lite - live Cloud Run | 255.603s server / 255.908s client | 2,000 | 570 | 2/2 real Vertex models | 0 primary / 9 validation | `32ca03ecb0188e3da835344798210a9e0d817ba03630aca608b600a14e36a503` public review ID |
 
 ## Interpretation
 
@@ -44,6 +47,12 @@ amazon-notify sample, runs from Cloud Run, calls Vertex Gemini Flash Lite, and
 returns a normal review URL plus wall-clock timing. It is intentionally separate
 from the larger full-forensic runs so judges can verify live GCP execution
 without waiting for 45k-50k row chunk fan-out.
+
+Fast Cross-check Lite uses the same fixed input and calls Gemini Flash Lite plus
+Gemma 4 through the same `run_multi_ai` path. The two provider calls are launched
+in parallel, and chunk calls are also parallelized where the provider settings
+allow it. The measured 255.603s server wall time shows that Gemma 4 should remain
+an optional cross-check path, not the default live demo path.
 
 The larger real API runs should be described separately as recorded full
 forensic reviews. Their value is full-corpus evidence accounting, chunked

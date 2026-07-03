@@ -61,7 +61,8 @@ human-gated.
 - Initial UI is precomputed and read-only.
 - Fast GCP Review is the public live-GCP action: fixed sanitized sample only,
   Cloud Run runtime, Vertex Gemini Flash Lite, measured wall time, and a result
-  URL. It does not accept arbitrary logs or URLs.
+  URL. The same page also exposes an optional Gemini Flash Lite + Gemma 4
+  cross-check run. It does not accept arbitrary logs or URLs.
 - Provider positions and provider status are visible per review target.
 - Markdown reports make the evidence boundary, review questions, provider
   status, and human-gated promotion blockers readable without asking reviewers

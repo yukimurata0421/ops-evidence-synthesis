@@ -1,12 +1,14 @@
 {
-  "api_revision": "real-api-stream-v3-arena-50k-5p-reinterpret-20260703T003058Z",
+  "api_revision": "real-api-stream-v3-arena-50k-5p-gptoss120b-rerun-20260703T105322Z",
   "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3",
-  "canonical_graph_sha256": "2350ddd8b2ac0d2dce23f3f637136871630d48f735b27769249d2d8907bca8da",
+  "canonical_graph_sha256": "b78f802e6fcac1e3562aefdf7ff595a71a7898aa0c9af14366ea50a9239ea6ae",
   "case_id": "stream_v3_arena_monitoring_real_api",
   "evidence_sha256": "6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3",
   "execution_timing": {
     "gemini_pro_provider_latency_sum_ms": 1693220,
-    "measurement_note": "Measured wall time for the arena-server monitoring reinterpretation run; GPT OSS fell below the partial-chunk usability threshold and remains visible as a provider failure. Provider latency is the sum of chunk latencies and is not wall-clock time.",
+    "gpt_oss_120b_provider_latency_sum_ms": 808823,
+    "gpt_oss_120b_rerun_wall_seconds": 239,
+    "measurement_note": "Provider latency is the sum of chunk latencies. GPT OSS was rerun with gpt-oss-120b-maas after the earlier 20B run returned empty content for four chunks.",
     "measurement_source": "stream_v3_reinterpret_run_summary.v1",
     "provider_count": 5,
     "provider_latency_sum_ms": 2776750,
@@ -18,6 +20,7 @@
   "full_corpus_review": {
     "chunk_manifest_sha256s": [
       "228c7c8395b819051954634569d391644f0ea92362b7c71ea8cd440875c2c692",
+      "b3855287f4d6d2eb3cc94cec78b55fec437d484eef982c2277ef324a4818b072",
       "f371dc5c9c3329238ca1769541ead8230f01ca57187d6bbead7ac09fd6c2d83e"
     ],
     "interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_monitoring bundle keeps 50,000 rows and 21 grouped Evidence Items, while the bounded projection tracks 21 high-signal Evidence Items representing 63,056 repeated occurrences. Multi-provider synthesis then covered 21/21 grouped Evidence Items through chunked provider calls across up to 18 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency.",
@@ -35,11 +38,11 @@
     "provider_full_corpus_coverage_ratio": 1.0,
     "provider_full_corpus_evidence_items": 21,
     "provider_full_corpus_unassigned_evidence_items": 0,
-    "schema_valid_provider_count": 4
+    "schema_valid_provider_count": 5
   },
-  "input_fingerprint_sha256": "7faf89f3256066acad93992aa7f11f13138466240c1acba77fd27dd3ffcb938d",
-  "payload_sha256": "9e54f51f0259be8524d35518378b76ce6ad3f95e145e0af2b7528e760c96df74",
-  "pipeline_run_id": "stream-v3-arena_monitoring-reinterpret-resume-20260703T003058Z",
+  "input_fingerprint_sha256": "7900a9b7d9f01e78393b582612654e0262d826a9517dad55141212a43c694b24",
+  "payload_sha256": "f9aaa01e391e104397a66fde5c5364c2edddd16d684ce956f3688cb91e49ab1c",
+  "pipeline_run_id": "stream-v3-arena_monitoring-gptoss120b-rerun-20260703T105322Z",
   "precomputed_payload_path": "data/precomputed_review_summaries/6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3.json",
   "profile_gate": {
     "approved": true,
@@ -87,11 +90,11 @@
         "question": "What is the critical user outcome?",
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
-          "runtime_recovery",
           "observability_contract",
           "user_experience",
           "youtube_health",
           "chromium_capture",
+          "external_ingest",
           "audio_energy"
         ]
       },
@@ -99,22 +102,23 @@
         "question": "Which metrics are zero-is-good or zero-is-bad?",
         "reason": "Zero-count metrics can mean healthy idle, disabled routing, or broken processing; linked review targets keep that ambiguity human-gated.",
         "review_units": [
-          "transport_sender",
           "runtime_recovery",
+          "transport_sender",
           "observability_contract",
-          "audio_energy",
-          "external_ingest"
+          "youtube_health",
+          "external_ingest",
+          "audio_energy"
         ]
       },
       {
         "question": "Which logs indicate user impact rather than diagnostic noise?",
         "reason": "Targets blocked on user impact cannot be promoted until the profile question is answered with operational outcome evidence.",
         "review_units": [
-          "runtime_recovery",
           "observability_contract",
           "user_experience",
           "youtube_health",
           "chromium_capture",
+          "external_ingest",
           "audio_energy"
         ]
       }
@@ -136,7 +140,7 @@
     "system_type": "systemd_service"
   },
   "provider_summary": {
-    "pipeline_status": "partial",
+    "pipeline_status": "succeeded",
     "provider_count": 5,
     "providers": [
       {
@@ -236,45 +240,39 @@
         "status": "ok"
       },
       {
-        "chunk_failure_count": 4,
+        "chunk_failure_count": 0,
         "chunk_status_counts": {
-          "ok": 14,
-          "provider_error": 4
+          "ok": 18
         },
         "display_name": "gpt-oss on Vertex MaaS",
-        "failure_reason": "chunked_full_corpus_provider_error",
-        "input_tokens": 513654,
-        "latency_ms": 348607,
-        "model_name": "gpt-oss-20b-maas",
-        "output_tokens": 35363,
-        "parsed_json_sha256": "aa42446ec9e3f1a9bb137d5048b7d6c47faa7de499f7901127c4e0ff95d67b11",
+        "failure_reason": "",
+        "input_tokens": 661546,
+        "latency_ms": 808823,
+        "model_name": "gpt-oss-120b-maas",
+        "output_tokens": 52335,
+        "parsed_json_sha256": "0ac1ae8e3bcf34a83a34457e032781c693e5fb9f2f022da30c49b60940c4cfcc",
         "partial_chunk_result": {
-          "failure_count": 4,
+          "failure_count": 0,
           "min_success_ratio": 0.8,
           "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
-          "success_chunk_count": 14,
-          "success_ratio": 0.777778,
+          "success_chunk_count": 18,
+          "success_ratio": 1.0,
           "total_chunk_count": 18,
-          "usable": false
+          "usable": true
         },
         "provider_id": "openai-gpt-oss-on-vertex",
-        "raw_output_sha256": "c4f70fd7ffc1f176388888f68ada3583410d538c42e266171482d0ef3d518d3a",
+        "raw_output_sha256": "93033507ff0890c7066e4414c2ddd23cd64b7d38302b8a321ddd152abe772750",
         "retry": {
           "attempts": 18,
-          "exception_type": "RuntimeError",
-          "failure_reason": "provider_exception",
+          "exception_type": "",
+          "failure_reason": "",
           "max_attempts": 36,
           "retried": false,
           "retryable": false
         },
-        "schema_errors": [
-          "chunk 1: provider_error: provider_failed | parsed_original | provider_exception | RuntimeError | provider_error | provider_exception | Vertex OpenAI-compatible response content was empty | RuntimeError",
-          "chunk 13: provider_error: provider_failed | parsed_original | provider_exception | RuntimeError | provider_error | provider_exception | Vertex OpenAI-compatible response content was empty | RuntimeError",
-          "chunk 14: provider_error: provider_failed | parsed_original | provider_exception | RuntimeError | provider_error | provider_exception | Vertex OpenAI-compatible response content was empty | RuntimeError",
-          "chunk 16: provider_error: provider_failed | parsed_original | provider_exception | RuntimeError | provider_error | provider_exception | Vertex OpenAI-compatible response content was empty | RuntimeError"
-        ],
-        "schema_valid": false,
-        "status": "failed"
+        "schema_errors": [],
+        "schema_valid": true,
+        "status": "ok"
       },
       {
         "chunk_failure_count": 0,
@@ -312,34 +310,43 @@
         "status": "ok"
       }
     ],
-    "schema_valid_provider_count": 4
+    "schema_valid_provider_count": 5
   },
   "public_positioning": {
     "landing_rank": 30,
     "landing_role": "observation_gap",
-    "note": "arena-server monitoring-plane reinterpretation kept separate from Dell runtime; GPT OSS partial failure is visible and excluded from convergence denominators.",
+    "note": "arena-server monitoring-plane reinterpretation kept separate from Dell runtime; GPT OSS 120B retry completed schema-valid and is included in convergence denominators.",
     "title": "Observation-gap review: arena-server monitoring 50k reinterpretation"
   },
   "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3",
   "public_verification": {
+    "gpt_oss_retry_note": "Earlier gpt-oss-20b-maas returned empty content for four chunks; gpt-oss-120b-maas rerun completed 18/18 chunks schema-valid.",
     "profile_id": "stream_v3_arena_server_monitoring_source_approved",
+    "provider_set": "gemini-3.1-pro-preview, gpt-oss-120b-maas, mistral-small-2503, qwen3-coder-480b-a35b, gemma-4-26b-a4b-it",
+    "schema_valid_providers": "5/5",
     "source_analysis_sha256": "6af86a8571062130eedb5e62de03b07b0fdf2d10fc4d6eddb5b05c3b1079c65c",
     "source_context_sha256": "a312fd5e4df8c2085f259581fa811cfee54978e14ad32b788708fb36e346fbd4",
     "source_discovery_sha256": "8ef1970c5325e027d6efcd663130d9dcccb9493d4822eee984da384c58548a7b",
     "updated_at": "2026-07-03T01:17:25Z",
-    "window_selection_note": "stream_v3_monitoring reinterpretation run used the focused profile stream_v3_arena_server_monitoring_source_approved; canonical graph 2350ddd8b2ac distinguishes this run from earlier published payloads."
+    "window_selection_note": "stream_v3_monitoring reinterpretation run used the focused profile stream_v3_arena_server_monitoring_source_approved; canonical graph b78f802e6fca distinguishes this GPT OSS 120B rerun payload from earlier published payloads."
   },
   "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3",
+  "review_outcome": {
+    "auto_archived": 2,
+    "monitor_only": 2,
+    "primary_targets": 1,
+    "validation_targets": 11
+  },
   "review_summary": {
     "auto_archived": 2,
     "incident_baseline": "established",
     "incident_gate_signal": "signal_present",
     "monitor_only": 2,
-    "primary_targets": 0,
-    "provider_detection_overlap": "4/4",
+    "primary_targets": 1,
+    "provider_detection_overlap": "5/5",
     "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
     "technical_baseline": "established",
-    "validation_targets": 9
+    "validation_targets": 11
   },
   "sanitized_corpus": {
     "analysis_window_hours": 24.915278,
@@ -376,7 +383,7 @@
   },
   "schema_version": "public_evidence_manifest.v1",
   "source_boundary": {
-    "model_projection_policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts.",
+    "model_projection_policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts. GPT OSS was rerun with gpt-oss-120b-maas after the earlier 20B run returned empty content for four chunks.",
     "public_artifact_type": "manifest_and_precomputed_review",
     "raw_log_policy": "not_uploaded",
     "raw_logs_committed": false,
@@ -396,7 +403,7 @@
     "model_projection_evidence_items": 21,
     "model_projection_occurrence_count": 63056,
     "model_projection_occurrence_coverage_ratio": 1.0,
-    "policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts.",
+    "policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts. GPT OSS was rerun with gpt-oss-120b-maas after the earlier 20B run returned empty content for four chunks.",
     "provider_full_corpus_analyzed_evidence_items": 21,
     "provider_full_corpus_chunk_count": 18,
     "provider_full_corpus_chunk_manifest_count": 18,
@@ -407,5 +414,6 @@
     "provider_full_corpus_coverage_ratio": 1.0,
     "provider_full_corpus_evidence_items": 21,
     "provider_full_corpus_unassigned_evidence_items": 0
-  }
+  },
+  "updated_at": "2026-07-03T10:57:21Z"
 }

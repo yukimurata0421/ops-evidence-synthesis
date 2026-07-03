@@ -112,7 +112,7 @@ def _precomputed_review_payload(evidence_sha256: str) -> dict[str, Any] | None:
             continue
         if not isinstance(payload, dict):
             continue
-        if str(payload.get("evidence_sha256") or "") != evidence_id:
+        if not _payload_matches_precomputed_id(payload, evidence_id):
             continue
         if ttl > 0:
             _PRECOMPUTED_REVIEW_CACHE[evidence_id] = (time.monotonic(), deepcopy(payload))
@@ -124,7 +124,7 @@ def _precomputed_review_payload(evidence_sha256: str) -> dict[str, Any] | None:
             payload = read_json(uri)
         except Exception:
             continue
-        if str(payload.get("evidence_sha256") or "") != evidence_id:
+        if not _payload_matches_precomputed_id(payload, evidence_id):
             continue
         if ttl > 0:
             _PRECOMPUTED_REVIEW_CACHE[evidence_id] = (time.monotonic(), deepcopy(payload))
@@ -133,10 +133,26 @@ def _precomputed_review_payload(evidence_sha256: str) -> dict[str, Any] | None:
 
 
 def _remember_precomputed_review_payload(payload: dict[str, Any]) -> None:
+    for cache_id in _precomputed_cache_ids_for_payload(payload):
+        _PRECOMPUTED_REVIEW_CACHE[cache_id] = (time.monotonic(), deepcopy(payload))
+
+
+def _payload_matches_precomputed_id(payload: dict[str, Any], evidence_id: str) -> bool:
+    if str(payload.get("evidence_sha256") or "") == evidence_id:
+        return True
+    generation = payload.get("generation") if isinstance(payload.get("generation"), dict) else {}
+    fast_review = generation.get("fast_gcp_review") if isinstance(generation.get("fast_gcp_review"), dict) else {}
+    return str(fast_review.get("public_review_id") or "") == evidence_id
+
+
+def _precomputed_cache_ids_for_payload(payload: dict[str, Any]) -> list[str]:
+    generation = payload.get("generation") if isinstance(payload.get("generation"), dict) else {}
+    fast_review = generation.get("fast_gcp_review") if isinstance(generation.get("fast_gcp_review"), dict) else {}
+    public_review_id = str(fast_review.get("public_review_id") or "").strip()
+    if public_review_id:
+        return [public_review_id]
     evidence_id = _canonical_precomputed_review_sha(str(payload.get("evidence_sha256") or ""))
-    if not evidence_id:
-        return
-    _PRECOMPUTED_REVIEW_CACHE[evidence_id] = (time.monotonic(), deepcopy(payload))
+    return [evidence_id] if evidence_id else []
 
 
 def _rescore_demo_payload(demo_id: str) -> dict[str, Any] | None:

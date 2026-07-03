@@ -36,13 +36,13 @@ approved focused profiles and different source context hashes.
 | Artifact | Dell runtime | arena-server monitoring |
 | --- | --- | --- |
 | Evidence SHA256 | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` |
-| API revision | `real-api-stream-v3-dell-45k-5p-reinterpret-20260703T003058Z` | `real-api-stream-v3-arena-50k-5p-reinterpret-20260703T003058Z` |
-| Canonical graph SHA256 | `7b8bbf364706cda1b558476b5a08c882356449710612989dbf86ca8a68cb9266` | `2350ddd8b2ac0d2dce23f3f637136871630d48f735b27769249d2d8907bca8da` |
-| Input fingerprint SHA256 | `372a6d7c8ef29935ff040b53e45342854491fe5f4c37941dadef0faf7e965f4c` | `7faf89f3256066acad93992aa7f11f13138466240c1acba77fd27dd3ffcb938d` |
+| API revision | `real-api-stream-v3-dell-45k-5p-reinterpret-20260703T003058Z` | `real-api-stream-v3-arena-50k-5p-gptoss120b-rerun-20260703T105322Z` |
+| Canonical graph SHA256 | `7b8bbf364706cda1b558476b5a08c882356449710612989dbf86ca8a68cb9266` | `b78f802e6fcac1e3562aefdf7ff595a71a7898aa0c9af14366ea50a9239ea6ae` |
+| Input fingerprint SHA256 | `372a6d7c8ef29935ff040b53e45342854491fe5f4c37941dadef0faf7e965f4c` | `7900a9b7d9f01e78393b582612654e0262d826a9517dad55141212a43c694b24` |
 | Source context SHA256 | `3b124da80b8ba7176004f06223742a6a1779225f3008ed3251b03dfbe2db12d2` | `a312fd5e4df8c2085f259581fa811cfee54978e14ad32b788708fb36e346fbd4` |
 | Source analysis SHA256 | `6832aa7e5926dbc0ecb4f9d9e4d16e97cac27630853a2bb9e627c52f4c34b0cb` | `6af86a8571062130eedb5e62de03b07b0fdf2d10fc4d6eddb5b05c3b1079c65c` |
 | Public payload | `data/precomputed_review_summaries/345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6.json` | `data/precomputed_review_summaries/6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3.json` |
-| Payload SHA256 | `3052f72169715f416f168e72fe970c7be6f2bc209fbcd201cd9b8660673fc7f3` | `9e54f51f0259be8524d35518378b76ce6ad3f95e145e0af2b7528e760c96df74` |
+| Payload SHA256 | `3052f72169715f416f168e72fe970c7be6f2bc209fbcd201cd9b8660673fc7f3` | `f9aaa01e391e104397a66fde5c5364c2edddd16d684ce956f3688cb91e49ab1c` |
 
 ## Analysis Windows
 
@@ -127,9 +127,10 @@ is blocked by missing impact or operational outcome evidence.
 ## Provider Results
 
 The current provider set is Gemini 3.1 Pro, GPT OSS, Mistral, Qwen, and Gemma 4.
-Provider failures are not converted to silent positions. For arena-server
-monitoring, GPT OSS fell below the partial-chunk usability threshold and is
-exposed as a provider failure in this reinterpretation payload.
+Provider failures are not converted to silent positions. The first arena-server
+monitoring GPT OSS 20B attempt returned empty content for four chunks and was
+recorded as a provider failure. The public payload was then refreshed with a
+GPT OSS 120B rerun that completed all 18 chunks schema-valid.
 
 ### Dell runtime
 
@@ -148,7 +149,7 @@ exposed as a provider failure in this reinterpretation payload.
 | `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 1,693,220 | 771,031 | 9,809 | ok=16, timeout=2 |
 | `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 503,930 | 849,344 | 20,429 | ok=18 |
 | `mistral-agent-platform` | `mistral-small-2503` | ok | valid | 20,786 | 50,852 | 1,985 | not chunked |
-| `openai-gpt-oss-on-vertex` | `gpt-oss-20b-maas` | failed | invalid | 348,607 | 513,654 | 35,363 | ok=14, provider_error=4 |
+| `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 808,823 | 661,546 | 52,335 | ok=18 |
 | `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 210,207 | 670,814 | 21,821 | ok=18 |
 
 The public payload preserves provider hashes so a stale deployment can be
@@ -164,23 +165,24 @@ time for the reinterpretation run that produced the public payload.
 | Step | Dell runtime | arena-server monitoring |
 | --- | ---: | ---: |
 | Real API reinterpretation wall time | 207.108s | 497.909s |
-| Total provider latency sum | 5,847,461 ms | 2,776,750 ms |
+| Total provider latency sum | 5,847,461 ms | 3,236,966 ms |
 | Gemini 3.1 Pro provider latency sum | 3,835,306 ms | 1,693,220 ms |
-| Schema-valid providers | 5/5 | 4/5 |
-| Public review targets | 11 | 9 |
+| GPT OSS retry wall time | n/a | 239s |
+| Schema-valid providers | 5/5 | 5/5 |
+| Public review targets | 11 | 12 |
 
 Dell's measured wall time is the successful resume after cached chunks from an
 earlier full attempt; the first attempt was stopped after roughly 28 minutes
-while provider rate-limit recovery was still active. The arena-server run
-completed in one measured pass and preserved the GPT OSS partial failure as a
-visible provider status.
+while provider rate-limit recovery was still active. The arena-server payload
+keeps the first GPT OSS 20B failure as an operational note, but the public review
+now uses the successful GPT OSS 120B rerun.
 
 ## Review Outcome
 
 | Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived | Incident promotion gate |
 | --- | ---: | ---: | ---: | ---: | --- |
 | Dell runtime | 0 | 11 | 2 | 4 | Open; all targets remain human-gated |
-| arena-server monitoring | 0 | 9 | 2 | 2 | Open; all targets remain human-gated |
+| arena-server monitoring | 1 | 11 | 2 | 2 | Open; all targets remain human-gated |
 
 Both runs intentionally stop at human review. Provider convergence can create
 review targets and technical support, but it does not automatically authorize a

@@ -91,10 +91,19 @@ def test_public_fast_gcp_review_uses_fixed_sample_without_write_token(
     with TestClient(app) as client:
         page = client.get("/ui/fast-gcp-review")
         result = client.post("/public/fast-gcp-review", json={})
+        cross_check = client.post("/public/fast-gcp-review", json={"cross_check": True})
         blocked = client.post("/ai/multi-run", json={})
 
     assert page.status_code == 200, page.text
     assert "Gemini Flash Lite" in page.text
+    assert "Run Fast Cross-check Lite" in page.text
+    assert "Watch More Data Rescore" in page.text
+    assert "Sanitized system code preview" in page.text
+    assert "amazon_notify_sample_source_approved" in page.text
+    assert "amazon-notify-main-watchdog.service" in page.text
+    assert "job_configuration_mismatch_count" in page.text
+    assert "watchdog_heartbeat_count" in page.text
+    assert "context, not incident evidence" in page.text
     assert result.status_code == 200, result.text
     payload = result.json()
     assert payload["status"] == "ok"
@@ -102,14 +111,37 @@ def test_public_fast_gcp_review_uses_fixed_sample_without_write_token(
     assert payload["input"]["arbitrary_input_accepted"] is False
     assert payload["provider"]["provider_id"] == "local-gemini"
     assert payload["timing"]["wall_seconds"] >= 0
+    assert payload["system_preview"]["profile_id"] == "amazon_notify_sample_source_approved"
+    assert payload["system_preview"]["context_boundary"] == "sanitized_source_context_only_not_incident_evidence"
+    assert payload["system_preview"]["components"][0]["name"] == "amazon_notify_main_watchdog"
+    assert payload["system_preview"]["metric_semantics"][0]["name"] == "job_configuration_mismatch_count"
     assert payload["urls"]["detail"].startswith("/ui/full-review-page?evidence_sha256=")
+    assert payload["urls"]["rescore"] == "/ui/rescore-demo?id=amazon-notify-more-data-rescore"
+    assert payload["rescore_demo"]["demo_id"] == "amazon-notify-more-data-rescore"
+    assert payload["review"]["public_review_id"] != payload["review"]["evidence_sha256"]
+    assert cross_check.status_code == 200, cross_check.text
+    cross_payload = cross_check.json()
+    assert cross_payload["variant"] == "fast_cross_check_lite"
+    assert cross_payload["providers"]["requested"] == ["local-gemini", "local-gpt-oss"]
+    assert cross_payload["providers"]["total"] == 2
+    assert cross_payload["providers"]["success"] == 2
+    assert cross_payload["timing"]["provider_latency_sum_ms"] >= cross_payload["timing"]["provider_latency_ms"]
+    assert cross_payload["urls"]["detail"].startswith("/ui/full-review-page?evidence_sha256=")
+    assert cross_payload["urls"]["rescore"] == "/ui/rescore-demo?id=amazon-notify-more-data-rescore"
+    assert cross_payload["review"]["public_review_id"] != cross_payload["review"]["evidence_sha256"]
+    assert cross_payload["review"]["public_review_id"] != payload["review"]["public_review_id"]
+    assert cross_payload["urls"]["detail"] != payload["urls"]["detail"]
+    assert (summaries / f"{payload['review']['public_review_id']}.json").exists()
+    assert (summaries / f"{cross_payload['review']['public_review_id']}.json").exists()
     assert blocked.status_code == 403
 
     with TestClient(app) as client:
         detail = client.get(payload["urls"]["detail"])
+        cross_detail = client.get(cross_payload["urls"]["detail"])
         graph = client.get(payload["urls"]["graph"])
 
     assert detail.status_code == 200, detail.text
+    assert cross_detail.status_code == 200, cross_detail.text
     assert graph.status_code == 200, graph.text
 
 

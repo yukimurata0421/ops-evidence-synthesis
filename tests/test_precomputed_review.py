@@ -496,15 +496,15 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         },
         {
             "sha": STREAM_V3_ARENA_REAL_API_SHA,
-            "title": "Recorded chunked review",
+            "title": "Five real providers",
             "service": "stream_v3_monitoring",
             "log_count": 50000,
-            "providers": {"success": 4, "total": 5, "pipeline_status": "partial"},
+            "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
                 "auto_archived": 2,
                 "monitor_only": 2,
-                "primary_targets": 0,
-                "validation_targets": 9,
+                "primary_targets": 1,
+                "validation_targets": 11,
             },
             "projection_items": 21,
             "occurrences": 63056,
@@ -592,17 +592,18 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert provider_rows["mistral-agent-platform"]["schema_valid"] is True
         assert provider_rows["gemini-enterprise-agent-platform"]["schema_valid"] is True
         if case["sha"] == STREAM_V3_ARENA_REAL_API_SHA:
-            assert provider_rows["openai-gpt-oss-on-vertex"]["status"] == "failed"
-            assert provider_rows["openai-gpt-oss-on-vertex"]["schema_valid"] is False
+            assert provider_rows["openai-gpt-oss-on-vertex"]["status"] == "ok"
+            assert provider_rows["openai-gpt-oss-on-vertex"]["schema_valid"] is True
+            assert provider_rows["openai-gpt-oss-on-vertex"]["model_name"] == "gpt-oss-120b-maas"
             audio_target = next(
                 target
                 for target in payload["targets"]
                 if target["canonical_review_unit"] == "audio_energy"
             )
             assert audio_target["class"] == "validation_target"
-            assert audio_target["agreement"]["summary"].startswith("1/4 schema-valid providers")
+            assert audio_target["agreement"]["summary"].startswith("2/5 schema-valid providers")
             assert any(
-                row["provider_id"] == "openai-gpt-oss-on-vertex" and row["stance"] == "provider_error"
+                row["provider_id"] == "openai-gpt-oss-on-vertex" and row["stance"] == "claimed"
                 for row in audio_target["provider_positions"]
             )
 
@@ -625,9 +626,10 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert str(case["occurrences"]) in detail_html.replace(",", "")
         if case["sha"] == STREAM_V3_ARENA_REAL_API_SHA:
             assert "audio_energy" in detail_html
-            assert "1/4 claimed + 1 error" in detail_html
-            assert "1 claimed / 3 silent / 1 provider error / 0.25" in detail_html
-            assert "provider_error" in detail_html
+            assert "2/5 claimed" in detail_html
+            assert "2 claimed / 3 silent / 0.40" in detail_html
+            assert "gpt-oss-120b-maas" in detail_html
+            assert "provider_error" not in json.dumps(payload["provider_statuses"])
         assert "qwen-agent-platform" in graph_html
         assert "Incident gate signal" in graph_html
         assert graph["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]

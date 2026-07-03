@@ -75,7 +75,7 @@ recorded real API runs preserve the larger evidence boundary.
 | --- | --- | --- |
 | Public Deterministic Replay | Regenerate a committed public-safe fixture without external AI API calls. This is the reproducibility path, not a live AI benchmark. | `make demo` and the offline amazon-notify fixture. |
 | More Data Rescore | Show the improvement loop: a child evidence bundle can move a target from validation work toward a stronger primary candidate while preserving the human gate. | More Data Rescore demo. |
-| Fast GCP Review | Run a fixed sanitized amazon-notify sample from Cloud Run through Vertex Gemini Flash Lite and return a review URL with measured wall time. | Public `/ui/fast-gcp-review` action. |
+| Fast GCP Review | Run a fixed sanitized amazon-notify sample from Cloud Run through Vertex Gemini Flash Lite and return a review URL with measured wall time. The same page also offers an optional Gemini Flash Lite + Gemma 4 cross-check path. | Public `/ui/fast-gcp-review` action. |
 | Full Forensic AI Review | Deep production-style synthesis over 45k-50k sanitized rows, chunked provider execution, citation validation, and deterministic graph merge over recorded provider outputs. | Precomputed stream_v3 and amazon-notify real API runs. |
 
 Ops Evidence Synthesis focuses on the missing step before action:
@@ -98,7 +98,9 @@ are recorded in [docs/review-modes-runbook.md](docs/review-modes-runbook.md).
   starting model work on the initial GET.
 - The Fast GCP Review page runs only a fixed sanitized amazon-notify sample,
   calls Vertex Gemini Flash Lite from Cloud Run, records wall time, and returns
-  a review URL. It does not accept arbitrary logs, URLs, or file paths.
+  a review URL. The optional Cross-check Lite button runs Gemini Flash Lite and
+  Gemma 4 in parallel over the same fixed sample. It does not accept arbitrary
+  logs, URLs, or file paths.
 - Each public review also exposes a Markdown incident report that states the
   evidence boundary, provider status, human review questions, and promotion
   blockers without converting provider agreement into an accepted cause.
