@@ -596,6 +596,10 @@ def _public_precomputed_landing_page() -> str:
     gate_provider_total = int(primary_entry.get("provider_count") or 5)
     gate_provider_success = int(primary_entry.get("schema_valid_count") or gate_provider_total or 5)
     gate_signal_label = f"{gate_provider_success} / {gate_provider_total}"
+    total_public_rows = sum(int(row.get("row_count") or 0) for row in manifest_entries)
+    total_public_corpora = len(manifest_entries)
+    primary_rows = _human_count(int(primary_entry.get("row_count") or 0)) if primary_entry else "45,000"
+    primary_review_targets = int(primary_entry.get("primary_targets") or 0) + int(primary_entry.get("validation_targets") or 0)
     return f"""
     <!doctype html>
     <html lang="en">
@@ -606,21 +610,25 @@ def _public_precomputed_landing_page() -> str:
         <style>
           :root {{
             color-scheme: light;
-            --bg: #eef2f7;
-            --surface: #ffffff;
-            --surface-2: #f8fafc;
-            --ink: #0f1b2d;
-            --ink-2: #526173;
-            --ink-3: #8a97a8;
-            --border: #d9e1ec;
-            --accent: #2a6fdb;
-            --accent-soft: #e7f0fc;
-            --green: #12836b;
-            --green-soft: #dff5ee;
-            --amber: #9a5b00;
-            --amber-soft: #fff4dc;
-            --shadow: 0 18px 48px rgba(15, 27, 45, .08);
+            --bg: #f4f2ec;
+            --bg-2: #faf8f2;
+            --surface: #fffdf8;
+            --surface-2: #f7f3e9;
+            --ink: #1c1a15;
+            --ink-2: #4a463d;
+            --ink-3: #7a746a;
+            --muted: #8a857a;
+            --border: #e5dfd1;
+            --border-strong: #cfc7b6;
+            --blue: #3f63a8;
+            --blue-soft: #eef2f9;
+            --green: #2f8a5b;
+            --green-soft: #eef7f1;
+            --gold: #a7845a;
+            --orange: #d1622b;
+            --shadow: 0 18px 48px rgba(60, 50, 30, .12);
             --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            --serif: Georgia, "Times New Roman", serif;
           }}
           * {{ box-sizing: border-box; }}
           html {{ scroll-behavior: smooth; }}
@@ -633,222 +641,224 @@ def _public_precomputed_landing_page() -> str:
             letter-spacing: 0;
           }}
           a {{ color: inherit; text-decoration: none; }}
-          p {{ margin: 0; color: var(--ink-2); line-height: 1.55; }}
-          .shell {{
-            width: min(calc(100% - 48px), 1720px);
+          p {{ margin: 0; color: var(--ink-2); line-height: 1.58; }}
+          .wrap {{
+            width: min(calc(100% - 48px), 1240px);
             margin: 0 auto;
-            padding: 0;
+          }}
+          .topbar-shell {{
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            border-bottom: 1px solid var(--border);
+            background: rgba(250, 248, 242, .92);
+            backdrop-filter: blur(8px);
           }}
           .topbar {{
-            height: 70px;
+            min-height: 66px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 18px;
-            border-bottom: 1px solid var(--border);
+            padding: 14px 0;
           }}
-          .brand {{ display: flex; align-items: center; gap: 12px; min-width: 236px; }}
+          .brand {{ display: flex; align-items: center; gap: 11px; min-width: 240px; font-weight: 800; }}
           .brand-mark {{
-            width: 34px;
-            height: 34px;
-            border-radius: 8px;
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
             display: grid;
             place-items: center;
-            background: var(--accent);
-            color: #fff;
-            font: 700 13px/1 var(--mono);
+            background: var(--ink);
+            color: var(--bg);
+            font: 800 11px/1 var(--mono);
           }}
-          .brand-name {{ font-weight: 750; letter-spacing: 0; }}
-          .nav-links, .nav-actions {{ display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }}
-          .nav-links a, .button {{
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: rgba(255,255,255,.72);
-            color: var(--ink-2);
-            padding: 8px 10px;
-            font-size: 12.5px;
-            font-weight: 700;
-          }}
-          .button.primary {{
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #fff;
-          }}
+          .nav-links {{ display: flex; align-items: center; flex-wrap: wrap; gap: 22px; color: #6a655b; font-size: 13.5px; }}
+          .nav-links a {{ color: #6a655b; }}
+          .nav-links a:hover {{ color: var(--ink); }}
           .live-pill {{
             display: inline-flex;
             align-items: center;
             gap: 7px;
-            border: 1px solid var(--border);
+            border: 1px solid #bfe0cd;
             border-radius: 999px;
-            padding: 8px 11px;
-            background: var(--surface);
-            color: var(--ink-2);
-            font-size: 12px;
-            font-weight: 750;
+            padding: 6px 11px;
+            background: var(--green-soft);
+            color: var(--green);
+            font: 800 11.5px/1 var(--mono);
           }}
           .live-dot {{ width: 7px; height: 7px; border-radius: 50%; background: var(--green); }}
           .hero {{
-            display: grid;
-            grid-template-columns: minmax(620px, 1.45fr) minmax(420px, .85fr);
-            gap: clamp(28px, 4vw, 72px);
-            align-items: center;
-            padding: 46px 0 34px;
+            padding: 58px 0 40px;
+            text-align: center;
           }}
           .eyebrow {{
-            display: inline-flex;
-            color: var(--accent);
-            background: var(--accent-soft);
-            border: 1px solid #d3e4fb;
-            border-radius: 999px;
-            padding: 7px 11px;
-            font: 700 12px/1 var(--mono);
+            color: var(--gold);
+            font: 800 12px/1 var(--mono);
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            margin-bottom: 24px;
           }}
           h1 {{
-            margin: 20px 0 14px;
-            font-size: clamp(58px, 4.1vw, 76px);
-            line-height: .96;
-            letter-spacing: 0;
-            max-width: 1080px;
-          }}
-          h1 span {{ color: var(--accent); }}
-          .jp-tagline {{
-            margin: 0 0 12px;
+            margin: 0 auto 24px;
+            max-width: 1320px;
             color: var(--ink);
+            font-family: var(--serif);
+            font-size: clamp(54px, 5.2vw, 80px);
+            font-style: italic;
+            font-weight: 500;
+            line-height: .98;
+            letter-spacing: 0;
+          }}
+          .hero-tagline {{
+            margin: -8px auto 18px;
+            color: var(--ink-3);
+            font-size: 13.5px;
+            font-weight: 700;
+          }}
+          .hero-lead {{
+            max-width: 880px;
+            margin: 0 auto 14px;
+            color: var(--ink-2);
+            font-size: 19px;
+            line-height: 1.55;
+          }}
+          .hero-sub {{
+            max-width: 820px;
+            margin: 0 auto 34px;
+            color: var(--ink-3);
             font-size: 15px;
-            font-weight: 800;
-            line-height: 1.5;
+            line-height: 1.6;
           }}
-          .hero-sub {{ max-width: 980px; font-size: 16.5px; line-height: 1.48; color: var(--ink-2); }}
-          .hero-cta {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }}
-          .hero-cta .button {{ white-space: nowrap; }}
-          .gate-card {{
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: rgba(255,255,255,.88);
-            box-shadow: var(--shadow);
-            padding: 26px;
+          .hero-cta {{
+            display: inline-flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 11px;
+            margin-bottom: 46px;
           }}
-          .gate-kicker {{ color: var(--ink-3); font: 700 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }}
-          .gate-big {{ display: flex; align-items: end; gap: 12px; margin-top: 20px; }}
-          .gate-big b {{ flex: 0 0 auto; font-size: 52px; line-height: .9; letter-spacing: 0; white-space: nowrap; }}
-          .gate-big span {{ flex: 1 1 auto; color: var(--ink-2); font-size: 13px; padding-bottom: 5px; }}
-          .gate-bars {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 22px; }}
-          .gate-bars i {{ display: block; height: 34px; border-radius: 8px; background: var(--green); }}
-          .gate-div {{ display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin: 24px 0 14px; }}
-          .gate-div i {{ height: 1px; background: var(--border); }}
-          .gate-div span {{ color: var(--ink-3); font: 700 10px/1 var(--mono); letter-spacing: .1em; }}
-          .gate-badge {{
-            display: flex;
-            gap: 12px;
+          .button {{
             align-items: center;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: var(--amber-soft);
-            padding: 14px;
+            border: 1px solid var(--border-strong);
+            border-radius: 10px;
+            background: transparent;
+            color: var(--ink);
+            padding: 12px 22px;
+            font-size: 14.5px;
+            font-weight: 700;
           }}
-          .gate-lock {{
-            width: 34px;
-            height: 34px;
+          .button.primary {{ background: var(--ink); border-color: var(--ink); color: var(--bg); }}
+          .button:hover {{ border-color: var(--ink); background: #efe9db; }}
+          .button.primary:hover {{ background: #35322a; color: var(--bg); }}
+          .hero-stats {{
             display: grid;
-            place-items: center;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: var(--surface);
-            color: var(--amber);
-            font-weight: 900;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 36px;
+            max-width: 880px;
+            margin: 0 auto;
+            padding-top: 28px;
+            border-top: 1px solid var(--border);
           }}
-          .gate-badge b {{ display: block; color: var(--amber); font: 800 12px/1 var(--mono); }}
-          .gate-badge small {{ display: block; margin-top: 4px; color: var(--ink-2); font-size: 12px; }}
-          .trust {{
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 12px;
-            margin-bottom: 34px;
+          .hero-stats b {{ display: block; color: var(--ink); font-size: 27px; line-height: 1; }}
+          .hero-stats span {{ display: block; margin-top: 5px; color: var(--muted); font-size: 11.5px; }}
+          .showcase {{
+            width: min(calc(100% - 48px), 1200px);
+            margin: 0 auto;
+            padding: 12px 0 60px;
           }}
-          .trust-cell {{
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: rgba(255,255,255,.72);
-            padding: 16px;
+          .showcase-kicker {{ text-align: center; color: var(--gold); font: 800 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 18px; }}
+          .browser {{
+            display: block;
+            overflow: hidden;
+            border: 1px solid #d5dbe3;
+            border-radius: 16px;
+            background: #eef1f5;
+            box-shadow: 0 40px 90px -44px rgba(30,45,70,.55);
           }}
-          .trust-cell b {{ display: block; font-size: 22px; letter-spacing: 0; }}
-          .trust-cell span {{ display: block; margin-top: 6px; color: var(--ink-2); font-size: 12px; line-height: 1.4; }}
-          .agent-loop {{
-            display: grid;
-            grid-template-columns: minmax(320px, .45fr) minmax(0, 1fr);
-            gap: 14px;
-            align-items: stretch;
-            margin-bottom: 34px;
-          }}
-          .agent-panel, .agent-step {{
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: var(--surface);
-            padding: 16px;
-          }}
-          .agent-panel strong {{ display: block; font-size: 17px; margin-top: 8px; }}
-          .agent-panel p {{ margin-top: 8px; font-size: 13px; }}
-          .agent-steps {{
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 10px;
-          }}
-          .agent-step b {{ display: block; font-size: 12px; color: var(--ink); }}
-          .agent-step span {{ display: block; margin-top: 6px; color: var(--ink-2); font-size: 11.5px; line-height: 1.35; }}
-          .mode-grid, .criteria-grid {{
-            display: grid;
-            gap: 12px;
-          }}
-          .mode-grid {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
-          .criteria-grid {{ grid-template-columns: repeat(5, minmax(0, 1fr)); }}
-          .mode-card, .criteria-card {{
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: var(--surface);
-            padding: 16px;
-          }}
-          .mode-card strong, .criteria-card strong {{ display: block; color: var(--ink); font-size: 14px; }}
-          .mode-card span {{ display: block; margin-top: 6px; color: var(--accent); font: 800 11px/1.35 var(--mono); }}
-          .mode-card p, .criteria-card p {{ margin-top: 8px; font-size: 12.5px; }}
-          section {{ margin-top: 36px; }}
+          .browser-bar {{ display: flex; align-items: center; gap: 8px; padding: 13px 18px; background: #fff; border-bottom: 1px solid #e4e9ef; }}
+          .browser-dot {{ width: 11px; height: 11px; border-radius: 50%; background: #e6a5a0; }}
+          .browser-dot:nth-child(2) {{ background: #ecc98f; }}
+          .browser-dot:nth-child(3) {{ background: #a7d4ad; }}
+          .browser-url {{ margin-left: 8px; flex: 1; max-width: 560px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid #e4e9ef; border-radius: 6px; background: #f2f4f7; color: #8b96a3; padding: 5px 13px; font: 700 12px/1 var(--mono); }}
+          .browser-chip {{ color: #3b74d6; background: #eaf1fc; padding: 5px 11px; border-radius: 6px; font: 800 11px/1 var(--mono); }}
+          .workspace {{ display: grid; grid-template-columns: 236px minmax(0, 1.2fr) minmax(250px, 1fr); gap: 16px; padding: 22px; }}
+          .queue-label, .mock-label {{ color: #9aa4b1; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 11px; }}
+          .queue {{ display: grid; gap: 7px; }}
+          .queue-row {{ border: 1px solid #e9edf2; border-radius: 8px; background: #fff; padding: 10px 12px; }}
+          .queue-row.active {{ border-color: #cdd8ec; border-left: 3px solid #3b74d6; }}
+          .queue-row div {{ display: flex; justify-content: space-between; gap: 10px; }}
+          .queue-row b {{ color: #141c2b; font-size: 13px; overflow-wrap: anywhere; }}
+          .queue-row code {{ color: #141c2b; font: 800 12.5px/1 var(--mono); }}
+          .queue-row span {{ display: block; margin-top: 3px; color: #3b74d6; font-size: 10.5px; }}
+          .mock-panel {{ border: 1px solid #e4e9ef; border-radius: 10px; background: #fff; padding: 17px; }}
+          .mock-panel.soft {{ background: #fbfcfd; }}
+          .mock-title {{ display: flex; align-items: center; gap: 8px; margin-bottom: 11px; }}
+          .mock-title b {{ color: #141c2b; font-size: 14.5px; }}
+          .mock-score {{ margin-left: auto; color: #141c2b; font-size: 19px; font-weight: 900; }}
+          .mock-pill {{ color: #3b74d6; background: #eaf1fc; padding: 4px 8px; border-radius: 5px; font: 800 10.5px/1 var(--mono); }}
+          .mock-copy {{ color: #3a4453; font-size: 14px; line-height: 1.55; }}
+          .provider-bars {{ display: grid; gap: 7px; }}
+          .provider-bars div {{ display: grid; grid-template-columns: 72px minmax(0, 1fr) 58px; align-items: center; gap: 9px; }}
+          .provider-bars span:first-child {{ color: #3a4453; font: 800 11px/1 var(--mono); }}
+          .provider-bars i {{ height: 7px; border-radius: 4px; background: #6d9be0; }}
+          .provider-bars small {{ color: #77828f; font-size: 10px; }}
+          .evidence-list {{ display: grid; gap: 7px; }}
+          .evidence-list div {{ display: flex; justify-content: space-between; align-items: center; border: 1px solid #e9edf2; border-radius: 7px; background: #fff; padding: 8px 11px; }}
+          .evidence-list code {{ color: #3a4453; font: 800 12px/1 var(--mono); }}
+          .evidence-list span {{ color: #77828f; font-size: 10.5px; }}
+          .human-gate {{ margin-top: 12px; border: 1px solid #cfe6da; border-radius: 10px; background: linear-gradient(180deg,#f0f7f2,#fff); padding: 15px; }}
+          .human-top {{ display: flex; align-items: center; gap: 9px; }}
+          .hg {{ width: 33px; height: 33px; border: 1px solid #bfe0cd; border-radius: 8px; display: grid; place-items: center; color: var(--green); font: 900 11px/1 var(--mono); }}
+          .human-top b {{ color: #141c2b; font-size: 13.5px; }}
+          .human-state {{ margin-left: auto; color: var(--green); background: #e4f4eb; padding: 4px 8px; border-radius: 5px; font: 800 10px/1 var(--mono); }}
+          .band {{ background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }}
+          .band .wrap {{ padding: 52px 0; }}
+          .pipeline {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }}
+          .pipe-card {{ border: 1px solid #e7e0d1; border-radius: 13px; background: var(--surface); padding: 20px; }}
+          .pipe-card.final {{ background: var(--blue-soft); border-color: #cdd8ec; }}
+          .pipe-num {{ color: #c0a875; font: 800 12px/1 var(--mono); }}
+          .pipe-card strong {{ display: block; margin-top: 8px; color: var(--ink); font-size: 16px; }}
+          .pipe-card p {{ margin-top: 7px; color: var(--ink-3); font-size: 13px; }}
+          section {{ padding: 56px 0; }}
           .section-head {{
             display: flex;
             justify-content: space-between;
             align-items: end;
             gap: 18px;
-            margin-bottom: 16px;
+            margin-bottom: 22px;
           }}
-          .kicker {{ color: var(--accent); font: 800 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }}
-          h2 {{ margin: 8px 0 0; font-size: 24px; letter-spacing: 0; }}
-          .section-note {{ max-width: 660px; color: var(--ink-2); font-size: 13px; line-height: 1.55; text-align: right; }}
-          .review-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; }}
+          .kicker {{ color: var(--gold); font: 800 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }}
+          h2 {{ margin: 8px 0 0; color: var(--ink); font-family: var(--serif); font-size: 36px; font-weight: 500; letter-spacing: 0; }}
+          .section-note {{ max-width: 660px; color: var(--ink-3); font-size: 13px; line-height: 1.55; text-align: right; }}
+          .review-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 18px; }}
           .review-card {{
             display: grid;
             gap: 12px;
-            padding: 20px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
+            padding: 22px;
+            border: 1px solid #e7e0d1;
+            border-radius: 14px;
             background: var(--surface);
-            box-shadow: 0 10px 34px rgba(15, 27, 45, .055);
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
           }}
-          .review-card.featured {{ grid-column: 1 / -1; border-color: #b7c9e4; }}
-          .review-card h3 {{ margin: 0; font-size: 18px; line-height: 1.35; letter-spacing: 0; }}
+          .review-card:hover {{ border-color: var(--border-strong); transform: translateY(-2px); box-shadow: 0 18px 40px -26px rgba(60,50,30,.4); }}
+          .review-card.featured {{ grid-column: 1 / -1; }}
+          .review-card h3 {{ margin: 0; color: var(--ink); font-size: 17px; line-height: 1.35; letter-spacing: 0; }}
           .review-card p {{ font-size: 13px; }}
           .card-topline {{ display: flex; justify-content: space-between; gap: 12px; align-items: center; }}
           .badge {{
             display: inline-flex;
-            border: 1px solid #d3e4fb;
+            border: 1px solid #cdd8ec;
             border-radius: 999px;
             padding: 6px 10px;
-            background: var(--accent-soft);
-            color: var(--accent);
+            background: var(--blue-soft);
+            color: var(--blue);
             font-size: 11px;
             font-weight: 800;
           }}
-          .sha, small {{ color: var(--ink-3); font-family: var(--mono); font-size: 11.5px; }}
+          .sha, small {{ color: var(--muted); font-family: var(--mono); font-size: 11.5px; }}
           .metrics {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 4px 0 0; }}
           .metrics div {{ border-top: 1px solid var(--border); padding-top: 10px; min-width: 0; }}
-          dt {{ color: var(--ink-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }}
+          dt {{ color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }}
           dd {{ margin: 3px 0 0; font-weight: 820; overflow-wrap: anywhere; }}
           .actions {{ display: flex; flex-wrap: wrap; gap: 8px; }}
           .actions a, .loop-link {{
@@ -857,159 +867,204 @@ def _public_precomputed_landing_page() -> str:
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 9px 11px;
-            background: var(--surface-2);
+            background: #fbf7ed;
             color: var(--ink-2);
             font-size: 12px;
             font-weight: 800;
           }}
-          .loop-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }}
-          .archive {{ margin: 38px 0 56px; border-top: 1px solid var(--border); padding-top: 18px; }}
+          .mode-grid, .criteria-grid, .loop-grid {{ display: grid; gap: 14px; }}
+          .mode-grid {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
+          .criteria-grid {{ grid-template-columns: repeat(5, minmax(0, 1fr)); }}
+          .mode-card, .criteria-card {{
+            border-top: 2px solid var(--ink);
+            padding-top: 14px;
+          }}
+          .mode-card strong, .criteria-card strong {{ display: block; color: var(--ink); font-size: 14.5px; }}
+          .mode-card span {{ display: block; margin-top: 6px; color: var(--blue); font: 800 11px/1.35 var(--mono); }}
+          .mode-card p, .criteria-card p {{ margin-top: 8px; color: var(--ink-3); font-size: 12.5px; }}
+          .loop-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+          .archive {{ margin: 0 0 56px; border-top: 1px solid var(--border); padding-top: 18px; }}
           summary {{ cursor: pointer; color: var(--ink-2); font-weight: 800; }}
           ul {{ list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; }}
           li {{ display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }}
-          @media (min-width: 1500px) {{
-            .review-grid {{ grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }}
-          }}
           @media (max-width: 1180px) {{
-            .hero {{ grid-template-columns: 1fr; }}
+            .workspace {{ grid-template-columns: 1fr; }}
+            .mode-grid, .criteria-grid, .loop-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
           }}
           @media (max-width: 900px) {{
-            .shell {{ width: min(calc(100% - 32px), 1720px); }}
-            .topbar {{ height: auto; padding: 16px 0; align-items: flex-start; flex-direction: column; }}
-            .hero {{ grid-template-columns: 1fr; padding-top: 42px; }}
-            .trust {{ grid-template-columns: repeat(2, 1fr); }}
-            .review-grid, .loop-grid {{ grid-template-columns: 1fr; }}
-            .agent-loop {{ grid-template-columns: 1fr; }}
-            .agent-steps {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-            .mode-grid, .criteria-grid {{ grid-template-columns: 1fr; }}
+            .wrap, .showcase {{ width: min(calc(100% - 32px), 1240px); }}
+            .topbar {{ align-items: flex-start; flex-direction: column; }}
+            .nav-links {{ gap: 10px; }}
+            .hero {{ padding-top: 54px; }}
+            .hero-stats, .pipeline {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
             .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
             .section-head {{ align-items: flex-start; flex-direction: column; }}
             .section-note {{ text-align: left; }}
           }}
           @media (max-width: 520px) {{
-            h1 {{ font-size: 42px; }}
-            .trust {{ grid-template-columns: 1fr; }}
-            .agent-steps {{ grid-template-columns: 1fr; }}
-            .gate-big b {{ font-size: 42px; }}
+            h1 {{ font-size: 48px; }}
+            .hero-stats, .pipeline, .mode-grid, .criteria-grid, .loop-grid {{ grid-template-columns: 1fr; }}
+            .hero-cta {{ display: grid; }}
+            .browser-bar {{ flex-wrap: wrap; }}
+            .provider-bars div {{ grid-template-columns: 64px minmax(0, 1fr); }}
+            .provider-bars small {{ display: none; }}
           }}
         </style>
       </head>
       <body>
-        <main class="shell">
-          <nav class="topbar" aria-label="Primary">
-            <div class="brand">
-              <div class="brand-mark">OE</div>
-              <div class="brand-name">Ops Evidence Synthesis</div>
-            </div>
-            <div class="nav-links">
-              <a href="/">Overview</a>
-              <a href="#review-modes">Modes</a>
+        <header class="topbar-shell">
+          <div class="wrap topbar">
+            <a class="brand" href="/">
+              <span class="brand-mark">OE</span>
+              <span>Ops Evidence Synthesis</span>
+            </a>
+            <nav class="nav-links" aria-label="Primary">
               <a href="#review-set">Review Set</a>
               <a href="#judging-map">Judging Map</a>
               <a href="#improvement-loop">Improvement Loop</a>
+              <a href="{_html(_public_repo_url())}">GitHub</a>
               <span class="live-pill"><span class="live-dot"></span>Cloud Run live</span>
+            </nav>
+          </div>
+        </header>
+        <main>
+          <section class="wrap hero">
+            <div class="eyebrow">Evidence before certainty</div>
+            <h1>Trace any AI claim to its evidence.</h1>
+            <p class="hero-tagline" data-ja="AIが断定する前に、運用証拠を固定する。">Freeze operational evidence before the model sounds certain.</p>
+            <p class="hero-lead">Do not trust the summary. Trace it. Every AI verdict breaks into cited Evidence IDs, provider stances, missing evidence, and a human gate.</p>
+            <p class="hero-sub">Raw logs stay local. Only sanitized bundles reach Google Cloud, where five models review the evidence and a human still says yes. Provider convergence creates review targets, not accepted incident causes.</p>
+            <div class="hero-cta">
+              <a class="button primary" href="{_html(primary_detail_url)}">Open primary review -&gt;</a>
+              <a class="button" href="{_html(primary_report_url)}">Read incident report</a>
+              <a class="button" href="{_html(rescore_demo_url)}">Watch rescore loop</a>
+              {_public_global_action_links_html()}
             </div>
-          </nav>
-          <section class="hero">
-            <div>
-              <span class="eyebrow">Local-first AI-assisted DevOps incident review</span>
-              <h1>Evidence before <span>certainty.</span></h1>
-              <p class="jp-tagline">AIが断定する前に、運用証拠を固定する。</p>
-              <p class="hero-sub">This public surface serves read-only precomputed reviews over sanitized logs, sanitized source context, and approved system profiles. Provider convergence creates review targets, not accepted incident causes.</p>
-              <div class="hero-cta">
-                <a class="button primary" href="{_html(primary_detail_url)}">Open primary review</a>
-                <a class="button primary" href="{_html(rescore_demo_url)}">Watch rescore loop</a>
-                <a class="button" href="{_html(primary_report_url)}">Read incident report</a>
-                {_public_global_action_links_html()}
+            <div class="hero-stats" aria-label="Public evidence summary">
+              <div><b>{_html(primary_rows)}</b><span>rows analyzed</span></div>
+              <div><b>{_html(gate_signal_label)}</b><span>providers - provider signal, not a verdict</span></div>
+              <div><b>{int(primary_entry.get("primary_targets") or 3)}</b><span>primary candidates</span></div>
+              <div><b>0</b><span aria-label="0 AUTO-PROMOTED CAUSES">AUTO-PROMOTED CAUSES</span></div>
+            </div>
+          </section>
+          <section class="showcase" aria-label="Primary review workspace preview">
+            <div class="showcase-kicker">Primary review workspace - real API</div>
+            <a class="browser" href="{_html(primary_detail_url)}">
+              <div class="browser-bar">
+                <span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span>
+                <span class="browser-url">ops-evidence.yukimurata0421.dev/ui/full-review-page</span>
+                <span class="browser-chip">real API</span>
               </div>
-            </div>
-            <aside class="gate-card" aria-label="Human gated promotion summary">
-              <div class="gate-kicker">review graph arbitration</div>
-              <div class="gate-big"><b>{_html(gate_signal_label)}</b><span>provider signal, not a verdict</span></div>
-              <div class="gate-bars"><i></i><i></i><i></i><i></i><i></i></div>
-              <div class="gate-div"><i></i><span>PROMOTION GATE</span><i></i></div>
-              <div class="gate-badge">
-                <div class="gate-lock">HG</div>
-                <div><b>0 AUTO-PROMOTED CAUSES</b><small>Incident promotion waits for user impact and operational outcome evidence.</small></div>
+              <div class="workspace">
+                <div>
+                  <div class="queue-label">Review queue - {primary_review_targets}</div>
+                  <div class="queue">
+                    <div class="queue-row active"><div><b>chromium_capture</b><code>0.88</code></div><span>primary - 5/5</span></div>
+                    <div class="queue-row"><div><b>observability_contract</b><code>0.84</code></div><span>primary - 4/5</span></div>
+                    <div class="queue-row"><div><b>audio_energy</b><code>0.84</code></div><span>primary - 4/5</span></div>
+                    <div class="queue-row"><div><b>transport_sender</b><code>0.87</code></div><span>validation - 5/5</span></div>
+                    <small>+ {max(0, primary_review_targets - 4)} targets</small>
+                  </div>
+                </div>
+                <div>
+                  <div class="mock-panel">
+                    <div class="mock-title"><span class="mock-pill">PRIMARY CANDIDATE</span><b>chromium_capture</b><span class="mock-score">0.88</span></div>
+                    <p class="mock-copy">Chromium capture process failed to start, leading to missing video frames. Capture freshness feeds the YouTube ingest pipeline.</p>
+                  </div>
+                  <div class="mock-panel soft" style="margin-top:12px">
+                    <div class="mock-label">provider convergence - 5 claimed / 0 silent</div>
+                    <div class="provider-bars">
+                      <div><span>Gemini</span><i></i><small>arbiter</small></div>
+                      <div><span>Gemma 4</span><i></i><small>claimed</small></div>
+                      <div><span>Mistral</span><i></i><small>claimed</small></div>
+                      <div><span>Qwen</span><i></i><small>claimed</small></div>
+                      <div><span>GPT-OSS</span><i></i><small>claimed</small></div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="mock-panel soft">
+                    <div class="mock-label">cited evidence</div>
+                    <div class="evidence-list">
+                      <div><code>PATTERN-172</code><span>CRITICAL</span></div>
+                      <div><code>PATTERN-016</code><span>renderer crash</span></div>
+                      <div><code>PATTERN-173</code><span>GPU crash</span></div>
+                      <small>+ 6 refs</small>
+                    </div>
+                  </div>
+                  <div class="human-gate">
+                    <div class="human-top"><span class="hg">HG</span><b>Human-gated</b><span class="human-state">NOT PROMOTED</span></div>
+                    <p style="margin-top:9px;font-size:12.5px">Convergence is support, not a verdict.</p>
+                    <p style="margin-top:9px;color:var(--green);font:800 11px/1.3 var(--mono)">next -&gt; is capture_freshness_count zero?</p>
+                  </div>
+                </div>
               </div>
-            </aside>
+            </a>
           </section>
-          <section class="trust" aria-label="Public review guarantees">
-            <article class="trust-cell"><b>Cloud Run</b><span>read-only UI</span></article>
-            <article class="trust-cell"><b>5</b><span>provider recorded runs</span></article>
-            <article class="trust-cell"><b>100%</b><span>ledger coverage on curated cases</span></article>
-            <article class="trust-cell"><b>0</b><span>auto-accepted incident causes</span></article>
-            <article class="trust-cell"><b>Local</b><span>raw logs are not uploaded</span></article>
-          </section>
-          <section class="agent-loop" aria-label="Agent loop">
-            <div class="agent-panel">
-              <div class="kicker">Agent loop</div>
-              <strong>ADK-compatible trace included</strong>
-              <p>Each public review keeps the tool-call trace that turns sanitized evidence into review targets, missing-evidence requests, and a human gate.</p>
-            </div>
-            <div class="agent-steps">
-              <div class="agent-step"><b>Collect</b><span>sanitize logs and source context</span></div>
-              <div class="agent-step"><b>Compare</b><span>run provider-specific chunks</span></div>
-              <div class="agent-step"><b>Validate</b><span>check citations and source refs</span></div>
-              <div class="agent-step"><b>Rescore</b><span>attach more evidence when needed</span></div>
-              <div class="agent-step"><b>Gate</b><span>keep incident promotion human-owned</span></div>
-            </div>
-          </section>
-          <section id="review-modes">
+          <div class="band" id="loop">
+            <section class="wrap">
+              <div class="kicker">How the trust holds</div>
+              <h2>Local-first in. Human-gated out.</h2>
+              <div class="pipeline" style="margin-top:26px">
+                <article class="pipe-card"><div class="pipe-num">01</div><strong>Raw logs stay local</strong><p>Sanitized on your machine. raw_log_policy = not_uploaded.</p></article>
+                <article class="pipe-card"><div class="pipe-num">02</div><strong>Bundle to Google Cloud</strong><p>Sanitized evidence and sanitized source context reach the review path. Nothing raw does.</p></article>
+                <article class="pipe-card"><div class="pipe-num">03</div><strong>Five models review</strong><p>Gemini, Gemma, Mistral, Qwen, GPT-OSS. Agreement is support, not truth.</p></article>
+                <article class="pipe-card final"><div class="pipe-num">04</div><strong>A human says yes</strong><p>Impact and cause stay human-owned. 0 auto-accepted causes.</p></article>
+              </div>
+            </section>
+          </div>
+          <section id="review-modes" class="wrap">
             <div class="section-head">
               <div>
                 <div class="kicker">Review modes</div>
                 <h2>Replay path for reproducibility, AI path for real evidence.</h2>
               </div>
-              <p class="section-note">The public URL serves recorded artifacts immediately. Deterministic replay proves reproducibility; real provider runs spend more time preserving evidence boundaries before action.</p>
+              <p class="section-note">The public URL serves recorded artifacts immediately. Deterministic replay proves reproducibility; real provider runs preserve evidence boundaries before action.</p>
             </div>
             <div class="mode-grid">
               <article class="mode-card"><strong>Public Replay</strong><span>deterministic local</span><p>Replays the public 6,506-line sanitized fixture without external AI API keys; measured review graph generation is about 11 seconds.</p></article>
-              <article class="mode-card"><strong>More Data Rescore</strong><span>evidence promotion demo</span><p>Shows `validation_target -&gt; primary_candidate` in about 1 second while the human gate remains explicit.</p></article>
-              <article class="mode-card"><strong>Live AI Review</strong><span>Gemini / ADK-compatible</span><p>Uses the real provider path to review Evidence Bundles, compare claims, and route missing evidence.</p></article>
+              <article class="mode-card"><strong>More Data Rescore</strong><span>evidence promotion demo</span><p>Shows validation_target -&gt; primary_candidate in about 1 second while the human gate remains explicit.</p></article>
+              <article class="mode-card"><strong>Live AI Review</strong><span>Gemini / ADK-compatible</span><p>Uses the real provider path to review Evidence Bundles, compare claims, and route missing evidence. ADK-compatible trace included.</p></article>
               <article class="mode-card"><strong>Full Forensic AI Review</strong><span>45k-50k rows</span><p>Uses precomputed artifacts from larger real ops corpora for deep multi-provider synthesis.</p></article>
             </div>
           </section>
-          <section id="judging-map">
-            <div class="section-head">
-              <div>
-                <div class="kicker">Hackathon fit</div>
-                <h2>Built as the evidence gate before automated action.</h2>
-              </div>
-              <p class="section-note">The project focuses on the missing middle of DevOps agents: deciding whether there is enough evidence to act.</p>
-            </div>
-            <div class="criteria-grid">
-              <article class="criteria-card"><strong>Agent value</strong><p>Tool-call trace, missing-evidence routing, and rescore loop.</p></article>
-              <article class="criteria-card"><strong>Problem fit</strong><p>Prevents unsafe certainty from thin operational evidence.</p></article>
-              <article class="criteria-card"><strong>Usability</strong><p>No-login Cloud Run UI with primary review and graph links.</p></article>
-              <article class="criteria-card"><strong>Practicality</strong><p>Raw logs stay local; promotion is human-gated.</p></article>
-              <article class="criteria-card"><strong>Build depth</strong><p>5 providers, full-corpus ledger, tests, Cloud Build, Cloud Run.</p></article>
-            </div>
-          </section>
-          <section id="review-set">
+          <section id="review-set" class="wrap">
             <div class="section-head">
               <div>
                 <div class="kicker">Public review set</div>
                 <h2>Real API runs. Full-corpus ledgers.</h2>
               </div>
-              <p class="section-note">Every sanitized DB row is assigned to the coverage ledger before provider chunking. Raw bundles, raw source, and write APIs are not exposed here.</p>
+              <p class="section-note">{_human_count(total_public_corpora)} public corpora - {_human_count(total_public_rows)} rows. Every sanitized DB row is assigned to the coverage ledger before provider chunking.</p>
             </div>
             <h2>Primary Review</h2>
             <div class="review-grid">{primary_cards}</div>
           </section>
-          <section>
+          <section class="wrap">
             <h2>Guarded Review</h2>
             <div class="review-grid">{guarded_cards}</div>
           </section>
-          <section>
+          <section class="wrap">
             <h2>Observation Gap Validation</h2>
             <div class="review-grid">{observation_cards}</div>
           </section>
-          <section>
+          <section class="wrap">
             <h2>Cross-Domain Scale Validation</h2>
             <div class="review-grid">{scale_cards}</div>
           </section>
-          <section id="improvement-loop">
+          <div class="band" id="judging-map">
+            <section class="wrap">
+              <div class="kicker">Judging map</div>
+              <h2>Built as the evidence gate before automated action.</h2>
+              <div class="criteria-grid" style="margin-top:28px">
+                <article class="criteria-card"><strong>Agent value</strong><p>Tool-call trace, missing-evidence routing, and a rescore loop.</p></article>
+                <article class="criteria-card"><strong>Problem fit</strong><p>Prevents unsafe certainty from thin operational evidence.</p></article>
+                <article class="criteria-card"><strong>Usability</strong><p>No-login Cloud Run UI with primary review and graph links.</p></article>
+                <article class="criteria-card"><strong>Practicality</strong><p>Raw logs stay local; promotion is human-gated.</p></article>
+                <article class="criteria-card"><strong>Build depth</strong><p>5 providers, full-corpus ledger, tests, Cloud Build, Cloud Run.</p></article>
+              </div>
+            </section>
+          </div>
+          <section id="improvement-loop" class="wrap">
             <div class="section-head">
               <div>
                 <div class="kicker">Operated as production software</div>
@@ -1019,7 +1074,7 @@ def _public_precomputed_landing_page() -> str:
             </div>
             <div class="loop-grid">{operation_links}</div>
           </section>
-          {archive_section}
+          <div class="wrap">{archive_section}</div>
         </main>
       </body>
     </html>
