@@ -14,9 +14,10 @@ from ops_evidence_synthesis.synthesis.validation import validate_claim_result
     reason="manual real API smoke; set OES_RUN_REAL_API_SMOKE=1 to run",
 )
 def test_manual_gemini_flash_lite_returns_schema_valid_claim_payload() -> None:
+    os.environ.setdefault("OES_GEMINI_THINKING_LEVEL", "minimal")
     provider = VertexGeminiProvider.from_env(
         model_name=os.environ.get("OES_FAST_GCP_GEMINI_MODEL", "gemini-3.1-flash-lite"),
-        max_output_tokens=1024,
+        max_output_tokens=int(os.environ.get("OES_FAST_GCP_GEMINI_MAX_OUTPUT_TOKENS", "4096")),
         timeout_seconds=60,
     )
     response = provider.run(
