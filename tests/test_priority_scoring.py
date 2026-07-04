@@ -89,3 +89,80 @@ def test_actionable_runtime_target_scores_above_healthy_status_target() -> None:
     assert actionable["score"] > healthy["score"]
     assert healthy["score"] <= 0.73
     assert healthy["breakdown"]["penalties"]["healthy_status_penalty"] > 0
+
+
+def test_priority_score_varies_by_support_evidence_and_blockers_instead_of_sticking_to_prior() -> None:
+    provider_positions = [
+        {"provider_id": "gemini-enterprise-agent-platform", "stance": "claimed"},
+        {"provider_id": "gemma-agent-platform", "stance": "claimed"},
+        {"provider_id": "mistral-agent-platform", "stance": "claimed"},
+        {"provider_id": "openai-gpt-oss-on-vertex", "stance": "claimed"},
+        {"provider_id": "qwen-agent-platform", "stance": "claimed"},
+    ]
+    without_gemini = [
+        {**row, "stance": "silent" if "gemini" in row["provider_id"] else "claimed"}
+        for row in provider_positions
+    ]
+    common = {
+        "prior_score": 0.86,
+        "canonical_review_unit": "runtime_recovery",
+        "title": "Restart loop affects notification delivery",
+        "suspected_issue": "Restart failures can block notification delivery.",
+        "operational_mechanism": "watchdog restart loop and delivery failure",
+        "why_it_matters": "customer notification delivery impact",
+        "target_class": "primary_candidate",
+    }
+
+    dense = score_review_priority(
+        **common,
+        provider_positions=provider_positions,
+        evidence_ref_count=30,
+        evidence_family_count=3,
+        source_candidate_count=5,
+        missing_evidence=[],
+        blocked_reasons=[],
+    )
+    no_gemini = score_review_priority(
+        **common,
+        provider_positions=without_gemini,
+        evidence_ref_count=30,
+        evidence_family_count=3,
+        source_candidate_count=5,
+        missing_evidence=[],
+        blocked_reasons=[],
+    )
+    missing_impact = score_review_priority(
+        **common,
+        provider_positions=provider_positions,
+        evidence_ref_count=2,
+        evidence_family_count=1,
+        source_candidate_count=1,
+        missing_evidence=["user impact evidence", "metric time series"],
+        blocked_reasons=["user_impact_unverified"],
+    )
+    healthy_status = score_review_priority(
+        **{
+            **common,
+            "canonical_review_unit": "service_liveness",
+            "title": "Service is healthy and idle",
+            "suspected_issue": "None, service is healthy and idle.",
+            "operational_mechanism": "successful runs",
+            "why_it_matters": "baseline health confirmation",
+            "target_class": "validation_target",
+        },
+        provider_positions=provider_positions,
+        evidence_ref_count=30,
+        evidence_family_count=3,
+        source_candidate_count=5,
+        missing_evidence=[],
+        blocked_reasons=[],
+    )
+
+    scores = {dense["score"], no_gemini["score"], missing_impact["score"], healthy_status["score"]}
+    assert len(scores) == 4
+    assert 0.86 not in scores
+    assert dense["score"] > missing_impact["score"] > healthy_status["score"]
+    assert dense["score"] > no_gemini["score"]
+    assert no_gemini["breakdown"]["penalties"]["gemini_silent_penalty"] > 0
+    assert missing_impact["breakdown"]["penalties"]["missing_evidence_penalty"] > 0
+    assert missing_impact["breakdown"]["penalties"]["blocker_penalty"] > 0

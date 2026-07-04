@@ -6314,6 +6314,32 @@ def _render_rescore_demo_page(demo_id: str) -> str:
       color: var(--ink-2);
       font-size: 12px;
       font-weight: 800;
+      cursor: pointer;
+    }}
+    .actions .button.primary {{
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }}
+    .actions .button:disabled {{
+      opacity: .55;
+      cursor: not-allowed;
+    }}
+    .run-result {{
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 14px 16px;
+      color: var(--ink-2);
+      font-size: 12.5px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }}
+    .run-result b {{ color: var(--ink); }}
+    .run-result code {{ color: var(--claimed); font-weight: 800; }}
+    .run-result[hidden] {{
+      display: none;
     }}
     @media (max-width: 1180px) {{
       .hero, .rescore-grid {{ grid-template-columns: 1fr; }}
@@ -6371,12 +6397,20 @@ def _render_rescore_demo_page(demo_id: str) -> str:
         <div>
           <div class="kicker">Rescore console - interactive</div>
           <h2>Toggle the child evidence bundle.</h2>
+          <p>Run the fixed sanitized child-bundle rescore in Cloud Run. This public action does not call model APIs.</p>
         </div>
-        <div class="segments" role="tablist" aria-label="Rescore phase">
-          <button type="button" class="active" data-phase-button="before">Before more data</button>
-          <button type="button" data-phase-button="after">After more data</button>
+        <div>
+          <div class="segments" role="tablist" aria-label="Rescore phase">
+            <button type="button" class="active" data-phase-button="before">Before more data</button>
+            <button type="button" data-phase-button="after">After more data</button>
+          </div>
+          <div class="actions" style="justify-content: flex-end; margin-top: 10px;">
+            <button class="button primary" type="button" data-run-rescore>Run Fixed Rescore</button>
+            <button class="button" type="button" data-run-live-rescore hidden>Run Live Model Rescore</button>
+          </div>
         </div>
       </div>
+      <div class="run-result" data-run-rescore-result hidden></div>
 
       <div class="rescore-grid">
         <article class="target-card">
@@ -6463,10 +6497,29 @@ def _render_rescore_demo_page(demo_id: str) -> str:
   </main>
   <script>
     (() => {{
+      const demoId = {json.dumps(str(payload.get("demo_id") or demo_id))};
       const buttons = [...document.querySelectorAll("[data-phase-button]")];
       const views = [...document.querySelectorAll("[data-phase-view]")];
       const bundle = document.querySelector("[data-bundle-card]");
       const chip = document.querySelector("[data-phase-chip]");
+      const runButton = document.querySelector("[data-run-rescore]");
+      const liveButton = document.querySelector("[data-run-live-rescore]");
+      const runResult = document.querySelector("[data-run-rescore-result]");
+      let ownerAccess = false;
+      const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({{
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }}[ch]));
+      const createRunId = () => {{
+        if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {{
+          return `fixed-rescore-${{globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 12)}}`;
+        }}
+        return `fixed-rescore-${{Date.now().toString(36)}}${{Math.random().toString(16).slice(2, 10)}}`;
+      }};
+      const createLiveRunId = () => createRunId().replace("fixed-rescore", "live-rescore");
       const setPhase = (phase) => {{
         buttons.forEach((button) => button.classList.toggle("active", button.dataset.phaseButton === phase));
         views.forEach((view) => {{ view.hidden = view.dataset.phaseView !== phase; }});
@@ -6474,6 +6527,74 @@ def _render_rescore_demo_page(demo_id: str) -> str:
         if (chip) chip.textContent = phase === "after" ? "evidence_collected" : "needs_more_data";
       }};
       buttons.forEach((button) => button.addEventListener("click", () => setPhase(button.dataset.phaseButton || "before")));
+      const showOwnerControls = () => {{
+        ownerAccess = true;
+        if (liveButton) liveButton.hidden = false;
+      }};
+      const activateOwnerSessionFromHash = async () => {{
+        const hash = String(window.location.hash || "").replace(/^#/, "");
+        if (!hash) return;
+        const params = new URLSearchParams(hash);
+        const token = params.get("owner_token") || params.get("owner-token");
+        if (!token) return;
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        try {{
+          const response = await fetch("/public/fast-gcp-review/owner-session", {{
+            method: "POST",
+            headers: {{ "content-type": "application/json", "accept": "application/json" }},
+            body: JSON.stringify({{ owner_token: token }})
+          }});
+          const payload = await response.json();
+          if (response.ok && payload.owner_access) showOwnerControls();
+        }} catch (error) {{}}
+      }};
+      const refreshOwnerSession = async () => {{
+        try {{
+          const response = await fetch("/public/fast-gcp-review/owner-session", {{
+            headers: {{ "accept": "application/json" }}
+          }});
+          const payload = await response.json();
+          if (response.ok && payload.owner_access) showOwnerControls();
+        }} catch (error) {{}}
+      }};
+      const runRescore = async (liveModel) => {{
+        if (!runResult) return;
+        if (liveModel && !ownerAccess) {{
+          runResult.hidden = false;
+          runResult.textContent = "Owner access is required for live model rescore.";
+          return;
+        }}
+        const activeButton = liveModel ? liveButton : runButton;
+        if (activeButton) activeButton.disabled = true;
+        if (runButton) runButton.disabled = true;
+        if (liveButton) liveButton.disabled = true;
+          runResult.hidden = false;
+        runResult.textContent = liveModel ? "Running live model rescore from sanitized child evidence..." : "Running fixed rescore from sanitized child evidence...";
+          try {{
+            const response = await fetch("/public/rescore-demo/run", {{
+              method: "POST",
+              headers: {{ "content-type": "application/json", "accept": "application/json" }},
+            body: JSON.stringify({{ demo_id: demoId, run_id: liveModel ? createLiveRunId() : createRunId(), live_model: liveModel }})
+            }});
+            const result = await response.json();
+            if (!response.ok) {{
+              const detail = result.detail && typeof result.detail === "object" ? result.detail.message : result.detail;
+              throw new Error(detail || JSON.stringify(result));
+            }}
+            setPhase("after");
+          const providers = result.providers || {{}};
+          const providerLine = liveModel ? `<br><b>Providers</b> ${{esc(providers.success ?? 0)}}/${{esc(providers.total ?? 0)}} schema-valid` : "";
+          runResult.innerHTML = `<b>${{liveModel ? "Live model rescore" : "Fixed rescore"}} completed.</b> ${{esc(result.timing.wall_seconds)}}s, model API called: <code>${{esc(result.model_api_called)}}</code>${{providerLine}}<br><b>Transition</b> ${{esc(result.transition.status)}}<br><b>Before</b> primary ${{esc(result.before.primary_count)}} / validation ${{esc(result.before.validation_count)}}<br><b>After</b> primary ${{esc(result.after.primary_count)}} / validation ${{esc(result.after.validation_count)}}<br><b>Child bundle</b> <code>${{esc(result.child.evidence_sha256)}}</code>`;
+          }} catch (error) {{
+          runResult.textContent = (liveModel ? "Live model rescore failed: " : "Fixed rescore failed: ") + error.message;
+          }} finally {{
+          if (runButton) runButton.disabled = false;
+          if (liveButton) liveButton.disabled = false;
+          }}
+      }};
+      if (runButton) runButton.addEventListener("click", () => runRescore(false));
+      if (liveButton) liveButton.addEventListener("click", () => runRescore(true));
+      activateOwnerSessionFromHash().then(refreshOwnerSession);
       setPhase("before");
     }})();
   </script>
@@ -6590,6 +6711,7 @@ fast_review_shell = _fast_review_shell
 canonical_precomputed_review_sha = _canonical_precomputed_review_sha
 precomputed_review_graph_response = _precomputed_review_graph_response
 precomputed_review_payload = _precomputed_review_payload
+rescore_demo_payload = _rescore_demo_payload
 remember_precomputed_review_payload = _remember_precomputed_review_payload
 precomputed_review_target_set = _precomputed_review_target_set
 precomputed_summary = _precomputed_summary
@@ -6608,6 +6730,7 @@ __all__ = [
     "canonical_precomputed_review_sha",
     "precomputed_review_graph_response",
     "precomputed_review_payload",
+    "rescore_demo_payload",
     "remember_precomputed_review_payload",
     "precomputed_review_target_set",
     "precomputed_summary",

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -224,7 +225,7 @@ def _json_or_empty(body: str) -> dict[str, object]:
 def _redacted_body(body: str) -> str:
     if len(body) > 1200:
         body = body[:1200] + "...[truncated]"
-    return body.replace("Authorization:", "Authorization:<redacted>")
+    return re.sub(r"Authorization:[^\r\n]*", "Authorization:<redacted>", body, flags=re.IGNORECASE)
 
 
 def _require(condition: bool, message: str) -> None:

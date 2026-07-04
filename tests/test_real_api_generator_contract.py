@@ -359,3 +359,114 @@ def test_public_targets_infer_review_unit_for_generic_targets() -> None:
         "processing-general": "background_processing",
     }
     assert "Review target requires validation: general" not in [target["title"] for target in targets]
+
+
+def test_public_targets_keep_provider_error_out_of_silent_and_convergence_denominator() -> None:
+    module = _generator_module()
+
+    targets = module._targets(
+        {
+            "review_targets": [
+                {
+                    "target_id": "runtime-restart",
+                    "title": "Runtime restart needs validation",
+                    "class": "validation_target",
+                    "subsystem": "runtime_recovery",
+                    "canonical_review_unit": "runtime_recovery",
+                    "providers": ["gemini-enterprise-agent-platform", "mistral-agent-platform"],
+                    "review_priority_score": 0.86,
+                    "evidence_refs": ["PATTERN-001", "METRIC-001"],
+                    "suspected_issue": "watchdog restart failures may affect notification delivery",
+                    "operational_mechanism": "runtime restart loop and delivery failure",
+                    "why_it_matters": "customer notification delivery can be delayed",
+                    "missing_evidence": ["user impact metric"],
+                    "source_candidate_count": 2,
+                }
+            ]
+        },
+        provider_statuses=[
+            {
+                "provider_id": "gemini-enterprise-agent-platform",
+                "status": "ok",
+                "schema_valid": True,
+                "raw_output_sha256": "a" * 64,
+            },
+            {
+                "provider_id": "mistral-agent-platform",
+                "status": "provider_error",
+                "schema_valid": False,
+                "failure_reason": "HTTP 429 resource exhausted",
+                "raw_output_sha256": "b" * 64,
+            },
+            {
+                "provider_id": "qwen-agent-platform",
+                "status": "ok",
+                "schema_valid": True,
+                "raw_output_sha256": "c" * 64,
+            },
+        ],
+        log_count=50000,
+        evidence_lookup={
+            "PATTERN-001": {
+                "message_template": "watchdog restart failure",
+                "first_seen": "2026-06-01T01:00:00Z",
+                "last_seen": "2026-06-01T01:10:00Z",
+            },
+            "METRIC-001": {
+                "message_template": "notification delivery latency spike",
+                "first_seen": "2026-06-01T01:05:00Z",
+                "last_seen": "2026-06-01T01:15:00Z",
+            },
+        },
+        window_start="2026-06-01T00:00:00Z",
+        window_end="2026-06-02T00:00:00Z",
+    )
+
+    assert len(targets) == 1
+    target = targets[0]
+    positions = {row["provider_id"]: row for row in target["provider_positions"]}
+    assert positions["gemini-enterprise-agent-platform"]["stance"] == "claimed"
+    assert positions["mistral-agent-platform"]["stance"] == "provider_error"
+    assert "Excluded from convergence denominator" in positions["mistral-agent-platform"]["one_line"]
+    assert positions["qwen-agent-platform"]["stance"] == "silent"
+    assert target["provider_count"] == 1
+    assert target["agreement"]["convergence_score"] == 0.5
+    assert target["agreement"]["summary"].startswith("1/2 schema-valid providers")
+
+
+def test_primary_candidates_remain_review_targets_not_accepted_causes() -> None:
+    module = _generator_module()
+    primary_target = {
+        "target_id": "primary-runtime",
+        "class": "primary_candidate",
+        "provider_count": 5,
+        "review_priority_score": 0.91,
+        "evidence_refs": ["PATTERN-001", "METRIC-001"],
+    }
+
+    counts = module._public_review_counts([primary_target], graph_summary={"auto_archived_count": 0})
+    summary = module._review_graph_summary(
+        {
+            "canonical_review_graph": {
+                "summary": {},
+                "agreement_dimensions": {
+                    "technical_baseline_agreement": {"established": True},
+                    "incident_baseline_agreement": {"established": True},
+                    "provider_detection_overlap": {"value": "5/5"},
+                    "review_unit_convergence": {"value": "1/1"},
+                },
+            }
+        },
+        targets=[primary_target],
+        provider_count=5,
+        log_count=44944,
+    )
+
+    assert counts["primary_targets"] == 1
+    assert counts["validation_targets"] == 0
+    assert summary["primary_promoted_count"] == 1
+    assert summary["incident_gate_signal"] == "signal_present"
+    assert summary["incident_gate_scope"] == "graph_level_signal_not_target_promotion"
+    assert summary["incident_baseline_established_count"] == 0
+    assert "promotion remains human-gated" in summary["target_promotion_policy"]
+    assert "technical support only" in summary["note"]

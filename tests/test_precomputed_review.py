@@ -17,12 +17,15 @@ from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.synthesis.pipeline import run_pipeline
 from ops_evidence_synthesis.web.precomputed_review import (
     _canonical_precomputed_review_sha,
+    _fast_detail_target_card,
     _precomputed_review_payload,
     _precomputed_review_graph_response,
     _public_precomputed_landing_page,
     _render_precomputed_graph_page,
     _render_precomputed_markdown_report,
     _render_precomputed_review_detail_page,
+    _workspace_target_detail_html,
+    rescore_demo_payload,
     render_rescore_demo_page,
 )
 from scripts.generate_precomputed_review_from_multi_run import _public_target_class
@@ -135,6 +138,7 @@ def test_public_markdown_report_renders_human_review_boundary() -> None:
 
 def test_public_rescore_demo_is_renderable() -> None:
     html = render_rescore_demo_page("amazon-notify-more-data-rescore")
+    payload = rescore_demo_payload("amazon-notify-more-data-rescore")
 
     assert "More data rescore demo" in html
     assert "Gemini-led control plane" in html
@@ -142,6 +146,11 @@ def test_public_rescore_demo_is_renderable() -> None:
     assert "qwen-agent-platform" in html
     assert "glm-agent-platform" in html
     assert "Provider positions" in html
+    assert "Run Fixed Rescore" in html
+    assert "Run Live Model Rescore" in html
+    assert "/public/rescore-demo/run" in html
+    assert "/public/fast-gcp-review/owner-session" in html
+    assert "does not call model APIs" in html
     assert "needs_more_data -&gt; evidence_collected" in html
     assert "validation_target" in html
     assert "primary_candidate" in html
@@ -150,6 +159,71 @@ def test_public_rescore_demo_is_renderable() -> None:
     assert "preserved_demo_snapshot" in html
     assert "Before target present in current source review: no" in html
     assert "test_more_data_child_bundle_rescores_parent_graph_and_promotion" in html
+    assert payload["demo_id"] == "amazon-notify-more-data-rescore"
+    assert payload["before"]["state"] == "validation_target"
+    assert payload["more_data_loop"]["status_transition"] == "needs_more_data -> evidence_collected"
+    assert payload["more_data_loop"]["added_log_count"] == 2
+    assert payload["after"]["state"] == "primary_candidate"
+    assert payload["after"]["promotion_decision"]["final_class"] == "primary_candidate"
+
+
+def test_detail_target_cards_keep_provider_summary_and_provider_list_in_sync() -> None:
+    target = {
+        "review_target_id": "rt-provider-sync",
+        "title": "Runtime restart needs validation",
+        "class": "validation_target",
+        "status": "pending",
+        "subsystem": "runtime_recovery",
+        "canonical_review_unit": "runtime_recovery",
+        "review_priority_score": 0.81,
+        "provider_count": 1,
+        "agreement": {
+            "verdict": "single_source",
+            "convergence_score": 0.5,
+            "summary": "1/2 schema-valid providers projected this target.",
+        },
+        "promotion": {
+            "state": "validation",
+            "blocked_reason": "user_impact_unverified",
+            "score_note": "Priority is review urgency, not truth probability.",
+        },
+        "provider_positions": [
+            {
+                "provider_id": "gemini-enterprise-agent-platform",
+                "stance": "claimed",
+                "one_line": "Projected this canonical review unit.",
+            },
+            {
+                "provider_id": "qwen-agent-platform",
+                "stance": "silent",
+                "one_line": "Did not surface this normalized review target.",
+            },
+            {
+                "provider_id": "mistral-agent-platform",
+                "stance": "provider_error",
+                "one_line": "HTTP 429 resource exhausted. Excluded from convergence denominator.",
+            },
+        ],
+        "evidence_refs": ["PATTERN-001", "METRIC-001"],
+        "missing_evidence": ["user impact metric"],
+        "target_explanation": {
+            "suspected_issue": "watchdog restart failures may affect notification delivery",
+            "operational_mechanism": "runtime restart loop and delivery failure",
+            "why_it_matters": "customer notification delivery can be delayed",
+        },
+    }
+
+    card_html = _fast_detail_target_card(target, index=1)
+    workspace_html = _workspace_target_detail_html(target, index=1)
+
+    assert "Provider stance: claimed 1 / silent 1 / provider_error 1" in card_html
+    assert card_html.count('class="position-row"') == 3
+    assert "gemini-enterprise-agent-platform" in card_html
+    assert "qwen-agent-platform" in card_html
+    assert "mistral-agent-platform" in card_html
+    assert "1 claimed / 1 silent / 1 provider error / 0.50" in workspace_html
+    assert workspace_html.count("workspace-provider-card") == 3
+    assert "provider_error" in workspace_html
 
 
 def test_public_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_path: Path) -> None:
