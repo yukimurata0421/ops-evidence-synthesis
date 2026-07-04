@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+from ops_evidence_synthesis.canonical import sha256_json
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -432,6 +434,251 @@ def test_public_targets_keep_provider_error_out_of_silent_and_convergence_denomi
     assert target["provider_count"] == 1
     assert target["agreement"]["convergence_score"] == 0.5
     assert target["agreement"]["summary"].startswith("1/2 schema-valid providers")
+
+
+def test_provider_failure_statuses_are_not_silent_and_do_not_expand_denominator() -> None:
+    module = _generator_module()
+
+    targets = module._targets(
+        {
+            "review_targets": [
+                {
+                    "target_id": "delivery-impact",
+                    "title": "Delivery impact needs validation",
+                    "class": "validation_target",
+                    "subsystem": "user_experience",
+                    "canonical_review_unit": "user_experience",
+                    "providers": [
+                        "gemini-enterprise-agent-platform",
+                        "openai-gpt-oss-on-vertex",
+                        "mistral-agent-platform",
+                        "gemma-agent-platform",
+                    ],
+                    "review_priority_score": 0.84,
+                    "evidence_refs": ["PATTERN-001", "METRIC-001", "OPS-001"],
+                    "suspected_issue": "notification delivery may be blocked",
+                    "operational_mechanism": "provider support plus runtime evidence points at delivery impact",
+                    "why_it_matters": "human impact must be validated before incident promotion",
+                    "missing_evidence": ["recipient acknowledgement"],
+                    "source_candidate_count": 3,
+                }
+            ]
+        },
+        provider_statuses=[
+            {
+                "provider_id": "gemini-enterprise-agent-platform",
+                "status": "ok",
+                "schema_valid": True,
+                "raw_output_sha256": "a" * 64,
+            },
+            {
+                "provider_id": "openai-gpt-oss-on-vertex",
+                "status": "ok",
+                "schema_valid": True,
+                "raw_output_sha256": "b" * 64,
+            },
+            {
+                "provider_id": "qwen-agent-platform",
+                "status": "ok",
+                "schema_valid": True,
+                "raw_output_sha256": "c" * 64,
+            },
+            {
+                "provider_id": "mistral-agent-platform",
+                "status": "ok",
+                "schema_valid": False,
+                "failure_reason": "schema_invalid: missing claims",
+                "raw_output_sha256": "d" * 64,
+            },
+            {
+                "provider_id": "gemma-agent-platform",
+                "status": "retry_exhausted",
+                "schema_valid": False,
+                "failure_reason": "retry_exhausted after 3 chunk attempts",
+                "raw_output_sha256": "e" * 64,
+            },
+        ],
+        log_count=2000,
+        evidence_lookup={
+            "PATTERN-001": {"message_template": "delivery failed"},
+            "METRIC-001": {"message_template": "delivery latency spike"},
+            "OPS-001": {"message_template": "operator observed blocked notification"},
+        },
+        window_start="2026-06-01T00:00:00Z",
+        window_end="2026-06-02T00:00:00Z",
+    )
+
+    assert len(targets) == 1
+    target = targets[0]
+    positions = {row["provider_id"]: row for row in target["provider_positions"]}
+    assert positions["gemini-enterprise-agent-platform"]["stance"] == "claimed"
+    assert positions["openai-gpt-oss-on-vertex"]["stance"] == "claimed"
+    assert positions["qwen-agent-platform"]["stance"] == "silent"
+    assert positions["mistral-agent-platform"]["stance"] == "provider_error"
+    assert positions["gemma-agent-platform"]["stance"] == "provider_error"
+    assert "schema_invalid" in positions["mistral-agent-platform"]["one_line"]
+    assert "retry_exhausted" in positions["gemma-agent-platform"]["one_line"]
+    assert target["provider_count"] == 2
+    assert target["agreement"]["convergence_score"] == 0.6666666667
+    assert target["agreement"]["summary"].startswith("2/3 schema-valid providers")
+
+
+def test_canonical_public_target_merge_is_order_independent_and_aggregates_chunk_refs() -> None:
+    module = _generator_module()
+    provider_statuses = [
+        {
+            "provider_id": "gemini-enterprise-agent-platform",
+            "status": "ok",
+            "schema_valid": True,
+            "raw_output_sha256": "a" * 64,
+        },
+        {
+            "provider_id": "qwen-agent-platform",
+            "status": "ok",
+            "schema_valid": True,
+            "raw_output_sha256": "b" * 64,
+        },
+        {
+            "provider_id": "gemma-agent-platform",
+            "status": "ok",
+            "schema_valid": True,
+            "raw_output_sha256": "c" * 64,
+        },
+    ]
+    duplicate_targets = [
+        {
+            "target_id": "runtime-chunk-b",
+            "title": "Runtime restart needs validation",
+            "class": "validation_target",
+            "subsystem": "runtime_recovery",
+            "canonical_review_unit": "runtime_recovery",
+            "providers": ["qwen-agent-platform"],
+            "review_priority_score": 0.73,
+            "evidence_refs": ["PATTERN-002", "METRIC-002"],
+            "source_chunk_id": "chunk-runtime-002",
+            "suspected_issue": "restart loop may hide service health",
+            "operational_mechanism": "a later chunk surfaced the same runtime recovery unit",
+            "source_candidate_count": 2,
+        },
+        {
+            "target_id": "runtime-chunk-a",
+            "title": "Runtime restart needs validation",
+            "class": "validation_target",
+            "subsystem": "runtime_recovery",
+            "canonical_review_unit": "runtime_recovery",
+            "providers": ["gemini-enterprise-agent-platform", "gemma-agent-platform"],
+            "review_priority_score": 0.82,
+            "evidence_refs": ["PATTERN-001", "METRIC-001"],
+            "source_chunk_id": "chunk-runtime-001",
+            "suspected_issue": "restart loop may hide service health",
+            "operational_mechanism": "an earlier chunk surfaced the runtime recovery unit",
+            "source_candidate_count": 3,
+        },
+    ]
+
+    first_order = module._targets(
+        {"review_targets": duplicate_targets},
+        provider_statuses=provider_statuses,
+        log_count=45000,
+        evidence_lookup={},
+        window_start="2026-06-01T00:00:00Z",
+        window_end="2026-06-02T00:00:00Z",
+    )
+    reverse_order = module._targets(
+        {"review_targets": list(reversed(duplicate_targets))},
+        provider_statuses=provider_statuses,
+        log_count=45000,
+        evidence_lookup={},
+        window_start="2026-06-01T00:00:00Z",
+        window_end="2026-06-02T00:00:00Z",
+    )
+
+    assert sha256_json(first_order) == sha256_json(reverse_order)
+    assert len(first_order) == 1
+    target = first_order[0]
+    assert target["target_id"] == "runtime-chunk-a"
+    assert target["evidence_refs"] == ["METRIC-001", "METRIC-002", "PATTERN-001", "PATTERN-002"]
+    assert target["source_chunks"] == ["chunk-runtime-001", "chunk-runtime-002"]
+    assert target["raw"]["source_chunk_ids"] == ["chunk-runtime-001", "chunk-runtime-002"]
+    assert target["provider_count"] == 3
+    assert target["agreement"]["convergence_score"] == 1.0
+    positions = {row["provider_id"]: row["stance"] for row in target["provider_positions"]}
+    assert positions == {
+        "gemini-enterprise-agent-platform": "claimed",
+        "qwen-agent-platform": "claimed",
+        "gemma-agent-platform": "claimed",
+    }
+
+
+def test_absence_only_audio_energy_target_stays_validation_not_primary_candidate() -> None:
+    module = _generator_module()
+
+    targets = module._targets(
+        {
+            "review_targets": [
+                {
+                    "target_id": "audio-energy-absence",
+                    "title": "Audio energy absence needs validation",
+                    "class": "primary_candidate",
+                    "subsystem": "audio_energy",
+                    "canonical_review_unit": "audio_energy",
+                    "providers": [
+                        "gemini-enterprise-agent-platform",
+                        "openai-gpt-oss-on-vertex",
+                        "qwen-agent-platform",
+                    ],
+                    "review_priority_score": 0.9,
+                    "evidence_refs": ["PATTERN-001", "METRIC-001", "LOG-001", "TRACE-001"],
+                    "source_candidate_count": 4,
+                    "suspected_issue": "No audio energy measurement logs were provided.",
+                    "operational_mechanism": "absence of measurement is an observation gap, not a confirmed cause",
+                    "why_it_matters": "stream impact requires positive liveness or user-impact evidence",
+                    "counter_evidence_summary": ["No audio energy samples were available in the corpus."],
+                    "missing_evidence": [
+                        "positive audio_energy measurements",
+                        "user impact evidence",
+                    ],
+                }
+            ]
+        },
+        provider_statuses=[
+            {
+                "provider_id": "gemini-enterprise-agent-platform",
+                "status": "ok",
+                "schema_valid": True,
+                "raw_output_sha256": "a" * 64,
+            },
+            {
+                "provider_id": "openai-gpt-oss-on-vertex",
+                "status": "ok",
+                "schema_valid": True,
+                "raw_output_sha256": "b" * 64,
+            },
+            {
+                "provider_id": "qwen-agent-platform",
+                "status": "ok",
+                "schema_valid": True,
+                "raw_output_sha256": "c" * 64,
+            },
+        ],
+        log_count=50000,
+        evidence_lookup={
+            "PATTERN-001": {"message_template": "audio_energy field was absent"},
+            "METRIC-001": {"message_template": "audio energy metric missing"},
+            "LOG-001": {"message_template": "capture pipeline did not emit audio samples"},
+            "TRACE-001": {"message_template": "no direct user playback confirmation"},
+        },
+        window_start="2026-06-01T00:00:00Z",
+        window_end="2026-06-02T00:00:00Z",
+    )
+
+    assert len(targets) == 1
+    target = targets[0]
+    assert target["class"] == "validation_target"
+    assert target["original_class"] == "primary_candidate"
+    assert target["classification"]["adjustment"] == "demoted_primary_candidate_evidence_thin"
+    assert target["promotion"]["state"] == "validation"
+    assert "human_review_required" in target["promotion"]["blocked_reason"]
 
 
 def test_primary_candidates_remain_review_targets_not_accepted_causes() -> None:

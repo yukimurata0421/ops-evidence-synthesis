@@ -17,6 +17,9 @@ _COOKIE_RE = re.compile(r"(?i)\b(?:set-cookie|cookie)\s*[:=]\s*[^,\n]+")
 _SECRET_RE = re.compile(
     r"(?i)\b(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?[A-Za-z0-9_.:/=+\-]{10,}['\"]?"
 )
+_BARE_SECRET_TOKEN_RE = re.compile(
+    r"(?i)\b(?:sk-proj|sk|ghp|github_pat|xoxb|xoxp|xoxa|xoxr)[A-Za-z0-9_.:/=+\-]{10,}\b"
+)
 _RTMPS_STREAM_KEY_RE = re.compile(r"(?i)(rtmps://[^ \n]+/live2/)[A-Za-z0-9_-]+")
 _ID_RE = re.compile(r"(?i)\b(user_id|order_id|customer_id|account_id)\s*[:=]\s*[A-Za-z0-9_-]{4,}")
 _UUID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.IGNORECASE)
@@ -41,6 +44,7 @@ def sanitize_text(message: str) -> str:
     sanitized = _JWT_RE.sub("<JWT>", sanitized)
     sanitized = _RTMPS_STREAM_KEY_RE.sub(r"\1<STREAM_KEY>", sanitized)
     sanitized = _SECRET_RE.sub("<SECRET>", sanitized)
+    sanitized = _BARE_SECRET_TOKEN_RE.sub("<SECRET>", sanitized)
     sanitized = _USER_HOME_PATH_RE.sub(_local_path_replacement, sanitized)
     sanitized = _WINDOWS_USER_PATH_RE.sub(_local_path_replacement, sanitized)
     sanitized = _EMAIL_RE.sub("<EMAIL>", sanitized)

@@ -3121,6 +3121,15 @@ def _detail_action_links_html(evidence_sha256: str) -> str:
         ("Review graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions"),
         ("Markdown report", f"/ui/report.md?evidence_sha256={evidence}", "human-readable Markdown report"),
     ]
+    for demo_id in _public_rescore_demo_ids():
+        links.append(("More Data Loop", f"/ui/rescore-demo?id={quote(demo_id)}", demo_id))
+    links.extend(
+        [
+            ("GitHub", _public_repo_url(), "repository"),
+            ("Architecture", _public_architecture_url(), "system diagram"),
+            ("Demo Script", _public_demo_script_url(), "3 minute walkthrough"),
+        ]
+    )
     return "".join(
         f'<a class="button" href="{_html(url)}" title="{_html(title)}">{_html(label)}</a>'
         for label, url, title in links

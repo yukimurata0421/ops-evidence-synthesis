@@ -730,12 +730,14 @@ def _targets(
                 "evidence_ref_overflow_count": evidence_ref_overflow_count,
                 "excluded_evidence_refs": excluded_evidence_refs,
                 "missing_evidence": missing_evidence,
+                "source_chunks": _target_source_chunks(public_target),
                 "caveats": list(target.get("caveats") or []),
                 "raw": {
                     "baseline_support_score": public_target.get("baseline_support_score"),
                     "canonical_group_key": public_target.get("canonical_group_key"),
                     "rollup_provider_ratio": public_target.get("rollup_provider_ratio"),
                     "source_candidate_count": source_candidate_count,
+                    "source_chunk_ids": _target_source_chunks(public_target),
                 },
             }
         )
@@ -873,8 +875,8 @@ def _filter_and_dedupe_public_targets(targets: list[dict[str, Any]]) -> list[dic
             winners[key] = target
             order.append(key)
             continue
-        if _public_target_rank(target) > _public_target_rank(current):
-            winners[key] = target
+        winner, duplicate = _choose_public_target_winner(current, target)
+        winners[key] = _merge_duplicate_public_target(winner, duplicate)
     return sorted(
         (winners[key] for key in order),
         key=lambda target: (
@@ -892,6 +894,174 @@ def _public_target_dedupe_key(target: dict[str, Any]) -> str:
     if unit == "general":
         return "unit:general"
     return f"unit:{unit}"
+
+
+def _choose_public_target_winner(
+    first: dict[str, Any],
+    second: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    first_rank = _public_target_rank(first)
+    second_rank = _public_target_rank(second)
+    if second_rank > first_rank:
+        return second, first
+    if first_rank > second_rank:
+        return first, second
+    first_key = _public_target_stable_tiebreaker(first)
+    second_key = _public_target_stable_tiebreaker(second)
+    if second_key < first_key:
+        return second, first
+    return first, second
+
+
+def _public_target_stable_tiebreaker(target: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(target.get("canonical_review_unit") or ""),
+        str(target.get("target_id") or ""),
+        str(target.get("review_target_id") or ""),
+    )
+
+
+def _merge_duplicate_public_target(
+    winner: dict[str, Any],
+    duplicate: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(winner)
+    evidence_refs = _sorted_unique_strings(
+        [
+            *(winner.get("evidence_refs") or []),
+            *(duplicate.get("evidence_refs") or []),
+        ]
+    )
+    excluded_refs = _sorted_unique_strings(
+        [
+            *(winner.get("excluded_evidence_refs") or []),
+            *(duplicate.get("excluded_evidence_refs") or []),
+        ]
+    )
+    missing_evidence = _sorted_unique_strings(
+        [
+            *(winner.get("missing_evidence") or []),
+            *(duplicate.get("missing_evidence") or []),
+        ]
+    )
+    caveats = _sorted_unique_strings([*(winner.get("caveats") or []), *(duplicate.get("caveats") or [])])
+    source_chunks = _sorted_unique_strings(
+        [
+            *(winner.get("source_chunks") or []),
+            *(duplicate.get("source_chunks") or []),
+            *_target_source_chunks(winner),
+            *_target_source_chunks(duplicate),
+        ]
+    )
+    provider_positions = _merge_provider_positions(
+        list(winner.get("provider_positions") or []),
+        list(duplicate.get("provider_positions") or []),
+    )
+    provider_count = sum(1 for row in provider_positions if str(row.get("stance") or "") == "claimed")
+    denominator = max(1, sum(1 for row in provider_positions if str(row.get("stance") or "") != "provider_error"))
+
+    merged["evidence_refs"] = evidence_refs[:PUBLIC_EVIDENCE_REF_LIMIT]
+    merged["evidence_ref_total_count"] = len(evidence_refs)
+    merged["evidence_ref_display_count"] = len(merged["evidence_refs"])
+    merged["evidence_ref_overflow_count"] = max(0, len(evidence_refs) - len(merged["evidence_refs"]))
+    merged["excluded_evidence_refs"] = excluded_refs
+    merged["missing_evidence"] = missing_evidence
+    merged["caveats"] = caveats
+    merged["source_chunks"] = source_chunks
+    merged["provider_positions"] = provider_positions
+    merged["provider_count"] = provider_count
+    raw = dict(merged.get("raw") or {})
+    raw["source_chunk_ids"] = source_chunks
+    raw["source_candidate_count"] = max(
+        _int((winner.get("raw") or {}).get("source_candidate_count")),
+        _int((duplicate.get("raw") or {}).get("source_candidate_count")),
+    )
+    merged["raw"] = raw
+    agreement = dict(merged.get("agreement") or {})
+    agreement["verdict"] = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
+    agreement["convergence_score"] = round(provider_count / denominator, 10)
+    agreement["summary"] = _replace_provider_fraction(
+        str(agreement.get("summary") or ""),
+        provider_count=provider_count,
+        denominator=denominator,
+    )
+    merged["agreement"] = agreement
+    return merged
+
+
+def _merge_provider_positions(
+    first: list[dict[str, Any]],
+    second: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for position in [*first, *second]:
+        if not isinstance(position, dict):
+            continue
+        provider_id = str(position.get("provider_id") or "")
+        if not provider_id:
+            continue
+        if provider_id not in order:
+            order.append(provider_id)
+        current = merged.get(provider_id)
+        if current is None:
+            merged[provider_id] = dict(position)
+            continue
+        merged[provider_id] = _choose_provider_position(current, position)
+    return [merged[provider_id] for provider_id in order]
+
+
+def _choose_provider_position(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
+    first_rank = _provider_position_rank(first)
+    second_rank = _provider_position_rank(second)
+    if second_rank > first_rank:
+        return dict(second)
+    return dict(first)
+
+
+def _provider_position_rank(position: dict[str, Any]) -> int:
+    stance = str(position.get("stance") or "")
+    if stance == "claimed":
+        return 3
+    if stance == "provider_error":
+        return 2
+    if stance == "silent":
+        return 1
+    return 0
+
+
+def _replace_provider_fraction(summary: str, *, provider_count: int, denominator: int) -> str:
+    prefix = f"{provider_count}/{denominator} schema-valid {'provider' if denominator == 1 else 'providers'}"
+    if not summary:
+        return f"{prefix} projected this review unit; incident promotion remains human-gated."
+    return re.sub(r"^\d+/\d+ schema-valid providers?", prefix, summary, count=1)
+
+
+def _target_source_chunks(target: dict[str, Any]) -> list[str]:
+    chunks: list[str] = []
+    for container in (target, target.get("raw") if isinstance(target.get("raw"), dict) else {}):
+        for key in ("source_chunk_id", "chunk_id", "source_subchunk_id"):
+            value = container.get(key)
+            if value:
+                chunks.append(str(value))
+        for key in ("source_chunk_ids", "source_chunks", "chunk_ids"):
+            value = container.get(key)
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        chunk_id = item.get("chunk_id") or item.get("id") or item.get("source_chunk_id")
+                        if chunk_id:
+                            chunks.append(str(chunk_id))
+                    elif item:
+                        chunks.append(str(item))
+            elif value:
+                chunks.append(str(value))
+    return _sorted_unique_strings(chunks)
+
+
+def _sorted_unique_strings(values: list[Any]) -> list[str]:
+    unique = {str(value).strip() for value in values if str(value).strip()}
+    return sorted(unique)
 
 
 def _public_target_rank(target: dict[str, Any]) -> tuple[int, int, float, int, int]:

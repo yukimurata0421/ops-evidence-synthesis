@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from ops_evidence_synthesis.api import _provider_error_message, app
 from ops_evidence_synthesis.routes import api_routes
+from ops_evidence_synthesis.web import precomputed_review as web_precomputed
 
 
 def _clear_fast_gcp_review_state() -> None:
@@ -79,6 +80,81 @@ def test_public_fast_gcp_review_id_separates_runs_for_same_evidence_sha() -> Non
     assert first != cross_check
     assert len(first) == 64
     assert len(second) == 64
+
+
+def test_public_fast_gcp_review_persists_same_evidence_sha_as_distinct_public_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_fast_gcp_review_state()
+    _clear_fast_gcp_review_storage_env(monkeypatch)
+    web_precomputed._PRECOMPUTED_REVIEW_CACHE.clear()
+    output_dir = tmp_path / "precomputed"
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_OUTPUT_DIR", str(output_dir))
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", str(output_dir))
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_CACHE_SECONDS", "0")
+    evidence_sha = "e" * 64
+
+    def payload(public_review_id: str, run_id: str, raw_output_sha256: str) -> dict[str, object]:
+        return {
+            "evidence_sha256": evidence_sha,
+            "updated_at": "2026-07-04T00:00:00Z",
+            "summary": {
+                "status": "ok",
+                "finding": {"title": run_id, "impact": "fixed sample review"},
+                "review": {"primary_targets": 0, "validation_targets": 1},
+                "providers": {"success": 1, "total": 1, "pipeline_status": "succeeded"},
+                "raw_log_policy": "not_uploaded",
+                "log_count": 2000,
+                "canonical_graph_sha256": "g" * 64,
+                "input_fingerprint_sha256": "i" * 64,
+            },
+            "generation": {
+                "provider_mode": "fast_gcp_vertex_gemini_flash_lite",
+                "fast_gcp_review": {
+                    "public_review_id": public_review_id,
+                    "run_id": run_id,
+                    "sample_rows": 2000,
+                    "model_names": ["gemini-3.1-flash-lite"],
+                },
+            },
+            "provider_statuses": [
+                {
+                    "provider_id": "gemini-fast-lite",
+                    "model_name": "gemini-3.1-flash-lite",
+                    "status": "ok",
+                    "schema_valid": True,
+                    "raw_output_sha256": raw_output_sha256,
+                }
+            ],
+            "review_graph_summary": {},
+            "analysis_context": {},
+            "targets": [],
+        }
+
+    first_id = "1" * 64
+    second_id = "2" * 64
+    api_routes._persist_fast_gcp_public_payload(payload(first_id, "fast-run-a", "a" * 64))
+    api_routes._persist_fast_gcp_public_payload(payload(second_id, "fast-run-b", "b" * 64))
+
+    first_path = output_dir / f"{first_id}.json"
+    second_path = output_dir / f"{second_id}.json"
+    assert first_path.exists()
+    assert second_path.exists()
+    assert not (output_dir / f"{evidence_sha}.json").exists()
+    assert first_path.read_text(encoding="utf-8") != second_path.read_text(encoding="utf-8")
+
+    first_lookup = web_precomputed._precomputed_review_payload(first_id)
+    second_lookup = web_precomputed._precomputed_review_payload(second_id)
+    evidence_lookup = web_precomputed._precomputed_review_payload(evidence_sha)
+
+    assert first_lookup is not None
+    assert second_lookup is not None
+    assert first_lookup["generation"]["fast_gcp_review"]["run_id"] == "fast-run-a"
+    assert second_lookup["generation"]["fast_gcp_review"]["run_id"] == "fast-run-b"
+    assert first_lookup["provider_statuses"][0]["raw_output_sha256"] == "a" * 64
+    assert second_lookup["provider_statuses"][0]["raw_output_sha256"] == "b" * 64
+    assert evidence_lookup is None
 
 
 def test_public_fast_gcp_review_status_persists_to_gcs_prefix(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
+
+from ops_evidence_synthesis.gcp.chunked_review_job import DEFAULT_JOB_PROVIDERS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +23,43 @@ def test_deploy_public_demo_preserves_fast_review_runtime_contract() -> None:
     assert "OES_PUBLIC_FAST_GCP_REVIEW_CACHE_SECONDS=${PUBLIC_FAST_GCP_REVIEW_CACHE_SECONDS}" in script
     assert "OES_PUBLIC_FAST_GCP_REVIEW_DAILY_LIMIT=${PUBLIC_FAST_GCP_REVIEW_DAILY_LIMIT}" in script
     assert "OES_PUBLIC_FAST_GCP_REVIEW_CLIENT_DAILY_LIMIT=${PUBLIC_FAST_GCP_REVIEW_CLIENT_DAILY_LIMIT}" in script
+
+
+def test_fast_gcp_and_cloud_run_job_config_keep_provider_storage_and_model_contracts() -> None:
+    deploy_script = (ROOT / "scripts" / "deploy_public_demo.sh").read_text(encoding="utf-8")
+    main_tf = (ROOT / "infra" / "terraform" / "main.tf").read_text(encoding="utf-8")
+    variables_tf = (ROOT / "infra" / "terraform" / "variables.tf").read_text(encoding="utf-8")
+    job_source = (ROOT / "src" / "ops_evidence_synthesis" / "gcp" / "chunked_review_job.py").read_text(
+        encoding="utf-8"
+    )
+
+    expected_providers = ("gemini", "gpt-oss", "mistral", "qwen", "gemma")
+    assert DEFAULT_JOB_PROVIDERS == expected_providers
+    assert 'DEFAULT_JOB_PROVIDERS = ("gemini", "gpt-oss", "mistral", "qwen", "gemma")' in job_source
+    assert 'default     = ["gemini", "gpt-oss", "mistral", "qwen", "gemma"]' in variables_tf
+    assert 'OES_JOB_PROVIDERS                     = join(",", var.chunked_review_job_providers)' in main_tf
+    assert 'OES_JOB_PROVIDER_MODE                 = var.chunked_review_job_provider_mode' in main_tf
+    assert 'OES_CHUNK_RUN_STORE                   = "postgres"' in main_tf
+    assert "OES_CLOUD_SQL_CONNECTION_NAME" in main_tf
+    assert 'name = "OES_POSTGRES_PASSWORD"' in main_tf
+    assert 'mount_path = "/cloudsql"' in main_tf
+    assert "cloud_sql_instance" in main_tf
+    assert 'command = ["python", "-m", "ops_evidence_synthesis.gcp.chunked_review_job"]' in main_tf
+    assert 'OES_JOB_OUTPUT_PREFIX_URI             = "gs://${google_storage_bucket.private_artifacts.name}/job-runs"' in main_tf
+    assert (
+        'OES_JOB_PRECOMPUTED_OUTPUT_PREFIX_URI = "gs://${google_storage_bucket.private_artifacts.name}/precomputed_review_summaries"'
+        in main_tf
+    )
+    assert 'public_access_prevention    = "enforced"' in main_tf
+    assert "uniform_bucket_level_access = true" in main_tf
+    assert re.search(r'OES_QWEN_LOCATION\s*=\s*"global"', variables_tf)
+    assert re.search(r'OES_GEMMA_LOCATION\s*=\s*"global"', variables_tf)
+    assert re.search(r'OES_MISTRAL_MODEL\s*=\s*"mistral-small-2503"', variables_tf)
+    assert re.search(r'OES_GEMMA_MODEL\s*=\s*"gemma-4-26b-a4b-it-maas"', variables_tf)
+    assert 'FAST_GCP_REVIEW_SAMPLE_ROWS="${FAST_GCP_REVIEW_SAMPLE_ROWS:-2000}"' in deploy_script
+    assert "OES_FAST_GCP_GEMINI_MODEL=gemini-3.1-flash-lite" in deploy_script
+    assert "OES_GEMMA_MODEL=gemma-4-26b-a4b-it-maas" in deploy_script
+    assert "OES_GEMMA_LOCATION=global" in deploy_script
 
 
 def test_deploy_public_demo_keeps_ci_secret_scan_digest_and_smoke_gates() -> None:

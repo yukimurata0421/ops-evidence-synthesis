@@ -110,17 +110,25 @@ variable "runtime_env" {
     OES_MISTRAL_PROVIDER                  = "vertex"
     OES_MISTRAL_PROJECT                   = "ops-evidence-synthesis"
     OES_MISTRAL_LOCATION                  = "us-central1"
-    OES_MISTRAL_MODEL                     = "mistral-medium-3"
-    OES_MISTRAL_MAX_OUTPUT_TOKENS         = "8192"
+    OES_MISTRAL_MODEL                     = "mistral-small-2503"
+    OES_MISTRAL_MAX_OUTPUT_TOKENS         = "4096"
     OES_MISTRAL_TIMEOUT_SECONDS           = "90"
+    OES_QWEN_PROVIDER                     = "vertex"
+    OES_QWEN_PROJECT                      = "ops-evidence-synthesis"
+    OES_QWEN_LOCATION                     = "global"
+    OES_QWEN_MODEL                        = "qwen/qwen3-coder-480b-a35b-instruct-maas"
+    OES_QWEN_MAX_OUTPUT_TOKENS            = "8192"
+    OES_QWEN_TIMEOUT_SECONDS              = "240"
+    OES_GEMMA_PROVIDER                    = "vertex"
+    OES_GEMMA_PROJECT                     = "ops-evidence-synthesis"
     OES_LLAMA_PROVIDER                    = "vertex"
     OES_LLAMA_PROJECT                     = "ops-evidence-synthesis"
     OES_LLAMA_LOCATION                    = "us-east5"
     OES_LLAMA_MODEL                       = "llama-4-maverick-17b-128e-instruct-maas"
     OES_LLAMA_MAX_OUTPUT_TOKENS           = "8192"
     OES_LLAMA_TIMEOUT_SECONDS             = "240"
-    OES_ALTERNATIVE_PROVIDERS             = "gpt-oss,llama"
-    OES_DISABLED_PROVIDERS                = "claude"
+    OES_ALTERNATIVE_PROVIDERS             = "gpt-oss,mistral,qwen,gemma"
+    OES_DISABLED_PROVIDERS                = "claude,llama,glm"
     OES_ENABLE_REAL_AI                    = "1"
     OES_STRUCTURED_LOGGING                = "1"
     OES_BIGQUERY_APPLY_SCHEMA_ON_STARTUP  = "0"
@@ -266,7 +274,7 @@ variable "chunked_review_job_provider_mode" {
 variable "chunked_review_job_providers" {
   type        = list(string)
   description = "Provider aliases passed to the private chunked review job."
-  default     = ["gemini", "gpt-oss", "llama", "qwen", "glm"]
+  default     = ["gemini", "gpt-oss", "mistral", "qwen", "gemma"]
 }
 
 variable "chunked_review_job_chunk_workers" {

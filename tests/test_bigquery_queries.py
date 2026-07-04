@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from ops_evidence_synthesis.gcp.bigquery import (
@@ -13,6 +14,8 @@ from ops_evidence_synthesis.gcp.bigquery import (
     _snapshot_storage_row,
     _stored_review_target_set,
 )
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class _FakeBigQuery:
@@ -111,6 +114,64 @@ def test_bigquery_snapshot_pipeline_and_event_rows_round_trip_json_fields() -> N
     assert target_set["summary"]["primary_review_targets"] == 1
     assert target_set["summary"]["validation_targets"] == 1
     assert target_set["summary"]["score_note"] == "Score is review priority, not truth probability."
+
+
+def test_bigquery_audit_rows_do_not_promote_provider_queue_control_fields() -> None:
+    queue_fields = {
+        "locked_by",
+        "locked_at",
+        "next_retry_at",
+        "retry_after_sec",
+        "attempt_count",
+        "max_attempts",
+    }
+    pipeline_row = _pipeline_run_storage_row(
+        {
+            "pipeline_run_id": "run-queue-boundary",
+            "evidence_sha256": "sha",
+            "operation": "chunked_review",
+            "status": "completed",
+            "provider_total": 5,
+            "provider_success": 4,
+            "provider_failed": 1,
+            "locked_by": "worker-a",
+            "locked_at": "2026-01-01T00:00:00Z",
+            "next_retry_at": "2026-01-01T00:05:00Z",
+            "retry_after_sec": 30,
+            "attempt_count": 2,
+            "max_attempts": 3,
+            "summary": {"provider_statuses": [{"provider_id": "gemini", "status": "ok"}]},
+        }
+    )
+    event_row = _pipeline_event_storage_row(
+        {
+            "event_id": "event-queue-boundary",
+            "pipeline_run_id": "run-queue-boundary",
+            "evidence_sha256": "sha",
+            "operation": "chunked_review",
+            "event_type": "provider_completed",
+            "stage": "provider",
+            "status": "ok",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "locked_by": "worker-a",
+            "locked_at": "2026-01-01T00:00:00Z",
+            "next_retry_at": "2026-01-01T00:05:00Z",
+            "retry_after_sec": 30,
+            "attempt_count": 2,
+            "max_attempts": 3,
+            "metadata": {"artifact_sha256": "a" * 64},
+        }
+    )
+
+    assert queue_fields.isdisjoint(pipeline_row)
+    assert queue_fields.isdisjoint(event_row)
+    assert json.loads(pipeline_row["summary_json"]) == {
+        "provider_statuses": [{"provider_id": "gemini", "status": "ok"}]
+    }
+    assert json.loads(event_row["metadata_json"]) == {"artifact_sha256": "a" * 64}
+    tables_tf = (ROOT / "infra" / "terraform" / "tables.tf").read_text(encoding="utf-8")
+    assert "provider_chunk_runs" not in tables_tf
+    assert "provider_chunk_attempts" not in tables_tf
 
 
 def test_latest_pipeline_run_by_operations_uses_bound_operation_params(monkeypatch) -> None:

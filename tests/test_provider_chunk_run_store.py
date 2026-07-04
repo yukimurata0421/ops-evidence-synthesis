@@ -115,3 +115,21 @@ def test_postgres_schema_upsert_and_queue_are_resume_safe() -> None:
     assert "FOR UPDATE SKIP LOCKED" in POSTGRES_PROVIDER_CHUNK_RUNS_CLAIM_RETRYABLE
     assert "status <> 'ok'" in POSTGRES_PROVIDER_CHUNK_RUNS_CLAIM_RETRYABLE
     assert "locked_at < now() - interval '15 minutes'" in POSTGRES_PROVIDER_CHUNK_RUNS_CLAIM_RETRYABLE
+
+
+def test_postgres_retryable_claim_contract_uses_skip_locked_and_marks_single_worker_claim() -> None:
+    sql = " ".join(POSTGRES_PROVIDER_CHUNK_RUNS_CLAIM_RETRYABLE.split())
+
+    assert "WITH picked AS" in sql
+    assert "FOR UPDATE SKIP LOCKED" in sql
+    assert "UPDATE provider_chunk_runs AS runs" in sql
+    assert "worker_id = %(worker_id)s" in sql
+    assert "locked_at = now()" in sql
+    assert "provider_id = %(provider_id)s" in sql
+    assert "status <> 'retry_exhausted'" in sql
+    assert "status <> 'safety_filter'" in sql
+    assert "status <> 'context_length'" in sql
+    assert "next_retry_at IS NULL OR next_retry_at <= now()" in sql
+    assert "locked_at IS NULL OR locked_at < now() - interval '15 minutes'" in sql
+    assert "FROM picked WHERE runs.id = picked.id" in sql
+    assert "RETURNING runs.record_json" in sql

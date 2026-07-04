@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
+
 from ops_evidence_synthesis.models import RawLog
 from ops_evidence_synthesis.sanitizer import sanitize_log
 
@@ -76,3 +79,66 @@ def test_sanitizer_redacts_user_home_paths_for_db_ingest() -> None:
     assert "<LOCAL_PATH>/runner.ps1" in clean.message_sanitized
     assert clean.labels_json["source_path"] == "<LOCAL_PATH>/input.jsonl"
     assert clean.error_type == "job_configuration_mismatch"
+
+
+def test_sanitizer_property_redacts_generated_sensitive_log_fragments() -> None:
+    cases = [
+        {
+            "user": "alice",
+            "email": "alice.ops@example.com",
+            "ip": "203.0.113.10",
+            "secret": "sk-proj-alpha-secret-0000000001",
+            "home": "/home/alice/private-service/config.yaml",
+            "windows": "C:\\Users\\alice\\private-service\\runner.ps1",
+        },
+        {
+            "user": "bob",
+            "email": "bob.ops@example.net",
+            "ip": "198.51.100.23",
+            "secret": "ghp_beta_secret_0000000002",
+            "home": "/Users/bob/projects/private-service/.env",
+            "windows": "C:\\Users\\bob\\projects\\private-service\\job.py",
+        },
+        {
+            "user": "carol",
+            "email": "carol.ops@example.org",
+            "ip": "192.0.2.44",
+            "secret": "xoxb-gamma-secret-0000000003",
+            "home": "/home/carol/work/stream_v3/secrets.json",
+            "windows": "C:\\Users\\carol\\work\\stream_v3\\secrets.json",
+        },
+    ]
+
+    for index, case in enumerate(cases, start=1):
+        raw = RawLog.from_mapping(
+            {
+                "timestamp": f"2026-06-15T09:5{index}:57Z",
+                "service": "stream-engine",
+                "environment": "prod",
+                "severity": "ERROR",
+                "message": (
+                    f"user={case['email']} ip={case['ip']} token={case['secret']} "
+                    f"path={case['home']} windows={case['windows']} "
+                    "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature"
+                ),
+                "labels": {
+                    "operator": case["email"],
+                    "source_path": case["home"],
+                    "api_key": case["secret"],
+                },
+            }
+        )
+
+        payload_text = json.dumps(asdict(sanitize_log(raw)), sort_keys=True)
+
+        assert case["email"] not in payload_text
+        assert case["ip"] not in payload_text
+        assert case["secret"] not in payload_text
+        assert case["home"] not in payload_text
+        assert case["windows"] not in payload_text
+        assert "eyJhbGciOiJIUzI1NiJ9.payload.signature" not in payload_text
+        assert "<EMAIL>" in payload_text
+        assert "<IP>" in payload_text
+        assert "<SECRET>" in payload_text
+        assert "<LOCAL_PATH>" in payload_text
+        assert "<AUTH_HEADER>" in payload_text

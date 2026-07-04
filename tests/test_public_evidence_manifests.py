@@ -235,3 +235,43 @@ def test_public_evidence_manifests_do_not_publish_local_artifact_paths() -> None
         content = manifest_path.read_text(encoding="utf-8")
         for fragment in forbidden_fragments:
             assert fragment not in content, f"{fragment} leaked in {manifest_path.name}"
+
+
+def test_stream_v3_manifest_values_match_public_run_documentation() -> None:
+    docs = (ROOT / "docs" / "stream-v3-real-api-runs.md").read_text(encoding="utf-8")
+    stream_manifests = [
+        MANIFEST_DIR / "stream_v3_dell_runtime_real_api.json",
+        MANIFEST_DIR / "stream_v3_arena_monitoring_real_api.json",
+    ]
+
+    for manifest_path in stream_manifests:
+        manifest = _load_json(manifest_path)
+        payload = _load_json(ROOT / manifest["precomputed_payload_path"])
+        analysis_context = payload["analysis_context"]
+        profile_gate = manifest["profile_gate"]
+        confidence = profile_gate["confidence_summary"]
+
+        expected_strings = [
+            manifest["evidence_sha256"],
+            manifest["api_revision"],
+            manifest["canonical_graph_sha256"],
+            manifest["input_fingerprint_sha256"],
+            manifest["payload_sha256"],
+            manifest["source_boundary"]["source_context_sha256"],
+            manifest["source_boundary"]["source_analysis_sha256"],
+            manifest["precomputed_payload_path"],
+            f"{manifest['sanitized_corpus']['sanitized_row_count']:,}",
+            str(manifest["sanitized_corpus"]["window_start"]),
+            str(manifest["sanitized_corpus"]["window_end"]),
+            f"{analysis_context['provider_full_corpus_chunk_count']:,}",
+            f"{analysis_context['provider_full_corpus_evidence_items']:,}",
+            profile_gate["confidence_action"],
+            str(confidence["overall_confidence"]),
+        ]
+        expected_strings.extend(
+            provider["model_name"]
+            for provider in manifest["provider_summary"]["providers"]
+        )
+
+        for expected in expected_strings:
+            assert expected in docs, f"{expected} missing from docs/stream-v3-real-api-runs.md"

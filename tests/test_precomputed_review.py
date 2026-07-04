@@ -15,6 +15,7 @@ from ops_evidence_synthesis.precomputed_review import (
 )
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.synthesis.pipeline import run_pipeline
+from ops_evidence_synthesis.web import precomputed_review as web_precomputed
 from ops_evidence_synthesis.web.precomputed_review import (
     _canonical_precomputed_review_sha,
     _fast_detail_target_card,
@@ -110,6 +111,9 @@ def test_public_landing_cards_match_linked_payloads(monkeypatch) -> None:
         assert f"<dd>{target_count}</dd>" in card
         assert f"<dd>{int(context['provider_full_corpus_chunk_count'])}</dd>" in card
         assert "100.0%" in card
+        assert f"/ui/full-review-page?evidence_sha256={sha}" in card
+        assert f"/ui/api?evidence_sha256={sha}" in card
+        assert f"/ui/review-graph?evidence_sha256={sha}" in card
         assert f"/ui/report.md?evidence_sha256={sha}" in card
 
 
@@ -357,6 +361,51 @@ def test_precomputed_review_gcs_uri_prefixes(monkeypatch) -> None:
         f"gs://private/precomputed/{'a' * 64}.json",
         f"gs://private/backup/{'a' * 64}.json",
     ]
+
+
+def test_precomputed_review_lookup_prefers_public_review_id_and_falls_back_to_local_on_gcs_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from ops_evidence_synthesis.gcp import storage
+
+    web_precomputed._PRECOMPUTED_REVIEW_CACHE.clear()
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", str(tmp_path))
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_GCS_PREFIX", "gs://private/precomputed")
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_CACHE_SECONDS", "0")
+    public_review_id = "1" * 64
+    evidence_sha = "2" * 64
+    fast_payload = {
+        "evidence_sha256": evidence_sha,
+        "summary": {"finding": {"title": "fast public id"}, "review": {}, "providers": {}},
+        "generation": {"fast_gcp_review": {"public_review_id": public_review_id, "run_id": "fast-run-1"}},
+        "provider_statuses": [],
+        "targets": [],
+    }
+    local_payload = {
+        "evidence_sha256": evidence_sha,
+        "summary": {"finding": {"title": "local evidence sha"}, "review": {}, "providers": {}},
+        "generation": {},
+        "provider_statuses": [],
+        "targets": [],
+    }
+    (tmp_path / f"{public_review_id}.json").write_text(json.dumps(fast_payload), encoding="utf-8")
+    (tmp_path / f"{evidence_sha}.json").write_text(json.dumps(local_payload), encoding="utf-8")
+    gcs_reads: list[str] = []
+
+    def failing_read_json(uri: str):
+        gcs_reads.append(uri)
+        raise RuntimeError("simulated GCS outage")
+
+    monkeypatch.setattr(storage, "read_json", failing_read_json)
+
+    assert _precomputed_review_payload(public_review_id)["summary"]["finding"]["title"] == "fast public id"
+    assert _precomputed_review_payload(evidence_sha)["summary"]["finding"]["title"] == "local evidence sha"
+    assert gcs_reads == []
+
+    (tmp_path / f"{evidence_sha}.json").unlink()
+    assert _precomputed_review_payload(evidence_sha) is None
+    assert gcs_reads == [f"gs://private/precomputed/{evidence_sha}.json"]
 
 
 def test_legacy_public_stream_v3_hash_resolves_to_canonical_primary(monkeypatch) -> None:
@@ -709,6 +758,59 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert graph["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]
         assert graph["canonical_review_graph"]["summary"]["validation_count"] == case["review"]["validation_targets"]
         assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "signal present"
+
+
+def test_stream_v3_dell_and_arena_profiles_stay_separated() -> None:
+    dell = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{STREAM_V3_DELL_REAL_API_SHA}.json")
+    arena = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{STREAM_V3_ARENA_REAL_API_SHA}.json")
+
+    assert dell["profile_context"]["profile_id"] == "stream_v3_dell_runtime_source_approved"
+    assert arena["profile_context"]["profile_id"] == "stream_v3_arena_server_monitoring_source_approved"
+    assert dell["analysis_context"]["service"] == "stream_v3_runtime"
+    assert arena["analysis_context"]["service"] == "stream_v3_monitoring"
+    assert dell["analysis_context"]["source_context_sha256"] != arena["analysis_context"]["source_context_sha256"]
+    assert dell["analysis_context"]["source_analysis_sha256"] != arena["analysis_context"]["source_analysis_sha256"]
+    assert dell["profile_context"]["purpose"] != arena["profile_context"]["purpose"]
+    assert dell["profile_context"]["provisional_user_outcomes"] == [
+        "Continuous YouTube streaming",
+        "ADSB data processing",
+    ]
+    assert arena["profile_context"]["provisional_user_outcomes"] == [
+        "Maintain YouTube stream uptime",
+        "Monitor ADSB stream health",
+    ]
+
+    dell_units = {
+        unit
+        for link in dell["profile_context"]["profile_to_review_links"]
+        for unit in link["review_units"]
+    }
+    arena_units = {
+        unit
+        for link in arena["profile_context"]["profile_to_review_links"]
+        for unit in link["review_units"]
+    }
+    assert "media_output" in dell_units
+    assert "user_experience" not in dell_units
+    assert "user_experience" in arena_units
+    assert "media_output" not in arena_units
+
+
+def test_precomputed_detail_page_ui_smoke_includes_provider_targets_missing_evidence_and_public_links() -> None:
+    payload = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{STREAM_V3_DELL_REAL_API_SHA}.json")
+
+    html = _render_precomputed_review_detail_page(STREAM_V3_DELL_REAL_API_SHA, payload)
+
+    assert html.count('class="target"') == len(payload["targets"])
+    assert html.count("workspace-provider-card") >= len(payload["targets"]) * len(payload["provider_statuses"])
+    assert "Top missing evidence" in html
+    assert "Missing evidence" in html
+    assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
+    assert "GitHub" in html
+    assert "Architecture" in html
+    assert "Demo Script" in html
+    assert "qwen-agent-platform" in html
+    assert "gemma-agent-platform" in html
 
 
 def test_public_target_classification_demotes_evidence_thin_primary_candidate() -> None:
