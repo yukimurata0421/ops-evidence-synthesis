@@ -53,12 +53,12 @@ Current reviewer-facing URLs for the hackathon submission.
 
 ## Operational Readiness
 
-- Cloud Run revision after deploy: `ops-evidence-api-00204-qxg`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:d789d67e7ca5b785451379dc4a16ccc14b0a4a9aaa31b2495bf47820fc19a79d`
+- Cloud Run revision after deploy: `ops-evidence-api-00214-5fm`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:5c4aabda9f125ca30524f00587f2978e5044a304410ff64eea478b437550a05b`
 - Digest note: this digest is a public demo release attestation, not a private
   execution identifier.
 - Public smoke after deploy: passed
-- Fast GCP Review smoke: passed, `gemini-3.1-flash-lite`, 2,000 rows, server wall time 11.509s, client wall time 11.717s, provider latency sum 27.543s.
+- Fast GCP Review smoke: passed, `gemini-3.1-flash-lite`, 2,000 rows, server wall time 11.879s, provider latency sum 25.254s.
 - Fast Cross-check Lite smoke: passed, `gemini-3.1-flash-lite` + `gemma-4-26b-a4b-it-maas`, 2,000 rows, server wall time 255.603s, client wall time 255.908s, provider latency sum 798.648s.
 - Cloud Run min instances: `1`
 - Billing budget alert: `Ops Evidence Hackathon Budget`, 3000 JPY/month, project-filtered to `ops-evidence-synthesis`

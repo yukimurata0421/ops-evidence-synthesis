@@ -33,10 +33,10 @@ is for a different event.
 - Cloud Run service: `ops-evidence-api`
 - Cloud Run region: `asia-northeast1`
 - Public custom domain: https://ops-evidence.yukimurata0421.dev/
-- Deployed revision: `ops-evidence-api-00204-qxg`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:d789d67e7ca5b785451379dc4a16ccc14b0a4a9aaa31b2495bf47820fc19a79d`
+- Deployed revision: `ops-evidence-api-00214-5fm`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:5c4aabda9f125ca30524f00587f2978e5044a304410ff64eea478b437550a05b`
 - Public smoke after deploy: passed
-- Fast GCP Review smoke: passed with `gemini-3.1-flash-lite`, 2,000 fixed sanitized amazon-notify rows, server wall time 11.509s.
+- Fast GCP Review smoke: passed with `gemini-3.1-flash-lite`, 2,000 fixed sanitized amazon-notify rows, server wall time 11.879s.
 - Fast Cross-check Lite smoke: passed with `gemini-3.1-flash-lite` + `gemma-4-26b-a4b-it-maas`, 2,000 fixed sanitized amazon-notify rows, server wall time 255.603s.
 - Digest note: this digest is a public demo release attestation, not a private
   execution identifier.
