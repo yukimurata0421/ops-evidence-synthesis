@@ -469,10 +469,13 @@ def test_precomputed_graph_renders_analysis_context() -> None:
     assert "5,041" in html
     assert "77.5%" in html
     assert "Projection coverage is occurrence-weighted" in html
-    assert "Every target keeps a provider stance ledger." in html
-    assert "Every review target keeps its providers and evidence attached." not in html
-    assert "Provider stance matrix" in html
-    assert "The target keeps its provider position." in html
+    assert "Every review target keeps its providers and evidence attached." in html
+    assert "Provider -&gt; target graph - click a target" in html
+    assert "Every claimed position stays drawn as a faint thread" in html
+    assert "Nodes &amp; edges ledger" in html
+    assert "Node math:" in html
+    assert "Edge math:" in html
+    assert "graph nodes" in html
     assert "6 nodes = 1 target nodes + 1 provider nodes + 4 structural nodes" in html
     assert "5 edges = 1 provider positions + 1 finding links + 2 gate links + 1 evidence link" in html
     assert graph["analysis_context"]["model_projection_evidence_items"] == 140
@@ -568,8 +571,8 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
     assert "profile_questions_linked_to_review_units" in detail_html
     assert "qwen-agent-platform" in graph_html
     assert "Incident gate signal" in graph_html
-    assert "Provider stance matrix" in graph_html
-    assert "ledger nodes" in graph_html
+    assert "Provider -&gt; target graph" in graph_html
+    assert "graph nodes" in graph_html
     assert graph["canonical_review_graph"]["summary"]["primary_count"] == 0
     assert graph["canonical_review_graph"]["summary"]["validation_count"] == 5
     assert graph["canonical_review_graph"]["review_graph_summary"]["provider_detection_overlap"] == "5/5"
@@ -766,8 +769,8 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             assert "provider_error" not in json.dumps(payload["provider_statuses"])
         assert "qwen-agent-platform" in graph_html
         assert "Incident gate signal" in graph_html
-        assert "Provider stance matrix" in graph_html
-        assert "Node math" in graph_html
+        assert "Provider -&gt; target graph" in graph_html
+        assert "Node math:" in graph_html
         assert graph["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]
         assert graph["canonical_review_graph"]["summary"]["validation_count"] == case["review"]["validation_targets"]
         assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "signal present"
