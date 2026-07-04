@@ -622,6 +622,7 @@ def _public_precomputed_landing_page() -> str:
     total_public_rows = sum(int(row.get("row_count") or 0) for row in manifest_entries)
     total_public_corpora = len(manifest_entries)
     primary_rows = _human_count(int(primary_entry.get("row_count") or 0)) if primary_entry else "45,000"
+    primary_candidate_count = int(primary_entry.get("primary_targets") or 0)
     primary_review_targets = int(primary_entry.get("primary_targets") or 0) + int(primary_entry.get("validation_targets") or 0)
     return f"""
     <!doctype html>
@@ -967,7 +968,7 @@ def _public_precomputed_landing_page() -> str:
             <div class="hero-stats" aria-label="Public evidence summary">
               <div><b>{_html(primary_rows)}</b><span>rows analyzed</span></div>
               <div><b>{_html(gate_signal_label)}</b><span>providers - provider signal, not a verdict</span></div>
-              <div><b>{int(primary_entry.get("primary_targets") or 3)}</b><span>primary candidates</span></div>
+              <div><b>{primary_candidate_count}</b><span>primary candidates in primary review</span></div>
               <div><b>0</b><span aria-label="0 AUTO-PROMOTED CAUSES">AUTO-PROMOTED CAUSES</span></div>
             </div>
           </section>
@@ -983,17 +984,17 @@ def _public_precomputed_landing_page() -> str:
                 <div>
                   <div class="queue-label">Review queue - {primary_review_targets}</div>
                   <div class="queue">
-                    <div class="queue-row active"><div><b>chromium_capture</b><code>0.88</code></div><span>primary - 5/5</span></div>
-                    <div class="queue-row"><div><b>observability_contract</b><code>0.84</code></div><span>primary - 4/5</span></div>
-                    <div class="queue-row"><div><b>audio_energy</b><code>0.84</code></div><span>primary - 4/5</span></div>
-                    <div class="queue-row"><div><b>transport_sender</b><code>0.87</code></div><span>validation - 5/5</span></div>
+                    <div class="queue-row active"><div><b>transport_sender</b><code>0.86</code></div><span>validation - 5/5</span></div>
+                    <div class="queue-row"><div><b>generic_runtime</b><code>0.86</code></div><span>validation - 4/5</span></div>
+                    <div class="queue-row"><div><b>job_configuration</b><code>0.80</code></div><span>validation - 3/5</span></div>
+                    <div class="queue-row"><div><b>resource_pressure</b><code>0.80</code></div><span>validation - 3/5</span></div>
                     <small>+ {max(0, primary_review_targets - 4)} targets</small>
                   </div>
                 </div>
                 <div>
                   <div class="mock-panel">
-                    <div class="mock-title"><span class="mock-pill">PRIMARY CANDIDATE</span><b>chromium_capture</b><span class="mock-score">0.88</span></div>
-                    <p class="mock-copy">Chromium capture process failed to start, leading to missing video frames. Capture freshness feeds the YouTube ingest pipeline.</p>
+                    <div class="mock-title"><span class="mock-pill">VALIDATION TARGET</span><b>transport_sender</b><span class="mock-score">0.86</span></div>
+                    <p class="mock-copy">Transport sender has provider convergence, but no impact outcome is accepted. The target stays in validation until user-impact evidence is attached.</p>
                   </div>
                   <div class="mock-panel soft" style="margin-top:12px">
                     <div class="mock-label">provider convergence - 5 claimed / 0 silent</div>
@@ -1019,7 +1020,7 @@ def _public_precomputed_landing_page() -> str:
                   <div class="human-gate">
                     <div class="human-top"><span class="hg">HG</span><b>Human-gated</b><span class="human-state">NOT PROMOTED</span></div>
                     <p style="margin-top:9px;font-size:12.5px">Convergence is support, not a verdict.</p>
-                    <p style="margin-top:9px;color:var(--green);font:800 11px/1.3 var(--mono)">next -&gt; is capture_freshness_count zero?</p>
+                    <p style="margin-top:9px;color:var(--green);font:800 11px/1.3 var(--mono)">next -&gt; attach user-impact evidence?</p>
                   </div>
                 </div>
               </div>
@@ -1975,7 +1976,7 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
         )
         projection_interpretation_html = projection_interpretation_html + determinism_html
     graph_stats = [
-        (_human_count(int(graph_model.get("node_count") or len(nodes))), "graph nodes"),
+        (_human_count(int(graph_model.get("node_count") or len(nodes))), "ledger nodes"),
         (_human_count(target_count), "review targets"),
         (_human_count(int(graph_summary.get("convergence_count") or 0)), "convergence groups"),
         (_human_count(len(unique_refs)), "cited evidence refs"),
@@ -2012,6 +2013,8 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
         _review_graph_canvas_html(model, provider_ids=provider_ids, selected_key=selected_key) for model in target_models
     )
     selected_html = "\n".join(_review_graph_selected_summary_html(model, selected_key=selected_key) for model in target_models)
+    provider_matrix_html = _review_graph_provider_matrix_html(target_models, provider_ids=provider_ids)
+    ledger_breakdown_html = _review_graph_ledger_breakdown_html(graph_model)
     edge_rows = "\n".join(
         f"<li><code>{_html(str(edge.get('source') or ''))}</code> <span>-&gt;</span> <code>{_html(str(edge.get('target') or ''))}</code><b>{_html(str(edge.get('relation') or ''))}</b></li>"
         for edge in edges
@@ -2129,6 +2132,77 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
     .stat-cell {{ min-width: 0; padding: 18px 16px; background: var(--surface); }}
     .stat-cell strong {{ display: block; font-size: 20px; line-height: 1; overflow-wrap: anywhere; }}
     .stat-cell span, .metric-cell span, .gate-stat span {{ display: block; color: var(--ink-3); font-size: 11px; line-height: 1.35; margin-top: 6px; }}
+    .ledger-summary {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
+    }}
+    .ledger-summary article {{
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 16px;
+    }}
+    .ledger-summary span {{ display: block; color: var(--ink-3); font: 800 10.5px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; }}
+    .ledger-summary strong {{ display: block; margin-top: 8px; color: var(--ink); font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }}
+    .ledger-summary p {{ margin-top: 8px; color: var(--ink-2); font-size: 12.5px; line-height: 1.48; }}
+    .provider-matrix-section {{
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }}
+    .provider-matrix-head {{
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 20px;
+      flex-wrap: wrap;
+    }}
+    .provider-matrix-head p {{ max-width: 760px; margin-top: 8px; font-size: 13px; }}
+    .provider-key {{ display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }}
+    .provider-key span {{
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface-2);
+      padding: 5px 8px;
+      color: var(--ink-2);
+      font: 800 10px/1 var(--mono);
+    }}
+    .provider-matrix {{ display: grid; gap: 8px; margin-top: 16px; }}
+    .matrix-row {{
+      display: grid;
+      grid-template-columns: minmax(230px, .7fr) minmax(360px, 1.3fr);
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 12px;
+    }}
+    .matrix-target strong {{ display: block; color: var(--ink); font: 800 12.5px/1.25 var(--mono); overflow-wrap: anywhere; }}
+    .matrix-target span {{ display: block; margin-top: 5px; color: var(--ink-3); font-size: 11px; line-height: 1.35; }}
+    .matrix-providers {{ display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }}
+    .matrix-provider {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--ink-2);
+      padding: 6px 8px;
+      font: 800 10.5px/1 var(--mono);
+    }}
+    .matrix-provider::before {{ content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--silent); }}
+    .matrix-provider.claimed {{ border-color: rgba(18,131,107,.45); background: var(--claimed-soft); color: #0b5c4b; }}
+    .matrix-provider.claimed::before {{ background: var(--claimed); }}
+    .matrix-provider.provider-error {{ border-color: #efc9c9; background: #fff2f2; color: #994747; }}
+    .matrix-provider.provider-error::before {{ background: #c45555; }}
     .explorer {{ display: grid; grid-template-columns: minmax(360px, .72fr) minmax(700px, 1.28fr); gap: 20px; align-items: start; }}
     .filters {{ display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }}
     .filters button {{
@@ -2304,7 +2378,10 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
       .shell {{ width: min(calc(100% - 32px), 1720px); }}
       .topbar {{ align-items: flex-start; flex-direction: column; padding: 16px 0; }}
       .stat-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+      .ledger-summary {{ grid-template-columns: 1fr; }}
       .context-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+      .matrix-row {{ grid-template-columns: 1fr; }}
+      .matrix-providers {{ justify-content: flex-start; }}
       h1 {{ font-size: 42px; }}
     }}
     @media (max-width: 560px) {{
@@ -2329,13 +2406,19 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
 
     <section class="hero">
       <div class="kicker">Review Graph - Nodes and edges - not a verdict</div>
-      <h1>Every review target keeps its providers and evidence attached.</h1>
-      <p>{_html(str(graph_summary.get("summary") or finding.get("impact") or "The canonical graph keeps provider positions, cited Evidence Items, and human review gates connected."))}</p>
+      <h1>Every target keeps a provider stance ledger.</h1>
+      <p>{_html(str(graph_summary.get("summary") or finding.get("impact") or "The canonical graph keeps provider positions, cited Evidence Items, and human review gates connected."))} The canvas focuses on one target at a time; the matrix below keeps all provider positions visible.</p>
     </section>
 
     <section class="stat-grid" aria-label="Graph statistics">
       {stats_html}
     </section>
+
+    <section class="ledger-summary" aria-label="Node and edge count breakdown">
+      {ledger_breakdown_html}
+    </section>
+
+    {provider_matrix_html}
 
     <section class="explorer">
       <div>
@@ -2538,6 +2621,98 @@ def _review_graph_provider_short_name(provider_id: str) -> str:
     if "glm" in provider:
         return "GLM"
     return provider_id[:18] if provider_id else "provider"
+
+
+def _review_graph_ledger_breakdown_html(graph_model: dict[str, Any]) -> str:
+    nodes = [row for row in graph_model.get("nodes") or [] if isinstance(row, dict)]
+    edges = [row for row in graph_model.get("edges") or [] if isinstance(row, dict)]
+    target_nodes = sum(1 for node in nodes if str(node.get("type") or "") == "review_target")
+    provider_nodes = sum(1 for node in nodes if str(node.get("type") or "") == "provider")
+    structural_nodes = max(0, len(nodes) - target_nodes - provider_nodes)
+    provider_edges = sum(1 for edge in edges if str(edge.get("source") or "").startswith("provider:"))
+    finding_edges = sum(1 for edge in edges if str(edge.get("relation") or "") == "has_review_target")
+    gate_edges = sum(1 for edge in edges if str(edge.get("target") or "").startswith("baseline:"))
+    evidence_edges = sum(1 for edge in edges if str(edge.get("relation") or "") == "produces")
+    total_nodes = int(graph_model.get("node_count") or len(nodes))
+    total_edges = int(graph_model.get("edge_count") or len(edges))
+    items = [
+        (
+            "Node math",
+            f"{total_nodes} nodes = {target_nodes} target nodes + {provider_nodes} provider nodes + {structural_nodes} structural nodes",
+            "Structural nodes are the evidence bundle, persisted finding, technical support signal, and incident gate signal.",
+        ),
+        (
+            "Edge math",
+            f"{total_edges} edges = {provider_edges} provider positions + {finding_edges} finding links + {gate_edges} gate links + {evidence_edges} evidence link",
+            "Provider-position edges include claimed, silent, and other recorded stances so disagreement is preserved.",
+        ),
+    ]
+    return "".join(
+        f"""
+        <article>
+          <span>{_html(label)}</span>
+          <strong>{_html(value)}</strong>
+          <p>{_html(detail)}</p>
+        </article>
+        """
+        for label, value, detail in items
+    )
+
+
+def _review_graph_provider_matrix_html(target_models: list[dict[str, Any]], *, provider_ids: list[str]) -> str:
+    if not target_models:
+        return ""
+    target_heading = (
+        f"All {len(target_models)} targets keep their provider positions."
+        if len(target_models) != 1
+        else "The target keeps its provider position."
+    )
+    provider_key = "".join(
+        f"<span>{_html(_review_graph_provider_short_name(provider_id))}</span>"
+        for provider_id in provider_ids
+    )
+    rows = []
+    for model in target_models:
+        provider_pills = []
+        for row in model["provider_rows"]:
+            stance = str(row["stance"] or "silent").casefold()
+            css_state = "provider-error" if "error" in stance else stance
+            provider_pills.append(
+                f"""
+                <span class="matrix-provider {_html(css_state)}" title="{_html(str(row["provider_id"]))}: {_html(str(row["stance"]))}">
+                  {_html(str(row["short"]))}
+                </span>
+                """
+            )
+        label = "primary candidate" if model["category"] == "primary" else "validation target"
+        meta = (
+            f"{label} - {int(model['claimed'])} claimed / {int(model['silent'])} silent - "
+            f"{int(model['evidence_ref_total'])} evidence refs"
+        )
+        rows.append(
+            f"""
+            <article class="matrix-row">
+              <div class="matrix-target">
+                <strong>{_html(str(model["key"]))}</strong>
+                <span>{_html(meta)}</span>
+              </div>
+              <div class="matrix-providers">{"".join(provider_pills)}</div>
+            </article>
+            """
+        )
+    return f"""
+    <section class="provider-matrix-section" aria-label="Provider stance matrix">
+      <div class="provider-matrix-head">
+        <div>
+          <div class="kicker">Provider stance matrix</div>
+          <h2>{_html(target_heading)}</h2>
+          <p>Each row shows the provider stance ledger for a target before the focused graph view opens one target in detail.</p>
+        </div>
+        <div class="provider-key" aria-label="Providers in this graph">{provider_key}</div>
+      </div>
+      <div class="provider-matrix">{"".join(rows)}</div>
+    </section>
+    """
 
 
 def _review_graph_tag_class(model: dict[str, Any]) -> str:

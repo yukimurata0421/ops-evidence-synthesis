@@ -73,6 +73,9 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "AIが断定する前に、運用証拠を固定する。" in html
     assert "Provider convergence creates review targets, not accepted incident causes" in html
     assert "Watch rescore loop" in html
+    assert "<div><b>0</b><span>primary candidates in primary review</span></div>" in html
+    assert "VALIDATION TARGET</span><b>transport_sender" in html
+    assert "PRIMARY CANDIDATE</span><b>chromium_capture" not in html
     assert "ADK-compatible trace included" in html
     assert "provider signal, not a verdict" in html
     assert "0 AUTO-PROMOTED CAUSES" in html
@@ -466,6 +469,12 @@ def test_precomputed_graph_renders_analysis_context() -> None:
     assert "5,041" in html
     assert "77.5%" in html
     assert "Projection coverage is occurrence-weighted" in html
+    assert "Every target keeps a provider stance ledger." in html
+    assert "Every review target keeps its providers and evidence attached." not in html
+    assert "Provider stance matrix" in html
+    assert "The target keeps its provider position." in html
+    assert "6 nodes = 1 target nodes + 1 provider nodes + 4 structural nodes" in html
+    assert "5 edges = 1 provider positions + 1 finding links + 2 gate links + 1 evidence link" in html
     assert graph["analysis_context"]["model_projection_evidence_items"] == 140
     assert graph["canonical_review_graph"]["analysis_context"]["db_ingested_log_count"] == 6506
     assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "no graph-level signal"
@@ -559,6 +568,8 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
     assert "profile_questions_linked_to_review_units" in detail_html
     assert "qwen-agent-platform" in graph_html
     assert "Incident gate signal" in graph_html
+    assert "Provider stance matrix" in graph_html
+    assert "ledger nodes" in graph_html
     assert graph["canonical_review_graph"]["summary"]["primary_count"] == 0
     assert graph["canonical_review_graph"]["summary"]["validation_count"] == 5
     assert graph["canonical_review_graph"]["review_graph_summary"]["provider_detection_overlap"] == "5/5"
@@ -755,6 +766,8 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             assert "provider_error" not in json.dumps(payload["provider_statuses"])
         assert "qwen-agent-platform" in graph_html
         assert "Incident gate signal" in graph_html
+        assert "Provider stance matrix" in graph_html
+        assert "Node math" in graph_html
         assert graph["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]
         assert graph["canonical_review_graph"]["summary"]["validation_count"] == case["review"]["validation_targets"]
         assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "signal present"
