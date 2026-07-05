@@ -16,17 +16,6 @@ PUBLIC_SMOKE_EXTRA_ARGS ?= --expect-provider gemini-enterprise-agent-platform --
 GCS_REVIEW_PREFIX ?= gs://$(PROJECT_ID)-private-artifacts/precomputed_review_summaries
 GCS_REVIEW_SHA ?= $(PUBLIC_EVIDENCE_SHA)
 GCS_REVIEW_SOURCE ?= data/precomputed_review_summaries/$(GCS_REVIEW_SHA).json
-REVIEW_FROM_LOCAL_INPUT ?=
-REVIEW_FROM_LOCAL_SERVICE ?=
-REVIEW_FROM_LOCAL_ENVIRONMENT ?=
-REVIEW_FROM_LOCAL_START ?=
-REVIEW_FROM_LOCAL_END ?=
-REVIEW_FROM_LOCAL_BUCKET ?=
-REVIEW_FROM_LOCAL_RUN_ID ?=
-REVIEW_FROM_LOCAL_OUTPUT_DIR ?=
-REVIEW_FROM_LOCAL_PROVIDERS ?= local-gemini,local-gpt-oss,local-mistral
-REVIEW_FROM_LOCAL_PROVIDER_MODE ?= local
-REVIEW_FROM_LOCAL_MIN_WINDOW_HOURS ?= 0
 REVIEW_FROM_LOCAL_ARGS ?=
 LOCAL_REVIEW_DB ?= workspace/local_review/payment_api.sqlite3
 LOCAL_REVIEW_INPUT ?= data/sample_logs.jsonl
@@ -48,7 +37,7 @@ demo-sample:
 	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --source-note "generated from public sample fixture with deterministic local providers and sanitized source profile context" --source-context $(SAMPLE_PROFILE_DIR)/source_context_bundle.json --source-analysis $(SAMPLE_PROFILE_DIR)/source_analysis_bundle.json --profile-draft $(SAMPLE_PROFILE_DIR)/profile_draft.json --approved-profile $(SAMPLE_PROFILE_DIR)/approved_profile.json --profile-id payment_api_sample_source_approved --expected-evidence-sha $(SAMPLE_EVIDENCE_SHA)
 
 review-from-local:
-	@LOG_INPUT="$(REVIEW_FROM_LOCAL_INPUT)" SERVICE="$(REVIEW_FROM_LOCAL_SERVICE)" ENVIRONMENT="$(REVIEW_FROM_LOCAL_ENVIRONMENT)" START="$(REVIEW_FROM_LOCAL_START)" END="$(REVIEW_FROM_LOCAL_END)" PROJECT_ID="$(PROJECT_ID)" BUCKET="$(REVIEW_FROM_LOCAL_BUCKET)" RUN_ID="$(REVIEW_FROM_LOCAL_RUN_ID)" OUT="$(REVIEW_FROM_LOCAL_OUTPUT_DIR)" PUBLIC_BASE_URL="$(PUBLIC_BASE_URL)" PROVIDERS="$(REVIEW_FROM_LOCAL_PROVIDERS)" PROVIDER_MODE="$(REVIEW_FROM_LOCAL_PROVIDER_MODE)" MIN_WINDOW_HOURS="$(REVIEW_FROM_LOCAL_MIN_WINDOW_HOURS)" PYTHONPATH=src $(PYTHON) scripts/gcs_review_flow.py $(REVIEW_FROM_LOCAL_ARGS)
+	@PROJECT_ID="$(PROJECT_ID)" PUBLIC_BASE_URL="$(PUBLIC_BASE_URL)" PYTHONPATH=src $(PYTHON) scripts/gcs_review_flow.py $(REVIEW_FROM_LOCAL_ARGS)
 
 gcs-review: publish-gcs-review smoke-gcs-review show-public-review-url
 

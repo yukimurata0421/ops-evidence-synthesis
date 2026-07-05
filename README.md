@@ -174,26 +174,41 @@ What to look for:
 
 ## GCS Handoff Review
 
-Use this path when starting from a local log file. The command asks for the log
-path, service, environment, and incident window when they are not supplied. It
-then sanitizes the logs locally, verifies the sanitized output, builds an
+Use this path when starting from a local log file. Set stable values in the
+environment, then let the CLI ask for the incident window if `START` and `END`
+are not set. `LOG_INPUT` and `OUT` must be absolute paths so the command can be
+run from a terminal, script, or demo session without path ambiguity.
+
+The command sanitizes the logs locally, verifies the sanitized output, builds an
 Evidence Bundle, stages only that bundle in private GCS, builds the review
 payload through the GCS-backed job path, checks the deployed Cloud Run URL, and
 prints the final review URL. You do not need to copy an Evidence SHA by hand.
 
 ```bash
+export PROJECT_ID=ops-evidence-synthesis
+export BUCKET=ops-evidence-synthesis-private-artifacts
+export RUN_ID="review-$(date -u +%Y%m%d%H%M%S)"
+export LOG_INPUT="/absolute/path/to/local/logs.jsonl"
+export SERVICE="stream_v3_runtime"
+export ENVIRONMENT="stream_v3"
+export OUT="$(pwd)/workspace/gcs_review/${RUN_ID}"
+
 make review-from-local
 ```
 
-For a non-interactive run:
+The CLI will ask for `START` and `END` when they are not exported:
+
+```text
+Incident window start (example: 2026-06-14T23:15:50Z):
+Incident window end (example: 2026-06-15T23:59:52Z):
+```
+
+For a non-interactive run, set the window in env too:
 
 ```bash
-make review-from-local \
-  REVIEW_FROM_LOCAL_INPUT=path/to/logs.jsonl \
-  REVIEW_FROM_LOCAL_SERVICE=my-service \
-  REVIEW_FROM_LOCAL_ENVIRONMENT=prod \
-  REVIEW_FROM_LOCAL_START=2026-06-12T10:00:00Z \
-  REVIEW_FROM_LOCAL_END=2026-06-12T10:20:00Z
+export START="2026-06-14T23:15:50Z"
+export END="2026-06-15T23:59:52Z"
+make review-from-local
 ```
 
 The command prints:

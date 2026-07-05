@@ -15,6 +15,7 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PUBLIC_BASE_URL = "https://ops-evidence.yukimurata0421.dev"
 DEFAULT_PROVIDERS = "local-gemini,local-gpt-oss,local-mistral"
+DEFAULT_RUN_ID_PREFIX = "review"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -22,45 +23,57 @@ def main(argv: list[str] | None = None) -> int:
     _require_command("gcloud")
     project_id = _value(args.project_id, "PROJECT_ID", _gcloud_project() or "ops-evidence-synthesis")
     bucket = _value(args.bucket, "BUCKET", f"{project_id}-private-artifacts")
-    run_id = _value(args.run_id, "RUN_ID", f"local-gcs-review-{time.strftime('%Y%m%d%H%M%S', time.gmtime())}")
+    run_id = _value(args.run_id, "RUN_ID", f"{DEFAULT_RUN_ID_PREFIX}-{time.strftime('%Y%m%d%H%M%S', time.gmtime())}")
     public_base_url = _value(args.public_base_url, "PUBLIC_BASE_URL", DEFAULT_PUBLIC_BASE_URL).rstrip("/")
     provider_mode = _value(args.provider_mode, "PROVIDER_MODE", "local")
     providers = _value(args.providers, "PROVIDERS", DEFAULT_PROVIDERS)
     min_window_hours = _value(args.min_window_hours, "MIN_WINDOW_HOURS", "0")
-    output_dir = Path(_value(args.output_dir, "OUT", f"workspace/gcs_review/{run_id}"))
-
-    log_input = _prompt_value(
-        args.input or os.environ.get("LOG_INPUT", ""),
-        "Log file or directory",
-        "data/sample_logs.jsonl",
-        no_prompts=args.no_prompts,
+    output_dir = _absolute_output_dir(
+        _value(args.output_dir, "OUT", str(ROOT / "workspace" / "gcs_review" / run_id))
     )
-    service = _prompt_value(
+
+    log_input = _absolute_existing_input_path(
+        _required_prompt_value(
+            args.input or os.environ.get("LOG_INPUT", ""),
+            "Absolute log file or directory",
+            "/absolute/path/to/logs.jsonl",
+            env_name="LOG_INPUT",
+            flag_name="--input",
+            no_prompts=args.no_prompts,
+        )
+    )
+    service = _required_prompt_value(
         args.service or os.environ.get("SERVICE", ""),
         "Service name",
-        "payment-api",
+        "stream_v3_runtime",
+        env_name="SERVICE",
+        flag_name="--service",
         no_prompts=args.no_prompts,
     )
-    environment = _prompt_value(
+    environment = _required_prompt_value(
         args.environment or os.environ.get("ENVIRONMENT", ""),
         "Environment",
-        "prod",
+        "stream_v3",
+        env_name="ENVIRONMENT",
+        flag_name="--environment",
         no_prompts=args.no_prompts,
     )
-    start = _prompt_value(
+    start = _required_prompt_value(
         args.start or os.environ.get("START", ""),
         "Incident window start",
-        "2026-06-12T10:00:00Z",
+        "2026-06-14T23:15:50Z",
+        env_name="START",
+        flag_name="--start",
         no_prompts=args.no_prompts,
     )
-    end = _prompt_value(
+    end = _required_prompt_value(
         args.end or os.environ.get("END", ""),
         "Incident window end",
-        "2026-06-12T10:20:00Z",
+        "2026-06-15T23:59:52Z",
+        env_name="END",
+        flag_name="--end",
         no_prompts=args.no_prompts,
     )
-    if not Path(log_input).exists():
-        raise SystemExit(f"log input was not found: {log_input}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     sanitized_dir = output_dir / "sanitized"
@@ -71,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     precomputed_prefix_uri = f"gs://{bucket}/precomputed_review_summaries"
 
     cli = [sys.executable, "-m", "ops_evidence_synthesis.cli"]
-    _run([*cli, "sanitize", log_input, "--out", str(sanitized_dir)])
+    _run([*cli, "sanitize", str(log_input), "--out", str(sanitized_dir)])
     _run([*cli, "verify-sanitized", str(sanitized_dir)])
     _run(
         [
@@ -162,14 +175,40 @@ def _value(cli_value: str, env_name: str, default: str) -> str:
     return value
 
 
-def _prompt_value(value: str, label: str, default: str, *, no_prompts: bool) -> str:
+def _required_prompt_value(
+    value: str,
+    label: str,
+    example: str,
+    *,
+    env_name: str,
+    flag_name: str,
+    no_prompts: bool,
+) -> str:
     text = str(value or "").strip()
     if text:
         return text
     if no_prompts or not sys.stdin.isatty():
-        return default
-    answer = input(f"{label} [{default}]: ").strip()
-    return answer or default
+        raise SystemExit(f"{label} is required; set {env_name} or pass {flag_name}. Example: {example}")
+    answer = input(f"{label} (example: {example}): ").strip()
+    if not answer:
+        raise SystemExit(f"{label} is required")
+    return answer
+
+
+def _absolute_existing_input_path(value: str) -> Path:
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise SystemExit(f"LOG_INPUT must be an absolute path: {value}")
+    if not path.exists():
+        raise SystemExit(f"log input was not found: {path}")
+    return path
+
+
+def _absolute_output_dir(value: str) -> Path:
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise SystemExit(f"OUT must be an absolute path: {value}")
+    return path
 
 
 def _gcloud_project() -> str:
