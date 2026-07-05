@@ -4,11 +4,11 @@ This document records the guarded public read-only amazon-notify artifact
 generated from schema-valid Gemini 3.1 Pro, GPT OSS, Mistral, Qwen, and Gemma 4 real
 API outputs. GLM was replaced by Gemma 4 for this public amazon-notify payload.
 Llama and Claude are excluded because they were not available in this
-environment. The public entry page shows the stream_v3 runtime run first because
-that run has active human-gated primary candidates; this amazon-notify run is
-kept as the restraint example where 5/5 provider support can create primary
-candidates, but still does not auto-accept an incident cause or operational
-action.
+environment. The public entry page shows the stream_v3 runtime run first as the
+primary reviewer path even though it has 0 primary candidates; this
+amazon-notify run is kept as the restraint example where 5/5 provider support
+can create a primary candidate, but still does not auto-accept an incident cause
+or operational action.
 
 ## Public URLs
 

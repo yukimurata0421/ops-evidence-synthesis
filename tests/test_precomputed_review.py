@@ -57,9 +57,9 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert STREAM_V3_DELL_REAL_API_SHA[:12] in html
     assert STREAM_V3_ARENA_REAL_API_SHA[:12] in html
     assert "Primary Review" in html
-    assert "Cross-Domain Scale Validation" in html
-    assert "Scale validation is the curated review set above, not a fourth hidden run." in html
-    assert "No scale validation review is available." not in html
+    assert "Cross-Domain Scale Validation" not in html
+    assert "Scale proof" in html
+    assert "3 recorded domains, one evidence-gated review contract." in html
     assert "Archived recorded runs" in html
     assert "Rows" in html
     assert "Chunks" in html
@@ -73,7 +73,8 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "AIが断定する前に、運用証拠を固定する。" in html
     assert "Provider convergence creates review targets, not accepted incident causes" in html
     assert "Watch rescore loop" in html
-    assert "<div><b>0</b><span>primary candidates in primary review</span></div>" in html
+    assert "Open flagship review -&gt;" in html
+    assert "<div><b>0</b><span>primary candidates in flagship review</span></div>" in html
     assert "VALIDATION TARGET</span><b>transport_sender" in html
     assert "PRIMARY CANDIDATE</span><b>chromium_capture" not in html
     assert "ADK-compatible trace included" in html
@@ -90,9 +91,51 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "Markdown incident report" in html
     assert "Review graph" in html
     assert "Multi-AI disagreement requires validation" not in html
+    assert 'class="review-card review-card--primary featured"' in html
+    assert 'class="review-card review-card--guarded' in html
+    assert 'class="review-card review-card--observation' in html
+    assert 'class="review-card-main" href="/ui/full-review-page?evidence_sha256=' in html
+    assert '<span class="card-arrow" aria-hidden="true">↗</span>' in html
+    assert 'class="status-badge">要確認 ' in html
     assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
     assert f"/ui/report.md?evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in html
     assert html.index(STREAM_V3_DELL_REAL_API_SHA[:12]) < html.index(PUBLIC_REAL_API_SHA[:12])
+
+
+def test_public_submission_copy_matches_recorded_counts() -> None:
+    dell = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{STREAM_V3_DELL_REAL_API_SHA}.json")
+    dell_review = dell["summary"]["review"]
+    dell_context = dell["analysis_context"]
+
+    expected_primary = int(dell_review["primary_targets"])
+    expected_validation = int(dell_review["validation_targets"])
+    expected_chunks = int(dell_context["provider_full_corpus_chunk_count"])
+    assert (expected_primary, expected_validation, expected_chunks) == (0, 11, 33)
+
+    public_copy_paths = [
+        ROOT / "README.md",
+        ROOT / "HACKATHON_SUBMISSION.md",
+        ROOT / "docs" / "demo-video-script.md",
+        ROOT / "docs" / "protopedia-entry-v3.md",
+        ROOT / "docs" / "protopedia-entry-japanese.md",
+        ROOT / "docs" / "real-api-5-provider-run.md",
+    ]
+    public_copy = "\n".join(path.read_text(encoding="utf-8") for path in public_copy_paths)
+
+    stale_phrases = [
+        "active human-gated primary candidates",
+        "3 human-gated primary candidates",
+        "39 provider-specific chunks",
+        "Maximum chunked provider calls: 39",
+        "Provider convergence creates validation targets",
+    ]
+    for phrase in stale_phrases:
+        assert phrase not in public_copy
+
+    assert f"{expected_primary} primary candidates and {expected_validation} validation targets" in public_copy
+    assert f"{expected_primary} primary candidates / {expected_validation} validation targets" in public_copy
+    assert f"{expected_chunks} provider-specific chunks" in public_copy
+    assert f"Maximum chunked provider calls: {expected_chunks}" in public_copy
 
 
 def test_public_landing_cards_match_linked_payloads(monkeypatch) -> None:
@@ -127,6 +170,8 @@ def test_public_markdown_report_renders_human_review_boundary() -> None:
 
     assert report.startswith("# Incident Review Report:")
     assert "This report is review material, not an accepted incident cause." in report
+    assert "Provider convergence creates review targets" in report
+    assert "Provider convergence creates validation targets" not in report
     assert "## Evidence Boundary" in report
     assert "DB coverage ledger:" in report
     assert "Provider corpus:" in report
@@ -141,6 +186,41 @@ def test_public_markdown_report_renders_human_review_boundary() -> None:
     assert "Promotion gate:" in report
     assert "review urgency, not truth probability" in report
     assert "majority-vote truth" in report
+
+
+def test_public_rendered_count_copy_uses_natural_pluralization() -> None:
+    stale_fragments = [
+        "primary candidate(s)",
+        "validation target(s)",
+        "target(s)",
+        "item(s)",
+        "association(s)",
+        "chunk(s)",
+        "row(s)",
+        "step(s)",
+        "0 primary candidate,",
+        "0 primary candidate and",
+    ]
+    expected_pairs = {
+        STREAM_V3_DELL_REAL_API_SHA: "0 primary candidates and 11 validation targets",
+        PUBLIC_REAL_API_SHA: "1 primary candidate and 10 validation targets",
+        STREAM_V3_ARENA_REAL_API_SHA: "1 primary candidate and 11 validation targets",
+    }
+
+    for sha, expected in expected_pairs.items():
+        payload = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{sha}.json")
+        rendered = "\n".join(
+            [
+                _render_precomputed_review_detail_page(sha, payload),
+                _render_precomputed_graph_page(sha, payload),
+                _render_precomputed_markdown_report(sha, payload),
+            ]
+        )
+
+        assert expected in rendered
+        assert "Node math:" in rendered
+        for fragment in stale_fragments:
+            assert fragment not in rendered
 
 
 def test_public_rescore_demo_is_renderable() -> None:
@@ -163,6 +243,7 @@ def test_public_rescore_demo_is_renderable() -> None:
     assert "primary_candidate" in html
     assert "user_impact_unverified" in html
     assert "Source trace" in html
+    assert '<a href="/#review-set">Reviews</a>' in html
     assert "preserved_demo_snapshot" in html
     assert "Before target present in current source review: no" in html
     assert "test_more_data_child_bundle_rescores_parent_graph_and_promotion" in html
@@ -821,12 +902,33 @@ def test_precomputed_detail_page_ui_smoke_includes_provider_targets_missing_evid
     assert html.count("workspace-provider-card") >= len(payload["targets"]) * len(payload["provider_statuses"])
     assert "Top missing evidence" in html
     assert "Missing evidence" in html
-    assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
+    assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" not in html
     assert "GitHub" in html
     assert "Architecture" in html
     assert "Demo Script" in html
     assert "qwen-agent-platform" in html
     assert "gemma-agent-platform" in html
+
+
+def test_rescore_loop_links_are_only_attached_to_matching_source_evidence() -> None:
+    rescore_url = "/ui/rescore-demo?id=amazon-notify-more-data-rescore"
+
+    assert rescore_url not in web_precomputed._public_action_links_html(STREAM_V3_DELL_REAL_API_SHA)
+    assert rescore_url not in web_precomputed._public_action_links_html(PUBLIC_REAL_API_SHA)
+    assert rescore_url not in web_precomputed._detail_action_links_html(STREAM_V3_ARENA_REAL_API_SHA)
+    assert rescore_url in web_precomputed._public_action_links_html(REAL_API_QWEN_GLM_SHA)
+    assert rescore_url in web_precomputed._detail_action_links_html(REAL_API_QWEN_GLM_SHA)
+
+
+def test_review_graph_uses_public_manifest_label_instead_of_profile_id() -> None:
+    payload = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{PUBLIC_REAL_API_SHA}.json")
+
+    label = web_precomputed._review_graph_service_label(payload)
+    html = _render_precomputed_graph_page(PUBLIC_REAL_API_SHA, payload)
+
+    assert label == "Guarded review: amazon-notify 44,944 rows, 0 auto-promoted causes"
+    assert label in html
+    assert "amazon notify e2e 20260701t003045z approved" not in html
 
 
 def test_public_target_classification_demotes_evidence_thin_primary_candidate() -> None:

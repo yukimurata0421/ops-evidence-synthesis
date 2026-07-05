@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from copy import deepcopy
 from pathlib import Path
@@ -22,6 +23,72 @@ def _precomputed_review_cache_ttl_seconds() -> int:
 
 def _human_count(value: int) -> str:
     return f"{int(value):,}"
+
+
+def _count_noun(value: int, singular: str, plural: str | None = None) -> str:
+    count = int(value)
+    noun = singular if count == 1 else (plural or f"{singular}s")
+    return f"{_human_count(count)} {noun}"
+
+
+def _review_target_count_text(primary_targets: int, validation_targets: int) -> str:
+    return (
+        f"{_count_noun(primary_targets, 'primary candidate')} and "
+        f"{_count_noun(validation_targets, 'validation target')}"
+    )
+
+
+_PUBLIC_COUNT_TOKEN_PATTERNS = (
+    (re.compile(r"\b(\d[\d,]*) primary candidate\(s\)"), "primary candidate", None),
+    (re.compile(r"\b(\d[\d,]*) validation target\(s\)"), "validation target", None),
+    (re.compile(r"\b(\d[\d,]*) review target\(s\)"), "review target", None),
+    (re.compile(r"\b(\d[\d,]*) target\(s\)"), "target", None),
+    (re.compile(r"\b(\d[\d,]*) Evidence Item association\(s\)"), "Evidence Item association", None),
+    (re.compile(r"\b(\d[\d,]*) Evidence Item\(s\)"), "Evidence Item", "Evidence Items"),
+    (re.compile(r"\b(\d[\d,]*) additional trace step\(s\)"), "additional trace step", None),
+    (re.compile(r"\b(\d[\d,]*) trace step\(s\)"), "trace step", None),
+    (re.compile(r"\b(\d[\d,]*) summary item\(s\)"), "summary item", None),
+    (re.compile(r"\b(\d[\d,]*) explicit conflict\(s\)"), "explicit conflict", None),
+    (re.compile(r"\b(\d[\d,]*) convergence group\(s\)"), "convergence group", None),
+    (re.compile(r"\b(\d[\d,]*) occurrence\(s\)"), "occurrence", None),
+    (re.compile(r"\b(\d[\d,]*) chunk\(s\)"), "chunk", None),
+    (re.compile(r"\b(\d[\d,]*) row\(s\)"), "row", None),
+)
+_PUBLIC_GENERIC_COUNT_TOKEN_PATTERN = re.compile(
+    r"\b(\d[\d,]*) ([A-Za-z][A-Za-z0-9_/-]*(?: [A-Za-z][A-Za-z0-9_/-]*){0,5})\(s\)"
+)
+_PUBLIC_NON_ONE_SINGULAR_PATTERNS = (
+    (re.compile(r"\b(\d[\d,]*) primary candidate\b(?!s)"), "primary candidate", None),
+    (re.compile(r"\b(\d[\d,]*) validation target\b(?!s)"), "validation target", None),
+    (re.compile(r"\b(\d[\d,]*) monitor-only item\b(?!s)"), "monitor-only item", None),
+)
+
+
+def _public_count_text(value: object) -> str:
+    text = "" if value is None else str(value)
+    for pattern, singular, plural in _PUBLIC_COUNT_TOKEN_PATTERNS:
+        text = pattern.sub(
+            lambda match, singular=singular, plural=plural: _count_noun(
+                int(match.group(1).replace(",", "")),
+                singular,
+                plural,
+            ),
+            text,
+        )
+    text = _PUBLIC_GENERIC_COUNT_TOKEN_PATTERN.sub(
+        lambda match: _count_noun(int(match.group(1).replace(",", "")), match.group(2)),
+        text,
+    )
+    for pattern, singular, plural in _PUBLIC_NON_ONE_SINGULAR_PATTERNS:
+        text = pattern.sub(
+            lambda match, singular=singular, plural=plural: (
+                match.group(0)
+                if int(match.group(1).replace(",", "")) == 1
+                else _count_noun(int(match.group(1).replace(",", "")), singular, plural)
+            ),
+            text,
+        )
+    return text
 
 
 def _public_repo_url() -> str:
@@ -195,6 +262,19 @@ def _public_rescore_demo_ids() -> list[str]:
     return ids
 
 
+def _public_rescore_demo_ids_for_evidence(evidence_sha256: str) -> list[str]:
+    evidence_id = _canonical_precomputed_review_sha(evidence_sha256)
+    ids: list[str] = []
+    for demo_id in _public_rescore_demo_ids():
+        payload = _rescore_demo_payload(demo_id)
+        if not payload:
+            continue
+        source_evidence = _canonical_precomputed_review_sha(str(payload.get("source_evidence_sha256") or ""))
+        if source_evidence == evidence_id:
+            ids.append(demo_id)
+    return ids
+
+
 def _public_action_links_html(evidence_sha256: str, *, include_detail: bool = True) -> str:
     evidence = _url_quote(evidence_sha256)
     links: list[tuple[str, str, str]] = [
@@ -209,7 +289,7 @@ def _public_action_links_html(evidence_sha256: str, *, include_detail: bool = Tr
             ("Incident Report", f"/ui/report.md?evidence_sha256={evidence}", "human-readable Markdown report"),
         ]
     )
-    for demo_id in _public_rescore_demo_ids():
+    for demo_id in _public_rescore_demo_ids_for_evidence(evidence_sha256):
         links.append(("More Data Loop", f"/ui/rescore-demo?id={quote(demo_id)}", demo_id))
     links.extend(
         [
@@ -270,19 +350,70 @@ def _public_manifest_index_path() -> Path:
     return Path(os.environ.get("OES_PUBLIC_MANIFEST_INDEX", "data/public_evidence_manifests/index.json"))
 
 
-def _public_manifest_entries() -> list[dict[str, Any]]:
+def _public_manifest_paths() -> list[Path]:
     index_path = _public_manifest_index_path()
     try:
         index = json.loads(index_path.read_text(encoding="utf-8"))
     except Exception:
         return []
-    entries: list[dict[str, Any]] = []
+    paths: list[Path] = []
     for raw_path in index.get("manifests") or []:
         manifest_path = Path(str(raw_path))
         if not manifest_path.is_absolute() and not manifest_path.exists():
             candidate = index_path.parent / manifest_path.name
             if candidate.exists():
                 manifest_path = candidate
+        paths.append(manifest_path)
+    return paths
+
+
+def _public_manifest_label_for_evidence(evidence_sha256: str) -> str:
+    evidence_id = _canonical_precomputed_review_sha(evidence_sha256)
+    if not evidence_id:
+        return ""
+    for manifest_path in _public_manifest_paths():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(manifest, dict):
+            continue
+        manifest_evidence = _canonical_precomputed_review_sha(str(manifest.get("evidence_sha256") or ""))
+        if manifest_evidence != evidence_id:
+            continue
+        positioning = manifest.get("public_positioning") if isinstance(manifest.get("public_positioning"), dict) else {}
+        label = str(positioning.get("title") or manifest.get("title") or "").strip()
+        if label:
+            return label
+    return ""
+
+
+def _public_finding_impact_text(summary: dict[str, Any] | None, fallback: str) -> str:
+    fallback_text = _public_count_text(fallback).strip()
+    if fallback_text:
+        return fallback_text
+    summary = summary if isinstance(summary, dict) else {}
+    review = summary.get("review") if isinstance(summary.get("review"), dict) else {}
+    providers = summary.get("providers") if isinstance(summary.get("providers"), dict) else {}
+    if not review:
+        return ""
+    primary_targets = int(review.get("primary_targets") or 0)
+    validation_targets = int(review.get("validation_targets") or 0)
+    provider_success = int(providers.get("success") or 0)
+    provider_total = int(providers.get("total") or 0)
+    if provider_total:
+        provider_text = f"{provider_success} / {provider_total} schema-valid providers returned usable outputs"
+    else:
+        provider_text = "Recorded provider outputs are available"
+    return (
+        f"{provider_text}. {_review_target_count_text(primary_targets, validation_targets)} "
+        "remain human-gated; incident promotion is not auto-accepted."
+    )
+
+
+def _public_manifest_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for manifest_path in _public_manifest_paths():
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except Exception:
@@ -324,8 +455,8 @@ def _public_manifest_entries() -> list[dict[str, Any]]:
             "primary_review": "Primary Review",
             "guarded_review": "Guarded Review",
             "observation_gap": "Observation Gap Validation",
-            "scale_validation": "Cross-Domain Scale Validation",
-        }.get(landing_role, "Cross-Domain Scale Validation")
+            "scale_validation": "Scale Evidence",
+        }.get(landing_role, "Scale Evidence")
         entries.append(
             {
                 "case_id": case_id,
@@ -442,27 +573,43 @@ def _review_card_html(entry: dict[str, Any], *, featured: bool = False) -> str:
     note = str(entry.get("landing_note") or "").strip()
     note_html = f"<p>{_html(note)}</p>" if note else ""
     occurrence_html = f"<small>{_html(occurrence_note)}</small>" if occurrence_note else ""
-    badge = "Flagship" if featured else str(entry.get("category") or "Review")
+    category = str(entry.get("category") or "Review")
+    category_class = {
+        "Primary Review": "review-card--primary",
+        "Guarded Review": "review-card--guarded",
+        "Observation Gap Validation": "review-card--observation",
+    }.get(category, "review-card--default")
+    badge = "Primary Review" if featured else category
+    status_badge = (
+        f'<span class="status-badge">{_html(f"要確認 {target_count}件")}</span>'
+        if category == "Observation Gap Validation"
+        else ""
+    )
+    title = str(entry.get("title") or "Precomputed review")
     return f"""
-      <article class="review-card{' featured' if featured else ''}">
-        <div class="card-topline">
-          <span class="badge">{_html(badge)}</span>
-          <span class="sha">{_html(evidence_sha[:12])}</span>
-        </div>
-        <h3><a href="{_html(detail_url)}">{_html(str(entry.get("title") or "Precomputed review"))}</a></h3>
-        <p>{_html(str(entry.get("finding") or ""))}</p>
-        {note_html}
-        <dl class="metrics">
-          <div><dt>Rows</dt><dd>{row_count}</dd></div>
-          <div><dt>Window</dt><dd>{_html(window_label)}</dd></div>
-          <div><dt>Evidence Items</dt><dd>{evidence_items}</dd>{occurrence_html}</div>
-          <div><dt>Chunks</dt><dd>{chunk_count}</dd></div>
-          <div><dt>Coverage</dt><dd>{coverage}</dd></div>
-          <div><dt>Providers</dt><dd>{schema_valid_count}/{provider_count}</dd></div>
-          <div><dt>Primary</dt><dd>{primary_count}</dd></div>
-          <div><dt>Review Targets</dt><dd>{target_count}</dd></div>
-        </dl>
-        <div class="actions">
+      <article class="review-card {category_class}{' featured' if featured else ''}">
+        <a class="review-card-main" href="{_html(detail_url)}" aria-label="{_html(f'Open {title} detail review')}">
+          <div class="card-topline">
+            <span class="badge card-tag">{_html(badge)}</span>
+            {status_badge}
+            <span class="sha">{_html(evidence_sha[:12])}</span>
+            <span class="card-arrow" aria-hidden="true">↗</span>
+          </div>
+          <h3>{_html(title)}</h3>
+          <p>{_html(str(entry.get("finding") or ""))}</p>
+          {note_html}
+          <dl class="metrics">
+            <div><dt>Rows</dt><dd>{row_count}</dd></div>
+            <div><dt>Window</dt><dd>{_html(window_label)}</dd></div>
+            <div><dt>Evidence Items</dt><dd>{evidence_items}</dd>{occurrence_html}</div>
+            <div><dt>Chunks</dt><dd>{chunk_count}</dd></div>
+            <div><dt>Coverage</dt><dd>{coverage}</dd></div>
+            <div><dt>Providers</dt><dd>{schema_valid_count}/{provider_count}</dd></div>
+            <div><dt>Primary</dt><dd>{primary_count}</dd></div>
+            <div><dt>Review Targets</dt><dd>{target_count}</dd></div>
+          </dl>
+        </a>
+        <div class="actions" aria-label="{_html(f'Related links for {title}')}">
           <a href="{_html(detail_url)}">Detail</a>
           <a href="{_html(api_url)}">API</a>
           <a href="{_html(graph_url)}">Graph</a>
@@ -472,9 +619,9 @@ def _review_card_html(entry: dict[str, Any], *, featured: bool = False) -> str:
     """
 
 
-def _cross_domain_summary_card_html(entries: list[dict[str, Any]]) -> str:
+def _scale_proof_html(entries: list[dict[str, Any]]) -> str:
     if not entries:
-        return "<p>No cross-domain review set is available.</p>"
+        return ""
     rows = sum(int(row.get("row_count") or 0) for row in entries)
     chunks = sum(int(row.get("chunk_count") or 0) for row in entries)
     primary_targets = sum(int(row.get("primary_targets") or 0) for row in entries)
@@ -491,23 +638,14 @@ def _cross_domain_summary_card_html(entries: list[dict[str, Any]]) -> str:
         }
     )
     provider_label = ", ".join(provider_sets) if provider_sets else "recorded"
-    detail_links = "\n".join(
-        (
-            f"<a href=\"/ui/full-review-page?evidence_sha256={_html(_url_quote(str(row.get('evidence_sha') or '')))}\">"
-            f"{_html(str(row.get('category') or 'Review'))}</a>"
-        )
-        for row in entries
-        if row.get("evidence_sha")
-    )
     return f"""
-      <article class="review-card featured">
-        <div class="card-topline">
-          <span class="badge">Cross-Domain Scale Validation</span>
-          <span class="sha">{_html(str(len(entries)))} public corpora</span>
+      <aside class="scale-proof" aria-label="Scale proof summary">
+        <div class="scale-proof-copy">
+          <span class="badge">Scale proof</span>
+          <strong>{len(entries)} recorded domains, one evidence-gated review contract.</strong>
+          <p>The cards below are the actual review artifacts. This is a scale summary of those three recorded runs, not a separate fourth run.</p>
         </div>
-        <h3>Scale validation is the curated review set above, not a fourth hidden run.</h3>
-        <p>The landing page groups the recorded real API runs by reviewer task: primary runtime review, guarded review, and observation-gap validation. This card summarizes that cross-domain evidence set so the scale proof is visible without duplicating a separate run.</p>
-        <dl class="metrics">
+        <dl class="scale-proof-grid">
           <div><dt>Corpora</dt><dd>{len(entries)}</dd></div>
           <div><dt>Services</dt><dd>{_html(', '.join(services))}</dd></div>
           <div><dt>Rows</dt><dd>{_human_count(rows)}</dd></div>
@@ -517,8 +655,7 @@ def _cross_domain_summary_card_html(entries: list[dict[str, Any]]) -> str:
           <div><dt>Primary</dt><dd>{primary_targets}</dd></div>
           <div><dt>Review Targets</dt><dd>{target_count}</dd></div>
         </dl>
-        <div class="actions">{detail_links}</div>
-      </article>
+      </aside>
     """
 
 
@@ -547,23 +684,17 @@ def _public_precomputed_landing_page() -> str:
     primary_entries = [row for row in manifest_entries if row.get("category") == "Primary Review"]
     guarded_entries = [row for row in manifest_entries if row.get("category") == "Guarded Review"]
     observation_entries = [row for row in manifest_entries if row.get("category") == "Observation Gap Validation"]
-    scale_entries = [
-        row
-        for row in manifest_entries
-        if row.get("category") not in {"Primary Review", "Guarded Review", "Observation Gap Validation"}
-    ]
+    review_set_entries = primary_entries + guarded_entries + observation_entries
     primary_cards = "\n".join(_review_card_html(row, featured=True) for row in primary_entries)
     guarded_cards = "\n".join(_review_card_html(row) for row in guarded_entries)
     observation_cards = "\n".join(_review_card_html(row) for row in observation_entries)
-    scale_cards = "\n".join(_review_card_html(row) for row in scale_entries)
+    scale_proof = _scale_proof_html(review_set_entries)
     if not primary_cards:
         primary_cards = "<p>No primary review is available.</p>"
     if not guarded_cards:
         guarded_cards = "<p>No guarded review is available.</p>"
     if not observation_cards:
         observation_cards = "<p>No observation gap review is available.</p>"
-    if not scale_cards:
-        scale_cards = _cross_domain_summary_card_html(manifest_entries)
     rescore_demo_ids = _public_rescore_demo_ids()
     archive_section = (
         "<details class='archive'><summary>Archived recorded runs</summary>"
@@ -856,19 +987,79 @@ def _public_precomputed_landing_page() -> str:
           .section-note {{ max-width: 660px; color: var(--ink-3); font-size: 13px; line-height: 1.55; text-align: right; }}
           .review-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 18px; }}
           .review-card {{
-            display: grid;
-            gap: 12px;
-            padding: 22px;
+            display: block;
+            position: relative;
+            overflow: hidden;
             border: 1px solid #e7e0d1;
             border-radius: 14px;
             background: var(--surface);
-            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+            box-shadow: 0 1px 2px rgba(40, 34, 20, .04);
+            transition: transform .2s ease-out, box-shadow .2s ease-out, border-color .2s ease-out;
           }}
-          .review-card:hover {{ border-color: var(--border-strong); transform: translateY(-2px); box-shadow: 0 18px 40px -26px rgba(60,50,30,.4); }}
+          .review-card:hover, .review-card:focus-within {{
+            border-color: #6d8cc9;
+            transform: translateY(-3px);
+            box-shadow: 0 14px 32px -22px rgba(50,42,28,.5);
+          }}
+          .review-card--primary {{ border-color: #d3dcee; }}
+          .review-card--guarded {{ border-color: #e4d7bd; }}
+          .review-card--guarded::before {{
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 3px;
+            background: #c99335;
+          }}
+          .review-card--guarded .card-tag {{
+            border-color: #e1c47d;
+            background: #fff4d7;
+            color: #9a681b;
+          }}
+          .review-card--observation {{ border-color: #d7dfeb; }}
           .review-card.featured {{ grid-column: 1 / -1; }}
+          .review-card-main {{
+            display: grid;
+            gap: 12px;
+            padding: 22px 52px 14px 22px;
+            color: inherit;
+            text-decoration: none;
+          }}
+          .review-card-main:focus-visible {{
+            outline: 2px solid #5c7fc4;
+            outline-offset: -4px;
+            border-radius: 13px;
+          }}
           .review-card h3 {{ margin: 0; color: var(--ink); font-size: 17px; line-height: 1.35; letter-spacing: 0; }}
           .review-card p {{ font-size: 13px; }}
-          .card-topline {{ display: flex; justify-content: space-between; gap: 12px; align-items: center; }}
+          .scale-proof {{
+            display: grid;
+            grid-template-columns: minmax(260px, .92fr) minmax(0, 1.4fr);
+            gap: 18px;
+            margin: 0 0 34px;
+            padding: 20px;
+            border: 1px solid #d8cfbd;
+            border-radius: 14px;
+            background: #efe9db;
+          }}
+          .scale-proof-copy {{ display: grid; align-content: start; gap: 10px; }}
+          .scale-proof-copy strong {{ color: var(--ink); font-size: 17px; line-height: 1.35; }}
+          .scale-proof-copy p {{ color: var(--ink-3); font-size: 13px; }}
+          .scale-proof-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; }}
+          .scale-proof-grid div {{ min-width: 0; border-top: 1px solid #d2c8b7; padding-top: 10px; }}
+          .card-topline {{ display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-right: 8px; }}
+          .card-arrow {{
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            color: var(--blue);
+            opacity: .46;
+            font: 900 18px/1 var(--sans);
+            transition: transform .2s ease-out, opacity .2s ease-out;
+          }}
+          .review-card:hover .card-arrow, .review-card:focus-within .card-arrow {{
+            opacity: 1;
+            transform: translate(2px, -2px);
+          }}
           .badge {{
             display: inline-flex;
             border: 1px solid #cdd8ec;
@@ -879,12 +1070,22 @@ def _public_precomputed_landing_page() -> str:
             font-size: 11px;
             font-weight: 800;
           }}
+          .status-badge {{
+            display: inline-flex;
+            border: 1px solid #cfd9e8;
+            border-radius: 999px;
+            padding: 6px 9px;
+            background: #f4f7fb;
+            color: #475b7a;
+            font-size: 11px;
+            font-weight: 850;
+          }}
           .sha, small {{ color: var(--muted); font-family: var(--mono); font-size: 11.5px; }}
           .metrics {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 4px 0 0; }}
           .metrics div {{ border-top: 1px solid var(--border); padding-top: 10px; min-width: 0; }}
           dt {{ color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }}
           dd {{ margin: 3px 0 0; font-weight: 820; overflow-wrap: anywhere; }}
-          .actions {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+          .actions {{ display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px 22px; }}
           .actions a, .loop-link {{
             display: inline-grid;
             gap: 3px;
@@ -924,10 +1125,13 @@ def _public_precomputed_landing_page() -> str:
             .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
             .section-head {{ align-items: flex-start; flex-direction: column; }}
             .section-note {{ text-align: left; }}
+            .scale-proof {{ grid-template-columns: 1fr; }}
+            .scale-proof-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
           }}
           @media (max-width: 520px) {{
             h1 {{ font-size: 48px; }}
             .hero-stats, .pipeline, .mode-grid, .criteria-grid, .loop-grid {{ grid-template-columns: 1fr; }}
+            .scale-proof-grid {{ grid-template-columns: 1fr; }}
             .hero-cta {{ display: grid; }}
             .browser-bar {{ flex-wrap: wrap; }}
             .provider-bars div {{ grid-template-columns: 64px minmax(0, 1fr); }}
@@ -959,7 +1163,7 @@ def _public_precomputed_landing_page() -> str:
             <p class="hero-lead">Do not trust the summary. Trace it. Every AI verdict breaks into cited Evidence IDs, provider stances, missing evidence, and a human gate.</p>
             <p class="hero-sub">This public entry serves read-only precomputed reviews, sanitized logs, sanitized source context, and approved system profiles. Raw logs stay local; sanitized bundles reach Google Cloud for review. Provider convergence creates review targets, not accepted incident causes.</p>
             <div class="hero-cta">
-              <a class="button primary" href="{_html(primary_detail_url)}">Open primary review -&gt;</a>
+              <a class="button primary" href="{_html(primary_detail_url)}">Open flagship review -&gt;</a>
               <a class="button" href="/ui/fast-gcp-review">Run Fast GCP Review</a>
               <a class="button" href="{_html(primary_report_url)}">Read incident report</a>
               <a class="button" href="{_html(rescore_demo_url)}">Watch rescore loop</a>
@@ -968,7 +1172,7 @@ def _public_precomputed_landing_page() -> str:
             <div class="hero-stats" aria-label="Public evidence summary">
               <div><b>{_html(primary_rows)}</b><span>rows analyzed</span></div>
               <div><b>{_html(gate_signal_label)}</b><span>providers - provider signal, not a verdict</span></div>
-              <div><b>{primary_candidate_count}</b><span>primary candidates in primary review</span></div>
+              <div><b>{primary_candidate_count}</b><span>primary candidates in flagship review</span></div>
               <div><b>0</b><span aria-label="0 AUTO-PROMOTED CAUSES">AUTO-PROMOTED CAUSES</span></div>
             </div>
           </section>
@@ -1061,6 +1265,7 @@ def _public_precomputed_landing_page() -> str:
               </div>
               <p class="section-note">{_human_count(total_public_corpora)} public corpora - {_human_count(total_public_rows)} rows. Every sanitized DB row is assigned to the coverage ledger before provider chunking.</p>
             </div>
+            {scale_proof}
             <h2>Primary Review</h2>
             <div class="review-grid">{primary_cards}</div>
           </section>
@@ -1071,10 +1276,6 @@ def _public_precomputed_landing_page() -> str:
           <section class="wrap">
             <h2>Observation Gap Validation</h2>
             <div class="review-grid">{observation_cards}</div>
-          </section>
-          <section class="wrap">
-            <h2>Cross-Domain Scale Validation</h2>
-            <div class="review-grid">{scale_cards}</div>
           </section>
           <div class="band" id="judging-map">
             <section class="wrap">
@@ -1195,7 +1396,7 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
         "review_targets": targets,
         "display_summary": {
             "title": str(finding.get("title") or ""),
-            "impact": str(finding.get("impact") or ""),
+            "impact": _public_finding_impact_text(summary, str(finding.get("impact") or "")),
             "provider_detection_overlap": str(graph_summary.get("provider_detection_overlap") or ""),
             "technical_baseline_agreement": str(graph_summary.get("technical_baseline") or ""),
             "incident_baseline_agreement": str(graph_summary.get("incident_baseline") or ""),
@@ -1247,7 +1448,7 @@ def _precomputed_graph_nodes_edges(
             "id": "finding",
             "type": "finding",
             "label": str(finding.get("title") or "Persisted finding"),
-            "detail": str(finding.get("impact") or ""),
+            "detail": _public_finding_impact_text(summary, str(finding.get("impact") or "")),
         },
         {
             "id": "baseline:technical",
@@ -1372,7 +1573,9 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
     case_label = _detail_case_label(payload, review)
     provider_mode = _detail_provider_mode_label(payload)
     finding_title = str(finding.get("title") or "Evidence review")
-    finding_impact = str(finding.get("impact") or "The API result is available for review.")
+    finding_impact = _public_finding_impact_text(
+        summary, str(finding.get("impact") or "The API result is available for review.")
+    )
     hero_title, hero_impact = _detail_hero_copy(
         payload=payload,
         review=review,
@@ -1542,6 +1745,7 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
       color: var(--bg);
       font: 800 11px/1 var(--mono);
       flex: none;
+      text-decoration: none;
     }}
     .breadcrumb {{
       display: flex;
@@ -1551,6 +1755,13 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
       max-width: 100%;
       color: var(--ink-3);
       font-size: 13px;
+    }}
+    .breadcrumb a {{
+      color: inherit;
+      text-decoration: none;
+    }}
+    .breadcrumb a:hover, .breadcrumb a:focus-visible {{
+      color: var(--ink);
     }}
     .breadcrumb strong {{ display: inline; color: var(--ink); font-weight: 800; }}
     .status-chip, .evidence-chip {{
@@ -1813,8 +2024,12 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
   <div class="page">
     <header class="topbar">
       <div class="brand-row">
-        <div class="mark">OE</div>
-        <div class="breadcrumb"><span>/</span><span>API</span><span>/</span><strong>{_html(case_label)}</strong></div>
+        <a class="mark" href="/" aria-label="Ops Evidence home">OE</a>
+        <div class="breadcrumb">
+          <span>/</span><a href="/#review-set">Reviews</a>
+          <span>/</span><a href="/ui/full-review-page?evidence_sha256={_html(evidence)}"><strong>{_html(case_label)}</strong></a>
+          <span>/</span><strong>API</strong>
+        </div>
       </div>
       <div class="status-row">
         <span class="evidence-chip">evidence {_html(_short_sha(evidence_sha256))}</span>
@@ -1978,6 +2193,7 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
         or finding.get("impact")
         or "The canonical graph keeps provider positions, cited Evidence Items, and human review gates connected."
     )
+    title = _public_count_text(title)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -2196,7 +2412,7 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
       <div class="wrap nav-inner">
         <nav class="crumbs" aria-label="Breadcrumb">
           <a class="brand" href="/"><span class="brand-mark">OE</span><span>Ops Evidence</span></a>
-          <span class="crumb-sep">/</span><a href="/">Reviews</a>
+          <span class="crumb-sep">/</span><a href="/#review-set">Reviews</a>
           <span class="crumb-sep">/</span><a href="/ui/full-review-page?evidence_sha256={_html(evidence_sha256)}">{_html(service_label)}</a>
           <span class="crumb-sep">/</span><span>Canonical Review Graph</span>
         </nav>
@@ -2446,6 +2662,8 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
       flex: none;
     }}
     .crumb {{ color: var(--ink-3); font-size: 13px; overflow-wrap: anywhere; }}
+    .crumb a {{ color: inherit; text-decoration: none; }}
+    .crumb a:hover, .crumb a:focus-visible {{ color: var(--ink); }}
     .crumb b {{ color: var(--ink); }}
     .chips {{ display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }}
     .chip {{
@@ -2740,10 +2958,16 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
 <body>
   <main class="shell">
     <nav class="topbar" aria-label="Primary">
-      <a class="brand" href="/">
-        <span class="brand-mark">OE</span>
-        <span class="crumb">Reviews / {_html(service_label)} / <b>Canonical Review Graph</b></span>
-      </a>
+      <div class="brand">
+        <a class="brand-mark" href="/" aria-label="Ops Evidence home">OE</a>
+        <span class="crumb">
+          <a href="/#review-set">Reviews</a>
+          /
+          <a href="/ui/full-review-page?evidence_sha256={_html(evidence_sha256)}">{_html(service_label)}</a>
+          /
+          <b>Canonical Review Graph</b>
+        </span>
+      </div>
       <div class="chips">
         <span class="chip">canonical_review_graph.v1</span>
         <span class="chip">evidence {_html(evidence_sha256[:12])}</span>
@@ -2753,7 +2977,7 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
     <section class="hero">
       <div class="kicker">Review Graph - Nodes and edges - not a verdict</div>
       <h1>Every target keeps a provider stance ledger.</h1>
-      <p>{_html(str(graph_summary.get("summary") or finding.get("impact") or "The canonical graph keeps provider positions, cited Evidence Items, and human review gates connected."))} The canvas focuses on one target at a time; the matrix below keeps all provider positions visible.</p>
+      <p>{_html(_public_count_text(graph_summary.get("summary") or finding.get("impact") or "The canonical graph keeps provider positions, cited Evidence Items, and human review gates connected."))} The canvas focuses on one target at a time; the matrix below keeps all provider positions visible.</p>
     </section>
 
     <section class="stat-grid" aria-label="Graph statistics">
@@ -2846,6 +3070,10 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
 
 
 def _review_graph_service_label(payload: dict[str, Any]) -> str:
+    evidence_sha = str(payload.get("evidence_sha256") or "").strip()
+    public_label = _public_manifest_label_for_evidence(evidence_sha)
+    if public_label:
+        return public_label
     generation = payload.get("generation") if isinstance(payload.get("generation"), dict) else {}
     service = str(generation.get("service") or "").strip()
     if service:
@@ -3532,7 +3760,9 @@ def _render_precomputed_markdown_report(evidence_sha256: str, payload: dict[str,
     targets = [row for row in payload.get("targets") or [] if isinstance(row, dict)]
 
     title = _markdown_text(finding.get("title") or "Evidence review")
-    impact = _markdown_text(finding.get("impact") or "Review targets are available for human validation.")
+    impact = _markdown_text(
+        _public_finding_impact_text(summary, str(finding.get("impact") or "Review targets are available for human validation."))
+    )
     service = _markdown_text(context.get("service") or "")
     environment = _markdown_text(context.get("environment") or "")
     window_start = _markdown_text(context.get("window_start") or "")
@@ -3547,7 +3777,7 @@ def _render_precomputed_markdown_report(evidence_sha256: str, payload: dict[str,
         "",
         (
             "> This report is review material, not an accepted incident cause. "
-            "Provider convergence creates validation targets; final causal judgement "
+            "Provider convergence creates review targets; final causal judgement "
             "and operational action remain human-gated. Provider agreement is not "
             "majority-vote truth."
         ),
@@ -3773,7 +4003,7 @@ def _target_markdown_section(target: dict[str, Any], *, index: int) -> list[str]
     if caveats:
         lines.append("- Caveats: " + "; ".join(_markdown_text(item) for item in caveats[:4]) + ".")
     lines.append("")
-    return lines
+    return [_public_count_text(line) for line in lines]
 
 
 def _provider_status_markdown_table(provider_statuses: list[dict[str, Any]]) -> list[str]:
@@ -3827,7 +4057,7 @@ def _markdown_bullets(points: list[str]) -> list[str]:
 
 
 def _markdown_text(value: object) -> str:
-    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = _public_count_text(value).replace("\r\n", "\n").replace("\r", "\n")
     return "\n  ".join(part.strip() for part in text.split("\n") if part.strip())
 
 
@@ -3892,7 +4122,7 @@ def _detail_hero_copy(
     impact = (
         f"{finding_title}. Across {row_count} monitoring rows, "
         f"{provider_success} / {provider_total} schema-valid providers raised "
-        f"{primary_targets} primary candidate(s) and {validation_targets} validation target(s). "
+        f"{_review_target_count_text(primary_targets, validation_targets)}. "
         "The UI keeps those signals human-gated because missing liveness and weak observation are review work, "
         "not accepted incident causes."
     )
@@ -3971,7 +4201,7 @@ def _detail_action_links_html(evidence_sha256: str) -> str:
         ("Review graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions"),
         ("Markdown report", f"/ui/report.md?evidence_sha256={evidence}", "human-readable Markdown report"),
     ]
-    for demo_id in _public_rescore_demo_ids():
+    for demo_id in _public_rescore_demo_ids_for_evidence(evidence_sha256):
         links.append(("More Data Loop", f"/ui/rescore-demo?id={quote(demo_id)}", demo_id))
     links.extend(
         [
@@ -4450,7 +4680,9 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
         devops_loop_panel,
     )
     finding_title = str(finding.get("title") or "No persisted finding yet")
-    finding_impact = str(finding.get("impact") or "Run analysis to create a persisted review result.")
+    finding_impact = _public_finding_impact_text(
+        summary, str(finding.get("impact") or "Run analysis to create a persisted review result.")
+    )
     hero_title, hero_impact = _detail_hero_copy(
         payload=payload,
         review=review,
@@ -4526,10 +4758,18 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       font-weight: 700;
       font-size: 13px;
       flex: none;
+      text-decoration: none;
     }}
     .breadcrumb {{
       color: var(--ink-3);
       font-size: 13px;
+    }}
+    .breadcrumb a {{
+      color: inherit;
+      text-decoration: none;
+    }}
+    .breadcrumb a:hover, .breadcrumb a:focus-visible {{
+      color: var(--ink);
     }}
     .breadcrumb strong {{ color: var(--ink); font-weight: 700; }}
     .status-chip, .evidence-chip, .filter-chip, .pill {{
@@ -5318,6 +5558,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       background: var(--ink);
       color: var(--bg);
       font: 800 11px/1 var(--mono);
+      text-decoration: none;
     }}
     .breadcrumb {{
       display: flex;
@@ -5325,6 +5566,13 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       align-items: center;
       color: var(--ink-3);
       font-size: 13px;
+    }}
+    .breadcrumb a {{
+      color: inherit;
+      text-decoration: none;
+    }}
+    .breadcrumb a:hover, .breadcrumb a:focus-visible {{
+      color: var(--ink);
     }}
     .breadcrumb strong {{
       display: inline;
@@ -5649,8 +5897,11 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
   <div class="page">
     <header class="topbar">
       <div class="brand-row">
-        <div class="mark">OE</div>
-        <div class="breadcrumb"><span>/</span><span>Reviews</span><span>/</span><strong>{_html(case_label)}</strong></div>
+        <a class="mark" href="/" aria-label="Ops Evidence home">OE</a>
+        <div class="breadcrumb">
+          <span>/</span><a href="/#review-set">Reviews</a>
+          <span>/</span><strong>{_html(case_label)}</strong>
+        </div>
       </div>
       <div class="status-row">
         <span class="evidence-chip">evidence {_html(_short_sha(evidence_sha256))}</span>
@@ -5708,7 +5959,7 @@ def _precomputed_agent_trace_panel(payload: dict[str, Any]) -> str:
     visible_steps = steps[:6]
     overflow = max(0, len(steps) - len(visible_steps))
     overflow_note = (
-        f"<p class=\"section-note\">{overflow} additional trace step(s) are retained in the API view.</p>"
+        f"<p class=\"section-note\">{_count_noun(overflow, 'additional trace step')} are retained in the API view.</p>"
         if overflow
         else ""
     )
@@ -6551,7 +6802,9 @@ def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | No
     full_url = f"/ui/full-review-page?evidence_sha256={_url_quote(evidence_sha256)}"
     action_links = _public_action_links_html(evidence_sha256)
     finding_title = str(finding.get("title") or "No persisted finding yet")
-    finding_impact = str(finding.get("impact") or "Run analysis to create a persisted review result.")
+    finding_impact = _public_finding_impact_text(
+        summary, str(finding.get("impact") or "Run analysis to create a persisted review result.")
+    )
     provider_text = (
         f"{int(providers.get('success') or 0)} / {int(providers.get('total') or 0)}"
         if providers
@@ -7297,6 +7550,8 @@ def _render_rescore_demo_page(demo_id: str) -> str:
       <div class="wrap nav-inner">
         <div class="crumbs">
           <a class="brand" href="/"><span class="brand-mark">OE</span><span>Ops Evidence</span></a>
+          <span class="crumb-sep">/</span>
+          <a href="/#review-set">Reviews</a>
           <span class="crumb-sep">/</span>
           <a href="{_html(source_review_url)}">notifier restart loop</a>
           <span class="crumb-sep">/</span>
@@ -8225,7 +8480,7 @@ def _rescore_provider_positions_html(positions: object) -> str:
 def _html(value: object) -> str:
     import html
 
-    return html.escape(str(value), quote=True)
+    return html.escape(_public_count_text(value), quote=True)
 
 
 fast_detail_target_card = _fast_detail_target_card

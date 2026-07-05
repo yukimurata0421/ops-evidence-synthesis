@@ -56,6 +56,16 @@ def test_root_renders_drag_and_drop_evidence_bundle_upload(
         assert "Stream transport disappeared" not in page.text
 
 
+def test_favicon_route_returns_svg_when_public_read_guard_is_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+    with TestClient(app) as client:
+        response = client.get("/favicon.ico")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/svg+xml")
+    assert "<svg" in response.text
+
+
 def test_fast_review_shell_embeds_precomputed_summary(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -191,6 +201,8 @@ def test_fast_review_shell_embeds_precomputed_summary(
 
     assert detail.status_code == 200
     assert "Saved finding" in detail.text
+    assert '<a class="mark" href="/" aria-label="Ops Evidence home">OE</a>' in detail.text
+    assert '<a href="/#review-set">Reviews</a>' in detail.text
     assert "Provider Frontier" not in detail.text
     assert "Configuration mismatch requires review" in detail.text
     assert "Provider positions" in detail.text
@@ -203,9 +215,14 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert "Read-only API View" in api_view.text
     assert "Summary JSON" in api_view.text
     assert "Review Graph JSON" in api_view.text
+    assert '<a class="mark" href="/" aria-label="Ops Evidence home">OE</a>' in api_view.text
+    assert '<a href="/#review-set">Reviews</a>' in api_view.text
+    assert f'<a href="/ui/full-review-page?evidence_sha256={evidence_sha}"><strong>' in api_view.text
     assert graph_view.status_code == 200
     assert "Review Graph" in graph_view.text
     assert "Nodes and edges" in graph_view.text
+    assert '<span class="crumb-sep">/</span><a href="/#review-set">Reviews</a>' in graph_view.text
+    assert f'href="/ui/full-review-page?evidence_sha256={evidence_sha}"' in graph_view.text
     assert report_view.status_code == 200
     assert "Incident Review Report" in report_view.text
     assert "This report is review material, not an accepted incident cause." in report_view.text
@@ -221,6 +238,16 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert review_graph.json()["canonical_review_graph"]["nodes"]
     assert review_graph.json()["canonical_review_graph"]["edges"]
     assert review_graph.json()["canonical_review_graph"]["review_graph_summary"]["targets_total"] == 1
+
+
+def test_fast_gcp_review_breadcrumb_links_back_to_review_modes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+
+    with TestClient(app) as client:
+        response = client.get("/ui/fast-gcp-review")
+
+    assert response.status_code == 200
+    assert '<a href="/#improvement-loop">Review modes</a>' in response.text
 
 
 def test_precomputed_only_ui_returns_404_for_missing_review(

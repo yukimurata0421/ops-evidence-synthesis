@@ -28,8 +28,8 @@ Show:
 
 - Raw log policy: `not_uploaded`
 - 45,000-row sanitized runtime corpus
-- 39 provider-specific chunks
-- 3 human-gated primary candidates
+- 33 provider-specific chunks
+- 0 primary candidates / 11 validation targets
 - Agent Trace
 - Review Graph Arbitration
 

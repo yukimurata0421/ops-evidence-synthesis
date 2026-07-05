@@ -23,9 +23,9 @@ human-reviewable targets.
 
 | Case | Role in evaluation | Evidence SHA256 | Run notes |
 | --- | --- | --- | --- |
-| stream_v3 Dell runtime | Primary path with active human-gated primary candidates | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
-| amazon-notify | Guarded-review example: 5/5 providers, 0 auto-promoted causes | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` | [amazon-notify run](docs/real-api-5-provider-run.md) |
-| stream_v3 arena-server monitoring | Observation-gap validation case | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
+| stream_v3 Dell runtime | Primary path: 5/5 providers, 0 primary candidates, 11 validation targets | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
+| amazon-notify | Guarded-review example: 5/5 providers, 1 primary candidate, 0 auto-promoted causes | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` | [amazon-notify run](docs/real-api-5-provider-run.md) |
+| stream_v3 arena-server monitoring | Observation-gap validation case: 5/5 providers, 1 primary candidate, 11 validation targets | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
 
 All public real-provider reviews use sanitized source/profile context and
 chunked full-corpus Evidence Items. Raw rows and raw source stay local; public
@@ -73,9 +73,9 @@ human-gated.
 - Convergence score is defined as claimed successful providers divided by all
   successful providers.
 - The public primary path shows stream_v3 runtime targets with 5/5 providers
-  and human-gated primary candidates; amazon-notify shows the restrained case
-  where 5/5 provider support can create primary candidates, but still does not
-  auto-accept an incident cause or operational action.
+  but 0 primary candidates; amazon-notify and arena-server monitoring show that
+  a primary candidate can still remain human-gated and never auto-accept an
+  incident cause or operational action.
 - The More data rescore demo shows the AI improvement cycle without public write
   access or live model execution.
 - The Agent Trace is backed by an ADK-compatible tool contract; the same tools
