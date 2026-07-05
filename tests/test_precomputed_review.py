@@ -910,6 +910,69 @@ def test_precomputed_detail_page_ui_smoke_includes_provider_targets_missing_evid
     assert "gemma-agent-platform" in html
 
 
+def test_observation_validation_target_is_not_labeled_as_suspected_issue() -> None:
+    target = {
+        "review_target_id": "cog-observation-user-experience",
+        "class": "validation_target",
+        "canonical_review_unit": "user_experience",
+        "review_priority_score": 0.774,
+        "provider_positions": [
+            {
+                "provider_id": "gemini-fast-lite-agent-platform",
+                "stance": "claimed",
+            }
+        ],
+        "agreement": {
+            "verdict": "single_source",
+            "convergence_score": 1.0,
+        },
+        "target_explanation": {
+            "schema_version": "target_explanation.v1",
+            "suspected_issue": "None identified",
+            "operational_mechanism": (
+                "The systemd service and pubsub listener appear to be processing messages "
+                "and advancing checkpoints as expected."
+            ),
+            "why_it_matters": "Confirms the service is likely healthy and not impacting notification delivery.",
+            "why_not_promoted": "The evidence indicates normal operation rather than an incident.",
+            "next_validation_question": "Are there any specific time windows where notifications were reported as missing?",
+            "provider_explanations": [
+                {
+                    "claim_type": "insufficient_evidence",
+                    "provider_id": "gemini-fast-lite-agent-platform",
+                }
+            ],
+        },
+        "evidence_refs": ["PATTERN-281", "PATTERN-314", "PATTERN-382"],
+        "missing_evidence": ["Logs or metrics indicating specific notification delivery failures."],
+    }
+
+    detail_html = _workspace_target_detail_html(target, index=1)
+    queue_html = web_precomputed._workspace_queue_item_html(target, index=1)
+
+    assert "Current finding" in detail_html
+    assert "<label>Suspected issue</label>" not in detail_html
+    assert "score is queue priority, not incident probability" in detail_html
+    assert "<span>priority</span>0.77" in queue_html
+    assert "Review priority, not incident probability" in queue_html
+
+    anomaly_target = {
+        **target,
+        "review_target_id": "cog-traffic",
+        "canonical_review_unit": "traffic",
+        "target_explanation": {
+            "suspected_issue": "Potential traffic anomaly or instrumentation change.",
+            "operational_mechanism": "The unique_trace_count metric is tracking distinct execution paths.",
+            "why_it_matters": "An unexplained increase in trace counts could indicate unexpected system behavior.",
+            "why_not_promoted": "The metric increase is not correlated with error logs or service failures.",
+        },
+    }
+    anomaly_html = _workspace_target_detail_html(anomaly_target, index=2)
+
+    assert "<label>Suspected issue</label>" in anomaly_html
+    assert "<label>Current finding</label>" not in anomaly_html
+
+
 def test_rescore_loop_links_are_only_attached_to_matching_source_evidence() -> None:
     rescore_url = "/ui/rescore-demo?id=amazon-notify-more-data-rescore"
 

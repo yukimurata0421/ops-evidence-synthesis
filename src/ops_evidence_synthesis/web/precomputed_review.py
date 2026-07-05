@@ -3973,12 +3973,14 @@ def _target_markdown_section(target: dict[str, Any], *, index: int) -> list[str]
         or ""
     ).strip()
     why_not_promoted = str(target.get("why_not_promoted") or explanation.get("why_not_promoted") or "").strip()
+    boundary_note = _target_review_boundary_note(target)
     for label, value in (
-        ("Suspected issue", suspected_issue),
+        (_target_issue_label(target), suspected_issue),
         ("Operational mechanism", mechanism),
         ("Why it matters", why_it_matters),
         ("Why not promoted", why_not_promoted),
         ("Next validation question", next_question),
+        ("Review boundary", boundary_note),
     ):
         if value:
             lines.append(f"- {label}: {_markdown_text(value)}")
@@ -4314,6 +4316,51 @@ def _workspace_queue_claim_label(target: dict[str, Any]) -> str:
     return label
 
 
+def _target_observation_text(target: dict[str, Any]) -> str:
+    explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
+    parts = [
+        target.get("suspected_issue"),
+        explanation.get("suspected_issue"),
+        target.get("claim"),
+        target.get("why_not_promoted"),
+        explanation.get("why_not_promoted"),
+        explanation.get("why_it_matters"),
+    ]
+    return " ".join(str(item or "") for item in parts).casefold()
+
+
+def _target_reads_as_observation_or_no_issue(target: dict[str, Any]) -> bool:
+    text = _target_observation_text(target)
+    no_issue_phrases = (
+        "none identified",
+        "no issue",
+        "no observed failure",
+        "no observed failures",
+        "no evidence of service failure",
+        "no failure evidence",
+        "service appears healthy",
+        "likely healthy",
+        "normal operation",
+        "operating normally",
+        "failure not observed",
+        "normal operation rather than an incident",
+    )
+    return any(phrase in text for phrase in no_issue_phrases)
+
+
+def _target_issue_label(target: dict[str, Any]) -> str:
+    return "Current finding" if _target_reads_as_observation_or_no_issue(target) else "Suspected issue"
+
+
+def _target_review_boundary_note(target: dict[str, Any]) -> str:
+    if _target_reads_as_observation_or_no_issue(target):
+        return (
+            "This is a validation target created from an observation or missing-evidence question; "
+            "the score is queue priority, not incident probability."
+        )
+    return "This is review work; the score is queue priority, not incident probability."
+
+
 def _workspace_provider_label(provider_id: str) -> str:
     normalized = provider_id.lower()
     if "gemini" in normalized:
@@ -4352,12 +4399,13 @@ def _workspace_queue_item_html(target: dict[str, Any], *, index: int) -> str:
         <button class="workspace-queue-item{active}" type="button" data-target-id="{_html(target_id)}" data-target-group="{_html(_target_group_key(target))}">
           <span class="queue-title-row">
             <strong>{_html(unit)}</strong>
-            <b>{score:.2f}</b>
+            <b title="Review priority, not incident probability"><span>priority</span>{score:.2f}</b>
           </span>
           <span class="queue-meta-row">
             <span class="pill">{_html(_target_class_label(target))}</span>
             <span>{_html(_workspace_queue_claim_label(target))}</span>
           </span>
+          <span class="queue-note">{_html(_target_review_boundary_note(target))}</span>
           <span class="workspace-progress" aria-hidden="true">
             <span style="width:{width:.1f}%"></span>
           </span>
@@ -4441,6 +4489,8 @@ def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
     counter_html = _workspace_chip_list(counter_items or caveats, limit=4, empty="No counter or caveat signal was persisted.")
     missing_html = _workspace_chip_list(missing, limit=4, empty="No missing evidence was persisted.")
     refs_html = _workspace_chip_list(evidence_refs, limit=8, empty="No cited evidence refs were persisted.")
+    issue_label = _target_issue_label(target)
+    boundary_note = _target_review_boundary_note(target)
     return f"""
       <div class="workspace-detail-inner" id="{_html(_target_anchor_id(target, index=index))}">
         <span class="workspace-sr">What this target means operationally. Provider positions. Promotion gate.</span>
@@ -4460,8 +4510,9 @@ def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
           {_stance_bar_html(target)}
         </div>
         {provider_cards}
+        <p class="workspace-boundary-note">{_html(boundary_note)}</p>
         <div class="workspace-three">
-          <div><label>Suspected issue</label><p>{_html(suspected_issue)}</p></div>
+          <div><label>{_html(issue_label)}</label><p>{_html(suspected_issue)}</p></div>
           <div><label>Operational mechanism</label><p>{_html(operational_mechanism)}</p></div>
           <div><label>Why it matters</label><p>{_html(why_it_matters)}</p></div>
         </div>
@@ -4995,6 +5046,20 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     .queue-title-row b {{
       font-size: 16px;
       flex: none;
+      text-align: right;
+    }}
+    .queue-title-row b span {{
+      display: block;
+      color: var(--ink-3);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }}
+    .queue-note, .workspace-boundary-note {{
+      color: var(--ink-3);
+      font-size: 12px;
+      line-height: 1.35;
     }}
     .queue-meta-row {{
       color: var(--ink-2);
@@ -5025,6 +5090,12 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       display: grid;
       gap: 24px;
       min-width: 0;
+    }}
+    .workspace-boundary-note {{
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 10px 12px;
     }}
     .workspace-detail h3 {{
       margin: 12px 0 0;
@@ -6574,15 +6645,18 @@ def _target_explanation_html(target: dict[str, Any]) -> str:
     evidence_items = "".join(f"<li>{_html(item)}</li>" for item in evidence_summary[:8])
     counter_items = "".join(f"<li>{_html(item)}</li>" for item in counter_summary[:6])
     counter_block = f"<label>Counter / weak signals</label><ul>{counter_items}</ul>" if counter_items else ""
+    issue_label = _target_issue_label(target)
+    boundary_note = _target_review_boundary_note(target)
     return f"""
       <div class="target-explanation">
-        <label>Suspected issue</label><p>{_html(suspected_issue)}</p>
+        <label>{_html(issue_label)}</label><p>{_html(suspected_issue)}</p>
         <label>Operational mechanism</label><p>{_html(operational_mechanism)}</p>
         <label>Why it matters</label><p>{_html(why_it_matters)}</p>
         <label>Evidence summary</label><ul>{evidence_items}</ul>
         {counter_block}
         <label>Why not promoted</label><p>{_html(why_not_promoted)}</p>
         <label>Next validation question</label><p>{_html(next_question)}</p>
+        <label>Review boundary</label><p>{_html(boundary_note)}</p>
       </div>
     """
 
