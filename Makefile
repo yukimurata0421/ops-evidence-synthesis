@@ -1,5 +1,6 @@
 PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 PYTEST_ARGS ?=
+PROJECT_ID ?= ops-evidence-synthesis
 PUBLIC_BASE_URL ?= https://ops-evidence.yukimurata0421.dev
 PUBLIC_EVIDENCE_SHA ?= 345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
 RETIRED_EVIDENCE_SHA ?= 5d0b5a918de1f99852498da2c8558d14993fe33b2259d23ac0ece59a900b48d9
@@ -12,8 +13,31 @@ SAMPLE_PROFILE_DIR ?= data/public_profile_contexts/payment_api_sample
 FLAGSHIP_PROFILE_DIR ?= data/public_profile_contexts/amazon_notify_sample
 PUBLIC_ARCHIVE ?= /tmp/ops-evidence-synthesis-public.zip
 PUBLIC_SMOKE_EXTRA_ARGS ?= --expect-provider gemini-enterprise-agent-platform --expect-provider openai-gpt-oss-on-vertex --expect-provider mistral-agent-platform --expect-provider qwen-agent-platform --expect-provider gemma-agent-platform
+GCS_REVIEW_PREFIX ?= gs://$(PROJECT_ID)-private-artifacts/precomputed_review_summaries
+GCS_REVIEW_SHA ?= $(PUBLIC_EVIDENCE_SHA)
+GCS_REVIEW_SOURCE ?= data/precomputed_review_summaries/$(GCS_REVIEW_SHA).json
+REVIEW_FROM_LOCAL_INPUT ?=
+REVIEW_FROM_LOCAL_SERVICE ?=
+REVIEW_FROM_LOCAL_ENVIRONMENT ?=
+REVIEW_FROM_LOCAL_START ?=
+REVIEW_FROM_LOCAL_END ?=
+REVIEW_FROM_LOCAL_BUCKET ?=
+REVIEW_FROM_LOCAL_RUN_ID ?=
+REVIEW_FROM_LOCAL_OUTPUT_DIR ?=
+REVIEW_FROM_LOCAL_PROVIDERS ?= local-gemini,local-gpt-oss,local-mistral
+REVIEW_FROM_LOCAL_PROVIDER_MODE ?= local
+REVIEW_FROM_LOCAL_MIN_WINDOW_HOURS ?= 0
+REVIEW_FROM_LOCAL_ARGS ?=
+LOCAL_REVIEW_DB ?= workspace/local_review/payment_api.sqlite3
+LOCAL_REVIEW_INPUT ?= data/sample_logs.jsonl
+LOCAL_REVIEW_SERVICE ?= payment-api
+LOCAL_REVIEW_ENVIRONMENT ?= prod
+LOCAL_REVIEW_START ?= 2026-06-12T10:00:00Z
+LOCAL_REVIEW_END ?= 2026-06-12T10:20:00Z
+LOCAL_REVIEW_PROVIDER ?= local
+LOCAL_REVIEW_PORT ?= 8097
 
-.PHONY: demo demo-flagship demo-sample verify-precomputed verify-flagship verify-sample test ci smoke-public deploy-public archive-public
+.PHONY: demo demo-flagship demo-sample review-from-local gcs-review publish-gcs-review smoke-gcs-review show-public-review-url run-local-review show-local-review serve-local-review verify-precomputed verify-flagship verify-sample test ci smoke-public deploy-public archive-public
 
 demo: demo-flagship
 
@@ -22,6 +46,32 @@ demo-flagship:
 
 demo-sample:
 	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --source-note "generated from public sample fixture with deterministic local providers and sanitized source profile context" --source-context $(SAMPLE_PROFILE_DIR)/source_context_bundle.json --source-analysis $(SAMPLE_PROFILE_DIR)/source_analysis_bundle.json --profile-draft $(SAMPLE_PROFILE_DIR)/profile_draft.json --approved-profile $(SAMPLE_PROFILE_DIR)/approved_profile.json --profile-id payment_api_sample_source_approved --expected-evidence-sha $(SAMPLE_EVIDENCE_SHA)
+
+review-from-local:
+	@LOG_INPUT="$(REVIEW_FROM_LOCAL_INPUT)" SERVICE="$(REVIEW_FROM_LOCAL_SERVICE)" ENVIRONMENT="$(REVIEW_FROM_LOCAL_ENVIRONMENT)" START="$(REVIEW_FROM_LOCAL_START)" END="$(REVIEW_FROM_LOCAL_END)" PROJECT_ID="$(PROJECT_ID)" BUCKET="$(REVIEW_FROM_LOCAL_BUCKET)" RUN_ID="$(REVIEW_FROM_LOCAL_RUN_ID)" OUT="$(REVIEW_FROM_LOCAL_OUTPUT_DIR)" PUBLIC_BASE_URL="$(PUBLIC_BASE_URL)" PROVIDERS="$(REVIEW_FROM_LOCAL_PROVIDERS)" PROVIDER_MODE="$(REVIEW_FROM_LOCAL_PROVIDER_MODE)" MIN_WINDOW_HOURS="$(REVIEW_FROM_LOCAL_MIN_WINDOW_HOURS)" PYTHONPATH=src $(PYTHON) scripts/gcs_review_flow.py $(REVIEW_FROM_LOCAL_ARGS)
+
+gcs-review: publish-gcs-review smoke-gcs-review show-public-review-url
+
+publish-gcs-review:
+	test -f $(GCS_REVIEW_SOURCE)
+	gcloud storage cp $(GCS_REVIEW_SOURCE) $(GCS_REVIEW_PREFIX)/$(GCS_REVIEW_SHA).json
+
+smoke-gcs-review:
+	$(PYTHON) scripts/check_precomputed_review_url.py --base-url $(PUBLIC_BASE_URL) --evidence-sha $(GCS_REVIEW_SHA) --missing-evidence-sha $(RETIRED_EVIDENCE_SHA) $(PUBLIC_SMOKE_EXTRA_ARGS)
+
+show-public-review-url:
+	@echo "$(PUBLIC_BASE_URL)/ui/full-review-page?evidence_sha256=$(GCS_REVIEW_SHA)"
+
+run-local-review:
+	mkdir -p $(dir $(LOCAL_REVIEW_DB))
+	rm -f $(LOCAL_REVIEW_DB)
+	PYTHONPATH=src $(PYTHON) -m ops_evidence_synthesis.cli --db $(LOCAL_REVIEW_DB) run-case --input $(LOCAL_REVIEW_INPUT) --service $(LOCAL_REVIEW_SERVICE) --environment $(LOCAL_REVIEW_ENVIRONMENT) --start $(LOCAL_REVIEW_START) --end $(LOCAL_REVIEW_END) --provider $(LOCAL_REVIEW_PROVIDER) --review-base-url http://127.0.0.1:$(LOCAL_REVIEW_PORT)
+
+show-local-review:
+	PYTHONPATH=src $(PYTHON) -m ops_evidence_synthesis.cli --db $(LOCAL_REVIEW_DB) reviews --limit 5
+
+serve-local-review:
+	PYTHONPATH=src $(PYTHON) -m ops_evidence_synthesis.cli --db $(LOCAL_REVIEW_DB) serve --port $(LOCAL_REVIEW_PORT)
 
 verify-precomputed: verify-sample verify-flagship
 

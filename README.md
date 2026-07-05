@@ -172,6 +172,76 @@ What to look for:
 - Agent Trace is generated through an ADK tool contract: the deterministic
   pipeline is wrapped as ADK-compatible tools, while human gates remain explicit.
 
+## GCS Handoff Review
+
+Use this path when starting from a local log file. The command asks for the log
+path, service, environment, and incident window when they are not supplied. It
+then sanitizes the logs locally, verifies the sanitized output, builds an
+Evidence Bundle, stages only that bundle in private GCS, builds the review
+payload through the GCS-backed job path, checks the deployed Cloud Run URL, and
+prints the final review URL. You do not need to copy an Evidence SHA by hand.
+
+```bash
+make review-from-local
+```
+
+For a non-interactive run:
+
+```bash
+make review-from-local \
+  REVIEW_FROM_LOCAL_INPUT=path/to/logs.jsonl \
+  REVIEW_FROM_LOCAL_SERVICE=my-service \
+  REVIEW_FROM_LOCAL_ENVIRONMENT=prod \
+  REVIEW_FROM_LOCAL_START=2026-06-12T10:00:00Z \
+  REVIEW_FROM_LOCAL_END=2026-06-12T10:20:00Z
+```
+
+The command prints:
+
+- `input_bundle_uri`: the private GCS Evidence Bundle URI.
+- `precomputed_review_uri`: the private GCS review payload URI.
+- `review_url`: the deployed read-only review page.
+
+Default cloud targets:
+
+- GCS prefix: `gs://ops-evidence-synthesis-private-artifacts/precomputed_review_summaries`
+- Public URL: `https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=...`
+
+Use the existing precomputed payload staging path only when you already have a
+known review payload and want to verify the deployed GCS read path:
+
+```bash
+make gcs-review
+```
+
+## One-Command Local Review
+
+Use this path for offline development only. It shows the CLI ingest/review loop
+without cloud credentials or uploading private logs:
+
+```bash
+make run-local-review
+make show-local-review
+make serve-local-review
+```
+
+`make run-local-review` ingests `data/sample_logs.jsonl`, sanitizes and stores
+the local review in `workspace/local_review/payment_api.sqlite3`, runs local
+deterministic providers, and prints the review URL. Open the URL after
+`make serve-local-review` starts the local UI on port `8097`.
+
+Override the defaults for a different local log file or provider:
+
+```bash
+make run-local-review \
+  LOCAL_REVIEW_INPUT=path/to/logs.jsonl \
+  LOCAL_REVIEW_SERVICE=my-service \
+  LOCAL_REVIEW_ENVIRONMENT=prod \
+  LOCAL_REVIEW_START=2026-06-12T10:00:00Z \
+  LOCAL_REVIEW_END=2026-06-12T10:20:00Z \
+  LOCAL_REVIEW_PROVIDER=local
+```
+
 ## Main Pipeline
 
 | Stage | What happens | Main implementation |
@@ -207,7 +277,7 @@ the profile draft, then pass only those sanitized context files to the product
 flow:
 
 ```bash
-ops-evidence run-case \
+.venv/bin/ops-evidence --db workspace/local_review/custom.sqlite3 run-case \
   --input data/sample_logs.jsonl \
   --service payment-api \
   --environment prod \

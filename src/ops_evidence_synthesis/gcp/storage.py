@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
+import shutil
+import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -51,27 +55,58 @@ def write_json(uri: str | GcsUri, payload: dict[str, Any]) -> str:
 
 def read_text(uri: str | GcsUri) -> str:
     parsed = uri if isinstance(uri, GcsUri) else GcsUri.parse(str(uri))
-    blob = _client().bucket(parsed.bucket).blob(parsed.blob)
-    return blob.download_as_text(encoding="utf-8")
+    if _gcs_backend() == "gcloud":
+        return _gcloud_storage_cat(parsed)
+    try:
+        blob = _client().bucket(parsed.bucket).blob(parsed.blob)
+        return blob.download_as_text(encoding="utf-8")
+    except Exception:
+        if not _gcloud_fallback_available():
+            raise
+        return _gcloud_storage_cat(parsed)
 
 
 def write_text(uri: str | GcsUri, text: str, *, content_type: str = "text/plain") -> None:
     parsed = uri if isinstance(uri, GcsUri) else GcsUri.parse(str(uri))
-    blob = _client().bucket(parsed.bucket).blob(parsed.blob)
-    blob.upload_from_string(str(text), content_type=content_type)
+    if _gcs_backend() == "gcloud":
+        _gcloud_storage_write_text(parsed, text, content_type=content_type)
+        return
+    try:
+        blob = _client().bucket(parsed.bucket).blob(parsed.blob)
+        blob.upload_from_string(str(text), content_type=content_type)
+    except Exception:
+        if not _gcloud_fallback_available():
+            raise
+        _gcloud_storage_write_text(parsed, text, content_type=content_type)
 
 
 def upload_file(local_path: str | Path, uri: str | GcsUri, *, content_type: str | None = None) -> None:
     parsed = uri if isinstance(uri, GcsUri) else GcsUri.parse(str(uri))
-    blob = _client().bucket(parsed.bucket).blob(parsed.blob)
-    blob.upload_from_filename(str(local_path), content_type=content_type)
+    if _gcs_backend() == "gcloud":
+        _gcloud_storage_cp(Path(local_path), parsed, content_type=content_type)
+        return
+    try:
+        blob = _client().bucket(parsed.bucket).blob(parsed.blob)
+        blob.upload_from_filename(str(local_path), content_type=content_type)
+    except Exception:
+        if not _gcloud_fallback_available():
+            raise
+        _gcloud_storage_cp(Path(local_path), parsed, content_type=content_type)
 
 
 def download_file(uri: str | GcsUri, local_path: str | Path) -> None:
     parsed = uri if isinstance(uri, GcsUri) else GcsUri.parse(str(uri))
     Path(local_path).parent.mkdir(parents=True, exist_ok=True)
-    blob = _client().bucket(parsed.bucket).blob(parsed.blob)
-    blob.download_to_filename(str(local_path))
+    if _gcs_backend() == "gcloud":
+        _run_gcloud(["storage", "cp", str(parsed), str(local_path)])
+        return
+    try:
+        blob = _client().bucket(parsed.bucket).blob(parsed.blob)
+        blob.download_to_filename(str(local_path))
+    except Exception:
+        if not _gcloud_fallback_available():
+            raise
+        _run_gcloud(["storage", "cp", str(parsed), str(local_path)])
 
 
 def _client() -> Any:
@@ -80,3 +115,45 @@ def _client() -> Any:
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError('GCS artifact IO requires: pip install -e ".[gcp]"') from exc
     return storage.Client()
+
+
+def _gcs_backend() -> str:
+    value = os.environ.get("OES_GCS_IO_BACKEND", "auto").strip().casefold()
+    if value not in {"auto", "python", "gcloud"}:
+        return "auto"
+    return value
+
+
+def _gcloud_fallback_available() -> bool:
+    return _gcs_backend() == "auto" and shutil.which("gcloud") is not None
+
+
+def _gcloud_storage_cat(uri: GcsUri) -> str:
+    return _run_gcloud(["storage", "cat", str(uri)]).stdout
+
+
+def _gcloud_storage_write_text(uri: GcsUri, text: str, *, content_type: str) -> None:
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as handle:
+        handle.write(str(text))
+        temp_path = Path(handle.name)
+    try:
+        _gcloud_storage_cp(temp_path, uri, content_type=content_type)
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def _gcloud_storage_cp(local_path: Path, uri: GcsUri, *, content_type: str | None = None) -> None:
+    args = ["storage", "cp"]
+    if content_type:
+        args.append(f"--content-type={content_type}")
+    args.extend([str(local_path), str(uri)])
+    _run_gcloud(args)
+
+
+def _run_gcloud(args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["gcloud", *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
