@@ -107,7 +107,8 @@
   <path class="softArrow" d="M400 258 L455 258" />
   <path class="softArrow" d="M785 258 L840 258" />
   <path class="softArrow" d="M1170 258 L1225 258" />
-  <path class="softArrow" d="M1377 340 C1377 380 1110 375 1005 425" />
+  <path class="softArrow" d="M1377 340 C1377 392 895 372 785 485" />
+  <text class="tiny" x="870" y="392">approved profile context</text>
 
   <path class="arrow" d="M235 340 L235 425" />
   <path class="arrow" d="M400 510 L455 510" />
