@@ -4361,6 +4361,103 @@ def _target_review_boundary_note(target: dict[str, Any]) -> str:
     return "This is review work; the score is queue priority, not incident probability."
 
 
+def _target_operational_issue_text(target: dict[str, Any]) -> str:
+    explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
+    return str(
+        target.get("suspected_issue")
+        or explanation.get("suspected_issue")
+        or target.get("claim")
+        or target.get("title")
+        or _target_unit_label(target)
+    )
+
+
+def _target_no_issue_support_text(target: dict[str, Any]) -> str:
+    explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
+    return str(
+        target.get("why_not_promoted")
+        or explanation.get("why_not_promoted")
+        or explanation.get("why_it_matters")
+        or target.get("suspected_issue")
+        or explanation.get("suspected_issue")
+        or "Evidence currently reads as normal operation, not an accepted incident cause."
+    )
+
+
+def _target_next_check_text(target: dict[str, Any]) -> str:
+    explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
+    return str(
+        target.get("next_validation_question")
+        or explanation.get("next_validation_question")
+        or target.get("recommended_request_type")
+        or "Review cited evidence and missing signals."
+    )
+
+
+def _detail_issue_triage_card_html(target: dict[str, Any], *, index: int) -> str:
+    unit = _target_unit_label(target)
+    score = _target_score_value(target)
+    if _target_reads_as_observation_or_no_issue(target):
+        status = "No issue observed"
+        card_class = "no-issue"
+        body = _target_no_issue_support_text(target)
+    else:
+        status = "Problem candidate"
+        card_class = "issue"
+        body = _target_operational_issue_text(target)
+    next_check = _target_next_check_text(target)
+    return f"""
+        <article class="issue-triage-card {card_class}">
+          <div>
+            <label>{_html(status)}</label>
+            <strong>{_html(unit)}</strong>
+            <p>{_html(body)}</p>
+          </div>
+          <span>priority {score:.2f}</span>
+          <small>next check: {_html(next_check)}</small>
+        </article>
+    """
+
+
+def _detail_issue_triage_html(targets: list[dict[str, Any]]) -> str:
+    issue_targets = [target for target in targets if not _target_reads_as_observation_or_no_issue(target)]
+    no_issue_targets = [target for target in targets if _target_reads_as_observation_or_no_issue(target)]
+    issue_summary = (
+        f"{_count_noun(len(issue_targets), 'problem candidate')} / "
+        f"{_count_noun(len(no_issue_targets), 'no-issue observation')}"
+    )
+    issue_cards = "".join(
+        _detail_issue_triage_card_html(target, index=index + 1)
+        for index, target in enumerate(issue_targets)
+    )
+    no_issue_cards = "".join(
+        _detail_issue_triage_card_html(target, index=index + 1)
+        for index, target in enumerate(no_issue_targets)
+    )
+    issue_block = issue_cards or """
+        <article class="issue-triage-card no-issue">
+          <div>
+            <label>Problem shortlist</label>
+            <strong>No problem candidate in this review</strong>
+            <p>All persisted targets currently read as observation or missing-evidence work.</p>
+          </div>
+        </article>
+    """
+    return f"""
+      <div class="issue-triage">
+        <div class="issue-triage-head">
+          <span class="eyebrow">Problem shortlist</span>
+          <strong>{_html(issue_summary)}</strong>
+          <p>Validation targets are review queue entries, not accepted problems. This list separates actual problem candidates from normal-operation observations.</p>
+        </div>
+        <div class="issue-triage-grid">
+          {issue_block}
+          {no_issue_cards}
+        </div>
+      </div>
+    """
+
+
 def _workspace_provider_label(provider_id: str) -> str:
     normalized = provider_id.lower()
     if "gemini" in normalized:
@@ -4570,6 +4667,7 @@ def _detail_review_workbench(targets: list[dict[str, Any]], target_cards: str) -
         _workspace_queue_item_html(target, index=index + 1)
         for index, target in enumerate(targets)
     )
+    issue_triage = _detail_issue_triage_html(targets)
     first_detail = _workspace_target_detail_html(targets[0], index=1)
     templates = "".join(
         f'<template data-target-template="{_html(_target_anchor_id(target, index=index + 1))}">'
@@ -4583,6 +4681,7 @@ def _detail_review_workbench(targets: list[dict[str, Any]], target_cards: str) -
         <h2>Every target carries its own evidence and gate.</h2>
         <p>Filter the priority queue, then open a target. Silent providers, counter-signals, and the blocking reason travel with the card - the next evidence question is always explicit.</p>
       </div>
+      {issue_triage}
       <div class="filter-row">{filters}</div>
       <div class="review-workspace" data-review-workspace>
         <aside class="workspace-queue" aria-label="Review target priority queue">
@@ -5059,6 +5158,58 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     .queue-note, .workspace-boundary-note {{
       color: var(--ink-3);
       font-size: 12px;
+      line-height: 1.35;
+    }}
+    .issue-triage {{
+      display: grid;
+      gap: 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,.58);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      min-width: 0;
+    }}
+    .issue-triage-head {{
+      display: grid;
+      gap: 6px;
+      max-width: 820px;
+    }}
+    .issue-triage-head strong {{
+      font-size: 22px;
+      line-height: 1.2;
+    }}
+    .issue-triage-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }}
+    .issue-triage-card {{
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 14px;
+    }}
+    .issue-triage-card.issue {{
+      border-color: rgba(178,106,0,.34);
+      box-shadow: inset 3px 0 0 var(--amber);
+    }}
+    .issue-triage-card.no-issue {{
+      border-color: rgba(18,131,107,.28);
+      box-shadow: inset 3px 0 0 var(--claimed);
+    }}
+    .issue-triage-card strong {{
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 15px;
+      overflow-wrap: anywhere;
+    }}
+    .issue-triage-card span, .issue-triage-card small {{
+      color: var(--ink-3);
+      font-size: 12px;
+      font-weight: 800;
       line-height: 1.35;
     }}
     .queue-meta-row {{
@@ -5551,7 +5702,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
         margin-right: 0;
       }}
       .review-arbitration-grid {{ grid-template-columns: minmax(0, 1fr); }}
-      .review-workspace, .workspace-three, .workspace-evidence-row {{
+      .review-workspace, .workspace-three, .workspace-evidence-row, .issue-triage-grid {{
         grid-template-columns: minmax(0, 1fr);
       }}
       .workspace-queue {{ max-height: 520px; }}
@@ -5563,7 +5714,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       .topbar {{ display: grid; align-items: start; }}
       h1 {{ font-size: 30px; }}
       h2 {{ font-size: 22px; }}
-      .stat-grid, .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row, .target-preview-grid, .target-explanation, .metric-matrix, .workspace-provider-grid, .workspace-chip-list {{
+      .stat-grid, .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row, .target-preview-grid, .target-explanation, .metric-matrix, .workspace-provider-grid, .workspace-chip-list, .issue-triage-grid {{
         grid-template-columns: minmax(0, 1fr);
       }}
       .workspace-detail {{ padding: 18px; }}
@@ -5793,13 +5944,13 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       color: var(--ink-3);
       font-size: 14px;
     }}
-    .panel, .distribution-card, .detail-drawer, .supplemental-details, .workspace-queue, .workspace-detail, .metric-matrix {{
+    .panel, .distribution-card, .detail-drawer, .supplemental-details, .workspace-queue, .workspace-detail, .metric-matrix, .issue-triage {{
       border-color: var(--border);
       border-radius: 12px;
       background: rgba(255, 253, 248, .76);
       box-shadow: var(--shadow);
     }}
-    .panel.secondary, .metric, .trace-step, .provider-row, .graph-cell, .target-preview, .workspace-provider-card, .workspace-chip, .target, .target-nav-card, .workspace-queue-item {{
+    .panel.secondary, .metric, .trace-step, .provider-row, .graph-cell, .target-preview, .workspace-provider-card, .workspace-chip, .target, .target-nav-card, .workspace-queue-item, .issue-triage-card {{
       border-color: var(--border);
       background: var(--surface);
     }}

@@ -973,6 +973,59 @@ def test_observation_validation_target_is_not_labeled_as_suspected_issue() -> No
     assert "<label>Current finding</label>" not in anomaly_html
 
 
+def test_review_workbench_separates_problem_candidates_from_no_issue_observations() -> None:
+    no_issue_user_experience = {
+        "review_target_id": "cog-user-experience",
+        "class": "validation_target",
+        "canonical_review_unit": "user_experience",
+        "review_priority_score": 0.774,
+        "provider_positions": [{"provider_id": "gemini-fast-lite-agent-platform", "stance": "claimed"}],
+        "agreement": {"verdict": "single_source", "convergence_score": 1.0},
+        "target_explanation": {
+            "suspected_issue": "None identified",
+            "why_not_promoted": "The evidence indicates normal operation rather than an incident.",
+            "next_validation_question": "Are there any specific time windows where notifications were missing?",
+        },
+    }
+    traffic_candidate = {
+        "review_target_id": "cog-traffic",
+        "class": "validation_target",
+        "canonical_review_unit": "traffic",
+        "review_priority_score": 0.7377,
+        "provider_positions": [{"provider_id": "gemini-fast-lite-agent-platform", "stance": "claimed"}],
+        "agreement": {"verdict": "single_source", "convergence_score": 1.0},
+        "target_explanation": {
+            "suspected_issue": "Potential traffic anomaly or instrumentation change.",
+            "why_not_promoted": "The metric increase is not correlated with any error logs or service failures.",
+            "next_validation_question": "Does the increase correlate with expected business activity?",
+        },
+    }
+    no_issue_service_health = {
+        "review_target_id": "cog-service-health",
+        "class": "validation_target",
+        "canonical_review_unit": "service_health",
+        "review_priority_score": 0.724,
+        "provider_positions": [{"provider_id": "gemini-fast-lite-agent-platform", "stance": "claimed"}],
+        "agreement": {"verdict": "single_source", "convergence_score": 1.0},
+        "target_explanation": {
+            "suspected_issue": "None identified; logs show successful operation.",
+            "why_not_promoted": "The evidence is entirely consistent with normal operation.",
+            "next_validation_question": "Are there any specific missing time windows?",
+        },
+    }
+
+    html = web_precomputed._detail_issue_triage_html(
+        [no_issue_user_experience, traffic_candidate, no_issue_service_health]
+    )
+
+    assert "1 problem candidate / 2 no-issue observations" in html
+    assert "Problem candidate" in html
+    assert "Potential traffic anomaly or instrumentation change." in html
+    assert html.count("No issue observed") == 2
+    assert "normal operation rather than an incident" in html
+    assert "entirely consistent with normal operation" in html
+
+
 def test_rescore_loop_links_are_only_attached_to_matching_source_evidence() -> None:
     rescore_url = "/ui/rescore-demo?id=amazon-notify-more-data-rescore"
 
