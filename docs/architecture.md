@@ -7,64 +7,94 @@ treated as review input rather than truth.
 
 ## Data Flow
 
+The current implementation has two bounded input streams. Log data becomes
+evidence. Source and profile data become context only. They meet only after
+both streams have been sanitized and explicitly approved.
+
+### Log Evidence Flow
+
 ```text
-raw logs / local artifacts
+raw logs or local log exports
   -> inspect locally
   -> sanitize locally
   -> verify sanitized output
-  -> persist row-level coverage ledger
-  -> group every sanitized row into Evidence Items
-  -> build provider-specific Evidence Chunks
-  -> build Evidence Bundle and chunk manifest
-  -> run provider x chunk jobs
-  -> record provider run state and append-only attempts
-  -> ADK tool contract trace
-  -> validate provider chunk output
-  -> ingest and normalize chunk claims
-  -> deterministically merge recorded chunk output
-  -> build canonical review graph
-  -> persist canonical graph snapshot and review-target projection
-  -> precomputed review JSON / review queue / Evidence Request Planner
-  -> read-only summary/detail UI
+  -> sanitized_events.jsonl / manifest.json / redaction_report.json
+  -> build evidence_bundle.v1 for the selected incident window
+  -> group sanitized events into Evidence Items and local signals
+  -> attach optional db_corpus_coverage row-assignment summary
+  -> run_multi_ai builds a model_input policy from the Evidence Bundle
+  -> split Evidence Items into provider-specific full-corpus chunks
+  -> run provider x chunk calls
+  -> record model_run artifacts, chunk records, output hashes, parse status, and schema status
+  -> merge recorded chunk outputs deterministically
+  -> build canonical_review_graph.v1 and review-target projection
+  -> precomputed review payload / review queue / Evidence Request Planner
+  -> read-only summary, graph, detail, and markdown report UI
 ```
 
-SQLite remains useful for deterministic local fixtures and lightweight
-developer smoke tests. The production-oriented path uses a PostgreSQL control
-plane for chunk execution state and a BigQuery audit warehouse for longer-term
-inspection. Sanitized corpora and chunk manifests can be staged in a private
-GCS bucket for Cloud Run Jobs; raw logs and raw source trees remain outside the
-public artifact boundary. The PostgreSQL control plane owns scheduler-facing
-state such as:
+Raw log rows are not copied directly into provider prompts. The local-first CLI
+path writes normalized sanitized events and then builds a SHA-fixed Evidence
+Bundle from the incident window. The DB-backed path can additionally attach
+`db_corpus_coverage`, which records how sanitized rows were assigned to
+Evidence Items and review chunks.
 
-- `analysis_runs`
-- `coverage_ledger`
-- `evidence_chunks`
-- `provider_chunk_runs`
-- `provider_chunk_attempts`
-- `provider_outputs`
-- `chunk_claims`
-- `canonical_review_targets`
-- `review_target_sources`
+### Source And Profile Context Flow
 
-The BigQuery schema in `gcp/bigquery/schema.sql` represents the audit warehouse
-with these logical datasets:
+```text
+raw source/config/unit/env files
+  -> sanitize-source locally
+  -> source_context_bundle.v1
+  -> analyze-source locally
+  -> source_analysis_bundle.v1
+  -> discover-profile
+  -> draft-profile or draft-focused-profile
+  -> human approve-profile
+  -> approved profile
+  -> approved_profile_context / source_context_context / source_analysis_context
+  -> model input context for Multi-AI, Review Arbitration, and Evidence Request Planner
+```
 
-- `ops_evidence_raw`
-- `ops_evidence_core`
-- `ops_synthesis`
+Source context and approved profile data do not prove runtime behavior. They
+help route components, interpret metric names, and turn unanswered operational
+questions into missing evidence. Runtime support still has to cite Evidence
+Items by `evidence_id`.
 
-PostgreSQL is the low-latency control plane for parallel work claiming,
-retry/backoff, partial resume, and merge readiness. BigQuery is the append-only
-warehouse for audit queries, provider hashes, graph snapshots, and aggregate
-run analysis.
+### Execution And Storage Roles
+
+SQLite remains useful for local fixtures, offline demos, and lightweight
+smoke tests. It stores sanitized logs, Evidence Bundles, model runs, parsed
+results, model output artifacts, review targets, canonical review graph
+snapshots, pipeline runs, and pipeline events.
+
+The production-oriented deployment uses distinct stores:
+
+- Private GCS stages sanitized input artifacts and recorded job outputs for
+  Cloud Run Jobs: Evidence Bundle, approved profile, sanitized source context,
+  sanitized source analysis, `multi_ai_run.json`, provider artifacts, and
+  precomputed review payloads.
+- PostgreSQL is the optional low-latency provider chunk ledger. The implemented
+  tables are `provider_chunk_runs` and `provider_chunk_attempts`; they support
+  retry/backoff, resumable provider work, and append-only attempt history.
+- BigQuery is the audit warehouse. `ops_evidence_raw` stores sanitized log
+  rows, `ops_evidence_core` stores derived log patterns and metric windows, and
+  `ops_synthesis` stores Evidence Bundles, model runs, parsed results, output
+  artifacts, pipeline progress, canonical review graphs, comparison records,
+  review targets, and review decisions.
+- The public Cloud Run UI can run in precomputed-read mode, where reviewers
+  inspect fixed payloads and manifests instead of triggering live model calls.
+
+Cloud workflows and jobs remain Evidence Bundle centric. They can consume
+sanitized source/profile artifacts as context, but they do not collect raw
+source trees or raw environment values.
 
 ## Full-Corpus Coverage Ledger
 
-The corpus boundary is row-complete. Every sanitized DB row in the analysis
-window is assigned to a coverage ledger entry before model execution. A ledger
-entry records the stable source hash, sanitized row hash, timestamp, template
-or grouping hash, Evidence Item ID, chunk ID, coverage class, and assignment
-reason.
+The corpus boundary is row-complete for DB-backed full-corpus runs. Every
+sanitized DB row in the analysis window is assigned before model execution. The
+public local-first CLI path may only expose grouped Evidence Items, but the
+production-style bundle builder records a `db_corpus_coverage` summary with
+row counts, coverage ratios, coverage classes, row-assignment hash, direct
+prompt row count, and `raw_rows_sent_to_providers = false`.
 
 Coverage classes separate prompt inclusion from evidence accounting:
 
@@ -80,15 +110,16 @@ Coverage classes separate prompt inclusion from evidence accounting:
 
 This means the system does not define coverage as "how many raw rows were
 copied into a prompt." Provider prompts operate on chunked Evidence Corpora,
-while prompt-excluded tail evidence remains visible through the ledger and
-chunk manifest. A completed production run should have `unassigned_count = 0`
-for the sanitized rows it claims to review.
+while prompt-excluded tail evidence remains visible through corpus counts,
+coverage classes, and chunk manifests. A completed full-corpus run should have
+zero unassigned Evidence Items for the sanitized corpus it claims to review.
 
 ## Chunked Provider Execution
 
-Providers do not receive raw databases. They receive provider-specific
-Evidence Chunks built from sanitized Evidence Items and bounded by each
-provider's token budget. The chunk manifest records chunk IDs, chunk type,
+Providers do not receive raw databases. `run_multi_ai` first builds a model
+bundle from the Evidence Bundle plus approved context, then splits sanitized
+Evidence Items into provider-specific chunks bounded by each provider's token
+budget and item limit. The chunk manifest records chunk IDs, chunk type,
 Evidence Item IDs, source row counts, time range, coverage classes, prompt
 hashes, and the provider that received the chunk.
 
@@ -112,10 +143,11 @@ Provider result state is kept distinct from review stance:
   configured retry policy.
 
 The canonical review graph is generated by a deterministic merge over recorded
-chunk outputs. Merge input is sorted and de-duplicated by stable IDs so parallel
-completion order cannot change the graph. Real provider text is recorded and
-hashed rather than treated as byte-reproducible; byte-level reproducibility is
-reserved for deterministic fixtures and for the merge over recorded artifacts.
+provider outputs. Merge input is sorted and de-duplicated by stable IDs so
+parallel completion order cannot change the graph. Real provider text is
+recorded and hashed rather than treated as byte-reproducible; byte-level
+reproducibility is reserved for deterministic fixtures and for the merge over
+recorded artifacts.
 
 ## Pipeline Progress
 
@@ -222,7 +254,7 @@ local source/config/unit/env summaries
   -> profile_draft.json
   -> human approval
   -> approved profile
-  -> Evidence Bundle / Multi-AI / Evidence Request Planner
+  -> approved context for Multi-AI / Review Arbitration / Evidence Request Planner
 ```
 
 The system does not upload a full source tree. Sanitized source items are short
