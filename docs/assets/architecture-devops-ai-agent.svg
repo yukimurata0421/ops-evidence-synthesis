@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1070" viewBox="0 0 1600 1070" role="img" aria-labelledby="title desc">
   <title id="title">Ops Evidence Synthesis architecture</title>
-  <desc id="desc">Local-first evidence pipeline with sanitized code profiling, chunked Mistral provider review, citation validation, canonical review graph, read-only Cloud Run UI, and more-data re-score loop.</desc>
+  <desc id="desc">Local-first evidence pipeline with sanitized code profiling, chunked provider review, citation validation, canonical review graph, read-only Cloud Run UI, and more-data re-score loop.</desc>
   <defs>
     <style>
       .bg { fill: #f6f8fb; }
@@ -65,8 +65,8 @@
   <text class="tiny" x="100" y="573">review artifacts are reproducible</text>
 
   <rect class="band ai" x="455" y="425" width="330" height="170" rx="10" />
-  <text class="text" x="485" y="475">Mistral chunks</text>
-  <text class="small" x="485" y="511">51 rate-paced calls</text>
+  <text class="text" x="485" y="475">Provider chunks</text>
+  <text class="small" x="485" y="511">Per-provider paced calls</text>
   <text class="small" x="485" y="543">Full Evidence Items</text>
   <text class="tiny" x="485" y="573">not raw log rows</text>
 
