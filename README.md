@@ -175,13 +175,16 @@ What to look for:
 ## GCS Handoff Review
 
 Use this path when starting from a local log file. Run one command, paste the
-absolute log path, press Enter to accept the default service/environment when
-they match, then enter the incident window.
+absolute log path, optionally paste a source code directory, press Enter to
+accept the default service/environment when they match, then enter the incident
+window.
 
-The command sanitizes the logs locally, verifies the sanitized output, builds an
-Evidence Bundle, stages only that bundle in private GCS, builds the review
-payload through the GCS-backed job path, checks the deployed Cloud Run URL, and
-prints the final review URL. You do not need to copy an Evidence SHA by hand.
+The command sanitizes the logs locally, verifies the sanitized output, and
+builds an Evidence Bundle. When a source code directory is provided, it also
+sanitizes the source tree locally and runs a rule-based source analysis. Only
+the sanitized Evidence Bundle, sanitized source context, and source analysis are
+staged in private GCS. The final output is a human-readable review URL, not raw
+JSON. You do not need to copy an Evidence SHA by hand.
 
 ```bash
 make review
@@ -191,6 +194,7 @@ The CLI asks only for the values that are not already set:
 
 ```text
 Absolute log file or directory (example: /absolute/path/to/logs.jsonl):
+Source code directory [optional]:
 Service name [stream_v3_runtime]:
 Environment [stream_v3]:
 Incident window start (example: 2026-06-14T23:15:50Z):
@@ -205,6 +209,7 @@ For a non-interactive run, set values in env:
 
 ```bash
 export LOG_INPUT="/absolute/path/to/local/logs.jsonl"
+export SOURCE_ROOT="/absolute/path/to/source/repo"
 export SERVICE="stream_v3_runtime"
 export ENVIRONMENT="stream_v3"
 export START="2026-06-14T23:15:50Z"
@@ -212,11 +217,13 @@ export END="2026-06-15T23:59:52Z"
 make review
 ```
 
-The command prints:
+The command prints a short human-readable summary:
 
-- `input_bundle_uri`: the private GCS Evidence Bundle URI.
-- `precomputed_review_uri`: the private GCS review payload URI.
-- `review_url`: the deployed read-only review page.
+- `Review URL`: the deployed read-only review page for human review.
+- `Local analysis directory`: local sanitized artifacts under `analyses/`.
+- `Sanitized source context` and `Source analysis`: shown when `SOURCE_ROOT`
+  was provided.
+- `GCS Evidence Bundle` and `GCS review payload`: private GCS handoff artifacts.
 
 Default cloud targets:
 

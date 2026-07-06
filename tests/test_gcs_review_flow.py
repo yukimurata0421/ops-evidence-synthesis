@@ -79,3 +79,25 @@ def test_optional_prompt_value_uses_default_without_tty() -> None:
         )
         == "stream_v3_runtime"
     )
+
+
+def test_optional_source_root_can_be_omitted_without_tty() -> None:
+    script = _load_script()
+
+    assert script._optional_source_root("", no_prompts=True) is None
+
+
+def test_source_root_must_be_absolute() -> None:
+    script = _load_script()
+
+    with pytest.raises(SystemExit, match="SOURCE_ROOT must be an absolute path"):
+        script._optional_source_root("sample_projects/profile_discovery_sample", no_prompts=True)
+
+
+def test_source_root_must_be_directory(tmp_path: Path) -> None:
+    script = _load_script()
+    file_path = tmp_path / "source.py"
+    file_path.write_text("print('ok')\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="SOURCE_ROOT must be a directory"):
+        script._optional_source_root(str(file_path), no_prompts=True)

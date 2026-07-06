@@ -43,6 +43,10 @@ def main(argv: list[str] | None = None) -> int:
             no_prompts=args.no_prompts,
         )
     )
+    source_root = _optional_source_root(
+        args.source_root or os.environ.get("SOURCE_ROOT", "") or os.environ.get("SOURCE_INPUT", ""),
+        no_prompts=args.no_prompts,
+    )
     service = _required_prompt_value(
         args.service or os.environ.get("SERVICE", ""),
         "Service name",
@@ -83,13 +87,16 @@ def main(argv: list[str] | None = None) -> int:
     evidence_bundle = output_dir / "evidence_bundle.json"
     job_result_path = output_dir / "job_result.json"
     input_bundle_uri = f"gs://{bucket}/job-inputs/{run_id}/evidence_bundle.json"
+    source_context_uri = f"gs://{bucket}/job-inputs/{run_id}/source_context_bundle.json"
+    source_analysis_uri = f"gs://{bucket}/job-inputs/{run_id}/source_analysis_bundle.json"
     output_prefix_uri = f"gs://{bucket}/job-runs"
     precomputed_prefix_uri = f"gs://{bucket}/precomputed_review_summaries"
 
     cli = [sys.executable, "-m", "ops_evidence_synthesis.cli"]
-    _run([*cli, "sanitize", str(log_input), "--out", str(sanitized_dir)])
-    _run([*cli, "verify-sanitized", str(sanitized_dir)])
-    _run(
+    _run_step("Sanitizing logs", [*cli, "sanitize", str(log_input), "--out", str(sanitized_dir)])
+    _run_step("Checking sanitized logs", [*cli, "verify-sanitized", str(sanitized_dir)])
+    _run_step(
+        "Building Evidence Bundle",
         [
             *cli,
             "build-bundle",
@@ -108,7 +115,53 @@ def main(argv: list[str] | None = None) -> int:
             str(evidence_bundle),
         ]
     )
-    _run(["gcloud", "storage", "cp", str(evidence_bundle), input_bundle_uri])
+    _run_step("Uploading Evidence Bundle to GCS", ["gcloud", "storage", "cp", str(evidence_bundle), input_bundle_uri])
+
+    source_context_bundle = None
+    source_analysis_bundle = None
+    if source_root is not None:
+        source_context_dir = output_dir / "source_context"
+        source_analysis_dir = output_dir / "source_analysis"
+        source_context_bundle = source_context_dir / "source_context_bundle.json"
+        source_analysis_bundle = source_analysis_dir / "source_analysis_bundle.json"
+        _run_step(
+            "Sanitizing source code",
+            [
+                *cli,
+                "sanitize-source",
+                "--project-root",
+                str(source_root),
+                "--service",
+                service,
+                "--environment",
+                environment,
+                "--out",
+                str(source_context_dir),
+            ],
+        )
+        _run_step("Checking sanitized source code", [*cli, "verify-sanitized", str(source_context_dir)])
+        _run_step(
+            "Analyzing sanitized source code",
+            [
+                *cli,
+                "analyze-source",
+                "--source-context",
+                str(source_context_bundle),
+                "--provider",
+                "local",
+                "--out",
+                str(source_analysis_dir),
+            ],
+        )
+        _run_step("Checking source analysis", [*cli, "verify-sanitized", str(source_analysis_dir)])
+        _run_step(
+            "Uploading sanitized source context to GCS",
+            ["gcloud", "storage", "cp", str(source_context_bundle), source_context_uri],
+        )
+        _run_step(
+            "Uploading source analysis to GCS",
+            ["gcloud", "storage", "cp", str(source_analysis_bundle), source_analysis_uri],
+        )
 
     job_env = dict(os.environ)
     job_env.update(
@@ -125,10 +178,14 @@ def main(argv: list[str] | None = None) -> int:
             "PYTHONPATH": str(ROOT / "src"),
         }
     )
-    result = _run(
+    if source_context_bundle is not None:
+        job_env["OES_JOB_SOURCE_CONTEXT_URI"] = source_context_uri
+    if source_analysis_bundle is not None:
+        job_env["OES_JOB_SOURCE_ANALYSIS_URI"] = source_analysis_uri
+    result = _run_step(
+        "Building human review page",
         [sys.executable, "-m", "ops_evidence_synthesis.gcp.chunked_review_job"],
         env=job_env,
-        capture=True,
     )
     job_result_path.write_text(result.stdout, encoding="utf-8")
     job_result = json.loads(result.stdout)
@@ -140,11 +197,16 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_url_check:
         _check_url(review_url)
 
-    print(f"run_id={run_id}")
-    print(f"sanitized_dir={sanitized_dir}")
-    print(f"input_bundle_uri={input_bundle_uri}")
-    print(f"precomputed_review_uri={job_result.get('precomputed_review_uri', '')}")
-    print(f"review_url={review_url}")
+    print()
+    print("Human review is ready.")
+    print(f"Review URL: {review_url}")
+    print(f"Local analysis directory: {output_dir}")
+    print(f"Sanitized logs: {sanitized_dir}")
+    if source_context_bundle is not None and source_analysis_bundle is not None:
+        print(f"Sanitized source context: {source_context_bundle}")
+        print(f"Source analysis: {source_analysis_bundle}")
+    print(f"GCS Evidence Bundle: {input_bundle_uri}")
+    print(f"GCS review payload: {job_result.get('precomputed_review_uri', '')}")
     return 0
 
 
@@ -153,6 +215,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         description="Sanitize local logs, stage an Evidence Bundle in GCS, build a review payload, and print the public URL."
     )
     parser.add_argument("--input", default="")
+    parser.add_argument("--source-root", default="")
     parser.add_argument("--service", default="")
     parser.add_argument("--environment", default="")
     parser.add_argument("--start", default="")
@@ -213,6 +276,22 @@ def _absolute_existing_input_path(value: str) -> Path:
     return path
 
 
+def _optional_source_root(value: str, *, no_prompts: bool) -> Path | None:
+    text = str(value or "").strip()
+    if not text and not no_prompts and sys.stdin.isatty():
+        text = input("Source code directory [optional]: ").strip()
+    if not text:
+        return None
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        raise SystemExit(f"SOURCE_ROOT must be an absolute path: {text}")
+    if not path.exists():
+        raise SystemExit(f"source code directory was not found: {path}")
+    if not path.is_dir():
+        raise SystemExit(f"SOURCE_ROOT must be a directory: {path}")
+    return path
+
+
 def _absolute_output_dir(value: str) -> Path:
     path = Path(value).expanduser()
     if not path.is_absolute():
@@ -242,21 +321,43 @@ def _require_command(name: str) -> None:
         raise SystemExit(f"{name} is required on PATH")
 
 
+def _run_step(
+    label: str,
+    command: list[str],
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    print(f"{label}...", file=sys.stderr)
+    result = _run(command, env=env, capture=True, show_command=False)
+    print(f"{label}: done", file=sys.stderr)
+    return result
+
+
 def _run(
     command: list[str],
     *,
     env: dict[str, str] | None = None,
     capture: bool = False,
+    show_command: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    print("+ " + " ".join(command), file=sys.stderr)
-    return subprocess.run(
-        command,
-        cwd=ROOT,
-        env=env,
-        check=True,
-        capture_output=capture,
-        text=True,
-    )
+    if show_command:
+        print("+ " + " ".join(command), file=sys.stderr)
+    try:
+        return subprocess.run(
+            command,
+            cwd=ROOT,
+            env=env,
+            check=True,
+            capture_output=capture,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print("Command failed: " + " ".join(command), file=sys.stderr)
+        if exc.stdout:
+            print(exc.stdout, file=sys.stderr)
+        if exc.stderr:
+            print(exc.stderr, file=sys.stderr)
+        raise
 
 
 def _check_url(url: str) -> None:
