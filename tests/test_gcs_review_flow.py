@@ -189,3 +189,130 @@ def test_misplaced_source_paths_do_not_become_service_or_start_values(tmp_path: 
         )
         == "2026-07-01T00:00:00Z"
     )
+
+
+def test_source_context_summary_reads_human_check_fields(tmp_path: Path) -> None:
+    script = _load_script()
+    bundle = tmp_path / "source_context_bundle.json"
+    bundle.write_text(
+        """
+        {
+          "project_summary": {
+            "detected_project_type": "python_project",
+            "entrypoint_candidates": ["src/app.py"]
+          },
+          "source_items": [{"relative_path": "src/app.py"}],
+          "config_items": [{"relative_path": "pyproject.toml"}]
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    assert script._source_context_summary(bundle) == {
+        "detected_project_type": "python_project",
+        "entrypoint_candidates": ["src/app.py"],
+        "source_item_count": 1,
+        "config_item_count": 1,
+    }
+
+
+def test_source_context_confirmation_can_stop_before_analysis(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    script = _load_script()
+    source_root = tmp_path / "stream_v3"
+    source_root.mkdir()
+    bundle = tmp_path / "source_context_bundle.json"
+    report = tmp_path / "source_context_report.md"
+    bundle.write_text(
+        '{"project_summary": {"detected_project_type": "python_project"}, "source_items": [], "config_items": []}',
+        encoding="utf-8",
+    )
+    report.write_text("# Source Context\n", encoding="utf-8")
+
+    class Tty:
+        def isatty(self) -> bool:
+            return True
+
+    monkeypatch.setattr(script.sys, "stdin", Tty())
+    script._PENDING_PROMPT_LINES[:] = ["no"]
+
+    with pytest.raises(SystemExit) as exc:
+        script._confirm_source_context_before_analysis(
+            source_root=source_root,
+            source_context_bundle=bundle,
+            source_context_report=report,
+            no_prompts=False,
+            skip_confirmation=False,
+        )
+
+    assert exc.value.code == 0
+
+
+def test_source_context_confirmation_accepts_yes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    script = _load_script()
+    source_root = tmp_path / "stream_v3"
+    source_root.mkdir()
+    bundle = tmp_path / "source_context_bundle.json"
+    report = tmp_path / "source_context_report.md"
+    bundle.write_text('{"project_summary": {}, "source_items": [], "config_items": []}', encoding="utf-8")
+    report.write_text("# Source Context\n", encoding="utf-8")
+
+    class Tty:
+        def isatty(self) -> bool:
+            return True
+
+    monkeypatch.setattr(script.sys, "stdin", Tty())
+    script._PENDING_PROMPT_LINES[:] = ["yes"]
+
+    script._confirm_source_context_before_analysis(
+        source_root=source_root,
+        source_context_bundle=bundle,
+        source_context_report=report,
+        no_prompts=False,
+        skip_confirmation=False,
+    )
+
+
+def test_review_summary_prints_http_urls_without_gcs_by_default(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    script = _load_script()
+
+    script._print_review_summary(
+        review_url="https://example.test/reviews/abc/",
+        report_url="https://example.test/reviews/abc/report.md",
+        legacy_review_url="https://example.test/ui/full-review-page?evidence_sha256=abc",
+        output_dir=tmp_path / "analysis",
+        sanitized_dir=tmp_path / "analysis" / "sanitized",
+        source_context_bundle=None,
+        source_analysis_bundle=None,
+        input_bundle_uri="gs://private/job-inputs/abc/evidence_bundle.json",
+        precomputed_review_uri="gs://private/precomputed/abc.json",
+        static_review_html_uri="gs://private/review-pages/abc/index.html",
+        static_review_report_uri="gs://private/review-pages/abc/report.md",
+        show_gcs_uris=False,
+    )
+
+    output = capsys.readouterr().out
+    assert "https://example.test/reviews/abc/" in output
+    assert "https://example.test/reviews/abc/report.md" in output
+    assert "gs://" not in output
+
+
+def test_review_summary_can_print_gcs_uris_when_requested(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    script = _load_script()
+
+    script._print_review_summary(
+        review_url="https://example.test/reviews/abc/",
+        report_url="https://example.test/reviews/abc/report.md",
+        legacy_review_url="https://example.test/reviews/abc/",
+        output_dir=tmp_path / "analysis",
+        sanitized_dir=tmp_path / "analysis" / "sanitized",
+        source_context_bundle=None,
+        source_analysis_bundle=None,
+        input_bundle_uri="gs://private/job-inputs/abc/evidence_bundle.json",
+        precomputed_review_uri="gs://private/precomputed/abc.json",
+        static_review_html_uri="gs://private/review-pages/abc/index.html",
+        static_review_report_uri="gs://private/review-pages/abc/report.md",
+        show_gcs_uris=True,
+    )
+
+    output = capsys.readouterr().out
+    assert "GCS Evidence Bundle: gs://private/job-inputs/abc/evidence_bundle.json" in output

@@ -180,11 +180,13 @@ accept the default service/environment when they match, then enter the incident
 window.
 
 The command sanitizes the logs locally, verifies the sanitized output, and
-builds an Evidence Bundle. When a source code directory is provided, it also
-sanitizes the source tree locally and runs a rule-based source analysis. Only
-the sanitized Evidence Bundle, sanitized source context, and source analysis are
-staged in private GCS. The final output is a human-readable review URL, not raw
-JSON. You do not need to copy an Evidence SHA by hand.
+builds an Evidence Bundle. When a source code directory is provided, it first
+sanitizes the source tree locally and pauses on a human-readable source report;
+continue only after confirming that the selected code context matches the log
+corpus. It then builds rule-based source mapping candidates and stages only
+sanitized artifacts in the private cloud handoff. The final output is an HTTPS
+review URL, not raw JSON or a `gs://` object URI. You do not need to copy an
+Evidence SHA by hand.
 
 Large log directories are processed as streams. The sanitizer does not keep the
 full corpus in memory, and obvious binary/media/database artifacts such as
@@ -224,10 +226,18 @@ make review
 The command prints a short human-readable summary:
 
 - `Review URL`: the deployed read-only review page for human review.
+- `Markdown report URL`: the same review as a readable Markdown report.
 - `Local analysis directory`: local sanitized artifacts under `analyses/`.
 - `Sanitized source context` and `Source analysis`: shown when `SOURCE_ROOT`
   was provided.
-- `GCS Evidence Bundle` and `GCS review payload`: private GCS handoff artifacts.
+
+Private artifact URIs are hidden by default so the copyable output is browser
+friendly. Pass `--show-gcs-uris` through `REVIEW_ARGS` only when you need the
+private `gs://` handoff paths:
+
+```bash
+make review REVIEW_ARGS="--show-gcs-uris"
+```
 
 Default cloud targets:
 

@@ -167,8 +167,15 @@ def main(argv: list[str] | None = None) -> int:
             ],
         )
         _run_step("Checking sanitized source code", [*cli, "verify-sanitized", str(source_context_dir)])
+        _confirm_source_context_before_analysis(
+            source_root=source_root,
+            source_context_bundle=source_context_bundle,
+            source_context_report=source_context_dir / "source_context_report.md",
+            no_prompts=args.no_prompts,
+            skip_confirmation=args.skip_source_confirmation,
+        )
         _run_step(
-            "Analyzing sanitized source code",
+            "Building source mapping candidates",
             [
                 *cli,
                 "analyze-source",
@@ -180,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
                 str(source_analysis_dir),
             ],
         )
-        _run_step("Checking source analysis", [*cli, "verify-sanitized", str(source_analysis_dir)])
+        _run_step("Checking source mapping candidates", [*cli, "verify-sanitized", str(source_analysis_dir)])
         _run_step(
             "Uploading sanitized source context to GCS",
             ["gcloud", "storage", "cp", str(source_context_bundle), source_context_uri],
@@ -234,21 +241,20 @@ def main(argv: list[str] | None = None) -> int:
         if legacy_review_url != review_url:
             _check_url(legacy_review_url)
 
-    print()
-    print("Human review is ready.")
-    print(f"Review URL: {review_url}")
-    print(f"Markdown report URL: {report_url}")
-    if review_url != legacy_review_url:
-        print(f"Dynamic review URL: {legacy_review_url}")
-    print(f"Local analysis directory: {output_dir}")
-    print(f"Sanitized logs: {sanitized_dir}")
-    if source_context_bundle is not None and source_analysis_bundle is not None:
-        print(f"Sanitized source context: {source_context_bundle}")
-        print(f"Source analysis: {source_analysis_bundle}")
-    print(f"GCS Evidence Bundle: {input_bundle_uri}")
-    print(f"GCS review payload: {job_result.get('precomputed_review_uri', '')}")
-    print(f"GCS review HTML: {job_result.get('static_review_html_uri', '')}")
-    print(f"GCS review Markdown: {job_result.get('static_review_report_uri', '')}")
+    _print_review_summary(
+        review_url=review_url,
+        report_url=report_url,
+        legacy_review_url=legacy_review_url,
+        output_dir=output_dir,
+        sanitized_dir=sanitized_dir,
+        source_context_bundle=source_context_bundle,
+        source_analysis_bundle=source_analysis_bundle,
+        input_bundle_uri=input_bundle_uri,
+        precomputed_review_uri=str(job_result.get("precomputed_review_uri", "")),
+        static_review_html_uri=str(job_result.get("static_review_html_uri", "")),
+        static_review_report_uri=str(job_result.get("static_review_report_uri", "")),
+        show_gcs_uris=args.show_gcs_uris,
+    )
     return 0
 
 
@@ -274,6 +280,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--min-window-hours", default="")
     parser.add_argument("--no-prompts", action="store_true")
     parser.add_argument("--no-url-check", action="store_true")
+    parser.add_argument("--show-gcs-uris", action="store_true", help="Print private gs:// artifact URIs after the HTTP review URLs.")
+    parser.add_argument(
+        "--skip-source-confirmation",
+        action="store_true",
+        help="Do not pause for the local sanitized source context review before building source mapping candidates.",
+    )
     return parser.parse_args(argv)
 
 
@@ -286,6 +298,39 @@ def _value(cli_value: str, env_name: str, default: str) -> str:
 
 def _optional_value(cli_value: str, env_name: str, default: str) -> str:
     return str(cli_value or os.environ.get(env_name, "") or default).strip()
+
+
+def _print_review_summary(
+    *,
+    review_url: str,
+    report_url: str,
+    legacy_review_url: str,
+    output_dir: Path,
+    sanitized_dir: Path,
+    source_context_bundle: Path | None,
+    source_analysis_bundle: Path | None,
+    input_bundle_uri: str,
+    precomputed_review_uri: str,
+    static_review_html_uri: str,
+    static_review_report_uri: str,
+    show_gcs_uris: bool,
+) -> None:
+    print()
+    print("Human review is ready.")
+    print(f"Review URL: {review_url}")
+    print(f"Markdown report URL: {report_url}")
+    if review_url != legacy_review_url:
+        print(f"Dynamic review URL: {legacy_review_url}")
+    print(f"Local analysis directory: {output_dir}")
+    print(f"Sanitized logs: {sanitized_dir}")
+    if source_context_bundle is not None and source_analysis_bundle is not None:
+        print(f"Sanitized source context: {source_context_bundle}")
+        print(f"Source analysis: {source_analysis_bundle}")
+    if show_gcs_uris:
+        print(f"GCS Evidence Bundle: {input_bundle_uri}")
+        print(f"GCS review payload: {precomputed_review_uri}")
+        print(f"GCS review HTML: {static_review_html_uri}")
+        print(f"GCS review Markdown: {static_review_report_uri}")
 
 
 def _required_prompt_value(
@@ -359,6 +404,54 @@ def _absolute_existing_input_path(value: str) -> Path:
     if not path.exists():
         raise SystemExit(f"log input was not found: {path}")
     return path
+
+
+def _confirm_source_context_before_analysis(
+    *,
+    source_root: Path,
+    source_context_bundle: Path,
+    source_context_report: Path,
+    no_prompts: bool,
+    skip_confirmation: bool,
+) -> None:
+    if no_prompts or skip_confirmation or not sys.stdin.isatty():
+        return
+    summary = _source_context_summary(source_context_bundle)
+    print(file=sys.stderr)
+    print("Source code check is ready.", file=sys.stderr)
+    print(f"Selected source root: {source_root}", file=sys.stderr)
+    print(f"Human-readable source report: {source_context_report}", file=sys.stderr)
+    if summary:
+        print(f"Detected project type: {summary.get('detected_project_type') or 'unknown'}", file=sys.stderr)
+        print(
+            "Source/config counts: "
+            f"{summary.get('source_item_count', 0)} source items, "
+            f"{summary.get('config_item_count', 0)} config items",
+            file=sys.stderr,
+        )
+        entrypoints = summary.get("entrypoint_candidates") or []
+        if entrypoints:
+            print(f"Entrypoint candidates: {', '.join(entrypoints[:8])}", file=sys.stderr)
+    answer = _read_prompt_line("Continue with source mapping and GCS upload? Type yes to continue [y/N]: ").strip()
+    if answer.casefold() not in {"y", "yes"}:
+        print("Stopped before source mapping. Review the source report, then rerun with corrected source paths.", file=sys.stderr)
+        raise SystemExit(0)
+
+
+def _source_context_summary(source_context_bundle: Path) -> dict[str, object]:
+    try:
+        payload = json.loads(source_context_bundle.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    project_summary = payload.get("project_summary") if isinstance(payload.get("project_summary"), dict) else {}
+    return {
+        "detected_project_type": project_summary.get("detected_project_type") or "",
+        "entrypoint_candidates": list(project_summary.get("entrypoint_candidates") or []),
+        "source_item_count": len(payload.get("source_items") or []),
+        "config_item_count": len(payload.get("config_items") or []),
+    }
 
 
 def _optional_source_root(value: str | list[str], *, no_prompts: bool) -> Path | None:
