@@ -460,6 +460,15 @@ def static_review_page(evidence_sha256: str) -> str:
     return _render_full_review_page(evidence_sha256)
 
 
+@router.get("/reviews/{evidence_sha256}/report.md", response_class=PlainTextResponse)
+def static_review_markdown_report(evidence_sha256: str) -> str:
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
+    if precomputed is not None:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
+        return _render_precomputed_markdown_report(evidence_sha256, precomputed)
+    raise HTTPException(status_code=404, detail="precomputed review not found")
+
+
 @router.get("/ui/summary")
 def ui_summary(evidence_sha256: str) -> dict[str, Any]:
     if not evidence_sha256:

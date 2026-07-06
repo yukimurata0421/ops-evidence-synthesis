@@ -273,6 +273,7 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
         full_page = client.get(f"/?evidence_sha256={evidence_sha}&full=1")
         detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}")
         static_detail = client.get(f"/reviews/{evidence_sha}/")
+        static_report = client.get(f"/reviews/{evidence_sha}/report.md")
         full_detail = client.get(f"/ui/full-review-page?evidence_sha256={evidence_sha}&full=1")
         api_view = client.get(f"/ui/api?evidence_sha256={evidence_sha}")
         graph_view = client.get(f"/ui/review-graph?evidence_sha256={evidence_sha}")
@@ -306,6 +307,7 @@ def test_precomputed_only_ui_returns_404_for_missing_review(
     assert full_page.status_code == 404
     assert detail.status_code == 404
     assert static_detail.status_code == 404
+    assert static_report.status_code == 404
     assert full_detail.status_code == 404
     assert api_view.status_code == 404
     assert graph_view.status_code == 404
@@ -339,6 +341,7 @@ def test_precomputed_only_ui_serves_legacy_public_review_links_as_canonical(
         page = client.get(f"/?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
         detail = client.get(f"/ui/full-review-page?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
         static_detail = client.get(f"/reviews/{LEGACY_STREAM_V3_DELL_SHA}/")
+        static_report = client.get(f"/reviews/{LEGACY_STREAM_V3_DELL_SHA}/report.md")
         api_view = client.get(f"/ui/api?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
         graph_view = client.get(f"/ui/review-graph?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
         report_view = client.get(f"/ui/report.md?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
@@ -346,9 +349,20 @@ def test_precomputed_only_ui_serves_legacy_public_review_links_as_canonical(
         review_targets = client.get(f"/review-targets?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
         review_graph = client.get(f"/review/graph?evidence_sha256={LEGACY_STREAM_V3_DELL_SHA}")
 
-    for response in (page, detail, static_detail, api_view, graph_view, report_view, summary, review_targets, review_graph):
+    for response in (
+        page,
+        detail,
+        static_detail,
+        static_report,
+        api_view,
+        graph_view,
+        report_view,
+        summary,
+        review_targets,
+        review_graph,
+    ):
         assert response.status_code == 200
-    for response in (page, detail, static_detail, api_view, graph_view, report_view):
+    for response in (page, detail, static_detail, static_report, api_view, graph_view, report_view):
         assert LEGACY_STREAM_V3_DELL_SHA[:12] not in response.text
         assert STREAM_V3_DELL_REAL_API_SHA[:12] in response.text
     assert f"evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in page.text
