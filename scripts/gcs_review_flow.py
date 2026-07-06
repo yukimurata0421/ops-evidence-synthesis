@@ -225,7 +225,9 @@ def main(argv: list[str] | None = None) -> int:
         report_url = f"{public_base_url}/ui/report.md?evidence_sha256={evidence_sha}"
 
     if not args.no_url_check:
-        _check_url(legacy_review_url)
+        _check_url(review_url)
+        if legacy_review_url != review_url:
+            _check_url(legacy_review_url)
 
     print()
     print("Human review is ready.")
