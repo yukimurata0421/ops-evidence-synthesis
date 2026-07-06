@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PUBLIC_BASE_URL = "https://ops-evidence.yukimurata0421.dev"
 DEFAULT_PROVIDERS = "local-gemini,local-gpt-oss,local-mistral"
 DEFAULT_RUN_ID_PREFIX = "review"
+DEFAULT_OUTPUT_DIR_NAME = "analyses"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -28,9 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     provider_mode = _value(args.provider_mode, "PROVIDER_MODE", "local")
     providers = _value(args.providers, "PROVIDERS", DEFAULT_PROVIDERS)
     min_window_hours = _value(args.min_window_hours, "MIN_WINDOW_HOURS", "0")
-    output_dir = _absolute_output_dir(
-        _value(args.output_dir, "OUT", str(ROOT / "workspace" / "gcs_review" / run_id))
-    )
+    output_dir = _absolute_output_dir(_value(args.output_dir, "OUT", str(_default_output_dir(run_id))))
 
     log_input = _absolute_existing_input_path(
         _required_prompt_value(
@@ -209,6 +208,10 @@ def _absolute_output_dir(value: str) -> Path:
     if not path.is_absolute():
         raise SystemExit(f"OUT must be an absolute path: {value}")
     return path
+
+
+def _default_output_dir(run_id: str) -> Path:
+    return ROOT / DEFAULT_OUTPUT_DIR_NAME / run_id
 
 
 def _gcloud_project() -> str:

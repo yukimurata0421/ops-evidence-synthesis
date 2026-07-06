@@ -42,6 +42,14 @@ def test_output_dir_must_be_absolute() -> None:
         script._absolute_output_dir("workspace/gcs_review/run")
 
 
+def test_default_output_dir_uses_repo_analyses() -> None:
+    script = _load_script()
+
+    assert script._default_output_dir("review-20260706000000") == (
+        ROOT / "analyses" / "review-20260706000000"
+    )
+
+
 def test_required_prompt_value_fails_without_tty() -> None:
     script = _load_script()
 

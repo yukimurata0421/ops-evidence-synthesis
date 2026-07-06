@@ -176,8 +176,8 @@ What to look for:
 
 Use this path when starting from a local log file. Set stable values in the
 environment, then let the CLI ask for the incident window if `START` and `END`
-are not set. `LOG_INPUT` and `OUT` must be absolute paths so the command can be
-run from a terminal, script, or demo session without path ambiguity.
+are not set. `LOG_INPUT` must be an absolute path so the command can be run from
+a terminal, script, or demo session without path ambiguity.
 
 The command sanitizes the logs locally, verifies the sanitized output, builds an
 Evidence Bundle, stages only that bundle in private GCS, builds the review
@@ -191,10 +191,13 @@ export RUN_ID="review-$(date -u +%Y%m%d%H%M%S)"
 export LOG_INPUT="/absolute/path/to/local/logs.jsonl"
 export SERVICE="stream_v3_runtime"
 export ENVIRONMENT="stream_v3"
-export OUT="$(pwd)/workspace/gcs_review/${RUN_ID}"
 
 make review-from-local
 ```
+
+By default, local outputs are written to `./analyses/${RUN_ID}/`. Override
+`OUT` only when you want the export somewhere else; if set, `OUT` must be an
+absolute path.
 
 The CLI will ask for `START` and `END` when they are not exported:
 
