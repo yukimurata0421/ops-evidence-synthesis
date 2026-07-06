@@ -87,6 +87,25 @@ def test_optional_source_root_can_be_omitted_without_tty() -> None:
     assert script._optional_source_root("", no_prompts=True) is None
 
 
+def test_source_root_accepts_multiple_lines_and_normalizes_to_project_root(tmp_path: Path) -> None:
+    script = _load_script()
+    root = tmp_path / "stream_v3"
+    for relative in ("deploy", "deploy/k3s", "tests", "src"):
+        (root / relative).mkdir(parents=True, exist_ok=True)
+    (root / "pyproject.toml").write_text("[project]\nname='stream-v3'\n", encoding="utf-8")
+
+    text = "\n".join(
+        [
+            str(root / "deploy"),
+            str(root / "deploy" / "k3s"),
+            str(root / "tests"),
+            str(root / "src"),
+        ]
+    )
+
+    assert script._optional_source_root(text, no_prompts=True) == root
+
+
 def test_source_root_must_be_absolute() -> None:
     script = _load_script()
 
@@ -101,3 +120,72 @@ def test_source_root_must_be_directory(tmp_path: Path) -> None:
 
     with pytest.raises(SystemExit, match="SOURCE_ROOT must be a directory"):
         script._optional_source_root(str(file_path), no_prompts=True)
+
+
+def test_timestamp_prompt_values_are_validated() -> None:
+    script = _load_script()
+
+    assert (
+        script._required_timestamp_value(
+            "2026-07-01",
+            "Incident window start",
+            "2026-06-14T23:15:50Z",
+            env_name="START",
+            flag_name="--start",
+            no_prompts=True,
+        )
+        == "2026-07-01T00:00:00Z"
+    )
+    with pytest.raises(SystemExit, match="START must be ISO-8601"):
+        script._required_timestamp_value(
+            "/path/that/does/not/exist/src2026-07-01",
+            "Incident window start",
+            "2026-06-14T23:15:50Z",
+            env_name="START",
+            flag_name="--start",
+            no_prompts=True,
+        )
+
+
+def test_misplaced_source_paths_do_not_become_service_or_start_values(tmp_path: Path) -> None:
+    script = _load_script()
+    script._PENDING_TIMESTAMP_LINES.clear()
+    root = tmp_path / "stream_v3"
+    src = root / "src"
+    src.mkdir(parents=True)
+
+    assert (
+        script._required_prompt_value(
+            str(src),
+            "Service name",
+            "stream_v3_runtime",
+            env_name="SERVICE",
+            flag_name="--service",
+            required=False,
+            no_prompts=True,
+        )
+        == "stream_v3_runtime"
+    )
+    assert (
+        script._required_prompt_value(
+            f"{src}2026-07-01",
+            "Environment",
+            "stream_v3",
+            env_name="ENVIRONMENT",
+            flag_name="--environment",
+            required=False,
+            no_prompts=True,
+        )
+        == "stream_v3"
+    )
+    assert (
+        script._required_timestamp_value(
+            "",
+            "Incident window start",
+            "2026-06-14T23:15:50Z",
+            env_name="START",
+            flag_name="--start",
+            no_prompts=True,
+        )
+        == "2026-07-01T00:00:00Z"
+    )

@@ -4,12 +4,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 from urllib.request import urlopen
+
+from ops_evidence_synthesis.timeutils import format_timestamp
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +22,8 @@ DEFAULT_RUN_ID_PREFIX = "review"
 DEFAULT_OUTPUT_DIR_NAME = "analyses"
 DEFAULT_SERVICE = "stream_v3_runtime"
 DEFAULT_ENVIRONMENT = "stream_v3"
+_PENDING_PROMPT_LINES: list[str] = []
+_PENDING_TIMESTAMP_LINES: list[str] = []
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -73,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         required=False,
         no_prompts=args.no_prompts,
     )
-    start = _required_prompt_value(
+    start = _required_timestamp_value(
         args.start or os.environ.get("START", ""),
         "Incident window start",
         "2026-06-14T23:15:50Z",
@@ -81,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         flag_name="--start",
         no_prompts=args.no_prompts,
     )
-    end = _required_prompt_value(
+    end = _required_timestamp_value(
         args.end or os.environ.get("END", ""),
         "Incident window end",
         "2026-06-15T23:59:52Z",
@@ -295,18 +300,56 @@ def _required_prompt_value(
 ) -> str:
     text = str(value or "").strip()
     if text:
+        if not required and _looks_like_misplaced_source_root_answer(text):
+            recovered = _timestamp_suffix_after_existing_dir(text)
+            if recovered:
+                _PENDING_TIMESTAMP_LINES.append(recovered)
+            return example
         return text
     if not required:
         if no_prompts or not sys.stdin.isatty():
             return example
-        answer = input(f"{label} [{example}]: ").strip()
+        answer = _read_prompt_line(f"{label} [{example}]: ").strip()
+        if _looks_like_misplaced_source_root_answer(answer):
+            recovered = _timestamp_suffix_after_existing_dir(answer)
+            if recovered:
+                _PENDING_TIMESTAMP_LINES.append(recovered)
+            return example
         return answer or example
     if no_prompts or not sys.stdin.isatty():
         raise SystemExit(f"{label} is required; set {env_name} or pass {flag_name}. Example: {example}")
-    answer = input(f"{label} (example: {example}): ").strip()
+    answer = _read_prompt_line(f"{label} (example: {example}): ").strip()
     if not answer:
         raise SystemExit(f"{label} is required")
     return answer
+
+
+def _required_timestamp_value(
+    value: str,
+    label: str,
+    example: str,
+    *,
+    env_name: str,
+    flag_name: str,
+    no_prompts: bool,
+) -> str:
+    if not value and _PENDING_TIMESTAMP_LINES:
+        value = _PENDING_TIMESTAMP_LINES.pop(0)
+    text = _required_prompt_value(
+        value,
+        label,
+        example,
+        env_name=env_name,
+        flag_name=flag_name,
+        no_prompts=no_prompts,
+    )
+    try:
+        return format_timestamp(text)
+    except (TypeError, ValueError) as exc:
+        recovered = _timestamp_suffix_after_existing_dir(text)
+        if recovered:
+            return format_timestamp(recovered)
+        raise SystemExit(f"{env_name} must be ISO-8601 date/time, got: {text}") from exc
 
 
 def _absolute_existing_input_path(value: str) -> Path:
@@ -321,7 +364,7 @@ def _absolute_existing_input_path(value: str) -> Path:
 def _optional_source_root(value: str | list[str], *, no_prompts: bool) -> Path | None:
     text = _source_root_text(value)
     if not text and not no_prompts and sys.stdin.isatty():
-        text = input("Source code directory or directories [optional]: ").strip()
+        text = _interactive_source_root_text()
     if not text:
         return None
     paths = [_absolute_source_dir(item) for item in _split_source_roots(text)]
@@ -344,6 +387,77 @@ def _source_root_text(value: str | list[str]) -> str:
 def _split_source_roots(text: str) -> list[str]:
     normalized = str(text or "").replace("\n", os.pathsep).replace(",", os.pathsep)
     return [part.strip() for part in normalized.split(os.pathsep) if part.strip()]
+
+
+def _interactive_source_root_text() -> str:
+    first = _read_prompt_line("Source code directory or directories [optional]: ").strip()
+    if not first:
+        return ""
+    lines = [first]
+    lines.extend(_read_pending_source_root_lines())
+    return "\n".join(lines)
+
+
+def _read_prompt_line(prompt: str) -> str:
+    if _PENDING_PROMPT_LINES:
+        return _PENDING_PROMPT_LINES.pop(0)
+    return input(prompt)
+
+
+def _read_pending_source_root_lines() -> list[str]:
+    if not sys.stdin.isatty():
+        return []
+    try:
+        import select
+    except ImportError:  # pragma: no cover - non-POSIX fallback.
+        return []
+
+    lines: list[str] = []
+    while True:
+        ready, _unused_write, _unused_error = select.select([sys.stdin], [], [], 0.02)
+        if not ready:
+            return lines
+        raw = sys.stdin.readline()
+        if raw == "":
+            return lines
+        text = raw.strip()
+        if _line_contains_only_source_roots(text):
+            lines.append(text)
+            continue
+        _PENDING_PROMPT_LINES.append(text)
+        return lines
+
+
+def _line_contains_only_source_roots(text: str) -> bool:
+    parts = _split_source_roots(text)
+    return bool(parts) and all(_is_absolute_existing_dir(part) for part in parts)
+
+
+def _looks_like_misplaced_source_root_answer(text: str) -> bool:
+    value = str(text or "").strip()
+    return bool(value) and (value.startswith("/") or _line_contains_only_source_roots(value))
+
+
+TIMESTAMP_SUFFIX_RE = re.compile(
+    r"(?P<timestamp>\d{4}-\d{2}-\d{2}(?:[T ][0-2]\d:[0-5]\d:[0-5]\d(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?)$"
+)
+
+
+def _timestamp_suffix_after_existing_dir(text: str) -> str:
+    value = str(text or "").strip()
+    match = TIMESTAMP_SUFFIX_RE.search(value)
+    if not match:
+        return ""
+    prefix = value[: match.start("timestamp")]
+    path = Path(prefix).expanduser()
+    if path.is_absolute() and path.exists() and path.is_dir():
+        return match.group("timestamp")
+    return ""
+
+
+def _is_absolute_existing_dir(value: str) -> bool:
+    path = Path(value).expanduser()
+    return path.is_absolute() and path.exists() and path.is_dir()
 
 
 def _absolute_source_dir(value: str) -> Path:
