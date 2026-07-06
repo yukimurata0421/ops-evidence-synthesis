@@ -16,6 +16,7 @@ PUBLIC_SMOKE_EXTRA_ARGS ?= --expect-provider gemini-enterprise-agent-platform --
 GCS_REVIEW_PREFIX ?= gs://$(PROJECT_ID)-private-artifacts/precomputed_review_summaries
 GCS_REVIEW_SHA ?= $(PUBLIC_EVIDENCE_SHA)
 GCS_REVIEW_SOURCE ?= data/precomputed_review_summaries/$(GCS_REVIEW_SHA).json
+REVIEW_ARGS ?= $(REVIEW_FROM_LOCAL_ARGS)
 REVIEW_FROM_LOCAL_ARGS ?=
 LOCAL_REVIEW_DB ?= workspace/local_review/payment_api.sqlite3
 LOCAL_REVIEW_INPUT ?= data/sample_logs.jsonl
@@ -26,7 +27,7 @@ LOCAL_REVIEW_END ?= 2026-06-12T10:20:00Z
 LOCAL_REVIEW_PROVIDER ?= local
 LOCAL_REVIEW_PORT ?= 8097
 
-.PHONY: demo demo-flagship demo-sample review-from-local gcs-review publish-gcs-review smoke-gcs-review show-public-review-url run-local-review show-local-review serve-local-review verify-precomputed verify-flagship verify-sample test ci smoke-public deploy-public archive-public
+.PHONY: demo demo-flagship demo-sample review review-from-local gcs-review publish-gcs-review smoke-gcs-review show-public-review-url run-local-review show-local-review serve-local-review verify-precomputed verify-flagship verify-sample test ci smoke-public deploy-public archive-public
 
 demo: demo-flagship
 
@@ -36,8 +37,8 @@ demo-flagship:
 demo-sample:
 	PYTHONPATH=src $(PYTHON) scripts/generate_precomputed_review.py --source-note "generated from public sample fixture with deterministic local providers and sanitized source profile context" --source-context $(SAMPLE_PROFILE_DIR)/source_context_bundle.json --source-analysis $(SAMPLE_PROFILE_DIR)/source_analysis_bundle.json --profile-draft $(SAMPLE_PROFILE_DIR)/profile_draft.json --approved-profile $(SAMPLE_PROFILE_DIR)/approved_profile.json --profile-id payment_api_sample_source_approved --expected-evidence-sha $(SAMPLE_EVIDENCE_SHA)
 
-review-from-local:
-	@PROJECT_ID="$(PROJECT_ID)" PUBLIC_BASE_URL="$(PUBLIC_BASE_URL)" PYTHONPATH=src $(PYTHON) scripts/gcs_review_flow.py $(REVIEW_FROM_LOCAL_ARGS)
+review review-from-local:
+	@PROJECT_ID="$(PROJECT_ID)" PUBLIC_BASE_URL="$(PUBLIC_BASE_URL)" PYTHONPATH=src $(PYTHON) scripts/gcs_review_flow.py $(REVIEW_ARGS)
 
 gcs-review: publish-gcs-review smoke-gcs-review show-public-review-url
 

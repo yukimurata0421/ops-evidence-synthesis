@@ -17,6 +17,8 @@ DEFAULT_PUBLIC_BASE_URL = "https://ops-evidence.yukimurata0421.dev"
 DEFAULT_PROVIDERS = "local-gemini,local-gpt-oss,local-mistral"
 DEFAULT_RUN_ID_PREFIX = "review"
 DEFAULT_OUTPUT_DIR_NAME = "analyses"
+DEFAULT_SERVICE = "stream_v3_runtime"
+DEFAULT_ENVIRONMENT = "stream_v3"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -44,17 +46,19 @@ def main(argv: list[str] | None = None) -> int:
     service = _required_prompt_value(
         args.service or os.environ.get("SERVICE", ""),
         "Service name",
-        "stream_v3_runtime",
+        DEFAULT_SERVICE,
         env_name="SERVICE",
         flag_name="--service",
+        required=False,
         no_prompts=args.no_prompts,
     )
     environment = _required_prompt_value(
         args.environment or os.environ.get("ENVIRONMENT", ""),
         "Environment",
-        "stream_v3",
+        DEFAULT_ENVIRONMENT,
         env_name="ENVIRONMENT",
         flag_name="--environment",
+        required=False,
         no_prompts=args.no_prompts,
     )
     start = _required_prompt_value(
@@ -181,11 +185,17 @@ def _required_prompt_value(
     *,
     env_name: str,
     flag_name: str,
+    required: bool = True,
     no_prompts: bool,
 ) -> str:
     text = str(value or "").strip()
     if text:
         return text
+    if not required:
+        if no_prompts or not sys.stdin.isatty():
+            return example
+        answer = input(f"{label} [{example}]: ").strip()
+        return answer or example
     if no_prompts or not sys.stdin.isatty():
         raise SystemExit(f"{label} is required; set {env_name} or pass {flag_name}. Example: {example}")
     answer = input(f"{label} (example: {example}): ").strip()

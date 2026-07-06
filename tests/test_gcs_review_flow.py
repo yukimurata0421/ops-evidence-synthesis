@@ -62,3 +62,20 @@ def test_required_prompt_value_fails_without_tty() -> None:
             flag_name="--start",
             no_prompts=True,
         )
+
+
+def test_optional_prompt_value_uses_default_without_tty() -> None:
+    script = _load_script()
+
+    assert (
+        script._required_prompt_value(
+            "",
+            "Service name",
+            "stream_v3_runtime",
+            env_name="SERVICE",
+            flag_name="--service",
+            required=False,
+            no_prompts=True,
+        )
+        == "stream_v3_runtime"
+    )
