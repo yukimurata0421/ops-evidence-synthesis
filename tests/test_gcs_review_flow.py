@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import subprocess
 from pathlib import Path
 from types import ModuleType
 
@@ -191,10 +193,11 @@ def test_misplaced_source_paths_do_not_become_service_or_start_values(tmp_path: 
     )
 
 
-def test_source_context_summary_reads_human_check_fields(tmp_path: Path) -> None:
+def test_code_profile_summary_reads_human_check_fields(tmp_path: Path) -> None:
     script = _load_script()
-    bundle = tmp_path / "source_context_bundle.json"
-    bundle.write_text(
+    context_bundle = tmp_path / "source_context_bundle.json"
+    analysis_bundle = tmp_path / "source_analysis_bundle.json"
+    context_bundle.write_text(
         """
         {
           "project_summary": {
@@ -207,26 +210,50 @@ def test_source_context_summary_reads_human_check_fields(tmp_path: Path) -> None
         """,
         encoding="utf-8",
     )
+    analysis_bundle.write_text(
+        """
+        {
+          "display_summary": {
+            "component_candidate_count": 2,
+            "metric_semantics_candidate_count": 3,
+            "collector_mapping_candidate_count": 4
+          }
+        }
+        """,
+        encoding="utf-8",
+    )
 
-    assert script._source_context_summary(bundle) == {
+    assert script._code_profile_summary(context_bundle, analysis_bundle) == {
         "detected_project_type": "python_project",
         "entrypoint_candidates": ["src/app.py"],
         "source_item_count": 1,
         "config_item_count": 1,
+        "component_candidate_count": 2,
+        "metric_semantics_candidate_count": 3,
+        "collector_mapping_candidate_count": 4,
     }
 
 
-def test_source_context_confirmation_can_stop_before_analysis(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_code_profile_confirmation_can_stop_before_log_analysis(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     script = _load_script()
     source_root = tmp_path / "stream_v3"
     source_root.mkdir()
-    bundle = tmp_path / "source_context_bundle.json"
-    report = tmp_path / "source_context_report.md"
-    bundle.write_text(
+    context_bundle = tmp_path / "source_context_bundle.json"
+    context_report = tmp_path / "source_context_report.md"
+    analysis_bundle = tmp_path / "source_analysis_bundle.json"
+    analysis_report = tmp_path / "source_analysis_report.md"
+    context_bundle.write_text(
         '{"project_summary": {"detected_project_type": "python_project"}, "source_items": [], "config_items": []}',
         encoding="utf-8",
     )
-    report.write_text("# Source Context\n", encoding="utf-8")
+    context_report.write_text("# Source Context\n", encoding="utf-8")
+    analysis_bundle.write_text(
+        '{"display_summary": {"component_candidate_count": 0, "metric_semantics_candidate_count": 0, "collector_mapping_candidate_count": 0}}',
+        encoding="utf-8",
+    )
+    analysis_report.write_text("# Source Analysis\n", encoding="utf-8")
 
     class Tty:
         def isatty(self) -> bool:
@@ -236,10 +263,12 @@ def test_source_context_confirmation_can_stop_before_analysis(tmp_path: Path, mo
     script._PENDING_PROMPT_LINES[:] = ["no"]
 
     with pytest.raises(SystemExit) as exc:
-        script._confirm_source_context_before_analysis(
+        script._confirm_code_profile_before_log_analysis(
             source_root=source_root,
-            source_context_bundle=bundle,
-            source_context_report=report,
+            source_context_bundle=context_bundle,
+            source_context_report=context_report,
+            source_analysis_bundle=analysis_bundle,
+            source_analysis_report=analysis_report,
             no_prompts=False,
             skip_confirmation=False,
         )
@@ -247,14 +276,18 @@ def test_source_context_confirmation_can_stop_before_analysis(tmp_path: Path, mo
     assert exc.value.code == 0
 
 
-def test_source_context_confirmation_accepts_yes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_code_profile_confirmation_accepts_yes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     script = _load_script()
     source_root = tmp_path / "stream_v3"
     source_root.mkdir()
-    bundle = tmp_path / "source_context_bundle.json"
-    report = tmp_path / "source_context_report.md"
-    bundle.write_text('{"project_summary": {}, "source_items": [], "config_items": []}', encoding="utf-8")
-    report.write_text("# Source Context\n", encoding="utf-8")
+    context_bundle = tmp_path / "source_context_bundle.json"
+    context_report = tmp_path / "source_context_report.md"
+    analysis_bundle = tmp_path / "source_analysis_bundle.json"
+    analysis_report = tmp_path / "source_analysis_report.md"
+    context_bundle.write_text('{"project_summary": {}, "source_items": [], "config_items": []}', encoding="utf-8")
+    context_report.write_text("# Source Context\n", encoding="utf-8")
+    analysis_bundle.write_text('{"display_summary": {}}', encoding="utf-8")
+    analysis_report.write_text("# Source Analysis\n", encoding="utf-8")
 
     class Tty:
         def isatty(self) -> bool:
@@ -263,13 +296,82 @@ def test_source_context_confirmation_accepts_yes(tmp_path: Path, monkeypatch: py
     monkeypatch.setattr(script.sys, "stdin", Tty())
     script._PENDING_PROMPT_LINES[:] = ["yes"]
 
-    script._confirm_source_context_before_analysis(
+    script._confirm_code_profile_before_log_analysis(
         source_root=source_root,
-        source_context_bundle=bundle,
-        source_context_report=report,
+        source_context_bundle=context_bundle,
+        source_context_report=context_report,
+        source_analysis_bundle=analysis_bundle,
+        source_analysis_report=analysis_report,
         no_prompts=False,
         skip_confirmation=False,
     )
+
+
+def test_main_builds_code_profile_before_log_analysis(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    script = _load_script()
+    log_input = tmp_path / "logs.jsonl"
+    log_input.write_text('{"ts":"2026-07-01T00:00:00Z","message":"ok"}\n', encoding="utf-8")
+    source_root = tmp_path / "stream_v3"
+    source_root.mkdir()
+    output_dir = tmp_path / "analysis"
+    labels: list[str] = []
+
+    def fake_run_step(
+        label: str, command: list[str], *, env: dict[str, str] | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        labels.append(label)
+        if label == "Building human review page":
+            stdout = json.dumps(
+                {
+                    "evidence_sha256": "a" * 64,
+                    "static_review_public_url": "https://example.test/reviews/aaaaaaaa/",
+                    "static_review_report_url": "https://example.test/reviews/aaaaaaaa/report.md",
+                }
+            )
+            return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(script, "_require_command", lambda _name: None)
+    monkeypatch.setattr(script, "_gcloud_project", lambda: "ops-evidence-synthesis")
+    monkeypatch.setattr(script, "_run_step", fake_run_step)
+    monkeypatch.setattr(script, "_check_url", lambda _url: None)
+
+    assert (
+        script.main(
+            [
+                "--input",
+                str(log_input),
+                "--source-root",
+                str(source_root),
+                "--service",
+                "stream_v3_runtime",
+                "--environment",
+                "stream_v3",
+                "--start",
+                "2026-07-01",
+                "--end",
+                "2026-07-02",
+                "--output-dir",
+                str(output_dir),
+                "--run-id",
+                "review-test",
+                "--no-prompts",
+            ]
+        )
+        == 0
+    )
+
+    assert labels[:5] == [
+        "Sanitizing source code",
+        "Checking sanitized source code",
+        "Building source mapping candidates",
+        "Checking source mapping candidates",
+        "Sanitizing logs",
+    ]
+    assert labels.index("Uploading Evidence Bundle to GCS") < labels.index("Uploading sanitized source context to GCS")
+    assert "gs://" not in capsys.readouterr().out
 
 
 def test_review_summary_prints_http_urls_without_gcs_by_default(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

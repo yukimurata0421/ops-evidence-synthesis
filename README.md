@@ -179,14 +179,13 @@ absolute log path, optionally paste a source code directory, press Enter to
 accept the default service/environment when they match, then enter the incident
 window.
 
-The command sanitizes the logs locally, verifies the sanitized output, and
-builds an Evidence Bundle. When a source code directory is provided, it first
-sanitizes the source tree locally and pauses on a human-readable source report;
-continue only after confirming that the selected code context matches the log
-corpus. It then builds rule-based source mapping candidates and stages only
-sanitized artifacts in the private cloud handoff. The final output is an HTTPS
-review URL, not raw JSON or a `gs://` object URI. You do not need to copy an
-Evidence SHA by hand.
+When a source code directory is provided, the command first sanitizes the source
+tree locally, builds rule-based source mapping candidates, and pauses on the
+human-readable source reports. Continue only after confirming that the code
+profile matches the system you want to review. Log sanitization, Evidence Bundle
+construction, private cloud handoff, and the final incident review page are the
+next step after that approval. The final output is an HTTPS review URL, not raw
+JSON or a `gs://` object URI. You do not need to copy an Evidence SHA by hand.
 
 Large log directories are processed as streams. The sanitizer does not keep the
 full corpus in memory, and obvious binary/media/database artifacts such as
@@ -200,11 +199,12 @@ The CLI asks only for the values that are not already set:
 
 ```text
 Absolute log file or directory (example: /absolute/path/to/logs.jsonl):
-Source code directory [optional]:
+Source code directory or directories [optional]:
 Service name [stream_v3_runtime]:
 Environment [stream_v3]:
 Incident window start (example: 2026-06-14T23:15:50Z):
 Incident window end (example: 2026-06-15T23:59:52Z):
+Continue with log analysis using this code profile? Type yes to continue [y/N]:
 ```
 
 By default, local outputs are written to `./analyses/${RUN_ID}/` with an

@@ -107,6 +107,53 @@ def main(argv: list[str] | None = None) -> int:
     static_review_prefix_uri = f"gs://{bucket}/review-pages"
 
     cli = [sys.executable, "-m", "ops_evidence_synthesis.cli"]
+    source_context_bundle = None
+    source_analysis_bundle = None
+    if source_root is not None:
+        source_context_dir = output_dir / "source_context"
+        source_analysis_dir = output_dir / "source_analysis"
+        source_context_bundle = source_context_dir / "source_context_bundle.json"
+        source_analysis_bundle = source_analysis_dir / "source_analysis_bundle.json"
+        _run_step(
+            "Sanitizing source code",
+            [
+                *cli,
+                "sanitize-source",
+                "--project-root",
+                str(source_root),
+                "--service",
+                service,
+                "--environment",
+                environment,
+                "--out",
+                str(source_context_dir),
+            ],
+        )
+        _run_step("Checking sanitized source code", [*cli, "verify-sanitized", str(source_context_dir)])
+        _run_step(
+            "Building source mapping candidates",
+            [
+                *cli,
+                "analyze-source",
+                "--source-context",
+                str(source_context_bundle),
+                "--provider",
+                "local",
+                "--out",
+                str(source_analysis_dir),
+            ],
+        )
+        _run_step("Checking source mapping candidates", [*cli, "verify-sanitized", str(source_analysis_dir)])
+        _confirm_code_profile_before_log_analysis(
+            source_root=source_root,
+            source_context_bundle=source_context_bundle,
+            source_context_report=source_context_dir / "source_context_report.md",
+            source_analysis_bundle=source_analysis_bundle,
+            source_analysis_report=source_analysis_dir / "source_analysis_report.md",
+            no_prompts=args.no_prompts,
+            skip_confirmation=args.skip_source_confirmation,
+        )
+
     _run_step(
         "Sanitizing logs",
         [
@@ -144,50 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     _run_step("Uploading Evidence Bundle to GCS", ["gcloud", "storage", "cp", str(evidence_bundle), input_bundle_uri])
 
-    source_context_bundle = None
-    source_analysis_bundle = None
     if source_root is not None:
-        source_context_dir = output_dir / "source_context"
-        source_analysis_dir = output_dir / "source_analysis"
-        source_context_bundle = source_context_dir / "source_context_bundle.json"
-        source_analysis_bundle = source_analysis_dir / "source_analysis_bundle.json"
-        _run_step(
-            "Sanitizing source code",
-            [
-                *cli,
-                "sanitize-source",
-                "--project-root",
-                str(source_root),
-                "--service",
-                service,
-                "--environment",
-                environment,
-                "--out",
-                str(source_context_dir),
-            ],
-        )
-        _run_step("Checking sanitized source code", [*cli, "verify-sanitized", str(source_context_dir)])
-        _confirm_source_context_before_analysis(
-            source_root=source_root,
-            source_context_bundle=source_context_bundle,
-            source_context_report=source_context_dir / "source_context_report.md",
-            no_prompts=args.no_prompts,
-            skip_confirmation=args.skip_source_confirmation,
-        )
-        _run_step(
-            "Building source mapping candidates",
-            [
-                *cli,
-                "analyze-source",
-                "--source-context",
-                str(source_context_bundle),
-                "--provider",
-                "local",
-                "--out",
-                str(source_analysis_dir),
-            ],
-        )
-        _run_step("Checking source mapping candidates", [*cli, "verify-sanitized", str(source_analysis_dir)])
         _run_step(
             "Uploading sanitized source context to GCS",
             ["gcloud", "storage", "cp", str(source_context_bundle), source_context_uri],
@@ -284,7 +288,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--skip-source-confirmation",
         action="store_true",
-        help="Do not pause for the local sanitized source context review before building source mapping candidates.",
+        help="Do not pause for the local code profile review before log analysis.",
     )
     return parser.parse_args(argv)
 
@@ -406,21 +410,24 @@ def _absolute_existing_input_path(value: str) -> Path:
     return path
 
 
-def _confirm_source_context_before_analysis(
+def _confirm_code_profile_before_log_analysis(
     *,
     source_root: Path,
     source_context_bundle: Path,
     source_context_report: Path,
+    source_analysis_bundle: Path,
+    source_analysis_report: Path,
     no_prompts: bool,
     skip_confirmation: bool,
 ) -> None:
     if no_prompts or skip_confirmation or not sys.stdin.isatty():
         return
-    summary = _source_context_summary(source_context_bundle)
+    summary = _code_profile_summary(source_context_bundle, source_analysis_bundle)
     print(file=sys.stderr)
-    print("Source code check is ready.", file=sys.stderr)
+    print("Code profile review is ready.", file=sys.stderr)
     print(f"Selected source root: {source_root}", file=sys.stderr)
-    print(f"Human-readable source report: {source_context_report}", file=sys.stderr)
+    print(f"Human-readable source context report: {source_context_report}", file=sys.stderr)
+    print(f"Human-readable source analysis report: {source_analysis_report}", file=sys.stderr)
     if summary:
         print(f"Detected project type: {summary.get('detected_project_type') or 'unknown'}", file=sys.stderr)
         print(
@@ -432,25 +439,49 @@ def _confirm_source_context_before_analysis(
         entrypoints = summary.get("entrypoint_candidates") or []
         if entrypoints:
             print(f"Entrypoint candidates: {', '.join(entrypoints[:8])}", file=sys.stderr)
-    answer = _read_prompt_line("Continue with source mapping and GCS upload? Type yes to continue [y/N]: ").strip()
+        print(
+            "Source mapping candidates: "
+            f"{summary.get('component_candidate_count', 0)} components, "
+            f"{summary.get('metric_semantics_candidate_count', 0)} metric semantics, "
+            f"{summary.get('collector_mapping_candidate_count', 0)} collector mappings",
+            file=sys.stderr,
+        )
+    answer = _read_prompt_line("Continue with log analysis using this code profile? Type yes to continue [y/N]: ").strip()
     if answer.casefold() not in {"y", "yes"}:
-        print("Stopped before source mapping. Review the source report, then rerun with corrected source paths.", file=sys.stderr)
+        print("Stopped before log analysis. Review the code profile, then rerun with corrected source paths.", file=sys.stderr)
         raise SystemExit(0)
 
 
-def _source_context_summary(source_context_bundle: Path) -> dict[str, object]:
+def _code_profile_summary(source_context_bundle: Path, source_analysis_bundle: Path) -> dict[str, object]:
     try:
-        payload = json.loads(source_context_bundle.read_text(encoding="utf-8"))
+        source_context = json.loads(source_context_bundle.read_text(encoding="utf-8"))
+        source_analysis = json.loads(source_analysis_bundle.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    if not isinstance(payload, dict):
+    if not isinstance(source_context, dict):
         return {}
-    project_summary = payload.get("project_summary") if isinstance(payload.get("project_summary"), dict) else {}
+    if not isinstance(source_analysis, dict):
+        source_analysis = {}
+    project_summary = (
+        source_context.get("project_summary") if isinstance(source_context.get("project_summary"), dict) else {}
+    )
+    display_summary = (
+        source_analysis.get("display_summary") if isinstance(source_analysis.get("display_summary"), dict) else {}
+    )
     return {
         "detected_project_type": project_summary.get("detected_project_type") or "",
         "entrypoint_candidates": list(project_summary.get("entrypoint_candidates") or []),
-        "source_item_count": len(payload.get("source_items") or []),
-        "config_item_count": len(payload.get("config_items") or []),
+        "source_item_count": len(source_context.get("source_items") or []),
+        "config_item_count": len(source_context.get("config_items") or []),
+        "component_candidate_count": display_summary.get("component_candidate_count")
+        if "component_candidate_count" in display_summary
+        else len(source_analysis.get("component_candidates") or []),
+        "metric_semantics_candidate_count": display_summary.get("metric_semantics_candidate_count")
+        if "metric_semantics_candidate_count" in display_summary
+        else len(source_analysis.get("metric_semantics_candidates") or []),
+        "collector_mapping_candidate_count": display_summary.get("collector_mapping_candidate_count")
+        if "collector_mapping_candidate_count" in display_summary
+        else len(source_analysis.get("collector_mapping_candidates") or []),
     }
 
 
