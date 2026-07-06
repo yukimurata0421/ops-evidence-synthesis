@@ -306,7 +306,7 @@ def _public_precomputed_read_guard(request: Request, request_id: str) -> JSONRes
     if request.method.upper() not in {"GET", "HEAD"}:
         return None
     path = request.url.path.rstrip("/") or "/"
-    if path in PUBLIC_PRECOMPUTED_READ_PATHS:
+    if path in PUBLIC_PRECOMPUTED_READ_PATHS or path.startswith("/reviews/"):
         return None
     return JSONResponse(
         status_code=404,
@@ -447,6 +447,16 @@ def full_review_page(evidence_sha256: str | None = None, full: bool = False) -> 
         precomputed = _precomputed_review_payload(evidence_sha256)
         display_sha256 = _canonical_precomputed_review_sha(evidence_sha256) if precomputed else evidence_sha256
         return _render_fast_review_detail_page(display_sha256, precomputed=precomputed)
+    return _render_full_review_page(evidence_sha256)
+
+
+@router.get("/reviews/{evidence_sha256}", response_class=HTMLResponse)
+@router.get("/reviews/{evidence_sha256}/", response_class=HTMLResponse)
+def static_review_page(evidence_sha256: str) -> str:
+    precomputed = _require_precomputed_review_for_public_read(evidence_sha256, require_evidence_sha=True)
+    if precomputed is not None:
+        evidence_sha256 = _canonical_precomputed_review_sha(evidence_sha256)
+        return _render_precomputed_review_detail_page(evidence_sha256, precomputed)
     return _render_full_review_page(evidence_sha256)
 
 

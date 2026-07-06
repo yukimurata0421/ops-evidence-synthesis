@@ -50,6 +50,10 @@ def test_fast_gcp_and_cloud_run_job_config_keep_provider_storage_and_model_contr
         'OES_JOB_PRECOMPUTED_OUTPUT_PREFIX_URI = "gs://${google_storage_bucket.private_artifacts.name}/precomputed_review_summaries"'
         in main_tf
     )
+    assert (
+        'OES_JOB_STATIC_REVIEW_OUTPUT_PREFIX_URI = "gs://${google_storage_bucket.private_artifacts.name}/review-pages"'
+        in main_tf
+    )
     assert 'public_access_prevention    = "enforced"' in main_tf
     assert "uniform_bucket_level_access = true" in main_tf
     assert re.search(r'OES_QWEN_LOCATION\s*=\s*"global"', variables_tf)

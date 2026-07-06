@@ -154,6 +154,8 @@ def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch)
         source_context_uri=GcsUri.parse("gs://private/input/source_context.json"),
         source_analysis_uri=GcsUri.parse("gs://private/input/source_analysis.json"),
         precomputed_output_prefix_uri=GcsUri.parse("gs://private/precomputed"),
+        static_review_output_prefix_uri=GcsUri.parse("gs://private/review-pages"),
+        static_review_public_base_url="https://reviews.example.test/reviews",
         provider_mode="real_or_skip",
         providers=("gemini-fast-lite", "gemma"),
     )
@@ -174,6 +176,11 @@ def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch)
         "output_prefix_uri": "gs://private/output/runs/run-001",
         "multi_ai_run_uri": "gs://private/output/runs/run-001/multi_ai_run.json",
         "precomputed_review_uri": f"gs://private/precomputed/{evidence_sha}.json",
+        "static_review_html_uri": f"gs://private/review-pages/{evidence_sha}/index.html",
+        "static_review_report_uri": f"gs://private/review-pages/{evidence_sha}/report.md",
+        "static_review_payload_uri": f"gs://private/review-pages/{evidence_sha}/payload.json",
+        "static_review_public_url": f"https://reviews.example.test/reviews/{evidence_sha}/",
+        "static_review_report_url": f"https://reviews.example.test/reviews/{evidence_sha}/report.md",
         "providers": ["gemini-fast-lite", "gemma"],
         "provider_mode": "real_or_skip",
         "provider_total": 2,
@@ -202,3 +209,12 @@ def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch)
     precomputed_text, precomputed_type = written_text[f"gs://private/precomputed/{evidence_sha}.json"]
     assert precomputed_type == "application/json"
     assert json.loads(precomputed_text)["evidence_sha256"] == evidence_sha
+    html_text, html_type = written_text[f"gs://private/review-pages/{evidence_sha}/index.html"]
+    assert html_type == "text/html; charset=utf-8"
+    assert "Ops Evidence Review" in html_text
+    report_text, report_type = written_text[f"gs://private/review-pages/{evidence_sha}/report.md"]
+    assert report_type == "text/markdown; charset=utf-8"
+    assert "Incident Review Report" in report_text
+    payload_text, payload_type = written_text[f"gs://private/review-pages/{evidence_sha}/payload.json"]
+    assert payload_type == "application/json"
+    assert json.loads(payload_text)["evidence_sha256"] == evidence_sha

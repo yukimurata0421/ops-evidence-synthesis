@@ -28,6 +28,11 @@ def main(argv: list[str] | None = None) -> int:
     bucket = _value(args.bucket, "BUCKET", f"{project_id}-private-artifacts")
     run_id = _value(args.run_id, "RUN_ID", f"{DEFAULT_RUN_ID_PREFIX}-{time.strftime('%Y%m%d%H%M%S', time.gmtime())}")
     public_base_url = _value(args.public_base_url, "PUBLIC_BASE_URL", DEFAULT_PUBLIC_BASE_URL).rstrip("/")
+    static_review_base_url = _optional_value(
+        args.static_review_base_url,
+        "STATIC_REVIEW_BASE_URL",
+        f"{public_base_url}/reviews",
+    ).rstrip("/")
     provider_mode = _value(args.provider_mode, "PROVIDER_MODE", "local")
     providers = _value(args.providers, "PROVIDERS", DEFAULT_PROVIDERS)
     min_window_hours = _value(args.min_window_hours, "MIN_WINDOW_HOURS", "0")
@@ -44,7 +49,10 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     source_root = _optional_source_root(
-        args.source_root or os.environ.get("SOURCE_ROOT", "") or os.environ.get("SOURCE_INPUT", ""),
+        args.source_root
+        or os.environ.get("SOURCE_ROOTS", "")
+        or os.environ.get("SOURCE_ROOT", "")
+        or os.environ.get("SOURCE_INPUT", ""),
         no_prompts=args.no_prompts,
     )
     service = _required_prompt_value(
@@ -91,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     source_analysis_uri = f"gs://{bucket}/job-inputs/{run_id}/source_analysis_bundle.json"
     output_prefix_uri = f"gs://{bucket}/job-runs"
     precomputed_prefix_uri = f"gs://{bucket}/precomputed_review_summaries"
+    static_review_prefix_uri = f"gs://{bucket}/review-pages"
 
     cli = [sys.executable, "-m", "ops_evidence_synthesis.cli"]
     _run_step(
@@ -183,6 +192,8 @@ def main(argv: list[str] | None = None) -> int:
             "OES_JOB_INPUT_BUNDLE_URI": input_bundle_uri,
             "OES_JOB_OUTPUT_PREFIX_URI": output_prefix_uri,
             "OES_JOB_PRECOMPUTED_OUTPUT_PREFIX_URI": precomputed_prefix_uri,
+            "OES_JOB_STATIC_REVIEW_OUTPUT_PREFIX_URI": static_review_prefix_uri,
+            "OES_JOB_STATIC_REVIEW_PUBLIC_BASE_URL": static_review_base_url,
             "OES_JOB_RUN_ID": run_id,
             "OES_JOB_PROVIDER_MODE": provider_mode,
             "OES_JOB_PROVIDERS": providers,
@@ -205,14 +216,23 @@ def main(argv: list[str] | None = None) -> int:
     evidence_sha = str(job_result.get("evidence_sha256") or "")
     if not evidence_sha:
         raise SystemExit("job result did not include evidence_sha256")
-    review_url = f"{public_base_url}/ui/full-review-page?evidence_sha256={evidence_sha}"
+    review_url = str(job_result.get("static_review_public_url") or "").strip()
+    if not review_url:
+        review_url = f"{public_base_url}/ui/full-review-page?evidence_sha256={evidence_sha}"
+    legacy_review_url = f"{public_base_url}/ui/full-review-page?evidence_sha256={evidence_sha}"
+    report_url = str(job_result.get("static_review_report_url") or "").strip()
+    if not report_url:
+        report_url = f"{public_base_url}/ui/report.md?evidence_sha256={evidence_sha}"
 
     if not args.no_url_check:
-        _check_url(review_url)
+        _check_url(legacy_review_url)
 
     print()
     print("Human review is ready.")
     print(f"Review URL: {review_url}")
+    print(f"Markdown report URL: {report_url}")
+    if review_url != legacy_review_url:
+        print(f"Dynamic review URL: {legacy_review_url}")
     print(f"Local analysis directory: {output_dir}")
     print(f"Sanitized logs: {sanitized_dir}")
     if source_context_bundle is not None and source_analysis_bundle is not None:
@@ -220,6 +240,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Source analysis: {source_analysis_bundle}")
     print(f"GCS Evidence Bundle: {input_bundle_uri}")
     print(f"GCS review payload: {job_result.get('precomputed_review_uri', '')}")
+    print(f"GCS review HTML: {job_result.get('static_review_html_uri', '')}")
+    print(f"GCS review Markdown: {job_result.get('static_review_report_uri', '')}")
     return 0
 
 
@@ -228,7 +250,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         description="Sanitize local logs, stage an Evidence Bundle in GCS, build a review payload, and print the public URL."
     )
     parser.add_argument("--input", default="")
-    parser.add_argument("--source-root", default="")
+    parser.add_argument("--source-root", action="append", default=[])
     parser.add_argument("--service", default="")
     parser.add_argument("--environment", default="")
     parser.add_argument("--start", default="")
@@ -239,6 +261,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--run-id", default="")
     parser.add_argument("--output-dir", default="")
     parser.add_argument("--public-base-url", default="")
+    parser.add_argument("--static-review-base-url", default="")
     parser.add_argument("--providers", default="")
     parser.add_argument("--provider-mode", default="")
     parser.add_argument("--min-window-hours", default="")
@@ -252,6 +275,10 @@ def _value(cli_value: str, env_name: str, default: str) -> str:
     if not value:
         raise SystemExit(f"{env_name} is required")
     return value
+
+
+def _optional_value(cli_value: str, env_name: str, default: str) -> str:
+    return str(cli_value or os.environ.get(env_name, "") or default).strip()
 
 
 def _required_prompt_value(
@@ -289,20 +316,57 @@ def _absolute_existing_input_path(value: str) -> Path:
     return path
 
 
-def _optional_source_root(value: str, *, no_prompts: bool) -> Path | None:
-    text = str(value or "").strip()
+def _optional_source_root(value: str | list[str], *, no_prompts: bool) -> Path | None:
+    text = _source_root_text(value)
     if not text and not no_prompts and sys.stdin.isatty():
-        text = input("Source code directory [optional]: ").strip()
+        text = input("Source code directory or directories [optional]: ").strip()
     if not text:
         return None
-    path = Path(text).expanduser()
-    if not path.is_absolute():
-        raise SystemExit(f"SOURCE_ROOT must be an absolute path: {text}")
+    paths = [_absolute_source_dir(item) for item in _split_source_roots(text)]
+    if not paths:
+        return None
+    path = _common_source_root(paths) if len(paths) > 1 else _normalize_source_root(paths[0])
     if not path.exists():
         raise SystemExit(f"source code directory was not found: {path}")
     if not path.is_dir():
         raise SystemExit(f"SOURCE_ROOT must be a directory: {path}")
     return path
+
+
+def _source_root_text(value: str | list[str]) -> str:
+    if isinstance(value, list):
+        return "\n".join(str(item) for item in value if str(item).strip()).strip()
+    return str(value or "").strip()
+
+
+def _split_source_roots(text: str) -> list[str]:
+    normalized = str(text or "").replace("\n", os.pathsep).replace(",", os.pathsep)
+    return [part.strip() for part in normalized.split(os.pathsep) if part.strip()]
+
+
+def _absolute_source_dir(value: str) -> Path:
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise SystemExit(f"SOURCE_ROOT must be an absolute path: {value}")
+    if not path.exists():
+        raise SystemExit(f"source code directory was not found: {path}")
+    if not path.is_dir():
+        raise SystemExit(f"SOURCE_ROOT must be a directory: {path}")
+    return path
+
+
+def _common_source_root(paths: list[Path]) -> Path:
+    return _normalize_source_root(Path(os.path.commonpath([str(path) for path in paths])))
+
+
+def _normalize_source_root(path: Path) -> Path:
+    if path.name in {"ops", "src", "tests"} and _looks_like_project_root(path.parent):
+        return path.parent
+    return path
+
+
+def _looks_like_project_root(path: Path) -> bool:
+    return any((path / name).exists() for name in (".git", "pyproject.toml", "src", "tests", "Makefile"))
 
 
 def _absolute_output_dir(value: str) -> Path:

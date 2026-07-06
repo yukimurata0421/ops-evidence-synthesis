@@ -26,6 +26,7 @@ locals {
       OES_POSTGRES_USER                     = google_sql_user.ledger.name
       OES_JOB_OUTPUT_PREFIX_URI             = "gs://${google_storage_bucket.private_artifacts.name}/job-runs"
       OES_JOB_PRECOMPUTED_OUTPUT_PREFIX_URI = "gs://${google_storage_bucket.private_artifacts.name}/precomputed_review_summaries"
+      OES_JOB_STATIC_REVIEW_OUTPUT_PREFIX_URI = "gs://${google_storage_bucket.private_artifacts.name}/review-pages"
       OES_JOB_PROVIDER_MODE                 = var.chunked_review_job_provider_mode
       OES_JOB_PROVIDERS                     = join(",", var.chunked_review_job_providers)
       OES_MULTI_AI_CHUNK_WORKERS            = tostring(var.chunked_review_job_chunk_workers)

@@ -12,6 +12,10 @@ from ops_evidence_synthesis.canonical import canonical_json, sha256_json
 from ops_evidence_synthesis.gcp.storage import GcsUri, read_json, upload_file, write_json
 from ops_evidence_synthesis.precomputed_review import stable_precomputed_review_json
 from ops_evidence_synthesis.synthesis.multi_ai import run_multi_ai
+from ops_evidence_synthesis.web.precomputed_review import (
+    render_precomputed_markdown_report,
+    render_precomputed_review_detail_page,
+)
 
 
 DEFAULT_JOB_PROVIDERS = ("gemini", "gpt-oss", "mistral", "qwen", "gemma")
@@ -26,6 +30,8 @@ class ChunkedReviewJobConfig:
     source_context_uri: GcsUri | None = None
     source_analysis_uri: GcsUri | None = None
     precomputed_output_prefix_uri: GcsUri | None = None
+    static_review_output_prefix_uri: GcsUri | None = None
+    static_review_public_base_url: str = ""
     provider_mode: str = "real_or_skip"
     providers: tuple[str, ...] = DEFAULT_JOB_PROVIDERS
 
@@ -56,6 +62,8 @@ def job_config_from_env() -> ChunkedReviewJobConfig:
         source_context_uri=_optional_gcs_uri("OES_JOB_SOURCE_CONTEXT_URI"),
         source_analysis_uri=_optional_gcs_uri("OES_JOB_SOURCE_ANALYSIS_URI"),
         precomputed_output_prefix_uri=_optional_gcs_uri("OES_JOB_PRECOMPUTED_OUTPUT_PREFIX_URI"),
+        static_review_output_prefix_uri=_optional_gcs_uri("OES_JOB_STATIC_REVIEW_OUTPUT_PREFIX_URI"),
+        static_review_public_base_url=os.environ.get("OES_JOB_STATIC_REVIEW_PUBLIC_BASE_URL", "").strip(),
         provider_mode=os.environ.get("OES_JOB_PROVIDER_MODE", "real_or_skip").strip() or "real_or_skip",
         providers=_providers_from_env(os.environ.get("OES_JOB_PROVIDERS", "")),
     )
@@ -89,12 +97,14 @@ def run_job(config: ChunkedReviewJobConfig) -> dict[str, Any]:
             source_analysis=source_analysis,
             approved_profile=approved_profile,
         )
+        static_review_outputs = _write_static_review_outputs_if_requested(config, payload=precomputed_uri.payload)
         uploaded_artifacts = _upload_output_dir(output_dir, run_prefix.child("artifacts"))
         job_result = _job_result_payload(
             config,
             result=result,
             multi_ai_uri=multi_ai_uri,
-            precomputed_uri=precomputed_uri,
+            precomputed_uri=precomputed_uri.uri,
+            static_review_outputs=static_review_outputs,
             uploaded_artifacts=uploaded_artifacts,
         )
         write_json(run_prefix.child("job_result.json"), job_result)
@@ -109,6 +119,7 @@ def _job_result_payload(
     result: dict[str, Any],
     multi_ai_uri: GcsUri,
     precomputed_uri: GcsUri | None,
+    static_review_outputs: dict[str, str],
     uploaded_artifacts: list[str],
 ) -> dict[str, Any]:
     model_runs = [row for row in result.get("model_runs") or [] if isinstance(row, dict)]
@@ -129,6 +140,11 @@ def _job_result_payload(
         "output_prefix_uri": str(config.run_output_prefix),
         "multi_ai_run_uri": str(multi_ai_uri),
         "precomputed_review_uri": str(precomputed_uri) if precomputed_uri else "",
+        "static_review_html_uri": static_review_outputs.get("static_review_html_uri", ""),
+        "static_review_report_uri": static_review_outputs.get("static_review_report_uri", ""),
+        "static_review_payload_uri": static_review_outputs.get("static_review_payload_uri", ""),
+        "static_review_public_url": static_review_outputs.get("static_review_public_url", ""),
+        "static_review_report_url": static_review_outputs.get("static_review_report_url", ""),
         "providers": list(config.providers),
         "provider_mode": config.provider_mode,
         "provider_total": len(model_runs),
@@ -141,6 +157,12 @@ def _job_result_payload(
     }
 
 
+@dataclass(frozen=True, slots=True)
+class PrecomputedReviewOutput:
+    uri: GcsUri | None
+    payload: dict[str, Any]
+
+
 def _write_precomputed_payload_if_requested(
     config: ChunkedReviewJobConfig,
     *,
@@ -149,9 +171,7 @@ def _write_precomputed_payload_if_requested(
     source_context: dict[str, Any],
     source_analysis: dict[str, Any],
     approved_profile: dict[str, Any],
-) -> GcsUri | None:
-    if config.precomputed_output_prefix_uri is None:
-        return None
+) -> PrecomputedReviewOutput:
     payload = _build_precomputed_payload(
         result=result,
         bundle=bundle,
@@ -162,11 +182,54 @@ def _write_precomputed_payload_if_requested(
     evidence_sha = str(payload.get("evidence_sha256") or result.get("evidence_sha256") or "")
     if not evidence_sha:
         raise RuntimeError("precomputed payload did not include evidence_sha256")
+    if config.precomputed_output_prefix_uri is None:
+        return PrecomputedReviewOutput(uri=None, payload=payload)
     uri = config.precomputed_output_prefix_uri.child(f"{evidence_sha}.json")
     from ops_evidence_synthesis.gcp.storage import write_text
 
     write_text(uri, stable_precomputed_review_json(payload), content_type="application/json")
-    return uri
+    return PrecomputedReviewOutput(uri=uri, payload=payload)
+
+
+def _write_static_review_outputs_if_requested(
+    config: ChunkedReviewJobConfig,
+    *,
+    payload: dict[str, Any],
+) -> dict[str, str]:
+    if config.static_review_output_prefix_uri is None:
+        return {}
+    evidence_sha = str(payload.get("evidence_sha256") or "")
+    if not evidence_sha:
+        raise RuntimeError("static review payload did not include evidence_sha256")
+    review_prefix = config.static_review_output_prefix_uri.child(evidence_sha)
+    html_uri = review_prefix.child("index.html")
+    report_uri = review_prefix.child("report.md")
+    payload_uri = review_prefix.child("payload.json")
+    html = render_precomputed_review_detail_page(evidence_sha, payload)
+    report = render_precomputed_markdown_report(evidence_sha, payload)
+
+    from ops_evidence_synthesis.gcp.storage import write_text
+
+    write_text(html_uri, html, content_type="text/html; charset=utf-8")
+    write_text(report_uri, report, content_type="text/markdown; charset=utf-8")
+    write_text(payload_uri, stable_precomputed_review_json(payload), content_type="application/json")
+    public_url = _static_review_public_url(config.static_review_public_base_url, evidence_sha)
+    return {
+        "static_review_html_uri": str(html_uri),
+        "static_review_report_uri": str(report_uri),
+        "static_review_payload_uri": str(payload_uri),
+        "static_review_public_url": public_url,
+        "static_review_report_url": f"{public_url.rstrip('/')}/report.md" if public_url else "",
+    }
+
+
+def _static_review_public_url(base_url: str, evidence_sha: str) -> str:
+    base = str(base_url or "").strip().rstrip("/")
+    if not base:
+        return ""
+    if "{evidence_sha256}" in base:
+        return base.format(evidence_sha256=evidence_sha)
+    return f"{base}/{evidence_sha}/"
 
 
 def _build_precomputed_payload(

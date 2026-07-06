@@ -42,6 +42,7 @@ EXCLUDED_NAMES = {
     "vendor",
     ".cache",
     ".pytest_cache",
+    ".state",
     "credentials",
     "secrets",
     "private",
