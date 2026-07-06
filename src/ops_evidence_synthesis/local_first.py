@@ -5,7 +5,7 @@ import re
 import shlex
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -19,6 +19,8 @@ from ops_evidence_synthesis.timeutils import format_timestamp, parse_timestamp, 
 SANITIZER_VERSION = "sanitize.v1"
 CANONICALIZATION_VERSION = "canonical_json.v1"
 RAW_LOG_POLICY = "not_uploaded"
+LARGE_SEEK_THRESHOLD_BYTES = 50 * 1024 * 1024
+LARGE_SEEK_SAFETY_MARGIN_BYTES = 8 * 1024 * 1024
 
 REQUIRED_PROFILE_QUESTIONS = [
     "What is the critical user outcome?",
@@ -164,9 +166,35 @@ CORE_TARGET_BY_EVENT_TYPE = {
     "unknown": "general",
 }
 
-SKIP_DIRS = {".git", ".hg", ".svn", ".venv", "venv", "__pycache__", ".pytest_cache"}
+SKIP_DIRS = {".git", ".hg", ".svn", ".venv", "venv", "__pycache__", ".pytest_cache", "chromium_profile"}
+SKIP_FILE_NAMES = {"LOCK", "CURRENT"}
+SKIP_FILE_SUFFIXES = {
+    ".aac",
+    ".avi",
+    ".bin",
+    ".db",
+    ".flac",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".m4a",
+    ".mkv",
+    ".mov",
+    ".mp3",
+    ".mp4",
+    ".ogg",
+    ".pb",
+    ".pcap",
+    ".png",
+    ".pma",
+    ".sqlite",
+    ".sqlite3",
+    ".wav",
+    ".webp",
+}
 
 ISO_TS_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}[T ][0-2]\d:[0-5]\d:[0-5]\d(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b")
+PATH_DATE_RE = re.compile(r"(?<!\d)(20\d{2})[-_]?([01]\d)[-_]?([0-3]\d)(?!\d)")
 TEXT_TS_PREFIX_RE = re.compile(r"^\[?(?P<timestamp>\d{4}-\d{2}-\d{2}[T ][0-2]\d:[0-5]\d:[0-5]\d(?:[.,]\d+)?)\]?\s*")
 SYSLOG_RE = re.compile(
     r"^(?P<mon>[A-Z][a-z]{2})\s+(?P<day>\d{1,2})\s+(?P<hms>\d{2}:\d{2}:\d{2})\s+"
@@ -269,6 +297,73 @@ VERIFY_SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 VERIFY_INTERNAL_URL_RE = re.compile(r"(?i)\bhttps?://(?:internal[^\s'\",}]*|[^/\s'\",}]*\.internal[^\s'\",}]*)")
 VERIFY_INTERNAL_DOMAIN_RE = re.compile(r"(?i)\b[A-Za-z0-9_.-]+\.internal\b")
+VERIFY_SCAN_TOKENS = (
+    "authorization",
+    "bearer",
+    "basic ",
+    "cookie",
+    "set-cookie",
+    "password",
+    "passwd",
+    "secret",
+    "private_key",
+    "api_key",
+    "access_token",
+    "refresh_token",
+    "session_id",
+    "sk-",
+    "aiza",
+    "ya29.",
+    "begin private key",
+    "http://",
+    "https://",
+    ".internal",
+    "/home/",
+    "/users/",
+    "\\users\\",
+)
+REDACTION_SCAN_TOKENS = (
+    "authorization",
+    "bearer",
+    "basic ",
+    "cookie",
+    "set-cookie",
+    "password",
+    "passwd",
+    "secret",
+    "api_key",
+    "api-key",
+    "apikey",
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "session",
+    "credential",
+    "private_key",
+    "private key",
+    "client_secret",
+    "google_application_credentials",
+    "gmail",
+    "pubsub",
+    "sk-",
+    "aiza",
+    "ya29.",
+    "eyj",
+    "http://",
+    "https://",
+    "localhost",
+    ".internal",
+    "/home/",
+    "/users/",
+    "\\users\\",
+    "user_id",
+    "order_id",
+    "tracking_id",
+    "track_id",
+    "customer_id",
+    "account_id",
+)
+REDACTION_SCAN_RE = re.compile("|".join(re.escape(token) for token in REDACTION_SCAN_TOKENS), re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -297,6 +392,29 @@ class ParsedLine:
     trace_id: str | None = None
     span_id: str | None = None
     deploy_id: str | None = None
+
+
+@dataclass
+class EvidencePatternStats:
+    event_type: str
+    severity_text: str
+    message_template: str
+    component: str
+    source_system: str
+    count: int = 0
+    first_seen: str = ""
+    last_seen: str = ""
+    example_sanitized: str = ""
+    example_sort_key: tuple[str, str] = ("", "")
+
+
+@dataclass
+class BundleEventSummary:
+    count: int
+    grouped: dict[tuple[str, str, str, str, str], EvidencePatternStats]
+    source_counts: Counter[str]
+    detected_format_counts: Counter[str]
+    profile_supports_inference: bool
 
 
 class RedactionCounter:
@@ -329,7 +447,6 @@ class RedactionCounter:
 
 
 def inspect_input(input_path: str | Path) -> dict[str, Any]:
-    lines = list(iter_input_lines(input_path))
     format_counts: Counter[str] = Counter()
     sources: Counter[str] = Counter()
     timestamp_fields: Counter[str] = Counter()
@@ -337,8 +454,13 @@ def inspect_input(input_path: str | Path) -> dict[str, Any]:
     service_candidates: Counter[str] = Counter()
     sensitive_count = 0
     explicit_profile = False
+    sample_lines: list[str] = []
+    line_count = 0
 
-    for item in lines:
+    for item in iter_input_lines(input_path):
+        line_count += 1
+        if len(sample_lines) < 50:
+            sample_lines.append(item.text)
         detected_format = detect_format(item.text)
         format_counts[detected_format] += 1
         payload = _json_object(item.text)
@@ -382,13 +504,19 @@ def inspect_input(input_path: str | Path) -> dict[str, Any]:
             detected_format=detected_format,
             sources=list(sources),
             service_candidates=list(service_candidates),
-            sample_text="\n".join(item.text for item in lines[:50]),
+            sample_text="\n".join(sample_lines),
         ),
-        "line_count": len(lines),
+        "line_count": line_count,
     }
 
 
-def sanitize_input(input_path: str | Path, output_dir: str | Path) -> dict[str, Any]:
+def sanitize_input(
+    input_path: str | Path,
+    output_dir: str | Path,
+    *,
+    start: str = "",
+    end: str = "",
+) -> dict[str, Any]:
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     sanitized_path = output / "sanitized_events.jsonl"
@@ -397,14 +525,21 @@ def sanitize_input(input_path: str | Path, output_dir: str | Path) -> dict[str, 
     rejected_path = output / "rejected_lines.jsonl"
 
     report = RedactionCounter()
-    inspect_summary = inspect_input(input_path)
     event_count = 0
     rejected_count = 0
-    timestamps: list[str] = []
+    first_timestamp = ""
+    last_timestamp = ""
     sources: Counter[str] = Counter()
+    format_counts: Counter[str] = Counter()
+    service_candidates: Counter[str] = Counter()
+    explicit_profile = False
+    window_start = format_timestamp(start) if start else ""
+    window_end = format_timestamp(end) if end else ""
+    window_start_dt = parse_timestamp(window_start) if window_start else None
+    window_end_dt = parse_timestamp(window_end) if window_end else None
 
     with sanitized_path.open("w", encoding="utf-8") as sanitized_file, rejected_path.open("w", encoding="utf-8") as rejected_file:
-        for item in iter_input_lines(input_path, include_empty=True):
+        for item in iter_input_lines(input_path, include_empty=True, start=window_start, end=window_end):
             if not item.text.strip():
                 rejected_count += 1
                 rejected_file.write(
@@ -420,9 +555,28 @@ def sanitize_input(input_path: str | Path, output_dir: str | Path) -> dict[str, 
                     + "\n"
                 )
                 continue
+            if (
+                window_start_dt is not None
+                and window_end_dt is not None
+                and _raw_line_is_outside_window(item.text, window_start_dt, window_end_dt)
+            ):
+                continue
             try:
                 parsed = parse_line(item)
+                format_counts[parsed.detected_format] += 1
+                if parsed.attributes.get("profile_id") or parsed.attributes.get("profile"):
+                    explicit_profile = True
+                if parsed.service:
+                    service_candidates[parsed.service] += 1
+                if parsed.component:
+                    service_candidates[parsed.component] += 1
                 event = normalize_parsed_line(parsed, item, report)
+                if (
+                    window_start_dt is not None
+                    and window_end_dt is not None
+                    and not _event_is_in_window(event, window_start_dt, window_end_dt, include_inferred=False)
+                ):
+                    continue
             except Exception as exc:  # pragma: no cover - defensive fallback, no raw line is persisted.
                 rejected_count += 1
                 rejected_file.write(
@@ -442,7 +596,10 @@ def sanitize_input(input_path: str | Path, output_dir: str | Path) -> dict[str, 
             event_count += 1
             event_ts = str(event.get("timestamp") or event.get("observed_timestamp") or "")
             if event_ts:
-                timestamps.append(event_ts)
+                if not first_timestamp or event_ts < first_timestamp:
+                    first_timestamp = event_ts
+                if not last_timestamp or event_ts > last_timestamp:
+                    last_timestamp = event_ts
             sources[str(event.get("source_system") or "")] += 1
 
     redacted_input_path = redact_text(str(Path(input_path)), report)
@@ -450,6 +607,12 @@ def sanitize_input(input_path: str | Path, output_dir: str | Path) -> dict[str, 
     report_path.write_text(pretty_json(redaction_report) + "\n", encoding="utf-8")
     redaction_summary = redaction_report["summary"]
     redaction_total = sum(int(value) for value in redaction_summary.values())
+    detected_format = _dominant(format_counts, default="plain_text")
+    profile_confidence = _profile_confidence(
+        explicit_profile=explicit_profile,
+        service_candidates=service_candidates,
+        detected_format=detected_format,
+    )
     manifest = {
         "schema_version": "sanitized_events_manifest.v1",
         "created_at": utc_now(),
@@ -458,13 +621,14 @@ def sanitize_input(input_path: str | Path, output_dir: str | Path) -> dict[str, 
         "sanitizer_version": SANITIZER_VERSION,
         "event_count": event_count,
         "rejected_count": rejected_count,
-        "detected_format": inspect_summary["detected_format"],
-        "profile_confidence": inspect_summary["profile_confidence"],
-        "source_system": _dominant(sources, default=inspect_summary["detected_format"]),
+        "detected_format": detected_format,
+        "profile_confidence": profile_confidence,
+        "source_system": _dominant(sources, default=detected_format),
         "time_range": {
-            "start": min(timestamps) if timestamps else "",
-            "end": max(timestamps) if timestamps else "",
+            "start": first_timestamp,
+            "end": last_timestamp,
         },
+        "input_time_window": {"start": window_start, "end": window_end} if window_start and window_end else {},
         "outputs": {
             "sanitized_events": "sanitized_events.jsonl",
             "redaction_report": "redaction_report.json",
@@ -475,8 +639,8 @@ def sanitize_input(input_path: str | Path, output_dir: str | Path) -> dict[str, 
             "raw_log_policy": RAW_LOG_POLICY,
             "sanitized_event_count": event_count,
             "redaction_total": redaction_total,
-            "detected_format": inspect_summary["detected_format"],
-            "profile_confidence": inspect_summary["profile_confidence"],
+            "detected_format": detected_format,
+            "profile_confidence": profile_confidence,
             "evidence_sha256": "",
         },
     }
@@ -505,12 +669,14 @@ def build_bundle_from_sanitized(
     collection_mode: str = "",
 ) -> dict[str, Any]:
     input_path = Path(sanitized_events_path)
-    events = [_json_object(line) for line in input_path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    events = [event for event in events if isinstance(event, dict)]
     window_start = format_timestamp(start)
     window_end = format_timestamp(end)
-    selected = _events_for_window(events, window_start, window_end)
-    profile, profile_confidence = _resolve_profile(profile_name, selected)
+    selected_summary, all_summary = _summarize_sanitized_events(input_path, window_start, window_end)
+    summary = selected_summary if selected_summary.count else all_summary
+    profile, profile_confidence = _resolve_profile(
+        profile_name,
+        profile_supports_inference=summary.profile_supports_inference,
+    )
     profile_id = str(profile.get("profile_id") or normalize_profile_id(profile_name))
     profile_display_name = str(profile.get("profile_label") or profile_id or profile_name or "unknown")
     profile_redactions = RedactionCounter()
@@ -524,17 +690,17 @@ def build_bundle_from_sanitized(
         "action_constraints": redact_mapping(profile.get("action_constraints") or [], profile_redactions),
         "query_mappings": redact_mapping(profile.get("query_mappings") or {}, profile_redactions),
     }
-    source_system = _source_system_for_bundle(selected, profile, service)
-    evidence_items = build_evidence_items(selected)
+    source_system = _source_system_for_bundle(summary.source_counts, profile, service)
+    evidence_items = build_evidence_items_from_summary(summary)
     signals = build_signals(evidence_items)
     redaction_summary = _merge_redaction_summaries(_load_redaction_summary(input_path), profile_redactions.summary())
     manifest = _load_manifest(input_path)
-    detected_format = str(manifest.get("detected_format") or _dominant(Counter(str(event.get("attributes", {}).get("detected_format") or "") for event in selected), default="unknown"))
+    detected_format = str(manifest.get("detected_format") or _dominant(summary.detected_format_counts, default="unknown"))
     analysis_policy = analysis_policy_for_profile(profile_confidence)
     local_first_summary = {
         "raw_logs_uploaded": False,
         "raw_log_policy": RAW_LOG_POLICY,
-        "sanitized_event_count": len(selected),
+        "sanitized_event_count": summary.count,
         "redaction_total": sum(int(value) for value in redaction_summary.values()),
         "detected_format": detected_format,
         "profile_confidence": profile_confidence,
@@ -598,6 +764,114 @@ def build_bundle_from_sanitized(
     return bundle
 
 
+def _summarize_sanitized_events(
+    input_path: Path,
+    window_start: str,
+    window_end: str,
+) -> tuple[BundleEventSummary, BundleEventSummary]:
+    selected = _empty_bundle_event_summary()
+    all_events = _empty_bundle_event_summary()
+    start_dt = parse_timestamp(window_start)
+    end_dt = parse_timestamp(window_end)
+    with input_path.open("r", encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            event = _json_object(line)
+            if not isinstance(event, dict):
+                continue
+            _add_event_to_summary(all_events, event)
+            if _event_is_in_window(event, start_dt, end_dt):
+                _add_event_to_summary(selected, event)
+    return selected, all_events
+
+
+def _empty_bundle_event_summary() -> BundleEventSummary:
+    return BundleEventSummary(
+        count=0,
+        grouped={},
+        source_counts=Counter(),
+        detected_format_counts=Counter(),
+        profile_supports_inference=False,
+    )
+
+
+def _add_event_to_summary(summary: BundleEventSummary, event: dict[str, Any]) -> None:
+    summary.count += 1
+    source_system = str(event.get("source_system") or "")
+    if source_system:
+        summary.source_counts[source_system] += 1
+    attrs = event.get("attributes") if isinstance(event.get("attributes"), dict) else {}
+    detected_format = str(attrs.get("detected_format") or "")
+    if detected_format:
+        summary.detected_format_counts[detected_format] += 1
+    if _event_supports_profile_inference(event):
+        summary.profile_supports_inference = True
+    key = (
+        str(event.get("event_type") or "unknown"),
+        str(event.get("severity_text") or "info"),
+        str(event.get("message_template") or ""),
+        str(event.get("component") or "unknown"),
+        str(event.get("source_system") or "generic"),
+    )
+    event_time = _event_time(event)
+    event_id = str(event.get("event_id") or "")
+    stats = summary.grouped.get(key)
+    if stats is None:
+        stats = EvidencePatternStats(
+            event_type=key[0],
+            severity_text=key[1],
+            message_template=key[2],
+            component=key[3],
+            source_system=key[4],
+        )
+        summary.grouped[key] = stats
+    stats.count += 1
+    if not stats.first_seen or event_time < stats.first_seen:
+        stats.first_seen = event_time
+    if not stats.last_seen or event_time > stats.last_seen:
+        stats.last_seen = event_time
+    sort_key = (event_time, event_id)
+    if not stats.example_sanitized or sort_key < stats.example_sort_key:
+        stats.example_sanitized = str(event.get("message_sanitized") or "")
+        stats.example_sort_key = sort_key
+
+
+def _event_is_in_window(
+    event: dict[str, Any],
+    start_dt: datetime,
+    end_dt: datetime,
+    *,
+    include_inferred: bool = True,
+) -> bool:
+    attrs = event.get("attributes") if isinstance(event.get("attributes"), dict) else {}
+    if attrs.get("timestamp_inferred") and include_inferred:
+        return True
+    value = event.get("timestamp") or event.get("observed_timestamp")
+    try:
+        parsed = parse_timestamp(str(value))
+    except (TypeError, ValueError):
+        return True
+    return start_dt <= parsed <= end_dt
+
+
+def _raw_line_is_outside_window(line: str, start_dt: datetime, end_dt: datetime) -> bool:
+    parsed = _raw_line_timestamp(line)
+    if parsed is None:
+        return False
+    return parsed < start_dt or parsed > end_dt
+
+
+def _raw_line_timestamp(line: str) -> datetime | None:
+    match = ISO_TS_RE.search(line[:512])
+    if not match:
+        return None
+    try:
+        return parse_timestamp(match.group(0))
+    except (TypeError, ValueError):
+        return None
+
+
 def build_evidence_items(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for event in events:
@@ -627,6 +901,31 @@ def build_evidence_items(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "last_seen": _event_time(sorted_rows[-1]),
                 "message_template": template,
                 "example_sanitized": str(sorted_rows[0].get("message_sanitized") or ""),
+                "component": component,
+                "source": "sanitized_events",
+            }
+        )
+    return items
+
+
+def build_evidence_items_from_summary(summary: BundleEventSummary) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for index, (key, stats) in enumerate(
+        sorted(summary.grouped.items(), key=lambda item: (-item[1].count, item[0][0], item[0][2], item[0][3], item[0][4])),
+        start=1,
+    ):
+        event_type, severity_text, template, component, _source = key
+        items.append(
+            {
+                "evidence_id": f"PATTERN-{index:03d}",
+                "type": "log_pattern",
+                "event_type": event_type,
+                "severity_text": severity_text,
+                "count": stats.count,
+                "first_seen": stats.first_seen,
+                "last_seen": stats.last_seen,
+                "message_template": template,
+                "example_sanitized": stats.example_sanitized,
                 "component": component,
                 "source": "sanitized_events",
             }
@@ -687,7 +986,7 @@ def verify_sanitized_output(output_dir: str | Path) -> dict[str, Any]:
         checked_files += 1
         if filename in {"manifest.json", "evidence_bundle.json"}:
             raw_log_policy = raw_log_policy or _raw_policy_from_file(path)
-        scan = scan_sanitized_text(filename, path.read_text(encoding="utf-8", errors="replace"))
+        scan = scan_sanitized_file(path, filename=filename)
         findings.extend(scan["findings"])
         counts.update(scan["counts"])
 
@@ -769,28 +1068,67 @@ def scan_sanitized_text(filename: str, text: str) -> dict[str, Any]:
     findings: list[dict[str, Any]] = []
     counts: Counter[str] = Counter()
     for line_number, line in enumerate(str(text).splitlines() or [str(text)], start=1):
-        safe_line = ALLOWED_PLACEHOLDER_RE.sub("", line)
-        for pattern_type, pattern in VERIFY_SECRET_PATTERNS:
-            if pattern.search(safe_line):
-                findings.append({"file": filename, "line": line_number, "type": pattern_type})
-                counts[pattern_type] += 1
-                break
-        if EMAIL_RE.search(safe_line):
-            findings.append({"file": filename, "line": line_number, "type": "raw_email"})
-            counts["raw_email"] += 1
-        if IPV4_RE.search(safe_line):
-            findings.append({"file": filename, "line": line_number, "type": "raw_ip"})
-            counts["raw_ip"] += 1
-        if USER_HOME_RE.search(safe_line):
-            findings.append({"file": filename, "line": line_number, "type": "raw_home_path"})
-            counts["raw_home_path"] += 1
-        if VERIFY_INTERNAL_URL_RE.search(safe_line):
-            findings.append({"file": filename, "line": line_number, "type": "raw_internal_url"})
-            counts["raw_internal_url"] += 1
-        elif VERIFY_INTERNAL_DOMAIN_RE.search(safe_line):
-            findings.append({"file": filename, "line": line_number, "type": "raw_internal_url"})
-            counts["raw_internal_url"] += 1
+        scan = _scan_sanitized_line(filename, line, line_number)
+        findings.extend(scan["findings"])
+        counts.update(scan["counts"])
     return {"findings": findings, "counts": counts}
+
+
+def scan_sanitized_file(path: str | Path, *, filename: str | None = None) -> dict[str, Any]:
+    target = Path(path)
+    display_name = filename or target.name
+    findings: list[dict[str, Any]] = []
+    counts: Counter[str] = Counter()
+    with target.open("r", encoding="utf-8", errors="replace") as handle:
+        saw_line = False
+        for line_number, line in enumerate(handle, start=1):
+            saw_line = True
+            scan = _scan_sanitized_line(display_name, line.rstrip("\r\n"), line_number)
+            findings.extend(scan["findings"])
+            counts.update(scan["counts"])
+        if not saw_line:
+            scan = _scan_sanitized_line(display_name, "", 1)
+            findings.extend(scan["findings"])
+            counts.update(scan["counts"])
+    return {"findings": findings, "counts": counts}
+
+
+def _scan_sanitized_line(filename: str, line: str, line_number: int) -> dict[str, Any]:
+    findings: list[dict[str, Any]] = []
+    counts: Counter[str] = Counter()
+    if not _needs_verification_scan(line):
+        return {"findings": findings, "counts": counts}
+    safe_line = ALLOWED_PLACEHOLDER_RE.sub("", line)
+    for pattern_type, pattern in VERIFY_SECRET_PATTERNS:
+        if pattern.search(safe_line):
+            findings.append({"file": filename, "line": line_number, "type": pattern_type})
+            counts[pattern_type] += 1
+            break
+    if EMAIL_RE.search(safe_line):
+        findings.append({"file": filename, "line": line_number, "type": "raw_email"})
+        counts["raw_email"] += 1
+    if IPV4_RE.search(safe_line):
+        findings.append({"file": filename, "line": line_number, "type": "raw_ip"})
+        counts["raw_ip"] += 1
+    if USER_HOME_RE.search(safe_line):
+        findings.append({"file": filename, "line": line_number, "type": "raw_home_path"})
+        counts["raw_home_path"] += 1
+    if VERIFY_INTERNAL_URL_RE.search(safe_line):
+        findings.append({"file": filename, "line": line_number, "type": "raw_internal_url"})
+        counts["raw_internal_url"] += 1
+    elif VERIFY_INTERNAL_DOMAIN_RE.search(safe_line):
+        findings.append({"file": filename, "line": line_number, "type": "raw_internal_url"})
+        counts["raw_internal_url"] += 1
+    return {"findings": findings, "counts": counts}
+
+
+def _needs_verification_scan(line: str) -> bool:
+    folded = line.casefold()
+    if any(token in folded for token in VERIFY_SCAN_TOKENS):
+        return True
+    if "@" in line:
+        return True
+    return "." in line and IPV4_RE.search(line) is not None
 
 
 def format_verification_result(result: dict[str, Any]) -> str:
@@ -983,6 +1321,8 @@ def redact_text(value: Any, report: RedactionCounter | None = None) -> str:
         return ""
     report = report or RedactionCounter()
     text = str(value)
+    if not _needs_redaction_scan(text):
+        return _compact_ws(text)
 
     text = _sub_count(USER_HOME_RE, text, lambda _m: "<USER_HOME>", report, "user_home")
     text = _sub_count(INTERNAL_URL_RE, text, lambda match: f"<URL_HASH:{_hash_prefix(match.group(0))}>", report, "internal_url")
@@ -1069,20 +1409,27 @@ def redact_mapping(value: Any, report: RedactionCounter) -> Any:
     return value
 
 
-def iter_input_lines(input_path: str | Path, *, include_empty: bool = False) -> Iterable[InputLine]:
-    for file_path in iter_input_files(input_path):
-        fallback = _fallback_timestamp(file_path)
-        with file_path.open("r", encoding="utf-8", errors="replace") as handle:
-            for line_number, line in enumerate(handle, start=1):
-                text = line.rstrip("\r\n")
-                if not include_empty and not text.strip():
-                    continue
-                observed = format_timestamp(parse_timestamp(fallback) + timedelta(seconds=line_number))
-                yield InputLine(file_path, line_number, text, observed)
+def iter_input_lines(
+    input_path: str | Path,
+    *,
+    include_empty: bool = False,
+    start: str = "",
+    end: str = "",
+) -> Iterable[InputLine]:
+    start_dt = parse_timestamp(start) if start else None
+    end_dt = parse_timestamp(end) if end else None
+    for file_path in iter_input_files(input_path, start=start, end=end):
+        yield from _iter_file_input_lines(
+            file_path,
+            include_empty=include_empty,
+            start_dt=start_dt,
+            end_dt=end_dt,
+        )
 
 
-def iter_input_files(input_path: str | Path) -> Iterable[Path]:
+def iter_input_files(input_path: str | Path, *, start: str = "", end: str = "") -> Iterable[Path]:
     path = Path(input_path)
+    start_date, end_date = _date_window(start, end)
     if path.is_file():
         yield path
         return
@@ -1091,9 +1438,164 @@ def iter_input_files(input_path: str | Path) -> Iterable[Path]:
     for child in sorted(path.rglob("*")):
         if not child.is_file():
             continue
+        if not _path_matches_date_window(child, start_date, end_date):
+            continue
         if any(part in SKIP_DIRS for part in child.parts):
             continue
+        if child.name in SKIP_FILE_NAMES or child.name.startswith("MANIFEST-"):
+            continue
+        if child.suffix.casefold() in SKIP_FILE_SUFFIXES:
+            continue
         yield child
+
+
+def _iter_file_input_lines(
+    file_path: Path,
+    *,
+    include_empty: bool,
+    start_dt: datetime | None,
+    end_dt: datetime | None,
+) -> Iterable[InputLine]:
+    fallback = _fallback_timestamp(file_path)
+    fallback_dt = parse_timestamp(fallback)
+    offset = _estimated_large_file_offset(file_path, start_dt, end_dt)
+    with file_path.open("rb") as handle:
+        if offset > 0:
+            handle.seek(offset)
+            handle.readline()
+        line_number = 0
+        for raw_line in handle:
+            line_number += 1
+            text = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
+            if not include_empty and not text.strip():
+                continue
+            line_ts = _raw_line_timestamp(text) if start_dt is not None or end_dt is not None else None
+            if start_dt is not None and line_ts is not None and line_ts < start_dt:
+                continue
+            if end_dt is not None and line_ts is not None:
+                if line_ts > end_dt:
+                    break
+            observed = format_timestamp(fallback_dt + timedelta(seconds=line_number))
+            yield InputLine(file_path, line_number, text, observed)
+
+
+def _estimated_large_file_offset(file_path: Path, start_dt: datetime | None, end_dt: datetime | None) -> int:
+    if start_dt is None or end_dt is None:
+        return 0
+    try:
+        size = file_path.stat().st_size
+    except OSError:
+        return 0
+    if size < LARGE_SEEK_THRESHOLD_BYTES:
+        return 0
+    first_ts = _first_line_timestamp(file_path)
+    last_ts = _last_line_timestamp(file_path)
+    if first_ts is None or last_ts is None or first_ts >= last_ts:
+        return 0
+    if last_ts < start_dt or first_ts > end_dt:
+        return size
+    if start_dt <= first_ts:
+        return 0
+    binary_offset = _binary_seek_offset_for_timestamp(file_path, size, start_dt)
+    if binary_offset is not None:
+        return max(0, binary_offset - LARGE_SEEK_SAFETY_MARGIN_BYTES)
+    span = (last_ts - first_ts).total_seconds()
+    if span <= 0:
+        return 0
+    fraction = max(0.0, min(1.0, (start_dt - first_ts).total_seconds() / span))
+    return max(0, int(size * fraction) - LARGE_SEEK_SAFETY_MARGIN_BYTES)
+
+
+def _binary_seek_offset_for_timestamp(file_path: Path, size: int, target: datetime) -> int | None:
+    low = 0
+    high = max(0, size - 1)
+    candidate: int | None = None
+    for _ in range(40):
+        if low > high:
+            break
+        mid = (low + high) // 2
+        sample = _timestamp_at_or_after_offset(file_path, mid)
+        if sample is None:
+            high = mid - 1
+            continue
+        position, timestamp = sample
+        if timestamp < target:
+            low = max(mid + 1, position + 1)
+        else:
+            candidate = position
+            high = mid - 1
+    return candidate
+
+
+def _timestamp_at_or_after_offset(file_path: Path, offset: int) -> tuple[int, datetime] | None:
+    try:
+        with file_path.open("rb") as handle:
+            if offset > 0:
+                handle.seek(offset)
+                handle.readline()
+            position = handle.tell()
+            line = handle.readline()
+    except OSError:
+        return None
+    if not line:
+        return None
+    timestamp = _raw_line_timestamp(line.decode("utf-8", errors="replace"))
+    if timestamp is None:
+        return None
+    return position, timestamp
+
+
+def _first_line_timestamp(file_path: Path) -> datetime | None:
+    try:
+        with file_path.open("rb") as handle:
+            return _raw_line_timestamp(handle.readline().decode("utf-8", errors="replace"))
+    except OSError:
+        return None
+
+
+def _last_line_timestamp(file_path: Path) -> datetime | None:
+    try:
+        with file_path.open("rb") as handle:
+            handle.seek(0, 2)
+            size = handle.tell()
+            offset = min(size, 8192)
+            handle.seek(size - offset)
+            chunk = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return None
+    for line in reversed([row for row in chunk.splitlines() if row.strip()]):
+        timestamp = _raw_line_timestamp(line)
+        if timestamp is not None:
+            return timestamp
+    return None
+
+
+def _date_window(start: str, end: str) -> tuple[date | None, date | None]:
+    if not start or not end:
+        return None, None
+    try:
+        return parse_timestamp(start).date(), parse_timestamp(end).date()
+    except (TypeError, ValueError):
+        return None, None
+
+
+def _path_matches_date_window(path: Path, start: date | None, end: date | None) -> bool:
+    if start is None or end is None:
+        return True
+    dates = _dates_from_path(path)
+    if not dates:
+        return True
+    return max(dates) >= start and min(dates) <= end
+
+
+def _dates_from_path(path: Path) -> list[date]:
+    dates: list[date] = []
+    for match in PATH_DATE_RE.finditer(str(path)):
+        try:
+            dates.append(date(int(match.group(1)), int(match.group(2)), int(match.group(3))))
+        except ValueError:
+            continue
+    return dates
 
 
 def suggest_system_type(
@@ -1463,7 +1965,7 @@ def _profile_confidence(
     return "unknown"
 
 
-def _resolve_profile(profile_name: str, events: list[dict[str, Any]]) -> tuple[dict[str, Any], str]:
+def _resolve_profile(profile_name: str, *, profile_supports_inference: bool = False) -> tuple[dict[str, Any], str]:
     profile_path = Path(profile_name) if profile_name else None
     if profile_path and profile_path.is_file():
         try:
@@ -1474,7 +1976,7 @@ def _resolve_profile(profile_name: str, events: list[dict[str, Any]]) -> tuple[d
             return payload, "explicit"
     normalized = normalize_profile_id(profile_name)
     if normalized == "generic":
-        confidence = "inferred" if _events_support_profile_inference(events) else "unknown"
+        confidence = "inferred" if profile_supports_inference else "unknown"
         return load_profile("generic"), confidence
     if profile_name and normalized in set(available_profile_ids()):
         return load_profile(normalized), "explicit"
@@ -1483,18 +1985,25 @@ def _resolve_profile(profile_name: str, events: list[dict[str, Any]]) -> tuple[d
 
 def _events_support_profile_inference(events: list[dict[str, Any]]) -> bool:
     for event in events:
-        attrs = event.get("attributes") if isinstance(event.get("attributes"), dict) else {}
-        text = " ".join(
-            [
-                str(event.get("component") or ""),
-                str(event.get("source_system") or ""),
-                str(event.get("message_sanitized") or ""),
-                str(attrs.get("detected_format") or ""),
-            ]
-        ).casefold()
-        if ".service" in text or any(kind in text for kind in ("journald_json", "syslog", "kubernetes_container_log", "nginx_access", "apache_access")):
+        if _event_supports_profile_inference(event):
             return True
     return False
+
+
+def _event_supports_profile_inference(event: dict[str, Any]) -> bool:
+    attrs = event.get("attributes") if isinstance(event.get("attributes"), dict) else {}
+    text = " ".join(
+        [
+            str(event.get("component") or ""),
+            str(event.get("source_system") or ""),
+            str(event.get("message_sanitized") or ""),
+            str(attrs.get("detected_format") or ""),
+        ]
+    ).casefold()
+    return ".service" in text or any(
+        kind in text
+        for kind in ("journald_json", "syslog", "kubernetes_container_log", "nginx_access", "apache_access")
+    )
 
 
 def _system_profile(profile: dict[str, Any]) -> dict[str, Any]:
@@ -1524,8 +2033,8 @@ def _events_for_window(events: list[dict[str, Any]], start: str, end: str) -> li
     return selected or events
 
 
-def _source_system_for_bundle(events: list[dict[str, Any]], profile: dict[str, Any], service: str) -> str:
-    counts = Counter(str(event.get("source_system") or "") for event in events if event.get("source_system"))
+def _source_system_for_bundle(source_counts: Counter[str], profile: dict[str, Any], service: str) -> str:
+    counts = Counter({key: count for key, count in source_counts.items() if key})
     return str(profile.get("source_system") or _dominant(counts, default=service or "generic"))
 
 
@@ -1635,12 +2144,22 @@ def _sub_count(
     *,
     extra: tuple[str, ...] = (),
 ) -> str:
-    matches = list(pattern.finditer(text))
-    if matches:
-        report.add(key, len(matches))
+    text, count = pattern.subn(repl, text)
+    if count:
+        report.add(key, count)
         for extra_key in extra:
-            report.add(extra_key, len(matches))
-    return pattern.sub(repl, text)
+            report.add(extra_key, count)
+    return text
+
+
+def _needs_redaction_scan(text: str) -> bool:
+    if not text:
+        return False
+    if REDACTION_SCAN_RE.search(text):
+        return True
+    if "@" in text:
+        return True
+    return text.count(".") >= 3 and any(char.isdigit() for char in text)
 
 
 def _hash_prefix(value: str) -> str:
@@ -1655,6 +2174,8 @@ def _strip_quotes(value: str) -> str:
 
 
 def _compact_ws(value: str) -> str:
+    if not any(char.isspace() for char in value):
+        return value
     return re.sub(r"\s+", " ", value).strip()
 
 

@@ -105,6 +105,8 @@ def build_parser() -> argparse.ArgumentParser:
     sanitize = subcommands.add_parser("sanitize", help="Sanitize arbitrary logs into normalized local JSONL")
     sanitize.add_argument("input_path", help="Raw log file or directory")
     sanitize.add_argument("--out", required=True, help="Output directory")
+    sanitize.add_argument("--start", default="", help="Optional incident window start, ISO-8601")
+    sanitize.add_argument("--end", default="", help="Optional incident window end, ISO-8601")
 
     verify = subcommands.add_parser("verify-sanitized", help="Verify local-first outputs contain no raw secrets or PII")
     verify.add_argument("output_dir", help="Directory containing sanitized_events.jsonl and related outputs")
@@ -374,7 +376,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "sanitize":
-        print(json.dumps(sanitize_input(args.input_path, args.out), ensure_ascii=False, sort_keys=True, indent=2))
+        print(
+            json.dumps(
+                sanitize_input(args.input_path, args.out, start=args.start, end=args.end),
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+            )
+        )
         return 0
 
     if args.command == "verify-sanitized":

@@ -93,7 +93,20 @@ def main(argv: list[str] | None = None) -> int:
     precomputed_prefix_uri = f"gs://{bucket}/precomputed_review_summaries"
 
     cli = [sys.executable, "-m", "ops_evidence_synthesis.cli"]
-    _run_step("Sanitizing logs", [*cli, "sanitize", str(log_input), "--out", str(sanitized_dir)])
+    _run_step(
+        "Sanitizing logs",
+        [
+            *cli,
+            "sanitize",
+            str(log_input),
+            "--out",
+            str(sanitized_dir),
+            "--start",
+            start,
+            "--end",
+            end,
+        ],
+    )
     _run_step("Checking sanitized logs", [*cli, "verify-sanitized", str(sanitized_dir)])
     _run_step(
         "Building Evidence Bundle",

@@ -12,6 +12,7 @@ from ops_evidence_synthesis.evidence_rules import ai_evidence_rules
 from ops_evidence_synthesis.local_first import (
     build_bundle_from_sanitized,
     inspect_input,
+    iter_input_files,
     sanitize_input,
     verify_sanitized_output,
 )
@@ -121,6 +122,69 @@ def test_inspect_summarizes_without_writing(tmp_path: Path) -> None:
     assert summary["sensitive_candidates_count"] >= 4
     assert "timestamp" in summary["timestamp_field_candidates"]
     assert summary["suggested_system_type"] in {"systemd_service", "generic"}
+
+
+def test_directory_input_skips_binary_artifacts(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    log_file = input_dir / "runtime.jsonl"
+    log_file.write_text('{"message":"ok"}\n', encoding="utf-8")
+    (input_dir / "capture.png").write_bytes(b"\x89PNG\r\n")
+    (input_dir / "capture.pcap").write_bytes(b"\xd4\xc3\xb2\xa1")
+    (input_dir / "state.sqlite3").write_bytes(b"SQLite format 3\x00")
+
+    assert list(iter_input_files(input_dir)) == [log_file]
+
+
+def test_directory_input_skips_date_named_paths_outside_window(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    old_dir = input_dir / "routine_check_20260615T120000Z"
+    current_dir = input_dir / "routine_check_20260702T120000Z"
+    old_dir.mkdir(parents=True)
+    current_dir.mkdir(parents=True)
+    old_log = old_dir / "runtime.jsonl"
+    current_log = current_dir / "runtime.jsonl"
+    old_log.write_text('{"message":"old"}\n', encoding="utf-8")
+    current_log.write_text('{"message":"current"}\n', encoding="utf-8")
+
+    assert list(
+        iter_input_files(
+            input_dir,
+            start="2026-07-01T00:00:00Z",
+            end="2026-07-03T00:00:00Z",
+        )
+    ) == [current_log]
+
+
+def test_sanitize_input_can_filter_by_time_window(tmp_path: Path) -> None:
+    raw = tmp_path / "raw.jsonl"
+    raw.write_text(
+        "\n".join(
+            [
+                json.dumps({"timestamp": "2026-07-01T00:00:00Z", "message": "before"}),
+                json.dumps({"timestamp": "2026-07-02T00:00:00Z", "message": "inside"}),
+                json.dumps({"timestamp": "2026-07-04T00:00:00Z", "message": "after"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = sanitize_input(
+        raw,
+        tmp_path / "out",
+        start="2026-07-02T00:00:00Z",
+        end="2026-07-03T00:00:00Z",
+    )
+    events = _read_jsonl(Path(result["sanitized_events"]))
+    manifest = json.loads(Path(result["manifest"]).read_text(encoding="utf-8"))
+
+    assert [event["message_sanitized"] for event in events] == ["inside"]
+    assert manifest["event_count"] == 1
+    assert manifest["input_time_window"] == {
+        "start": "2026-07-02T00:00:00Z",
+        "end": "2026-07-03T00:00:00Z",
+    }
 
 
 def test_evidence_bundle_sha_is_stable_and_ignores_json_key_order(tmp_path: Path) -> None:

@@ -186,6 +186,10 @@ the sanitized Evidence Bundle, sanitized source context, and source analysis are
 staged in private GCS. The final output is a human-readable review URL, not raw
 JSON. You do not need to copy an Evidence SHA by hand.
 
+Large log directories are processed as streams. The sanitizer does not keep the
+full corpus in memory, and obvious binary/media/database artifacts such as
+`.png`, `.mp4`, and `.sqlite3` are skipped when a directory is supplied.
+
 ```bash
 make review
 ```
