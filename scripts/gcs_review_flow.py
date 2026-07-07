@@ -431,21 +431,30 @@ def _required_timestamp_value(
 ) -> str:
     if not value and _PENDING_TIMESTAMP_LINES:
         value = _PENDING_TIMESTAMP_LINES.pop(0)
-    text = _required_prompt_value(
-        value,
-        label,
-        example,
-        env_name=env_name,
-        flag_name=flag_name,
-        no_prompts=no_prompts,
-    )
-    try:
-        return format_timestamp(text)
-    except (TypeError, ValueError) as exc:
-        recovered = _timestamp_suffix_after_existing_dir(text)
-        if recovered:
-            return format_timestamp(recovered)
-        raise SystemExit(f"{env_name} must be ISO-8601 date/time, got: {text}") from exc
+    while True:
+        text = _required_prompt_value(
+            value,
+            label,
+            example,
+            env_name=env_name,
+            flag_name=flag_name,
+            no_prompts=no_prompts,
+        )
+        if _looks_like_misplaced_source_root_answer(text):
+            recovered = _timestamp_suffix_after_existing_dir(text)
+            if recovered:
+                return format_timestamp(recovered)
+            if no_prompts or not sys.stdin.isatty():
+                raise SystemExit(f"{env_name} must be ISO-8601 date/time, got: {text}")
+            value = ""
+            continue
+        try:
+            return format_timestamp(text)
+        except (TypeError, ValueError) as exc:
+            recovered = _timestamp_suffix_after_existing_dir(text)
+            if recovered:
+                return format_timestamp(recovered)
+            raise SystemExit(f"{env_name} must be ISO-8601 date/time, got: {text}") from exc
 
 
 def _absolute_existing_input_path(value: str) -> Path:
@@ -841,7 +850,7 @@ def _read_pending_source_root_lines() -> list[str]:
 
     lines: list[str] = []
     while True:
-        ready, _unused_write, _unused_error = select.select([sys.stdin], [], [], 0.02)
+        ready, _unused_write, _unused_error = select.select([sys.stdin], [], [], 0.2)
         if not ready:
             return lines
         raw = sys.stdin.readline()
@@ -903,8 +912,10 @@ def _common_source_root(paths: list[Path]) -> Path:
 
 
 def _normalize_source_root(path: Path) -> Path:
-    if path.name in {"ops", "src", "tests"} and _looks_like_project_root(path.parent):
+    if path.name in {"deploy", "docs", "ops", "src", "tests"} and _looks_like_project_root(path.parent):
         return path.parent
+    if len(path.parts) >= 2 and path.parent.name == "deploy" and _looks_like_project_root(path.parent.parent):
+        return path.parent.parent
     return path
 
 

@@ -108,6 +108,18 @@ def test_source_root_accepts_multiple_lines_and_normalizes_to_project_root(tmp_p
     assert script._optional_source_root(text, no_prompts=True) == root
 
 
+def test_single_pasted_source_subdir_normalizes_to_project_root(tmp_path: Path) -> None:
+    script = _load_script()
+    root = tmp_path / "stream_v3"
+    for relative in ("deploy/k3s", "docs", "ops", "src", "tests"):
+        (root / relative).mkdir(parents=True, exist_ok=True)
+    (root / "pyproject.toml").write_text("[project]\nname='stream-v3'\n", encoding="utf-8")
+
+    assert script._optional_source_root(str(root / "deploy"), no_prompts=True) == root
+    assert script._optional_source_root(str(root / "deploy" / "k3s"), no_prompts=True) == root
+    assert script._optional_source_root(str(root / "docs"), no_prompts=True) == root
+
+
 def test_source_root_must_be_absolute() -> None:
     script = _load_script()
 
@@ -188,6 +200,39 @@ def test_misplaced_source_paths_do_not_become_service_or_start_values(tmp_path: 
             env_name="START",
             flag_name="--start",
             no_prompts=True,
+        )
+        == "2026-07-01T00:00:00Z"
+    )
+
+
+def test_timestamp_prompt_skips_late_pasted_source_root_lines(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    script = _load_script()
+    script._PENDING_PROMPT_LINES.clear()
+    root = tmp_path / "stream_v3"
+    for relative in ("docs", "ops", "src", "tests"):
+        (root / relative).mkdir(parents=True, exist_ok=True)
+
+    class Tty:
+        def isatty(self) -> bool:
+            return True
+
+    monkeypatch.setattr(script.sys, "stdin", Tty())
+    script._PENDING_PROMPT_LINES[:] = [
+        str(root / "src"),
+        str(root / "ops"),
+        "2026-07-01",
+    ]
+
+    assert (
+        script._required_timestamp_value(
+            "",
+            "Incident window start",
+            "2026-06-14T23:15:50Z",
+            env_name="START",
+            flag_name="--start",
+            no_prompts=False,
         )
         == "2026-07-01T00:00:00Z"
     )
