@@ -33,11 +33,11 @@ is for a different event.
 - Cloud Run service: `ops-evidence-api`
 - Cloud Run region: `asia-northeast1`
 - Public custom domain: https://ops-evidence.yukimurata0421.dev/
-- Deployed revision: `ops-evidence-api-00214-5fm`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:5c4aabda9f125ca30524f00587f2978e5044a304410ff64eea478b437550a05b`
+- Deployed revision: `ops-evidence-api-00246-h98`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:26647d929611ca9c3d10e66b8ed2d717e17caa6a525ee54d62cfec8183c7b1f1`
 - Public smoke after deploy: passed
-- Fast GCP Review smoke: passed with `gemini-3.1-flash-lite`, 2,000 fixed sanitized amazon-notify rows, server wall time 11.879s.
-- Fast Cross-check Lite smoke: passed with `gemini-3.1-flash-lite` + `gemma-4-26b-a4b-it-maas`, 2,000 fixed sanitized amazon-notify rows, server wall time 255.603s.
+- Fast GCP Review smoke: passed with `gemini-3.1-flash-lite`, 2,000 fixed sanitized amazon-notify rows, run `fast-gcp-review-20260707-final3`, 0 primary / 1 validation.
+- Fast Cross-check Lite smoke: passed with `gemini-3.1-flash-lite` + `gemma-4-26b-a4b-it-maas`, 2,000 fixed sanitized amazon-notify rows, run `fast-cross-check-20260707-final3`, 0 primary / 5 validation.
 - Digest note: this digest is a public demo release attestation, not a private
   execution identifier.
 - Cloud Run min instances: `1`

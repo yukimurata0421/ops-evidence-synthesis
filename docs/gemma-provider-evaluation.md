@@ -86,13 +86,13 @@ parallel and successful outputs are merged into a separate public review artifac
 
 | Variant | Providers | Server wall time | Client wall time | Provider latency sum | Result |
 | --- | --- | ---: | ---: | ---: | --- |
-| Fast GCP Review | Gemini Flash Lite | 11.509s | 11.717s | 27.543s | 1/1 schema-valid, 0 primary / 3 validation |
-| Fast Cross-check Lite | Gemini Flash Lite + Gemma 4 | 255.603s | 255.908s | 798.648s | 2/2 schema-valid, 0 primary / 9 validation |
+| Fast GCP Review | Gemini Flash Lite | not stored | observed live request | 29.854s | 1/1 schema-valid, 0 primary / 1 validation |
+| Fast Cross-check Lite | Gemini Flash Lite + Gemma 4 | not stored | observed live request | 416.490s | 2/2 schema-valid, 0 primary / 5 validation |
 
 Generated public review IDs:
 
-- Fast GCP Review: `94f8135156127826ed74cb32c6de5f000293fc0a827c84b6e6f97d55a1427b20`
-- Fast Cross-check Lite: `32ca03ecb0188e3da835344798210a9e0d817ba03630aca608b600a14e36a503`
+- Fast GCP Review: `5ae4f02d8390ecff4007c641c95fbfaa38af6356e4b53ff8267876a63e61781f`
+- Fast Cross-check Lite: `9c09eaf87d152911e39a3d52bd982c8d68e397f6cf05505c3261804f5e070f27`
 
 Both variants used the same Evidence SHA256 because they read the same fixed
 input: `9fa67b71c3f1a3a3a39dc712ae7692e199c4694a3393dcfb3bd4b3ba3a4d9e51`.

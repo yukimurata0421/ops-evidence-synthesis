@@ -26,8 +26,8 @@ These measurements were taken on the committed public-safe amazon-notify fixture
 | Public Replay - scoped initial review | 11.24s | 6,506 | 68 | 3/3 deterministic local | 0 primary / 1 validation | `265efc80247662d799b57b6a641509541b2e019ff3822825f2517687ab9954e8` |
 | More Data Rescore | 1.12s | Existing parent + child bundle | n/a | n/a | `validation_target -> primary_candidate`, score 0.84 | preserved demo snapshot |
 | Public Replay - full fixture review | 11.61s | 6,506 | 106 | 3/3 deterministic local | 0 primary / 1 validation | `3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d` |
-| Fast GCP Review - live Cloud Run | 11.509s server / 11.717s client | 2,000 | 570 | 1/1 real Vertex model | 0 primary / 3 validation | `94f8135156127826ed74cb32c6de5f000293fc0a827c84b6e6f97d55a1427b20` public review ID |
-| Fast Cross-check Lite - live Cloud Run | 255.603s server / 255.908s client | 2,000 | 570 | 2/2 real Vertex models | 0 primary / 9 validation | `32ca03ecb0188e3da835344798210a9e0d817ba03630aca608b600a14e36a503` public review ID |
+| Fast GCP Review - live Cloud Run | status persisted; provider latency 29.854s | 2,000 | 570 | 1/1 real Vertex model | 0 primary / 1 validation | `5ae4f02d8390ecff4007c641c95fbfaa38af6356e4b53ff8267876a63e61781f` public review ID |
+| Fast Cross-check Lite - live Cloud Run | status persisted; provider latency sum 416.490s | 2,000 | 570 | 2/2 real Vertex models | 0 primary / 5 validation | `9c09eaf87d152911e39a3d52bd982c8d68e397f6cf05505c3261804f5e070f27` public review ID |
 
 ## Interpretation
 
