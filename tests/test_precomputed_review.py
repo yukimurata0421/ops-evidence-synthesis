@@ -1205,6 +1205,39 @@ def test_public_target_classification_routes_no_finding_to_monitor_only() -> Non
     assert anomaly_class == "validation_target"
     assert anomaly["adjustment"] == ""
 
+    healthy_baseline_class, healthy_baseline = _public_target_class(
+        {"canonical_review_unit": "user_experience"},
+        original_class="validation_target",
+        provider_count=1,
+        valid_count=2,
+        evidence_ref_count=7,
+        evidence_family_count=1,
+        source_candidate_count=2,
+        target_explanation={
+            "suspected_issue": "none",
+            "evidence_summary": [
+                "PATTERN-002 shows successful notification processing with failure_kind=None and auth_status=READY."
+            ],
+            "counter_evidence_summary": [
+                "No evidence of message processing delays or ingestion errors was found."
+            ],
+            "why_it_matters": "Continuous execution is a prerequisite for successful notification delivery.",
+            "why_not_promoted": "This is a baseline observation of healthy activity, not a root cause or an incident.",
+            "provider_explanations": [
+                {
+                    "claim_type": "support",
+                    "suspected_issue": "None; message ingestion is functional.",
+                    "why_not_promoted": "This confirms operational status rather than identifying a failure.",
+                }
+            ],
+        },
+        missing_evidence=["User impact or operational outcome evidence tied to this review unit."],
+        blocked_reason="user_impact_unverified",
+    )
+
+    assert healthy_baseline_class == "monitor_only"
+    assert healthy_baseline["adjustment"] == "normal_operation_observation"
+
     for suspected_issue, why_not_promoted in (
         (
             "Unknown operational state causing a surge in trace generation.",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -23,6 +24,9 @@ _NO_ISSUE_PHRASES = (
     "normal operation",
     "successful operation",
     "logs show successful operation",
+    "baseline observation of healthy activity",
+    "confirms operational status",
+    "message ingestion is functional",
     "entirely consistent with normal operation",
     "normal operation rather than an incident",
     "not impacting notification delivery",
@@ -122,6 +126,9 @@ def normal_observation_reason(target: dict[str, Any], *, target_explanation: dic
 
 def _contains_no_issue_signal(text: str) -> bool:
     lowered = str(text or "").casefold()
+    normalized = re.sub(r"[^a-z0-9]+", " ", lowered).strip()
+    if normalized in {"none", "n a", "na", "no finding", "no findings"}:
+        return True
     return any(phrase in lowered for phrase in _NO_ISSUE_PHRASES)
 
 
