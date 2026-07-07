@@ -269,6 +269,8 @@ def test_code_profile_confirmation_can_stop_before_log_analysis(
             source_context_report=context_report,
             source_analysis_bundle=analysis_bundle,
             source_analysis_report=analysis_report,
+            code_profile_url="https://example.test/code-profiles/profile-1/",
+            code_profile_report_url="https://example.test/code-profiles/profile-1/report.md",
             no_prompts=False,
             skip_confirmation=False,
         )
@@ -302,9 +304,80 @@ def test_code_profile_confirmation_accepts_yes(tmp_path: Path, monkeypatch: pyte
         source_context_report=context_report,
         source_analysis_bundle=analysis_bundle,
         source_analysis_report=analysis_report,
+        code_profile_url="https://example.test/code-profiles/profile-1/",
+        code_profile_report_url="https://example.test/code-profiles/profile-1/report.md",
         no_prompts=False,
         skip_confirmation=False,
     )
+
+
+def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> None:
+    script = _load_script()
+    source_root = tmp_path / "stream_v3"
+    source_root.mkdir()
+    context_bundle = tmp_path / "source_context_bundle.json"
+    context_report = tmp_path / "source_context_report.md"
+    analysis_bundle = tmp_path / "source_analysis_bundle.json"
+    analysis_report = tmp_path / "source_analysis_report.md"
+    context_bundle.write_text(
+        json.dumps(
+            {
+                "source_context_sha256": "c" * 64,
+                "raw_source_policy": "not_uploaded",
+                "raw_env_policy": "not_uploaded",
+                "project_summary": {
+                    "detected_project_type": "systemd_service",
+                    "entrypoint_candidates": ["ops/systemd/example.service"],
+                },
+                "source_items": [{"relative_path": "src/app.py"}],
+                "config_items": [{"relative_path": "pyproject.toml"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    context_report.write_text("# Sanitized Source Context Bundle\n\n- source_items: 1\n", encoding="utf-8")
+    analysis_bundle.write_text(
+        json.dumps(
+            {
+                "analysis_sha256": "a" * 64,
+                "display_summary": {
+                    "component_candidate_count": 2,
+                    "metric_semantics_candidate_count": 3,
+                    "collector_mapping_candidate_count": 4,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    analysis_report.write_text("# Sanitized Source Analysis Bundle\n\n- component_candidates: 2\n", encoding="utf-8")
+    profile_id = script._code_profile_public_id(
+        run_id="review-test",
+        source_context_bundle=context_bundle,
+        source_analysis_bundle=analysis_bundle,
+    )
+
+    artifacts = script._write_code_profile_review_artifacts(
+        output_dir=tmp_path / "code_profile_review",
+        run_id="review-test",
+        code_profile_id=profile_id,
+        code_profile_url=f"https://example.test/code-profiles/{profile_id}/",
+        code_profile_report_url=f"https://example.test/code-profiles/{profile_id}/report.md",
+        source_root=source_root,
+        source_context_bundle=context_bundle,
+        source_context_report=context_report,
+        source_analysis_bundle=analysis_bundle,
+        source_analysis_report=analysis_report,
+    )
+
+    html = artifacts["html"].read_text(encoding="utf-8")
+    markdown = artifacts["markdown"].read_text(encoding="utf-8")
+    payload = json.loads(artifacts["payload"].read_text(encoding="utf-8"))
+    assert "Code Profile Review" in html
+    assert "Human checkpoint before log analysis" in html
+    assert "component_candidates: 2" in markdown
+    assert str(source_root) not in html
+    assert payload["local_absolute_path_uploaded"] is False
+    assert payload["code_profile_id"] == profile_id
 
 
 def test_main_builds_code_profile_before_log_analysis(
@@ -322,6 +395,38 @@ def test_main_builds_code_profile_before_log_analysis(
         label: str, command: list[str], *, env: dict[str, str] | None = None
     ) -> subprocess.CompletedProcess[str]:
         labels.append(label)
+        if label == "Sanitizing source code":
+            out_dir = Path(command[command.index("--out") + 1])
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "source_context_bundle.json").write_text(
+                json.dumps(
+                    {
+                        "source_context_sha256": "c" * 64,
+                        "project_summary": {"detected_project_type": "python_project"},
+                        "source_items": [],
+                        "config_items": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (out_dir / "source_context_report.md").write_text("# Source Context\n", encoding="utf-8")
+        if label == "Building source mapping candidates":
+            out_dir = Path(command[command.index("--out") + 1])
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "source_analysis_bundle.json").write_text(
+                json.dumps(
+                    {
+                        "analysis_sha256": "a" * 64,
+                        "display_summary": {
+                            "component_candidate_count": 0,
+                            "metric_semantics_candidate_count": 0,
+                            "collector_mapping_candidate_count": 0,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (out_dir / "source_analysis_report.md").write_text("# Source Analysis\n", encoding="utf-8")
         if label == "Building human review page":
             stdout = json.dumps(
                 {
@@ -368,10 +473,13 @@ def test_main_builds_code_profile_before_log_analysis(
         "Checking sanitized source code",
         "Building source mapping candidates",
         "Checking source mapping candidates",
-        "Sanitizing logs",
+        "Uploading code profile review page",
     ]
+    assert labels.index("Uploading code profile review page") < labels.index("Sanitizing logs")
     assert labels.index("Uploading Evidence Bundle to GCS") < labels.index("Uploading sanitized source context to GCS")
-    assert "gs://" not in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "https://ops-evidence.yukimurata0421.dev/code-profiles/" in output
+    assert "gs://" not in output
 
 
 def test_review_summary_prints_http_urls_without_gcs_by_default(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -381,6 +489,8 @@ def test_review_summary_prints_http_urls_without_gcs_by_default(tmp_path: Path, 
         review_url="https://example.test/reviews/abc/",
         report_url="https://example.test/reviews/abc/report.md",
         legacy_review_url="https://example.test/ui/full-review-page?evidence_sha256=abc",
+        code_profile_url="",
+        code_profile_report_url="",
         output_dir=tmp_path / "analysis",
         sanitized_dir=tmp_path / "analysis" / "sanitized",
         source_context_bundle=None,
@@ -405,6 +515,8 @@ def test_review_summary_can_print_gcs_uris_when_requested(tmp_path: Path, capsys
         review_url="https://example.test/reviews/abc/",
         report_url="https://example.test/reviews/abc/report.md",
         legacy_review_url="https://example.test/reviews/abc/",
+        code_profile_url="https://example.test/code-profiles/profile-1/",
+        code_profile_report_url="https://example.test/code-profiles/profile-1/report.md",
         output_dir=tmp_path / "analysis",
         sanitized_dir=tmp_path / "analysis" / "sanitized",
         source_context_bundle=None,
@@ -417,4 +529,5 @@ def test_review_summary_can_print_gcs_uris_when_requested(tmp_path: Path, capsys
     )
 
     output = capsys.readouterr().out
+    assert "Code profile URL: https://example.test/code-profiles/profile-1/" in output
     assert "GCS Evidence Bundle: gs://private/job-inputs/abc/evidence_bundle.json" in output

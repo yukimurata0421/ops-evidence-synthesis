@@ -66,6 +66,30 @@ def test_favicon_route_returns_svg_when_public_read_guard_is_enabled(monkeypatch
     assert "<svg" in response.text
 
 
+def test_code_profile_review_page_serves_human_readable_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    profile_id = "a" * 64
+    profile_dir = tmp_path / "code-profile-pages" / profile_id
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "index.html").write_text("<!doctype html><h1>Code Profile Review</h1>", encoding="utf-8")
+    (profile_dir / "report.md").write_text("# Code Profile Review\n", encoding="utf-8")
+    monkeypatch.setenv("OES_CODE_PROFILE_REVIEW_DIR", str(tmp_path / "code-profile-pages"))
+
+    with TestClient(app) as client:
+        page = client.get(f"/code-profiles/{profile_id}/")
+        report = client.get(f"/code-profiles/{profile_id}/report.md")
+        invalid = client.get("/code-profiles/../../etc/passwd/")
+
+    assert page.status_code == 200
+    assert page.headers["content-type"].startswith("text/html")
+    assert "Code Profile Review" in page.text
+    assert report.status_code == 200
+    assert report.headers["content-type"].startswith("text/plain")
+    assert "# Code Profile Review" in report.text
+    assert invalid.status_code == 404
+
+
 def test_fast_review_shell_embeds_precomputed_summary(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

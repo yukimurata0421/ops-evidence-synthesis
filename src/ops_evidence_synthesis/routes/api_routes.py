@@ -469,6 +469,114 @@ def static_review_markdown_report(evidence_sha256: str) -> str:
     raise HTTPException(status_code=404, detail="precomputed review not found")
 
 
+@router.get("/code-profiles/{profile_id}", response_class=HTMLResponse)
+@router.get("/code-profiles/{profile_id}/", response_class=HTMLResponse)
+def code_profile_review_page(profile_id: str) -> str:
+    page = _code_profile_review_artifact(profile_id, "index.html")
+    if page is None:
+        raise HTTPException(status_code=404, detail="code profile review not found")
+    return page
+
+
+@router.get("/code-profiles/{profile_id}/report.md", response_class=PlainTextResponse)
+def code_profile_markdown_report(profile_id: str) -> str:
+    report = _code_profile_review_artifact(profile_id, "report.md")
+    if report is None:
+        raise HTTPException(status_code=404, detail="code profile report not found")
+    return report
+
+
+def _code_profile_review_artifact(profile_id: str, filename: str) -> str | None:
+    clean_id = _clean_code_profile_id(profile_id)
+    if not clean_id:
+        return None
+    if filename not in {"index.html", "report.md", "payload.json"}:
+        return None
+    for directory in _code_profile_review_dirs():
+        path = directory / clean_id / filename
+        try:
+            return path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            continue
+        except Exception:
+            continue
+    for uri in _code_profile_review_gcs_uris(clean_id, filename):
+        try:
+            from ops_evidence_synthesis.gcp.storage import read_text
+
+            return read_text(uri)
+        except Exception:
+            continue
+    return None
+
+
+def _clean_code_profile_id(profile_id: str) -> str:
+    value = str(profile_id or "").strip()
+    allowed = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-"
+    if not 8 <= len(value) <= 128:
+        return ""
+    if any(char not in allowed for char in value):
+        return ""
+    return value
+
+
+def _code_profile_review_dirs() -> list[Path]:
+    configured = [
+        Path(item)
+        for item in os.environ.get("OES_CODE_PROFILE_REVIEW_DIRS", "").split(os.pathsep)
+        if item.strip()
+    ]
+    single = os.environ.get("OES_CODE_PROFILE_REVIEW_DIR", "").strip()
+    if single:
+        configured.insert(0, Path(single))
+    return configured
+
+
+def _code_profile_review_gcs_uris(profile_id: str, filename: str) -> list[str]:
+    prefixes = _code_profile_review_gcs_prefixes()
+    return [f"{prefix.rstrip('/')}/{profile_id}/{filename}" for prefix in prefixes if prefix.startswith("gs://")]
+
+
+def _code_profile_review_gcs_prefixes() -> list[str]:
+    prefixes: list[str] = []
+    single = os.environ.get("OES_CODE_PROFILE_REVIEW_GCS_PREFIX", "").strip()
+    if single:
+        prefixes.append(single)
+    for item in os.environ.get("OES_CODE_PROFILE_REVIEW_GCS_PREFIXES", "").split(","):
+        item = item.strip()
+        if item:
+            prefixes.append(item)
+    if prefixes:
+        return prefixes
+    for precomputed_prefix in _precomputed_review_gcs_prefixes_from_env():
+        derived = _derive_code_profile_review_gcs_prefix(precomputed_prefix)
+        if derived:
+            prefixes.append(derived)
+    return prefixes
+
+
+def _precomputed_review_gcs_prefixes_from_env() -> list[str]:
+    prefixes: list[str] = []
+    single = os.environ.get("OES_PRECOMPUTED_REVIEW_GCS_PREFIX", "").strip()
+    if single:
+        prefixes.append(single)
+    for item in os.environ.get("OES_PRECOMPUTED_REVIEW_GCS_PREFIXES", "").split(","):
+        item = item.strip()
+        if item:
+            prefixes.append(item)
+    return prefixes
+
+
+def _derive_code_profile_review_gcs_prefix(precomputed_prefix: str) -> str:
+    clean = str(precomputed_prefix or "").strip().rstrip("/")
+    if not clean.startswith("gs://") or "/" not in clean[5:]:
+        return ""
+    parent, _slash, _name = clean.rpartition("/")
+    if not parent.startswith("gs://"):
+        return ""
+    return f"{parent}/code-profile-pages"
+
+
 @router.get("/ui/summary")
 def ui_summary(evidence_sha256: str) -> dict[str, Any]:
     if not evidence_sha256:

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import html
 import json
 import os
 import re
@@ -102,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     input_bundle_uri = f"gs://{bucket}/job-inputs/{run_id}/evidence_bundle.json"
     source_context_uri = f"gs://{bucket}/job-inputs/{run_id}/source_context_bundle.json"
     source_analysis_uri = f"gs://{bucket}/job-inputs/{run_id}/source_analysis_bundle.json"
+    code_profile_pages_prefix_uri = f"gs://{bucket}/code-profile-pages"
     output_prefix_uri = f"gs://{bucket}/job-runs"
     precomputed_prefix_uri = f"gs://{bucket}/precomputed_review_summaries"
     static_review_prefix_uri = f"gs://{bucket}/review-pages"
@@ -109,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
     cli = [sys.executable, "-m", "ops_evidence_synthesis.cli"]
     source_context_bundle = None
     source_analysis_bundle = None
+    code_profile_url = ""
+    code_profile_report_url = ""
     if source_root is not None:
         source_context_dir = output_dir / "source_context"
         source_analysis_dir = output_dir / "source_analysis"
@@ -144,12 +149,46 @@ def main(argv: list[str] | None = None) -> int:
             ],
         )
         _run_step("Checking source mapping candidates", [*cli, "verify-sanitized", str(source_analysis_dir)])
+        code_profile_id = _code_profile_public_id(
+            run_id=run_id,
+            source_context_bundle=source_context_bundle,
+            source_analysis_bundle=source_analysis_bundle,
+        )
+        code_profile_url = f"{public_base_url}/code-profiles/{code_profile_id}/"
+        code_profile_report_url = f"{code_profile_url.rstrip('/')}/report.md"
+        code_profile_dir = output_dir / "code_profile_review"
+        code_profile_artifacts = _write_code_profile_review_artifacts(
+            output_dir=code_profile_dir,
+            run_id=run_id,
+            code_profile_id=code_profile_id,
+            code_profile_url=code_profile_url,
+            code_profile_report_url=code_profile_report_url,
+            source_root=source_root,
+            source_context_bundle=source_context_bundle,
+            source_context_report=source_context_dir / "source_context_report.md",
+            source_analysis_bundle=source_analysis_bundle,
+            source_analysis_report=source_analysis_dir / "source_analysis_report.md",
+        )
+        _run_step(
+            "Uploading code profile review page",
+            [
+                "gcloud",
+                "storage",
+                "cp",
+                str(code_profile_artifacts["html"]),
+                str(code_profile_artifacts["markdown"]),
+                str(code_profile_artifacts["payload"]),
+                f"{code_profile_pages_prefix_uri.rstrip('/')}/{code_profile_id}/",
+            ],
+        )
         _confirm_code_profile_before_log_analysis(
             source_root=source_root,
             source_context_bundle=source_context_bundle,
             source_context_report=source_context_dir / "source_context_report.md",
             source_analysis_bundle=source_analysis_bundle,
             source_analysis_report=source_analysis_dir / "source_analysis_report.md",
+            code_profile_url=code_profile_url,
+            code_profile_report_url=code_profile_report_url,
             no_prompts=args.no_prompts,
             skip_confirmation=args.skip_source_confirmation,
         )
@@ -249,6 +288,8 @@ def main(argv: list[str] | None = None) -> int:
         review_url=review_url,
         report_url=report_url,
         legacy_review_url=legacy_review_url,
+        code_profile_url=code_profile_url,
+        code_profile_report_url=code_profile_report_url,
         output_dir=output_dir,
         sanitized_dir=sanitized_dir,
         source_context_bundle=source_context_bundle,
@@ -309,6 +350,8 @@ def _print_review_summary(
     review_url: str,
     report_url: str,
     legacy_review_url: str,
+    code_profile_url: str,
+    code_profile_report_url: str,
     output_dir: Path,
     sanitized_dir: Path,
     source_context_bundle: Path | None,
@@ -325,6 +368,10 @@ def _print_review_summary(
     print(f"Markdown report URL: {report_url}")
     if review_url != legacy_review_url:
         print(f"Dynamic review URL: {legacy_review_url}")
+    if code_profile_url:
+        print(f"Code profile URL: {code_profile_url}")
+    if code_profile_report_url:
+        print(f"Code profile Markdown URL: {code_profile_report_url}")
     print(f"Local analysis directory: {output_dir}")
     print(f"Sanitized logs: {sanitized_dir}")
     if source_context_bundle is not None and source_analysis_bundle is not None:
@@ -417,6 +464,8 @@ def _confirm_code_profile_before_log_analysis(
     source_context_report: Path,
     source_analysis_bundle: Path,
     source_analysis_report: Path,
+    code_profile_url: str,
+    code_profile_report_url: str,
     no_prompts: bool,
     skip_confirmation: bool,
 ) -> None:
@@ -425,6 +474,8 @@ def _confirm_code_profile_before_log_analysis(
     summary = _code_profile_summary(source_context_bundle, source_analysis_bundle)
     print(file=sys.stderr)
     print("Code profile review is ready.", file=sys.stderr)
+    print(f"Code profile URL: {code_profile_url}", file=sys.stderr)
+    print(f"Code profile Markdown URL: {code_profile_report_url}", file=sys.stderr)
     print(f"Selected source root: {source_root}", file=sys.stderr)
     print(f"Human-readable source context report: {source_context_report}", file=sys.stderr)
     print(f"Human-readable source analysis report: {source_analysis_report}", file=sys.stderr)
@@ -483,6 +534,258 @@ def _code_profile_summary(source_context_bundle: Path, source_analysis_bundle: P
         if "collector_mapping_candidate_count" in display_summary
         else len(source_analysis.get("collector_mapping_candidates") or []),
     }
+
+
+def _code_profile_public_id(*, run_id: str, source_context_bundle: Path, source_analysis_bundle: Path) -> str:
+    summary = _code_profile_summary(source_context_bundle, source_analysis_bundle)
+    material = {
+        "run_id": str(run_id or ""),
+        "source_context_sha256": _json_field(source_context_bundle, "source_context_sha256"),
+        "analysis_sha256": _json_field(source_analysis_bundle, "analysis_sha256"),
+        "summary": summary,
+    }
+    return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _write_code_profile_review_artifacts(
+    *,
+    output_dir: Path,
+    run_id: str,
+    code_profile_id: str,
+    code_profile_url: str,
+    code_profile_report_url: str,
+    source_root: Path,
+    source_context_bundle: Path,
+    source_context_report: Path,
+    source_analysis_bundle: Path,
+    source_analysis_report: Path,
+) -> dict[str, Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary = _code_profile_summary(source_context_bundle, source_analysis_bundle)
+    source_context = _read_json_object(source_context_bundle)
+    source_analysis = _read_json_object(source_analysis_bundle)
+    context_report = _read_text_or_empty(source_context_report)
+    analysis_report = _read_text_or_empty(source_analysis_report)
+    markdown = _render_code_profile_markdown(
+        run_id=run_id,
+        code_profile_id=code_profile_id,
+        code_profile_url=code_profile_url,
+        code_profile_report_url=code_profile_report_url,
+        source_root_name=source_root.name or "source-root",
+        summary=summary,
+        context_report=context_report,
+        analysis_report=analysis_report,
+    )
+    html_text = _render_code_profile_html(
+        title="Code Profile Review",
+        code_profile_url=code_profile_url,
+        code_profile_report_url=code_profile_report_url,
+        markdown=markdown,
+    )
+    payload = {
+        "schema_version": "code_profile_review_page.v1",
+        "run_id": run_id,
+        "code_profile_id": code_profile_id,
+        "source_root_name": source_root.name or "source-root",
+        "local_absolute_path_uploaded": False,
+        "code_profile_url": code_profile_url,
+        "code_profile_report_url": code_profile_report_url,
+        "summary": summary,
+        "source_context_sha256": source_context.get("source_context_sha256") or "",
+        "analysis_sha256": source_analysis.get("analysis_sha256") or "",
+        "raw_source_policy": source_context.get("raw_source_policy") or source_analysis.get("raw_source_policy") or "",
+        "raw_env_policy": source_context.get("raw_env_policy") or source_analysis.get("raw_env_policy") or "",
+    }
+    html_path = output_dir / "index.html"
+    markdown_path = output_dir / "report.md"
+    payload_path = output_dir / "payload.json"
+    html_path.write_text(html_text, encoding="utf-8")
+    markdown_path.write_text(markdown, encoding="utf-8")
+    payload_path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    return {"html": html_path, "markdown": markdown_path, "payload": payload_path}
+
+
+def _render_code_profile_markdown(
+    *,
+    run_id: str,
+    code_profile_id: str,
+    code_profile_url: str,
+    code_profile_report_url: str,
+    source_root_name: str,
+    summary: dict[str, object],
+    context_report: str,
+    analysis_report: str,
+) -> str:
+    entrypoints = [str(item) for item in summary.get("entrypoint_candidates") or []]
+    entrypoint_text = "\n".join(f"- {item}" for item in entrypoints[:12]) or "- none detected"
+    return f"""# Code Profile Review
+
+This page is the human checkpoint before log analysis starts.
+
+- run_id: {run_id}
+- code_profile_id: {code_profile_id}
+- code_profile_url: {code_profile_url}
+- markdown_url: {code_profile_report_url}
+- selected_source_root_name: {source_root_name}
+- local_absolute_path_uploaded: false
+- detected_project_type: {summary.get("detected_project_type") or "unknown"}
+- source_items: {summary.get("source_item_count", 0)}
+- config_items: {summary.get("config_item_count", 0)}
+- component_candidates: {summary.get("component_candidate_count", 0)}
+- metric_semantics_candidates: {summary.get("metric_semantics_candidate_count", 0)}
+- collector_mapping_candidates: {summary.get("collector_mapping_candidate_count", 0)}
+
+## Human Decision
+
+Approve this page only if the selected code profile matches the system and deployment period you want to review. Code/config is context, not incident evidence. Runtime claims still need cited Evidence Items from sanitized logs.
+
+## Entrypoint Candidates
+
+{entrypoint_text}
+
+## Source Context Report
+
+{context_report.strip()}
+
+## Source Analysis Report
+
+{analysis_report.strip()}
+"""
+
+
+def _render_code_profile_html(
+    *,
+    title: str,
+    code_profile_url: str,
+    code_profile_report_url: str,
+    markdown: str,
+) -> str:
+    body = _markdown_to_html(markdown)
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{_html(title)}</title>
+  <style>
+    :root {{ color-scheme: light; --ink:#182026; --muted:#5b6670; --line:#d7dde2; --panel:#f6f8fa; --accent:#126a72; --warn:#8a5a00; }}
+    body {{ margin:0; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#fff; }}
+    header {{ border-bottom:1px solid var(--line); background:#f8fafb; }}
+    main, .inner {{ max-width:1080px; margin:0 auto; padding:24px; }}
+    h1 {{ margin:0 0 8px; font-size:32px; line-height:1.15; letter-spacing:0; }}
+    h2 {{ margin:32px 0 10px; font-size:21px; letter-spacing:0; }}
+    p {{ margin:8px 0; }}
+    a {{ color:var(--accent); }}
+    code {{ background:#edf2f4; padding:2px 5px; border-radius:4px; }}
+    pre {{ overflow:auto; padding:16px; border:1px solid var(--line); background:#fbfcfd; border-radius:8px; }}
+    .lede {{ color:var(--muted); max-width:760px; }}
+    .actions {{ display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }}
+    .button {{ display:inline-flex; align-items:center; min-height:36px; padding:0 12px; border:1px solid var(--line); border-radius:6px; text-decoration:none; background:#fff; color:var(--ink); font-weight:650; }}
+    .button.primary {{ background:var(--accent); color:#fff; border-color:var(--accent); }}
+    .notice {{ margin-top:16px; padding:12px 14px; border:1px solid #e4c46f; border-radius:8px; background:#fff8e1; color:var(--warn); }}
+    .content {{ display:grid; gap:8px; }}
+    .content ul {{ padding-left:22px; }}
+    .content li {{ margin:4px 0; }}
+    footer {{ border-top:1px solid var(--line); color:var(--muted); }}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>{_html(title)}</h1>
+      <p class="lede">Human checkpoint before log analysis. The page contains sanitized code-profile context only.</p>
+      <div class="actions">
+        <a class="button primary" href="{_html(code_profile_url)}">Open HTML</a>
+        <a class="button" href="{_html(code_profile_report_url)}">Open Markdown</a>
+      </div>
+      <p class="notice">Approve only when this profile matches the system and deployment period under review. Runtime claims still require sanitized log evidence.</p>
+    </div>
+  </header>
+  <main class="content">
+    {body}
+  </main>
+  <footer>
+    <div class="inner">Raw source, raw env values, and local absolute paths are not published in this page.</div>
+  </footer>
+</body>
+</html>"""
+
+
+def _markdown_to_html(markdown: str) -> str:
+    blocks: list[str] = []
+    in_list = False
+    in_code = False
+    code_lines: list[str] = []
+    for raw_line in str(markdown or "").splitlines():
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            if in_code:
+                blocks.append("<pre><code>" + _html("\n".join(code_lines)) + "</code></pre>")
+                code_lines = []
+                in_code = False
+            else:
+                if in_list:
+                    blocks.append("</ul>")
+                    in_list = False
+                in_code = True
+            continue
+        if in_code:
+            code_lines.append(line)
+            continue
+        if not stripped:
+            if in_list:
+                blocks.append("</ul>")
+                in_list = False
+            continue
+        if stripped.startswith("# "):
+            if in_list:
+                blocks.append("</ul>")
+                in_list = False
+            blocks.append(f"<h1>{_html(stripped[2:].strip())}</h1>")
+        elif stripped.startswith("## "):
+            if in_list:
+                blocks.append("</ul>")
+                in_list = False
+            blocks.append(f"<h2>{_html(stripped[3:].strip())}</h2>")
+        elif stripped.startswith("- "):
+            if not in_list:
+                blocks.append("<ul>")
+                in_list = True
+            blocks.append(f"<li>{_html(stripped[2:].strip())}</li>")
+        else:
+            if in_list:
+                blocks.append("</ul>")
+                in_list = False
+            blocks.append(f"<p>{_html(stripped)}</p>")
+    if in_code:
+        blocks.append("<pre><code>" + _html("\n".join(code_lines)) + "</code></pre>")
+    if in_list:
+        blocks.append("</ul>")
+    return "\n".join(blocks)
+
+
+def _json_field(path: Path, field: str) -> object:
+    return _read_json_object(path).get(field) or ""
+
+
+def _read_json_object(path: Path) -> dict[str, object]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _read_text_or_empty(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _html(value: object) -> str:
+    return html.escape(str(value or ""), quote=True)
 
 
 def _optional_source_root(value: str | list[str], *, no_prompts: bool) -> Path | None:
