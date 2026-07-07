@@ -231,6 +231,62 @@ def test_review_unit_convergence_increases_priority_without_primary_promotion() 
     assert priority["baseline_support_score"] >= 0.65
 
 
+def test_no_finding_validation_target_routes_to_monitor_only() -> None:
+    synthesis = {
+        "schema_version": "multi_ai_synthesis.v1",
+        "evidence_sha256": "sha",
+        "provider_count": 1,
+        "successful_provider_count": 1,
+        "validation_targets": [
+            {
+                "group_id": "cg-user-experience",
+                "title": "User experience observation",
+                "core_target_type": "user_outcome_check",
+                "subsystem": "user_experience",
+                "providers": ["gemini"],
+                "provider_count": 1,
+                "evidence_refs": ["LOG-1"],
+                "target_explanation": {
+                    "suspected_issue": "None identified",
+                    "why_it_matters": "Confirms the service is likely healthy and not impacting notification delivery.",
+                    "why_not_promoted": "The evidence indicates normal operation rather than an incident.",
+                    "provider_explanations": [
+                        {"provider_id": "gemini", "claim_type": "insufficient_evidence"}
+                    ],
+                },
+            },
+            {
+                "group_id": "cg-traffic",
+                "title": "Traffic anomaly requires validation",
+                "core_target_type": "traffic_anomaly",
+                "subsystem": "traffic",
+                "providers": ["gemini"],
+                "provider_count": 1,
+                "evidence_refs": ["METRIC-1"],
+                "target_explanation": {
+                    "suspected_issue": "Potential traffic anomaly or instrumentation change.",
+                    "why_not_promoted": "The metric increase is not correlated with error logs or service failures.",
+                },
+            },
+        ],
+    }
+
+    graph = arbitrate_review_targets(_bundle(), multi_ai_synthesis=synthesis)
+
+    assert graph["summary"]["primary_count"] == 0
+    assert graph["summary"]["validation_count"] == 1
+    assert graph["summary"]["monitor_only_count"] == 1
+    assert graph["validation_targets"][0]["canonical_review_unit"] == "traffic"
+    monitor = graph["monitor_only"][0]
+    assert monitor["canonical_review_unit"] == "user_experience"
+    assert monitor["class"] == "monitor_only"
+    assert monitor["review_priority_score"] <= 0.35
+    decision = next(row for row in graph["promotion_decisions"] if row["target_id"] == monitor["target_id"])
+    assert decision["final_class"] == "monitor_only"
+    assert "normal_operation_observation" in decision["reasons"]
+    assert graph["planner_inputs"]["validation_target_ids"] == [graph["validation_targets"][0]["target_id"]]
+
+
 def test_same_provider_duplicates_have_limited_convergence_bonus() -> None:
     multi_provider = {
         "schema_version": "multi_ai_synthesis.v1",

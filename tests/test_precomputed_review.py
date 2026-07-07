@@ -29,7 +29,11 @@ from ops_evidence_synthesis.web.precomputed_review import (
     rescore_demo_payload,
     render_rescore_demo_page,
 )
-from scripts.generate_precomputed_review_from_multi_run import _provider_summary_title, _public_target_class
+from scripts.generate_precomputed_review_from_multi_run import (
+    _provider_summary_title,
+    _public_review_counts,
+    _public_target_class,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1006,6 +1010,26 @@ def test_observation_validation_target_is_not_labeled_as_suspected_issue() -> No
     assert "<span>priority</span>0.77" in queue_html
     assert "Review priority, not incident probability" in queue_html
 
+    no_finding_target = {
+        **target,
+        "class": "monitor_only",
+        "provider_positions": [
+            {
+                "provider_id": "gemini-fast-lite-agent-platform",
+                "stance": "no_finding",
+            }
+        ],
+        "agreement": {
+            "verdict": "normal_observation",
+            "convergence_score": 0.0,
+        },
+    }
+    no_finding_detail = _workspace_target_detail_html(no_finding_target, index=2)
+    no_finding_queue = web_precomputed._workspace_queue_item_html(no_finding_target, index=2)
+
+    assert "0 claimed / 0 silent / 1 no finding / 0.00" in no_finding_detail
+    assert "1/1 no finding" in no_finding_queue
+
     anomaly_target = {
         **target,
         "review_target_id": "cog-traffic",
@@ -1138,6 +1162,62 @@ def test_public_target_classification_keeps_evidence_supported_primary_candidate
 
     assert final_class == "primary_candidate"
     assert classification["adjustment"] == ""
+
+
+def test_public_target_classification_routes_no_finding_to_monitor_only() -> None:
+    no_finding_class, no_finding = _public_target_class(
+        {"canonical_review_unit": "user_experience"},
+        original_class="validation_target",
+        provider_count=1,
+        valid_count=1,
+        evidence_ref_count=3,
+        evidence_family_count=1,
+        source_candidate_count=1,
+        target_explanation={
+            "suspected_issue": "None identified",
+            "why_it_matters": "Confirms the service is likely healthy and not impacting notification delivery.",
+            "why_not_promoted": "The evidence indicates normal operation rather than an incident.",
+            "provider_explanations": [
+                {"provider_id": "gemini-fast-lite-agent-platform", "claim_type": "insufficient_evidence"}
+            ],
+        },
+        missing_evidence=["Logs or metrics indicating specific notification delivery failures."],
+        blocked_reason="user_impact_unverified; impact_disagreement",
+    )
+    anomaly_class, anomaly = _public_target_class(
+        {"canonical_review_unit": "traffic"},
+        original_class="validation_target",
+        provider_count=1,
+        valid_count=1,
+        evidence_ref_count=2,
+        evidence_family_count=1,
+        source_candidate_count=1,
+        target_explanation={
+            "suspected_issue": "Potential traffic anomaly or instrumentation change.",
+            "why_not_promoted": "The metric increase is not correlated with error logs or service failures.",
+        },
+        missing_evidence=["Traffic baseline and user-impact metric."],
+        blocked_reason="user_impact_unverified; impact_disagreement",
+    )
+
+    assert no_finding_class == "monitor_only"
+    assert no_finding["adjustment"] == "normal_operation_observation"
+    assert anomaly_class == "validation_target"
+    assert anomaly["adjustment"] == ""
+    counts = _public_review_counts(
+        [
+            {"class": no_finding_class},
+            {"class": anomaly_class},
+            {"class": "primary_candidate"},
+        ],
+        graph_summary={"monitor_only_count": 2, "auto_archived_count": 1},
+    )
+    assert counts == {
+        "primary_targets": 1,
+        "validation_targets": 1,
+        "monitor_only": 3,
+        "auto_archived": 1,
+    }
 
 
 def test_flagship_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_path: Path) -> None:

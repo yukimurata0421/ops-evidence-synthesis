@@ -1348,12 +1348,16 @@ def _precomputed_review_target_set(
     visible_targets = targets[:requested_limit] if requested_limit else targets
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
     review = summary.get("review") if isinstance(summary.get("review"), dict) else {}
+    computed_primary = sum(1 for target in targets if str(target.get("class") or "") == "primary_candidate")
+    computed_validation = sum(1 for target in targets if str(target.get("class") or "") == "validation_target")
+    computed_monitor = sum(1 for target in targets if str(target.get("class") or "") == "monitor_only")
     return {
         "summary": {
-            "review_targets": int(review.get("primary_targets") or 0) + int(review.get("validation_targets") or 0),
-            "primary_review_targets": int(review.get("primary_targets") or 0),
-            "validation_targets": int(review.get("validation_targets") or len(targets)),
-            "monitor_only": int(review.get("monitor_only") or 0),
+            "review_targets": int(review.get("primary_targets") or computed_primary)
+            + int(review.get("validation_targets") or computed_validation),
+            "primary_review_targets": int(review.get("primary_targets") or computed_primary),
+            "validation_targets": int(review.get("validation_targets") or computed_validation),
+            "monitor_only": int(review.get("monitor_only") or computed_monitor),
             "auto_archived": int(review.get("auto_archived") or 0),
             "returned_targets": len(visible_targets),
             "source": "precomputed_review_summary",
@@ -1373,7 +1377,8 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
     target_set = _precomputed_review_target_set(payload, evidence_sha256=evidence_sha256, limit=0, pending_only=False)
     targets = list(target_set.get("targets") or [])
     primary_targets = [row for row in targets if str(row.get("class") or "") == "primary_candidate"]
-    validation_targets = [row for row in targets if str(row.get("class") or "") != "primary_candidate"]
+    validation_targets = [row for row in targets if str(row.get("class") or "") == "validation_target"]
+    monitor_only_targets = [row for row in targets if str(row.get("class") or "") == "monitor_only"]
     updated_at = str(payload.get("updated_at") or summary.get("updated_at") or "")
     graph_model = _precomputed_graph_nodes_edges(
         payload,
@@ -1413,6 +1418,7 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
         "edges": graph_model["edges"],
         "primary_targets": primary_targets,
         "validation_targets": validation_targets,
+        "monitor_only": monitor_only_targets,
         "review_targets": targets,
         "display_summary": {
             "title": str(finding.get("title") or ""),
@@ -4263,6 +4269,8 @@ def _target_group_key(target: dict[str, Any]) -> str:
     target_class = str(target.get("class") or target.get("target_class") or "").casefold()
     if target_class == "primary_candidate":
         return "primary"
+    if target_class == "monitor_only":
+        return "monitor"
     agreement = target.get("agreement") if isinstance(target.get("agreement"), dict) else {}
     verdict = str(agreement.get("verdict") or "").casefold()
     if "single" in verdict:
@@ -4275,6 +4283,7 @@ def _target_group_label(group: str) -> str:
         "primary": "Primary",
         "convergence": "Convergence",
         "single": "Single-source",
+        "monitor": "Monitor-only",
     }.get(group, "Review")
 
 
@@ -4296,11 +4305,7 @@ def _workspace_provider_counts(target: dict[str, Any]) -> tuple[int, int, int]:
     counts = _provider_position_counts(target)
     claimed = counts.get("claimed", 0)
     silent = counts.get("silent", 0)
-    total = (
-        counts.get("claimed", 0)
-        + counts.get("contradicted", 0)
-        + counts.get("silent", 0)
-    ) or int(target.get("provider_count") or 0)
+    total = sum(counts.values()) or int(target.get("provider_count") or 0)
     return claimed, silent, total
 
 
@@ -4309,7 +4314,7 @@ def _workspace_provider_error_count(target: dict[str, Any]) -> int:
     return sum(
         count
         for stance, count in counts.items()
-        if stance not in {"claimed", "contradicted", "silent"}
+        if stance not in {"claimed", "contradicted", "silent", "no_finding"}
     )
 
 
@@ -4317,10 +4322,13 @@ def _workspace_convergence_label(
     *,
     claimed: int,
     silent: int,
+    no_finding: int,
     provider_error_count: int,
     score: float,
 ) -> str:
     parts = [f"{claimed} claimed", f"{silent} silent"]
+    if no_finding:
+        parts.append(f"{no_finding} no finding")
     if provider_error_count:
         parts.append(f"{provider_error_count} provider error")
     parts.append(f"{score:.2f}")
@@ -4329,8 +4337,12 @@ def _workspace_convergence_label(
 
 def _workspace_queue_claim_label(target: dict[str, Any]) -> str:
     claimed, _silent, total = _workspace_provider_counts(target)
+    no_finding = _provider_position_counts(target).get("no_finding", 0)
     error_count = _workspace_provider_error_count(target)
-    label = f"{claimed}/{max(total, 1)} claimed"
+    if no_finding and claimed == 0:
+        label = f"{no_finding}/{max(total, 1)} no finding"
+    else:
+        label = f"{claimed}/{max(total, 1)} claimed"
     if error_count:
         label += f" + {error_count} error"
     return label
@@ -4568,6 +4580,7 @@ def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
     score = _target_score_value(target)
     target_class = _target_class_label(target)
     claimed, silent, total = _workspace_provider_counts(target)
+    no_finding = _provider_position_counts(target).get("no_finding", 0)
     provider_error_count = _workspace_provider_error_count(target)
     total = max(total, 1)
     agreement = target.get("agreement") if isinstance(target.get("agreement"), dict) else {}
@@ -4623,7 +4636,7 @@ def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
         </div>
         <div class="workspace-convergence">
           <span>Provider convergence / {_html(str(agreement.get("verdict") or "pending").replace("_", " "))}</span>
-          <b>{_html(_workspace_convergence_label(claimed=claimed, silent=silent, provider_error_count=provider_error_count, score=convergence_score))}</b>
+          <b>{_html(_workspace_convergence_label(claimed=claimed, silent=silent, no_finding=no_finding, provider_error_count=provider_error_count, score=convergence_score))}</b>
           {_stance_bar_html(target)}
         </div>
         {provider_cards}
@@ -5336,6 +5349,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       font-size: 12px;
     }}
     .workspace-provider-card.claimed b {{ color: var(--claimed); }}
+    .workspace-provider-card.no_finding b {{ color: var(--ink-3); }}
     .workspace-provider-card.provider_error b {{ color: var(--danger); }}
     .provider-dot {{
       width: 10px;
@@ -5345,6 +5359,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     }}
     .workspace-provider-card.claimed .provider-dot {{ background: var(--claimed); }}
     .workspace-provider-card.contradicted .provider-dot {{ background: var(--danger); }}
+    .workspace-provider-card.no_finding .provider-dot {{ background: var(--muted); }}
     .workspace-provider-card.provider_error .provider-dot {{ background: var(--danger); }}
     .workspace-three, .workspace-evidence-row, .workspace-chip-list {{
       display: grid;

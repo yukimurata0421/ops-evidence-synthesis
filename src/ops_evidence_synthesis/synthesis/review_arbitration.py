@@ -9,6 +9,10 @@ from ops_evidence_synthesis.synthesis.output_ingest import (
     observation_groups_from_graph,
 )
 from ops_evidence_synthesis.synthesis.priority_scoring import score_review_priority
+from ops_evidence_synthesis.synthesis.target_classification import (
+    NORMAL_OPERATION_REASON,
+    target_reads_as_normal_observation,
+)
 from ops_evidence_synthesis.timeutils import utc_now
 SCORE_NOTE = "Score is review priority, not truth probability."
 
@@ -976,10 +980,18 @@ def _arbitrate_candidate(
     reasons: list[str] = []
     score_caps: list[dict[str, Any]] = []
     score_after = score_with_convergence
+    raw_target_explanation = candidate.get("target_explanation") if isinstance(candidate.get("target_explanation"), dict) else {}
+    normal_observation = target_reads_as_normal_observation(
+        candidate,
+        target_explanation=raw_target_explanation,
+    )
 
     baseline = agreement_dimensions.get("baseline_agreement") if isinstance(agreement_dimensions.get("baseline_agreement"), dict) else {}
     cause = agreement_dimensions.get("cause_agreement") if isinstance(agreement_dimensions.get("cause_agreement"), dict) else {}
     impact = agreement_dimensions.get("impact_agreement") if isinstance(agreement_dimensions.get("impact_agreement"), dict) else {}
+    if normal_observation:
+        reasons.append(NORMAL_OPERATION_REASON)
+        score_after = _cap(score_after, 0.35, NORMAL_OPERATION_REASON, score_caps)
     if baseline.get("established") is False and cause.get("value") == "none":
         reasons.append("no_baseline_agreement_or_causal_alignment")
     if not runtime:
@@ -1028,10 +1040,24 @@ def _arbitrate_candidate(
         suspected_issue=str(candidate.get("suspected_issue") or candidate.get("impact_summary") or ""),
         operational_mechanism=str(candidate.get("operational_mechanism") or ""),
         why_it_matters=str(candidate.get("why_it_matters") or ""),
+        why_not_promoted=str(candidate.get("why_not_promoted") or raw_target_explanation.get("why_not_promoted") or ""),
+        evidence_summary=_string_items(candidate.get("evidence_summary") or raw_target_explanation.get("evidence_summary")),
+        counter_evidence_summary=_string_items(
+            candidate.get("counter_evidence_summary") or raw_target_explanation.get("counter_evidence_summary")
+        ),
         missing_evidence=_unique(candidate.get("missing_evidence") or []),
         blocked_reasons=reasons,
         caveats=_unique(candidate.get("caveats") or []),
     )
+    if normal_observation and float(priority_result["score"]) > 0.35:
+        priority_result = {
+            **priority_result,
+            "score": 0.35,
+            "breakdown": {
+                **priority_result["breakdown"],
+                "normal_observation_cap": 0.35,
+            },
+        }
     review_priority_score = float(priority_result["score"])
     final_class = _final_class(original, runtime=runtime, reasons=reasons, score=promotion_score)
     state = {
@@ -1394,6 +1420,8 @@ def _evidence_family(ref: str) -> str:
 
 def _final_class(original: str, *, runtime: bool, reasons: list[str], score: float) -> str:
     if original == "context":
+        return "monitor_only"
+    if NORMAL_OPERATION_REASON in reasons:
         return "monitor_only"
     if "support_without_evidence_id" in reasons and not runtime:
         return "auto_archived"

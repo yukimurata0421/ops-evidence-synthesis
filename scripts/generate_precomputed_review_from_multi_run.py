@@ -15,6 +15,12 @@ from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.precomputed_review import SCORE_DEFINITION, stable_precomputed_review_json
 from ops_evidence_synthesis.profile_gate import build_profile_context_summary
 from ops_evidence_synthesis.synthesis.priority_scoring import score_review_priority
+from ops_evidence_synthesis.synthesis.target_classification import (
+    NORMAL_OPERATION_REASON,
+    NO_FINDING_STANCE,
+    normal_observation_reason,
+    target_reads_as_normal_observation,
+)
 from ops_evidence_synthesis.timeutils import parse_timestamp
 from ops_evidence_synthesis.window_policy import (
     DEFAULT_MIN_ANALYSIS_WINDOW_HOURS,
@@ -493,6 +499,23 @@ def _provider_position_for_target(
     }
 
 
+def _provider_positions_for_target_class(
+    provider_positions: list[dict[str, Any]],
+    *,
+    classification: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if classification.get("adjustment") != NORMAL_OPERATION_REASON:
+        return provider_positions
+    rows: list[dict[str, Any]] = []
+    for row in provider_positions:
+        output = dict(row)
+        if str(output.get("stance") or "") == "claimed":
+            output["stance"] = NO_FINDING_STANCE
+            output["one_line"] = "Reported a no-finding or normal-operation observation for this review unit."
+        rows.append(output)
+    return rows
+
+
 def _bundle_time_window(bundle: dict[str, Any]) -> dict[str, str]:
     time_window = bundle.get("time_window") if isinstance(bundle.get("time_window"), dict) else {}
     start = str(
@@ -629,12 +652,26 @@ def _targets(
             missing_evidence=preliminary_missing_evidence,
             blocked_reason=preliminary_blocked_reason,
         )
+        normal_observation = classification.get("adjustment") == NORMAL_OPERATION_REASON
+        provider_positions = _provider_positions_for_target_class(
+            provider_positions,
+            classification=classification,
+        )
+        provider_count = sum(1 for row in provider_positions if row["stance"] == "claimed")
+        if normal_observation:
+            verdict = "normal_observation"
+        else:
+            verdict = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
         blocked_reason = (
             "evidence_thin_primary_candidate; human_review_required; core_evidence_or_user_impact_unverified"
             if classification.get("adjustment") == "demoted_primary_candidate_evidence_thin"
             else preliminary_blocked_reason
         )
-        missing_evidence = _public_missing_evidence(target, blocked_reason=blocked_reason)
+        if normal_observation:
+            blocked_reason = "normal_operation_observation; no_incident_promotion"
+            missing_evidence = _unique_strings(list(public_target.get("missing_evidence") or []))
+        else:
+            missing_evidence = _public_missing_evidence(target, blocked_reason=blocked_reason)
         if classification.get("adjustment") == "demoted_primary_candidate_evidence_thin":
             missing_evidence = _unique_strings(
                 [
@@ -642,7 +679,13 @@ def _targets(
                     "Evidence strength sufficient for primary candidacy, not just provider agreement.",
                 ]
             )
-        promotion_state = "primary_candidate" if target_class == "primary_candidate" else "validation"
+        promotion_state = (
+            "primary_candidate"
+            if target_class == "primary_candidate"
+            else "monitor_only"
+            if target_class == "monitor_only"
+            else "validation"
+        )
         priority_result = score_review_priority(
             prior_score=float(public_target.get("review_priority_score") or 0.0),
             promotion_score=float(public_target.get("promotion_score") or 0.0),
@@ -657,10 +700,22 @@ def _targets(
             suspected_issue=str(target_explanation.get("suspected_issue") or ""),
             operational_mechanism=str(target_explanation.get("operational_mechanism") or ""),
             why_it_matters=str(target_explanation.get("why_it_matters") or ""),
+            why_not_promoted=str(target_explanation.get("why_not_promoted") or ""),
+            evidence_summary=list(target_explanation.get("evidence_summary") or []),
+            counter_evidence_summary=list(target_explanation.get("counter_evidence_summary") or []),
             missing_evidence=missing_evidence,
             blocked_reasons=[blocked_reason],
             caveats=list(public_target.get("caveats") or []),
         )
+        if normal_observation and float(priority_result["score"]) > 0.35:
+            priority_result = {
+                **priority_result,
+                "score": 0.35,
+                "breakdown": {
+                    **priority_result["breakdown"],
+                    "normal_observation_cap": 0.35,
+                },
+            }
         targets.append(
             {
                 "target_id": str(public_target.get("target_id") or public_target.get("review_target_id") or ""),
@@ -669,7 +724,7 @@ def _targets(
                 "class": target_class,
                 "original_class": original_target_class,
                 "classification": classification,
-                "state": str(public_target.get("state") or target_class),
+                "state": promotion_state,
                 "status": str(public_target.get("status") or "pending"),
                 "subsystem": str(public_target.get("subsystem") or "general"),
                 "canonical_review_unit": canonical_review_unit,
@@ -683,6 +738,7 @@ def _targets(
                     provider_count=provider_count,
                     valid_count=valid_count,
                     evidence_ref_count=evidence_ref_total_count,
+                    classification=classification,
                 ),
                 "review_reason": _review_reason_summary(
                     public_target,
@@ -708,10 +764,15 @@ def _targets(
                     "technical_baseline": "established" if provider_count >= 2 else "open",
                     "incident_baseline": "open",
                     "summary": (
-                        f"{provider_count}/{valid_count} schema-valid "
-                        f"{'provider' if valid_count == 1 else 'providers'} projected this review unit "
-                        f"from the {log_count:,}-row corpus; "
-                        "incident promotion remains human-gated."
+                        "Provider surfaced a no-finding / normal-operation observation; "
+                        "it is retained for audit and excluded from unresolved incident validation targets."
+                        if normal_observation
+                        else (
+                            f"{provider_count}/{valid_count} schema-valid "
+                            f"{'provider' if valid_count == 1 else 'providers'} projected this review unit "
+                            f"from the {log_count:,}-row corpus; "
+                            "incident promotion remains human-gated."
+                        )
                     ),
                 },
                 "promotion": {
@@ -959,6 +1020,7 @@ def _merge_duplicate_public_target(
         list(duplicate.get("provider_positions") or []),
     )
     provider_count = sum(1 for row in provider_positions if str(row.get("stance") or "") == "claimed")
+    no_finding_count = sum(1 for row in provider_positions if str(row.get("stance") or "") == NO_FINDING_STANCE)
     denominator = max(1, sum(1 for row in provider_positions if str(row.get("stance") or "") != "provider_error"))
 
     merged["evidence_refs"] = evidence_refs[:PUBLIC_EVIDENCE_REF_LIMIT]
@@ -979,12 +1041,20 @@ def _merge_duplicate_public_target(
     )
     merged["raw"] = raw
     agreement = dict(merged.get("agreement") or {})
-    agreement["verdict"] = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
+    if str(merged.get("class") or "") == "monitor_only" and no_finding_count and provider_count == 0:
+        agreement["verdict"] = "normal_observation"
+    else:
+        agreement["verdict"] = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
     agreement["convergence_score"] = round(provider_count / denominator, 10)
-    agreement["summary"] = _replace_provider_fraction(
-        str(agreement.get("summary") or ""),
-        provider_count=provider_count,
-        denominator=denominator,
+    agreement["summary"] = (
+        "Provider surfaced a no-finding / normal-operation observation; it is retained for audit and excluded "
+        "from unresolved incident validation targets."
+        if str(agreement.get("verdict") or "") == "normal_observation"
+        else _replace_provider_fraction(
+            str(agreement.get("summary") or ""),
+            provider_count=provider_count,
+            denominator=denominator,
+        )
     )
     merged["agreement"] = agreement
     return merged
@@ -1023,8 +1093,10 @@ def _choose_provider_position(first: dict[str, Any], second: dict[str, Any]) -> 
 def _provider_position_rank(position: dict[str, Any]) -> int:
     stance = str(position.get("stance") or "")
     if stance == "claimed":
-        return 3
+        return 4
     if stance == "provider_error":
+        return 3
+    if stance == NO_FINDING_STANCE:
         return 2
     if stance == "silent":
         return 1
@@ -1066,7 +1138,11 @@ def _sorted_unique_strings(values: list[Any]) -> list[str]:
 
 
 def _public_target_rank(target: dict[str, Any]) -> tuple[int, int, float, int, int]:
-    class_rank = 2 if str(target.get("class") or "") == "primary_candidate" else 1
+    class_rank = {
+        "primary_candidate": 3,
+        "validation_target": 2,
+        "monitor_only": 1,
+    }.get(str(target.get("class") or ""), 0)
     provider_count = _int(target.get("provider_count"))
     priority = float(target.get("review_priority_score") or 0.0)
     evidence_count = len(target.get("evidence_refs") or [])
@@ -1100,9 +1176,19 @@ def _public_target_class(
         "source_candidate_count": source_candidate_count,
         "policy": (
             "Provider convergence can create high-priority validation work, but primary candidacy "
-            "requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates."
+            "requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. "
+            "Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets."
         ),
     }
+    if target_reads_as_normal_observation(target, target_explanation=target_explanation):
+        classification.update(
+            {
+                "final_class": "monitor_only",
+                "adjustment": NORMAL_OPERATION_REASON,
+                "reason": normal_observation_reason(target, target_explanation=target_explanation),
+            }
+        )
+        return "monitor_only", classification
     if original != "primary_candidate":
         return original, classification
     if _primary_candidate_is_evidence_thin(
@@ -1217,6 +1303,8 @@ def _evidence_family(ref: str) -> str:
 def _is_low_information_public_target(target: dict[str, Any]) -> bool:
     if str(target.get("class") or "") == "primary_candidate":
         return False
+    if str(target.get("class") or "") == "monitor_only":
+        return False
     unit = _normalized_dedupe_text(target.get("canonical_review_unit") or target.get("subsystem") or "general")
     issue = str(target.get("suspected_issue") or "").strip()
     mechanism = str(target.get("operational_mechanism") or "").strip()
@@ -1287,6 +1375,23 @@ def _review_reason_summary(
         rollup_ratio_text = f"{float(rollup_ratio):.3f}"
     except (TypeError, ValueError):
         rollup_ratio_text = "unknown"
+    if NORMAL_OPERATION_REASON in blocked_reason:
+        factors = [
+            (
+                f"{provider_count}/{valid_count} schema-valid provider outputs now claim an incident issue for "
+                f"`{canonical_unit}`."
+            ),
+            (
+                f"{evidence_ref_count} chunk-tracked Evidence Item association(s) remain available for audit "
+                f"against the {log_count:,}-row sanitized corpus."
+            ),
+            "The row reads as normal operation or no finding, so it is excluded from unresolved incident validation targets.",
+        ]
+        return {
+            "headline": f"No-finding observation retained for audit: `{canonical_unit}`.",
+            "factors": factors,
+            "operator_question": f"Only reopen `{canonical_unit}` if contrary runtime or user-impact evidence appears.",
+        }
     provider_noun = "provider" if valid_count == 1 else "providers"
     factors = [
         (
@@ -1318,11 +1423,12 @@ def _review_reason_summary(
 
 def _public_review_counts(targets: list[dict[str, Any]], *, graph_summary: dict[str, Any]) -> dict[str, int]:
     primary = sum(1 for target in targets if str(target.get("class") or "") == "primary_candidate")
-    validation = sum(1 for target in targets if str(target.get("class") or "") != "primary_candidate")
+    validation = sum(1 for target in targets if str(target.get("class") or "") == "validation_target")
+    monitor = sum(1 for target in targets if str(target.get("class") or "") == "monitor_only")
     return {
         "primary_targets": primary,
         "validation_targets": validation,
-        "monitor_only": _int(graph_summary.get("monitor_only_count")),
+        "monitor_only": _int(graph_summary.get("monitor_only_count")) + monitor,
         "auto_archived": _int(graph_summary.get("auto_archived_count")),
     }
 
@@ -2195,7 +2301,14 @@ def _target_claim(
     provider_count: int,
     valid_count: int,
     evidence_ref_count: int,
+    classification: dict[str, Any] | None = None,
 ) -> str:
+    if isinstance(classification, dict) and classification.get("adjustment") == NORMAL_OPERATION_REASON:
+        unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
+        return (
+            f"{unit} was surfaced as a no-finding / normal-operation observation; "
+            "it is retained for audit and excluded from unresolved incident validation targets."
+        )
     text = str(target.get("impact_summary") or "").strip()
     if text and "providers aligned on a review signal" not in text:
         return text
@@ -2223,6 +2336,11 @@ def _promotion_explanation(*, state: str, provider_count: int, valid_count: int)
         return (
             "Primary candidacy is based on review priority, subsystem relevance, and unresolved operational risk, "
             "not on having the highest provider convergence. Incident promotion remains human-gated."
+        )
+    if state == "monitor_only":
+        return (
+            "This row is kept for audit as a normal-operation or no-finding observation. "
+            "It is not unresolved incident validation work."
         )
     if provider_count >= 2:
         return (

@@ -47,15 +47,24 @@ ACTIONABLE_TERMS = (
 )
 
 HEALTHY_OR_STATUS_TERMS = (
+    "none identified",
     "healthy and idle",
     "healthy state",
+    "likely healthy",
     "normal operation",
     "no issue detected",
+    "no observed failure",
+    "no evidence of service failure",
     "none, service is healthy",
     "status confirmation",
     "not an incident",
     "baseline health",
     "successful runs",
+    "successful operation",
+    "logs show successful operation",
+    "entirely consistent with normal operation",
+    "not impacting notification delivery",
+    "not experiencing the suspected failure modes",
 )
 
 GENERIC_UNITS = {"", "general", "general_review", "generic", "generic_runtime", "unknown", "none", "null"}
@@ -77,6 +86,9 @@ def score_review_priority(
     suspected_issue: str = "",
     operational_mechanism: str = "",
     why_it_matters: str = "",
+    why_not_promoted: str = "",
+    evidence_summary: Iterable[Any] | None = None,
+    counter_evidence_summary: Iterable[Any] | None = None,
     missing_evidence: Iterable[Any] | None = None,
     blocked_reasons: Iterable[Any] | None = None,
     caveats: Iterable[Any] | None = None,
@@ -120,6 +132,9 @@ def score_review_priority(
         suspected_issue=suspected_issue,
         operational_mechanism=operational_mechanism,
         why_it_matters=why_it_matters,
+        why_not_promoted=why_not_promoted,
+        evidence_summary=evidence_summary or [],
+        counter_evidence_summary=counter_evidence_summary or [],
         target_class=target_class,
     )
     penalties = _priority_penalties(
@@ -127,6 +142,9 @@ def score_review_priority(
         title=title,
         suspected_issue=suspected_issue,
         operational_mechanism=operational_mechanism,
+        why_not_promoted=why_not_promoted,
+        evidence_summary=evidence_summary or [],
+        counter_evidence_summary=counter_evidence_summary or [],
         missing_evidence=missing_evidence or [],
         blocked_reasons=blocked_reasons or [],
         caveats=caveats or [],
@@ -220,6 +238,9 @@ def _actionability_signal(
     suspected_issue: str,
     operational_mechanism: str,
     why_it_matters: str,
+    why_not_promoted: str,
+    evidence_summary: Iterable[Any],
+    counter_evidence_summary: Iterable[Any],
     target_class: str,
 ) -> float:
     text = " ".join(
@@ -229,6 +250,9 @@ def _actionability_signal(
             suspected_issue,
             operational_mechanism,
             why_it_matters,
+            why_not_promoted,
+            *(str(item) for item in evidence_summary),
+            *(str(item) for item in counter_evidence_summary),
             target_class,
         ]
     ).casefold()
@@ -252,6 +276,9 @@ def _priority_penalties(
     title: str,
     suspected_issue: str,
     operational_mechanism: str,
+    why_not_promoted: str,
+    evidence_summary: Iterable[Any],
+    counter_evidence_summary: Iterable[Any],
     missing_evidence: Iterable[Any],
     blocked_reasons: Iterable[Any],
     caveats: Iterable[Any],
@@ -261,7 +288,22 @@ def _priority_penalties(
     missing = [str(item or "").strip() for item in missing_evidence if str(item or "").strip()]
     blockers = [str(item or "").strip() for item in blocked_reasons if str(item or "").strip()]
     caveat_values = [str(item or "").strip() for item in caveats if str(item or "").strip()]
-    text = " ".join([canonical_review_unit, title, suspected_issue, operational_mechanism, *missing, *blockers, *caveat_values]).casefold()
+    summary_values = [str(item or "").strip() for item in evidence_summary if str(item or "").strip()]
+    counter_values = [str(item or "").strip() for item in counter_evidence_summary if str(item or "").strip()]
+    text = " ".join(
+        [
+            canonical_review_unit,
+            title,
+            suspected_issue,
+            operational_mechanism,
+            why_not_promoted,
+            *summary_values,
+            *counter_values,
+            *missing,
+            *blockers,
+            *caveat_values,
+        ]
+    ).casefold()
     generic_penalty = 0.055 if _normalized_unit(canonical_review_unit) in GENERIC_UNITS else 0.0
     healthy_penalty = 0.09 if any(term in text for term in HEALTHY_OR_STATUS_TERMS) else 0.0
     missing_penalty = min(0.07, 0.0125 * len(missing))
