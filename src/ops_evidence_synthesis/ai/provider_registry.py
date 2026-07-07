@@ -136,6 +136,30 @@ def provider_registry() -> list[ProviderSpec]:
             configured=lambda: True,
         ),
         ProviderSpec(
+            provider_id="local-qwen",
+            display_name="Local Qwen deterministic",
+            aliases=("local-qwen", "fake-qwen"),
+            model_name="qwen-simulated-contrast",
+            requires_network=False,
+            requires_api_key=False,
+            supports_json_schema=True,
+            default_timeout_seconds=5,
+            factory=lambda: HeuristicProvider("local-qwen", "qwen-simulated-contrast", "contrast"),
+            configured=lambda: True,
+        ),
+        ProviderSpec(
+            provider_id="local-gemma",
+            display_name="Local Gemma deterministic",
+            aliases=("local-gemma", "fake-gemma"),
+            model_name="gemma-simulated-verifier",
+            requires_network=False,
+            requires_api_key=False,
+            supports_json_schema=True,
+            default_timeout_seconds=5,
+            factory=lambda: HeuristicProvider("local-gemma", "gemma-simulated-verifier", "verifier"),
+            configured=lambda: True,
+        ),
+        ProviderSpec(
             provider_id="local-claude",
             display_name="Local Claude deterministic",
             aliases=("local-claude", "fake-claude"),
@@ -293,7 +317,7 @@ def build_multi_ai_providers(
 ) -> list[ModelProvider]:
     normalized = normalize_provider_names(names)
     if not normalized:
-        normalized = ["local-gemini", "local-gpt-oss", "local-mistral"]
+        normalized = ["local-gemini", "local-gpt-oss", "local-mistral", "local-qwen", "local-gemma"]
     specs = {alias: spec for spec in provider_registry() for alias in (spec.provider_id, *spec.aliases)}
     providers: list[ModelProvider] = []
     for name in normalized:

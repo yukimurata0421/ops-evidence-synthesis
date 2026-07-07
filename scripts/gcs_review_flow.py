@@ -19,7 +19,7 @@ from ops_evidence_synthesis.timeutils import format_timestamp
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PUBLIC_BASE_URL = "https://ops-evidence.yukimurata0421.dev"
-DEFAULT_PROVIDERS = "local-gemini,local-gpt-oss,local-mistral"
+DEFAULT_PROVIDERS = "local-gemini,local-gpt-oss,local-mistral,local-qwen,local-gemma"
 DEFAULT_RUN_ID_PREFIX = "review"
 DEFAULT_OUTPUT_DIR_NAME = "analyses"
 DEFAULT_SERVICE = "stream_v3_runtime"
@@ -187,6 +187,7 @@ def main(argv: list[str] | None = None) -> int:
             source_context_report=source_context_dir / "source_context_report.md",
             source_analysis_bundle=source_analysis_bundle,
             source_analysis_report=source_analysis_dir / "source_analysis_report.md",
+            approval_record_path=output_dir / "code_profile_approval.json",
             code_profile_url=code_profile_url,
             code_profile_report_url=code_profile_report_url,
             no_prompts=args.no_prompts,
@@ -473,6 +474,7 @@ def _confirm_code_profile_before_log_analysis(
     source_context_report: Path,
     source_analysis_bundle: Path,
     source_analysis_report: Path,
+    approval_record_path: Path | None,
     code_profile_url: str,
     code_profile_report_url: str,
     no_prompts: bool,
@@ -482,7 +484,7 @@ def _confirm_code_profile_before_log_analysis(
         return
     summary = _code_profile_summary(source_context_bundle, source_analysis_bundle)
     print(file=sys.stderr)
-    print("Code profile review is ready.", file=sys.stderr)
+    print("Code profile human review is ready.", file=sys.stderr)
     print(f"Code profile URL: {code_profile_url}", file=sys.stderr)
     print(f"Code profile Markdown URL: {code_profile_report_url}", file=sys.stderr)
     print(f"Selected source root: {source_root}", file=sys.stderr)
@@ -506,10 +508,23 @@ def _confirm_code_profile_before_log_analysis(
             f"{summary.get('collector_mapping_candidate_count', 0)} collector mappings",
             file=sys.stderr,
         )
-    answer = _read_prompt_line("Continue with log analysis using this code profile? Type yes to continue [y/N]: ").strip()
-    if answer.casefold() not in {"y", "yes"}:
-        print("Stopped before log analysis. Review the code profile, then rerun with corrected source paths.", file=sys.stderr)
+    print("Open the Code profile URL and approve only after checking the review checklist.", file=sys.stderr)
+    answer = _read_prompt_line("After human review, type APPROVE to start log analysis [N]: ").strip()
+    if answer.casefold() != "approve":
+        print(
+            "Stopped before log analysis. Review the code profile URL, then rerun or type APPROVE when ready.",
+            file=sys.stderr,
+        )
         raise SystemExit(0)
+    _write_code_profile_approval_record(
+        approval_record_path=approval_record_path,
+        source_root=source_root,
+        source_context_bundle=source_context_bundle,
+        source_analysis_bundle=source_analysis_bundle,
+        code_profile_url=code_profile_url,
+        code_profile_report_url=code_profile_report_url,
+        summary=summary,
+    )
 
 
 def _code_profile_summary(source_context_bundle: Path, source_analysis_bundle: Path) -> dict[str, object]:
@@ -556,6 +571,336 @@ def _code_profile_public_id(*, run_id: str, source_context_bundle: Path, source_
     return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
+def _write_code_profile_approval_record(
+    *,
+    approval_record_path: Path | None,
+    source_root: Path,
+    source_context_bundle: Path,
+    source_analysis_bundle: Path,
+    code_profile_url: str,
+    code_profile_report_url: str,
+    summary: dict[str, object],
+) -> None:
+    if approval_record_path is None:
+        return
+    approval_record_path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "schema_version": "code_profile_human_approval.v1",
+        "approved": True,
+        "approved_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "approval_gate": "source_profile_before_log_analysis",
+        "source_root_name": source_root.name or "source-root",
+        "local_absolute_path_uploaded": False,
+        "code_profile_url": code_profile_url,
+        "code_profile_report_url": code_profile_report_url,
+        "source_context_sha256": _json_field(source_context_bundle, "source_context_sha256"),
+        "analysis_sha256": _json_field(source_analysis_bundle, "analysis_sha256"),
+        "summary": summary,
+    }
+    approval_record_path.write_text(
+        json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+SIGNAL_CATEGORIES = (
+    (
+        "ADS-B data freshness and aircraft state",
+        ("adsb_freshness", "aircraft", "position", "messages_last_change", "stream1090"),
+        "Shows whether aircraft data is still moving and whether the feed is stale or missing.",
+    ),
+    (
+        "Video stream transport",
+        ("ffmpeg", "rtmp", "rtmps", "tcp", "notsent", "upload", "ssl_tls", "retrans"),
+        "Shows whether the live stream send path, socket backlog, TLS, or upload pressure is unhealthy.",
+    ),
+    (
+        "YouTube publication and public health",
+        ("youtube", "yt_", "video_resolver", "public_probe", "watchdog", "quota"),
+        "Shows whether the public live page, resolver, API usage, and watchdog state still agree.",
+    ),
+    (
+        "Recovery and supervisor control",
+        ("recovery", "restart", "systemd", "watchdog", "blocked", "orchestrator", "remote"),
+        "Shows whether automatic recovery, restart control, and supervisor actions fired or were blocked.",
+    ),
+    (
+        "Memory and host capacity",
+        ("memory", "mem_", "swap", "rss", "pss", "fd_", "container", "slab", "available"),
+        "Shows whether the host or runtime is close to memory, swap, process, or descriptor pressure.",
+    ),
+    (
+        "Audio and automatic DJ path",
+        ("audio", "dj", "pulse", "sink", "now_playing", "artist", "capture"),
+        "Shows whether audio capture, playback, DJ scheduling, and audible output are healthy.",
+    ),
+    (
+        "Network, WAN, and CPE observation",
+        ("network", "wan", "cpe", "dns", "ipv4", "ipv6", "keepalive"),
+        "Shows whether local network identity, router events, DNS, or WAN state may explain symptoms.",
+    ),
+    (
+        "Health, SLO, and freshness",
+        ("slo", "health", "freshness", "age_seconds", "degraded", "warn", "fail", "heartbeat"),
+        "Shows whether monitoring considers the system fresh, degraded, warning, or failed.",
+    ),
+)
+
+
+def _code_profile_interpretation(
+    source_context: dict[str, object],
+    source_analysis: dict[str, object],
+) -> dict[str, object]:
+    project_summary = (
+        source_context.get("project_summary") if isinstance(source_context.get("project_summary"), dict) else {}
+    )
+    entrypoints = _string_list(project_summary.get("entrypoint_candidates"))
+    unit_names = _systemd_unit_names(source_context)
+    component_names = _component_names(source_analysis)
+    metric_names = _metric_names(source_context, source_analysis)
+    surface_names = _unique(metric_names + component_names + unit_names)
+    categories = _matched_signal_categories(surface_names)
+    return {
+        "system_purpose": _system_purpose(entrypoints, unit_names, categories),
+        "key_runtime_surfaces": _key_runtime_surfaces(entrypoints, unit_names, component_names),
+        "runtime_measurements": categories,
+        "do_not_break": _do_not_break(categories),
+        "human_review_questions": _human_review_questions(categories),
+    }
+
+
+def _system_purpose(
+    entrypoints: list[str],
+    unit_names: list[str],
+    categories: list[dict[str, object]],
+) -> list[str]:
+    haystack = " ".join(entrypoints + unit_names).casefold()
+    category_names = {str(row.get("name") or "") for row in categories}
+    if "adsb" in haystack and ("youtube" in haystack or "ffmpeg" in haystack or "rtmp" in haystack):
+        primary = (
+            "This code appears to operate an ADS-B live streaming runtime: it keeps aircraft data, "
+            "audio, ffmpeg/RTMPS upload, YouTube publication, and health reporting moving under systemd."
+        )
+    elif "systemd" in haystack or unit_names:
+        primary = "This code appears to operate a systemd-managed runtime with background workers and health checks."
+    else:
+        primary = "This code appears to operate an application runtime with source, config, and monitoring surfaces."
+    details = [
+        primary,
+        (
+            "The profile is source/config context only. It should guide which runtime logs to inspect, "
+            "but it does not prove that any runtime event happened."
+        ),
+    ]
+    if "Recovery and supervisor control" in category_names:
+        details.append("Recovery workers and supervisor units are part of the runtime contract, not just monitoring noise.")
+    if "Video stream transport" in category_names:
+        details.append("Transport health is a first-class concern because stream continuity depends on ffmpeg, socket, and upload signals.")
+    return details
+
+
+def _key_runtime_surfaces(
+    entrypoints: list[str],
+    unit_names: list[str],
+    component_names: list[str],
+) -> list[str]:
+    surfaces: list[str] = []
+    for label, patterns in (
+        ("Stream and publishing units", ("youtube", "ffmpeg", "rtmp", "rtmps", "stream_watchdog")),
+        ("Recovery and watchdog units", ("recovery", "watchdog", "restart", "orchestrator")),
+        ("Resource and memory guardrails", ("memory", "resource", "swap", "arena")),
+        ("Network and WAN observers", ("network", "wan", "cpe", "tcp", "netlink")),
+        ("Telemetry exporters and reports", ("prometheus", "report", "status", "notify")),
+        ("Audio and DJ workers", ("audio", "dj", "pulse")),
+    ):
+        examples = _examples_matching(entrypoints + unit_names + component_names, patterns, limit=4)
+        if examples:
+            surfaces.append(f"{label}: {', '.join(examples)}")
+    return surfaces or ["No high-signal runtime surface could be inferred; review the entrypoints before continuing."]
+
+
+def _matched_signal_categories(names: list[str]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for label, patterns, interpretation in SIGNAL_CATEGORIES:
+        examples = _examples_matching(names, patterns, limit=8)
+        if examples:
+            rows.append({"name": label, "interpretation": interpretation, "examples": examples})
+    return rows or [
+        {
+            "name": "Unclassified runtime signals",
+            "interpretation": "The code exposes candidates, but they did not match known operational categories.",
+            "examples": names[:8],
+        }
+    ]
+
+
+def _do_not_break(categories: list[dict[str, object]]) -> list[str]:
+    names = {str(row.get("name") or "") for row in categories}
+    invariants = [
+        "Do not turn source/config hints into incident conclusions without cited sanitized log Evidence Items.",
+        "Do not require raw source, raw environment values, credential files, or unsanitized logs for the review.",
+    ]
+    if "ADS-B data freshness and aircraft state" in names:
+        invariants.append("Do not break ADS-B message freshness, aircraft count continuity, or stale-feed detection.")
+    if "Video stream transport" in names:
+        invariants.append("Do not break ffmpeg/RTMPS upload continuity, socket backpressure detection, or stream restart accounting.")
+    if "YouTube publication and public health" in names:
+        invariants.append("Do not break YouTube live identity, public page health, resolver freshness, or API quota guardrails.")
+    if "Recovery and supervisor control" in names:
+        invariants.append("Do not make recovery actions more destructive or bypass the existing blocked-action and supervisor checks.")
+    if "Memory and host capacity" in names:
+        invariants.append("Do not hide memory, swap, file descriptor, or process pressure signals used by runtime guardrails.")
+    if "Audio and automatic DJ path" in names:
+        invariants.append("Do not break audio capture, playback sink, or automatic DJ continuity signals.")
+    if "Network, WAN, and CPE observation" in names:
+        invariants.append("Do not collapse network/WAN observer signals into generic failures; keep them separable from stream symptoms.")
+    return invariants
+
+
+def _human_review_questions(categories: list[dict[str, object]]) -> list[str]:
+    questions = [
+        "Is this the deployed source tree for the incident window, or only a nearby checkout?",
+        "Which listed runtime surfaces are in scope for this incident and which should be ignored?",
+        "Which log files or state directories contain the matching runtime evidence for these surfaces?",
+    ]
+    if any(str(row.get("name") or "") == "Recovery and supervisor control" for row in categories):
+        questions.append("Were recovery actions expected to act automatically, or should they remain human-gated for this window?")
+    if any(str(row.get("name") or "") == "Video stream transport" for row in categories):
+        questions.append("Should stream transport failures be judged by ffmpeg/socket evidence, public YouTube evidence, or both?")
+    if any(str(row.get("name") or "") == "Memory and host capacity" for row in categories):
+        questions.append("Which memory thresholds are operational guardrails versus hard incident evidence?")
+    return questions
+
+
+def _systemd_unit_names(source_context: dict[str, object]) -> list[str]:
+    values: list[str] = []
+    for row in source_context.get("systemd_units") or []:
+        if not isinstance(row, dict):
+            continue
+        values.extend(
+            _string_list(
+                [
+                    row.get("unit_name"),
+                    row.get("description"),
+                ]
+            )
+        )
+    return values
+
+
+def _component_names(source_analysis: dict[str, object]) -> list[str]:
+    values: list[str] = []
+    for row in source_analysis.get("component_candidates") or []:
+        if isinstance(row, dict):
+            values.extend(_string_list([row.get("name"), row.get("suggested_role"), row.get("suggested_subsystem")]))
+    return values
+
+
+def _metric_names(source_context: dict[str, object], source_analysis: dict[str, object]) -> list[str]:
+    values = _string_list(
+        (
+            source_context.get("project_summary")
+            if isinstance(source_context.get("project_summary"), dict)
+            else {}
+        ).get("metric_name_candidates")
+    )
+    for row in source_analysis.get("metric_semantics_candidates") or []:
+        if isinstance(row, dict):
+            values.extend(_string_list([row.get("metric_name")]))
+    for row in source_analysis.get("instrumentation_candidates") or []:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("instrumentation_type") or "") == "metrics":
+            values.extend(_string_list(row.get("candidate_names")))
+    return _unique([value for value in values if _looks_like_runtime_signal(value)])
+
+
+def _looks_like_runtime_signal(value: str) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    lowered = text.casefold()
+    if lowered.startswith("test_"):
+        return False
+    if lowered in {"assertionerror", "attributeerror", "keyerror", "typeerror", "valueerror"}:
+        return False
+    if len(text) < 3:
+        return False
+    return True
+
+
+def _examples_matching(values: list[str], patterns: tuple[str, ...], *, limit: int) -> list[str]:
+    examples: list[str] = []
+    lowered_patterns = tuple(pattern.casefold() for pattern in patterns)
+    for value in values:
+        text = str(value or "").strip()
+        lowered = text.casefold()
+        if text and any(pattern in lowered for pattern in lowered_patterns):
+            examples.append(_shorten_token(text))
+        if len(examples) >= limit:
+            break
+    return _unique(examples)
+
+
+def _shorten_token(value: str) -> str:
+    text = str(value or "").strip()
+    if len(text) <= 96:
+        return text
+    return text[:93].rstrip() + "..."
+
+
+def _markdown_list(value: object) -> str:
+    items = _string_list(value)
+    return "\n".join(f"- {item}" for item in items) if items else "- none inferred"
+
+
+def _markdown_signal_sections(value: object) -> str:
+    if not isinstance(value, list):
+        return "- none inferred"
+    sections: list[str] = []
+    for row in value:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or "Runtime signal").strip()
+        interpretation = str(row.get("interpretation") or "").strip()
+        examples = _string_list(row.get("examples"))
+        sections.append(f"- {name}: {interpretation}")
+        if examples:
+            sections.append(f"  Examples: {', '.join(examples[:8])}")
+    return "\n".join(sections) if sections else "- none inferred"
+
+
+def _string_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _unique(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique_values: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        key = text.casefold()
+        if not text or key in seen:
+            continue
+        seen.add(key)
+        unique_values.append(text)
+    return unique_values
+
+
+def _trim_report(text: str, *, max_lines: int) -> str:
+    lines = str(text or "").strip().splitlines()
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+    kept = lines[:max_lines]
+    kept.append(f"... trimmed {len(lines) - max_lines} additional lines from generated details ...")
+    return "\n".join(kept)
+
+
 def _write_code_profile_review_artifacts(
     *,
     output_dir: Path,
@@ -573,8 +918,9 @@ def _write_code_profile_review_artifacts(
     summary = _code_profile_summary(source_context_bundle, source_analysis_bundle)
     source_context = _read_json_object(source_context_bundle)
     source_analysis = _read_json_object(source_analysis_bundle)
-    context_report = _read_text_or_empty(source_context_report)
-    analysis_report = _read_text_or_empty(source_analysis_report)
+    interpretation = _code_profile_interpretation(source_context, source_analysis)
+    context_report = _trim_report(_read_text_or_empty(source_context_report), max_lines=120)
+    analysis_report = _trim_report(_read_text_or_empty(source_analysis_report), max_lines=90)
     markdown = _render_code_profile_markdown(
         run_id=run_id,
         code_profile_id=code_profile_id,
@@ -582,6 +928,7 @@ def _write_code_profile_review_artifacts(
         code_profile_report_url=code_profile_report_url,
         source_root_name=source_root.name or "source-root",
         summary=summary,
+        interpretation=interpretation,
         context_report=context_report,
         analysis_report=analysis_report,
     )
@@ -600,6 +947,7 @@ def _write_code_profile_review_artifacts(
         "code_profile_url": code_profile_url,
         "code_profile_report_url": code_profile_report_url,
         "summary": summary,
+        "interpretation": interpretation,
         "source_context_sha256": source_context.get("source_context_sha256") or "",
         "analysis_sha256": source_analysis.get("analysis_sha256") or "",
         "raw_source_policy": source_context.get("raw_source_policy") or source_analysis.get("raw_source_policy") or "",
@@ -622,14 +970,20 @@ def _render_code_profile_markdown(
     code_profile_report_url: str,
     source_root_name: str,
     summary: dict[str, object],
+    interpretation: dict[str, object],
     context_report: str,
     analysis_report: str,
 ) -> str:
     entrypoints = [str(item) for item in summary.get("entrypoint_candidates") or []]
     entrypoint_text = "\n".join(f"- {item}" for item in entrypoints[:12]) or "- none detected"
+    purpose_text = _markdown_list(interpretation.get("system_purpose"))
+    measurement_text = _markdown_signal_sections(interpretation.get("runtime_measurements"))
+    invariant_text = _markdown_list(interpretation.get("do_not_break"))
+    question_text = _markdown_list(interpretation.get("human_review_questions"))
+    key_surface_text = _markdown_list(interpretation.get("key_runtime_surfaces"))
     return f"""# Code Profile Review
 
-This page is the human checkpoint before log analysis starts.
+This page is the human approval checkpoint before log analysis starts.
 
 - run_id: {run_id}
 - code_profile_id: {code_profile_id}
@@ -644,9 +998,44 @@ This page is the human checkpoint before log analysis starts.
 - metric_semantics_candidates: {summary.get("metric_semantics_candidate_count", 0)}
 - collector_mapping_candidates: {summary.get("collector_mapping_candidate_count", 0)}
 
-## Human Decision
+## What This Code Appears To Run
 
-Approve this page only if the selected code profile matches the system and deployment period you want to review. Code/config is context, not incident evidence. Runtime claims still need cited Evidence Items from sanitized logs.
+{purpose_text}
+
+## Key Runtime Surfaces
+
+{key_surface_text}
+
+## What The Logs Should Measure
+
+{measurement_text}
+
+## What Should Not Be Broken
+
+{invariant_text}
+
+## Human Review Questions
+
+{question_text}
+
+## Approval Checklist
+
+- The selected source root name matches the system under review.
+- Entrypoint candidates include the service, timer, or worker units that were deployed in the incident window.
+- Source/config counts look plausible for the selected repository.
+- Component, metric, and collector candidates look relevant enough to guide log review.
+- Code/config is treated as context only. Runtime claims still require cited Evidence Items from sanitized logs.
+
+## Stop Conditions
+
+- Stop if the selected source root is the wrong repository.
+- Stop if the entrypoint candidates do not match the deployed service family.
+- Stop if this code profile may not match the deployment period under review.
+- Stop if source/config counts look unexpectedly low or unexpectedly broad.
+
+## Approval Action
+
+After reviewing this page, return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
 
 ## Entrypoint Candidates
 
@@ -654,9 +1043,13 @@ Approve this page only if the selected code profile matches the system and deplo
 
 ## Source Context Report
 
+Trimmed generated report. Open the local analysis directory for the full report when needed.
+
 {context_report.strip()}
 
 ## Source Analysis Report
+
+Trimmed generated report. Open the local analysis directory for the full report when needed.
 
 {analysis_report.strip()}
 """
@@ -702,12 +1095,12 @@ def _render_code_profile_html(
   <header>
     <div class="inner">
       <h1>{_html(title)}</h1>
-      <p class="lede">Human checkpoint before log analysis. The page contains sanitized code-profile context only.</p>
+      <p class="lede">Human approval checkpoint before log analysis. The page contains sanitized code-profile context only.</p>
       <div class="actions">
         <a class="button primary" href="{_html(code_profile_url)}">Open HTML</a>
         <a class="button" href="{_html(code_profile_report_url)}">Open Markdown</a>
       </div>
-      <p class="notice">Approve only when this profile matches the system and deployment period under review. Runtime claims still require sanitized log evidence.</p>
+      <p class="notice">Review the checklist before approving. Type APPROVE in the terminal only when this profile matches the system and deployment period under review.</p>
     </div>
   </header>
   <main class="content">

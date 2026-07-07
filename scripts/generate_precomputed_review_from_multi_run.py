@@ -264,6 +264,7 @@ def build_payload(
                     provider_count=provider_count,
                     log_count=log_count,
                     service=str(source.get("service") or "service"),
+                    provider_mode=provider_mode,
                 ),
                 "impact": (
                     f"{provider_result_sentence} "
@@ -2354,14 +2355,28 @@ def _schema_valid_provider_statuses(provider_statuses: list[dict[str, Any]]) -> 
     return [row for row in provider_statuses if row.get("status") == "ok" and row.get("schema_valid")]
 
 
-def _provider_summary_title(*, valid_provider_count: int, provider_count: int, log_count: int, service: str) -> str:
+def _provider_summary_title(
+    *,
+    valid_provider_count: int,
+    provider_count: int,
+    log_count: int,
+    service: str,
+    provider_mode: str,
+) -> str:
     if provider_count == 5 and valid_provider_count == 5:
+        if _local_provider_mode(provider_mode):
+            return f"Five local deterministic providers analyzed the {log_count:,}-row {service} corpus"
         return f"Five real providers analyzed the {log_count:,}-row {service} corpus"
     provider_noun = "provider" if provider_count == 1 else "providers"
     return (
         f"Recorded chunked review of the {log_count:,}-row {service} corpus "
         f"with {valid_provider_count}/{provider_count} schema-valid {provider_noun}"
     )
+
+
+def _local_provider_mode(provider_mode: str) -> bool:
+    normalized = str(provider_mode or "").casefold()
+    return any(token in normalized for token in ("local", "deterministic", "fake"))
 
 
 def _provider_result_sentence(

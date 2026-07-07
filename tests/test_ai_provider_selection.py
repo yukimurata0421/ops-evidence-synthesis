@@ -76,6 +76,18 @@ def test_provider_registry_exposes_qwen_glm_gemma_grok_and_llama(monkeypatch) ->
     assert infos["llama-agent-platform"]["status"] == "configured"
 
 
+def test_multi_ai_provider_registry_defaults_to_five_local_providers() -> None:
+    providers = build_multi_ai_providers([], mode="local")
+
+    assert [provider.provider for provider in providers] == [
+        "local-gemini",
+        "local-gpt-oss",
+        "local-mistral",
+        "local-qwen",
+        "local-gemma",
+    ]
+
+
 def test_provider_registry_can_disable_provider_by_policy(monkeypatch) -> None:
     monkeypatch.setenv("OES_ENABLE_REAL_AI", "1")
     monkeypatch.setenv("OES_VERTEX_PROJECT", "ops-evidence-synthesis")

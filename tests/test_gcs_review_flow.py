@@ -314,6 +314,7 @@ def test_code_profile_confirmation_can_stop_before_log_analysis(
             source_context_report=context_report,
             source_analysis_bundle=analysis_bundle,
             source_analysis_report=analysis_report,
+            approval_record_path=tmp_path / "code_profile_approval.json",
             code_profile_url="https://example.test/code-profiles/profile-1/",
             code_profile_report_url="https://example.test/code-profiles/profile-1/report.md",
             no_prompts=False,
@@ -323,7 +324,9 @@ def test_code_profile_confirmation_can_stop_before_log_analysis(
     assert exc.value.code == 0
 
 
-def test_code_profile_confirmation_accepts_yes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_code_profile_confirmation_accepts_approve_and_records_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     script = _load_script()
     source_root = tmp_path / "stream_v3"
     source_root.mkdir()
@@ -341,7 +344,8 @@ def test_code_profile_confirmation_accepts_yes(tmp_path: Path, monkeypatch: pyte
             return True
 
     monkeypatch.setattr(script.sys, "stdin", Tty())
-    script._PENDING_PROMPT_LINES[:] = ["yes"]
+    script._PENDING_PROMPT_LINES[:] = ["APPROVE"]
+    approval_record = tmp_path / "code_profile_approval.json"
 
     script._confirm_code_profile_before_log_analysis(
         source_root=source_root,
@@ -349,11 +353,15 @@ def test_code_profile_confirmation_accepts_yes(tmp_path: Path, monkeypatch: pyte
         source_context_report=context_report,
         source_analysis_bundle=analysis_bundle,
         source_analysis_report=analysis_report,
+        approval_record_path=approval_record,
         code_profile_url="https://example.test/code-profiles/profile-1/",
         code_profile_report_url="https://example.test/code-profiles/profile-1/report.md",
         no_prompts=False,
         skip_confirmation=False,
     )
+    record = json.loads(approval_record.read_text(encoding="utf-8"))
+    assert record["approved"] is True
+    assert record["approval_gate"] == "source_profile_before_log_analysis"
 
 
 def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> None:
@@ -418,11 +426,15 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     markdown = artifacts["markdown"].read_text(encoding="utf-8")
     payload = json.loads(artifacts["payload"].read_text(encoding="utf-8"))
     assert "Code Profile Review" in html
-    assert "Human checkpoint before log analysis" in html
+    assert "Human approval checkpoint before log analysis" in html
+    assert "What This Code Appears To Run" in markdown
+    assert "What The Logs Should Measure" in markdown
+    assert "What Should Not Be Broken" in markdown
     assert "component_candidates: 2" in markdown
     assert str(source_root) not in html
     assert payload["local_absolute_path_uploaded"] is False
     assert payload["code_profile_id"] == profile_id
+    assert isinstance(payload["interpretation"], dict)
 
 
 def test_main_builds_code_profile_before_log_analysis(

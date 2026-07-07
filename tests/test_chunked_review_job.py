@@ -7,6 +7,7 @@ from typing import Any
 from ops_evidence_synthesis.gcp import chunked_review_job
 from ops_evidence_synthesis.gcp.chunked_review_job import (
     DEFAULT_JOB_PROVIDERS,
+    _public_provider_mode,
     _providers_from_env,
     job_config_from_env,
 )
@@ -38,6 +39,16 @@ def test_job_provider_list_defaults_to_five_provider_set() -> None:
     assert DEFAULT_JOB_PROVIDERS == ("gemini", "gpt-oss", "mistral", "qwen", "gemma")
     assert _providers_from_env("") == DEFAULT_JOB_PROVIDERS
     assert _providers_from_env(" gemini, qwen ,, glm ") == ("gemini", "qwen", "glm")
+
+
+def test_public_provider_mode_tracks_local_job_mode(monkeypatch) -> None:
+    monkeypatch.delenv("OES_JOB_PUBLIC_PROVIDER_MODE", raising=False)
+    monkeypatch.setenv("OES_JOB_PROVIDER_MODE", "local")
+
+    assert _public_provider_mode() == "deterministic_local_gcs_review"
+
+    monkeypatch.setenv("OES_JOB_PUBLIC_PROVIDER_MODE", "manual-public-mode")
+    assert _public_provider_mode() == "manual-public-mode"
 
 
 def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch) -> None:

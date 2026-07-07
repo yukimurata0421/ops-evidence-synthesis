@@ -169,6 +169,22 @@ def _precomputed_review_payload(evidence_sha256: str) -> dict[str, Any] | None:
     cached = _PRECOMPUTED_REVIEW_CACHE.get(evidence_id)
     if ttl > 0 and cached and time.monotonic() - cached[0] < ttl:
         return deepcopy(cached[1])
+    if _precomputed_review_gcs_first():
+        payload = _load_precomputed_review_from_gcs(evidence_id, ttl=ttl)
+        if payload is not None:
+            return payload
+        return _load_precomputed_review_from_dirs(evidence_id, ttl=ttl)
+    payload = _load_precomputed_review_from_dirs(evidence_id, ttl=ttl)
+    if payload is not None:
+        return payload
+    return _load_precomputed_review_from_gcs(evidence_id, ttl=ttl)
+
+
+def _precomputed_review_gcs_first() -> bool:
+    return os.environ.get("OES_PRECOMPUTED_REVIEW_GCS_FIRST", "").strip().casefold() in {"1", "true", "yes", "on"}
+
+
+def _load_precomputed_review_from_dirs(evidence_id: str, *, ttl: int) -> dict[str, Any] | None:
     for directory in _precomputed_review_dirs():
         path = directory / f"{evidence_id}.json"
         try:
@@ -184,6 +200,10 @@ def _precomputed_review_payload(evidence_sha256: str) -> dict[str, Any] | None:
         if ttl > 0:
             _PRECOMPUTED_REVIEW_CACHE[evidence_id] = (time.monotonic(), deepcopy(payload))
         return payload
+    return None
+
+
+def _load_precomputed_review_from_gcs(evidence_id: str, *, ttl: int) -> dict[str, Any] | None:
     for uri in _precomputed_review_gcs_uris(evidence_id):
         try:
             from ops_evidence_synthesis.gcp.storage import read_json

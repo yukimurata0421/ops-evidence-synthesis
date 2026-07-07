@@ -29,7 +29,7 @@ from ops_evidence_synthesis.web.precomputed_review import (
     rescore_demo_payload,
     render_rescore_demo_page,
 )
-from scripts.generate_precomputed_review_from_multi_run import _public_target_class
+from scripts.generate_precomputed_review_from_multi_run import _provider_summary_title, _public_target_class
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,6 +44,23 @@ PUBLIC_PROFILE_CONTEXTS = {
     "amazon-notify": ROOT / "data" / "public_profile_contexts" / "amazon_notify_sample",
     "payment-api": ROOT / "data" / "public_profile_contexts" / "payment_api_sample",
 }
+
+
+def test_provider_summary_title_distinguishes_local_and_real_modes() -> None:
+    assert _provider_summary_title(
+        valid_provider_count=5,
+        provider_count=5,
+        log_count=44191,
+        service="stream_v3_runtime",
+        provider_mode="deterministic_local_gcs_review",
+    ).startswith("Five local deterministic providers")
+    assert _provider_summary_title(
+        valid_provider_count=5,
+        provider_count=5,
+        log_count=44944,
+        service="amazon-notify",
+        provider_mode="real_api_private_gcs_cloud_run_job_postgres_ledger",
+    ).startswith("Five real providers")
 
 
 def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
@@ -490,6 +507,39 @@ def test_precomputed_review_lookup_prefers_public_review_id_and_falls_back_to_lo
     (tmp_path / f"{evidence_sha}.json").unlink()
     assert _precomputed_review_payload(evidence_sha) is None
     assert gcs_reads == [f"gs://private/precomputed/{evidence_sha}.json"]
+
+
+def test_precomputed_review_lookup_can_prefer_gcs_over_local(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from ops_evidence_synthesis.gcp import storage
+
+    web_precomputed._PRECOMPUTED_REVIEW_CACHE.clear()
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", str(tmp_path))
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_GCS_PREFIX", "gs://private/precomputed")
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_GCS_FIRST", "1")
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_CACHE_SECONDS", "0")
+    evidence_sha = "3" * 64
+    local_payload = {
+        "evidence_sha256": evidence_sha,
+        "summary": {"finding": {"title": "local stale payload"}, "review": {}, "providers": {}},
+        "generation": {},
+        "provider_statuses": [],
+        "targets": [],
+    }
+    gcs_payload = {
+        "evidence_sha256": evidence_sha,
+        "summary": {"finding": {"title": "fresh gcs payload"}, "review": {}, "providers": {}},
+        "generation": {},
+        "provider_statuses": [],
+        "targets": [],
+    }
+    (tmp_path / f"{evidence_sha}.json").write_text(json.dumps(local_payload), encoding="utf-8")
+
+    monkeypatch.setattr(storage, "read_json", lambda _uri: gcs_payload)
+
+    assert _precomputed_review_payload(evidence_sha)["summary"]["finding"]["title"] == "fresh gcs payload"
 
 
 def test_legacy_public_stream_v3_hash_resolves_to_canonical_primary(monkeypatch) -> None:
