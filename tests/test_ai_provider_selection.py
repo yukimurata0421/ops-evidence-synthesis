@@ -35,6 +35,21 @@ def test_provider_selection_supports_vertex_gemini(monkeypatch) -> None:
     assert providers[0].thinking_level == "medium"
 
 
+def test_provider_selection_supports_fast_gcp_gemini(monkeypatch) -> None:
+    monkeypatch.setenv("OES_VERTEX_PROJECT", "ops-evidence-synthesis")
+    monkeypatch.setenv("OES_FAST_GCP_GEMINI_MODEL", "gemini-3.1-flash-lite")
+    monkeypatch.setenv("OES_FAST_GCP_GEMINI_THINKING_LEVEL", "minimal")
+
+    providers = build_provider_list(["gemini-fast-lite"])
+
+    assert len(providers) == 1
+    assert isinstance(providers[0], VertexGeminiProvider)
+    assert providers[0].provider == "gemini-fast-lite-agent-platform"
+    assert providers[0].project_id == "ops-evidence-synthesis"
+    assert providers[0].model_name == "gemini-3.1-flash-lite"
+    assert providers[0].thinking_level == "minimal"
+
+
 def test_provider_selection_supports_qwen_glm_gemma_grok_and_llama(monkeypatch) -> None:
     monkeypatch.setenv("OES_VERTEX_PROJECT", "ops-evidence-synthesis")
 
