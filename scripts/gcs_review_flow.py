@@ -1238,6 +1238,13 @@ def _write_code_profile_review_artifacts(
         code_profile_url=code_profile_url,
         code_profile_report_url=code_profile_report_url,
         markdown=markdown,
+        review_form=_render_code_profile_review_form(
+            run_id=run_id,
+            code_profile_id=code_profile_id,
+            code_profile_url=code_profile_url,
+            focused_profile=focused_profile_payload,
+            interpretation=interpretation,
+        ),
     )
     payload = {
         "schema_version": "code_profile_review_page.v1",
@@ -1341,7 +1348,7 @@ This page is the human approval checkpoint before log analysis starts.
 
 ## Approval Action
 
-There is no input form on this static page. Answer the Gemini review questions in your own review notes. If the profile is acceptable, return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
+Use the Human Review Form on the HTML page to record answers and the approval decision. If the profile is acceptable, save or download the review note, then return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
 
 ## Entrypoint Candidates
 
@@ -1361,12 +1368,96 @@ Trimmed generated report. Open the local analysis directory for the full report 
 """
 
 
+def _render_code_profile_review_form(
+    *,
+    run_id: str,
+    code_profile_id: str,
+    code_profile_url: str,
+    focused_profile: dict[str, object],
+    interpretation: dict[str, object],
+) -> str:
+    focused_public = _focused_profile_public_payload(focused_profile)
+    questions = _unique(
+        [
+            *_string_list(focused_public.get("human_review_required")),
+            *_string_list(interpretation.get("human_review_questions")),
+        ]
+    )
+    if not questions:
+        questions = [
+            "Does this code profile match the deployed system for the incident window?",
+            "Which source surfaces should guide log analysis?",
+            "What should not be changed or treated as automatically safe?",
+        ]
+    question_fields = "\n".join(
+        f"""        <div class="field">
+          <label for="review-question-{index}">{_html(question)}</label>
+          <textarea id="review-question-{index}" name="review_question_{index}" data-review-question="{_html(question)}"></textarea>
+        </div>"""
+        for index, question in enumerate(questions, start=1)
+    )
+    config = {
+        "run_id": run_id,
+        "code_profile_id": code_profile_id,
+        "code_profile_url": code_profile_url,
+        "question_count": len(questions),
+    }
+    return f"""<section class="review-form" aria-labelledby="human-review-form-title">
+      <script type="application/json" id="review-form-config">{_script_json(config)}</script>
+      <h2 id="human-review-form-title">Human Review Form</h2>
+      <form id="code-profile-human-review-form">
+        <div class="review-grid">
+          <div class="field">
+            <label for="reviewer">Reviewer</label>
+            <input id="reviewer" name="reviewer" type="text" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="decision">Decision</label>
+            <select id="decision" name="decision">
+              <option value="">Select decision</option>
+              <option value="approved">Approved for log analysis</option>
+              <option value="needs_revision">Needs source profile revision</option>
+              <option value="stop">Stop before log analysis</option>
+            </select>
+          </div>
+          <div class="check">
+            <input id="profile-matches-deployment" name="profile_matches_deployment" type="checkbox">
+            <label for="profile-matches-deployment">The source profile matches the deployed system under review.</label>
+          </div>
+          <div class="check">
+            <input id="deployment-period-confirmed" name="deployment_period_confirmed" type="checkbox">
+            <label for="deployment-period-confirmed">The source profile is plausible for the selected incident window.</label>
+          </div>
+          <div class="check">
+            <input id="log-scope-confirmed" name="log_scope_confirmed" type="checkbox">
+            <label for="log-scope-confirmed">The log input path should contain evidence for the runtime surfaces listed below.</label>
+          </div>
+          <div class="question-list">
+{question_fields}
+          </div>
+          <div class="field">
+            <label for="approval-note">Approval note</label>
+            <textarea id="approval-note" name="approval_note"></textarea>
+          </div>
+          <div class="form-actions">
+            <button class="primary" type="submit">Save Review</button>
+            <button type="button" id="save-review-form">Save In Browser</button>
+            <button type="button" id="download-review-form">Download JSON</button>
+            <button type="button" id="copy-approve-command">Copy APPROVE</button>
+          </div>
+          <div id="review-form-status" class="form-status" role="status" aria-live="polite"></div>
+        </div>
+      </form>
+    </section>"""
+
+
 def _render_code_profile_html(
     *,
     title: str,
     code_profile_url: str,
     code_profile_report_url: str,
     markdown: str,
+    review_form: str,
 ) -> str:
     body = _markdown_to_html(markdown)
     return f"""<!doctype html>
@@ -1376,7 +1467,7 @@ def _render_code_profile_html(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{_html(title)}</title>
   <style>
-    :root {{ color-scheme: light; --ink:#182026; --muted:#5b6670; --line:#d7dde2; --panel:#f6f8fa; --accent:#126a72; --warn:#8a5a00; }}
+    :root {{ color-scheme: light; --ink:#182026; --muted:#5b6670; --line:#d7dde2; --panel:#f6f8fa; --accent:#126a72; --warn:#8a5a00; --ok:#17663a; }}
     body {{ margin:0; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#fff; }}
     header {{ border-bottom:1px solid var(--line); background:#f8fafb; }}
     main, .inner {{ max-width:1080px; margin:0 auto; padding:24px; }}
@@ -1391,6 +1482,20 @@ def _render_code_profile_html(
     .button {{ display:inline-flex; align-items:center; min-height:36px; padding:0 12px; border:1px solid var(--line); border-radius:6px; text-decoration:none; background:#fff; color:var(--ink); font-weight:650; }}
     .button.primary {{ background:var(--accent); color:#fff; border-color:var(--accent); }}
     .notice {{ margin-top:16px; padding:12px 14px; border:1px solid #e4c46f; border-radius:8px; background:#fff8e1; color:var(--warn); }}
+    .review-form {{ margin:24px 0 8px; padding:20px; border:1px solid var(--line); border-radius:8px; background:#fbfcfd; }}
+    .review-form h2 {{ margin-top:0; }}
+    .review-grid {{ display:grid; gap:14px; }}
+    .field {{ display:grid; gap:6px; }}
+    .field label, .check label {{ font-weight:650; }}
+    input[type="text"], select, textarea {{ width:100%; box-sizing:border-box; border:1px solid #bac3cb; border-radius:6px; padding:9px 10px; font:inherit; background:#fff; color:var(--ink); }}
+    textarea {{ min-height:84px; resize:vertical; }}
+    .question-list {{ display:grid; gap:12px; }}
+    .check {{ display:flex; align-items:flex-start; gap:9px; }}
+    .check input {{ margin-top:5px; }}
+    .form-actions {{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }}
+    button {{ min-height:38px; padding:0 12px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink); font:inherit; font-weight:650; cursor:pointer; }}
+    button.primary {{ background:var(--accent); border-color:var(--accent); color:#fff; }}
+    .form-status {{ min-height:24px; margin-top:10px; color:var(--ok); font-weight:650; }}
     .content {{ display:grid; gap:8px; }}
     .content ul {{ padding-left:22px; }}
     .content li {{ margin:4px 0; }}
@@ -1406,15 +1511,101 @@ def _render_code_profile_html(
         <a class="button primary" href="{_html(code_profile_url)}">Open HTML</a>
         <a class="button" href="{_html(code_profile_report_url)}">Open Markdown</a>
       </div>
-      <p class="notice">Review the checklist before approving. Type APPROVE in the terminal only when this profile matches the system and deployment period under review.</p>
+      <p class="notice">Fill the Human Review Form before approving. Type APPROVE in the terminal only when this profile matches the system and deployment period under review.</p>
     </div>
   </header>
-  <main class="content">
+  <main>
+    {review_form}
+    <div class="content">
     {body}
+    </div>
   </main>
   <footer>
     <div class="inner">Raw source, raw env values, and local absolute paths are not published in this page.</div>
   </footer>
+  <script>
+    (function () {{
+      const form = document.getElementById("code-profile-human-review-form");
+      if (!form) return;
+      const status = document.getElementById("review-form-status");
+      const config = JSON.parse(document.getElementById("review-form-config").textContent || "{{}}");
+      const storageKey = "ops-evidence-code-profile-review:" + (config.code_profile_id || "unknown");
+      const setStatus = (message) => {{ if (status) status.textContent = message; }};
+      const collect = () => {{
+        const data = new FormData(form);
+        const answers = [];
+        form.querySelectorAll("[data-review-question]").forEach((field, index) => {{
+          answers.push({{
+            question: field.getAttribute("data-review-question") || "",
+            answer: data.get(field.name) || ""
+          }});
+        }});
+        return {{
+          schema_version: "code_profile_human_review_form.v1",
+          run_id: config.run_id || "",
+          code_profile_id: config.code_profile_id || "",
+          code_profile_url: config.code_profile_url || "",
+          saved_at_utc: new Date().toISOString(),
+          reviewer: data.get("reviewer") || "",
+          decision: data.get("decision") || "",
+          profile_matches_deployment: data.get("profile_matches_deployment") === "on",
+          deployment_period_confirmed: data.get("deployment_period_confirmed") === "on",
+          log_scope_confirmed: data.get("log_scope_confirmed") === "on",
+          answers,
+          approval_note: data.get("approval_note") || ""
+        }};
+      }};
+      const restore = () => {{
+        try {{
+          const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+          if (!saved) return;
+          form.reviewer.value = saved.reviewer || "";
+          form.decision.value = saved.decision || "";
+          form.profile_matches_deployment.checked = Boolean(saved.profile_matches_deployment);
+          form.deployment_period_confirmed.checked = Boolean(saved.deployment_period_confirmed);
+          form.log_scope_confirmed.checked = Boolean(saved.log_scope_confirmed);
+          form.approval_note.value = saved.approval_note || "";
+          const answers = Array.isArray(saved.answers) ? saved.answers : [];
+          form.querySelectorAll("[data-review-question]").forEach((field, index) => {{
+            field.value = (answers[index] || {{}}).answer || "";
+          }});
+          setStatus("Saved review answers restored from this browser.");
+        }} catch (error) {{
+          setStatus("Saved review answers could not be restored.");
+        }}
+      }};
+      document.getElementById("save-review-form").addEventListener("click", () => {{
+        localStorage.setItem(storageKey, JSON.stringify(collect()));
+        setStatus("Review answers saved in this browser.");
+      }});
+      document.getElementById("download-review-form").addEventListener("click", () => {{
+        const payload = collect();
+        const blob = new Blob([JSON.stringify(payload, null, 2) + "\\n"], {{ type: "application/json" }});
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "code-profile-review-" + (config.code_profile_id || "unknown") + ".json";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(link.href);
+        setStatus("Review JSON downloaded.");
+      }});
+      document.getElementById("copy-approve-command").addEventListener("click", async () => {{
+        try {{
+          await navigator.clipboard.writeText("APPROVE");
+          setStatus("APPROVE copied for the terminal.");
+        }} catch (error) {{
+          setStatus("Copy failed. Type APPROVE in the terminal.");
+        }}
+      }});
+      form.addEventListener("submit", (event) => {{
+        event.preventDefault();
+        localStorage.setItem(storageKey, JSON.stringify(collect()));
+        setStatus("Review answers saved. Return to the terminal and type APPROVE only if the decision is approved.");
+      }});
+      restore();
+    }})();
+  </script>
 </body>
 </html>"""
 
@@ -1494,6 +1685,11 @@ def _read_text_or_empty(path: Path) -> str:
 
 def _html(value: object) -> str:
     return html.escape(str(value or ""), quote=True)
+
+
+def _script_json(value: object) -> str:
+    text = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return text.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
 
 
 def _optional_source_root(value: str | list[str], *, no_prompts: bool) -> Path | None:

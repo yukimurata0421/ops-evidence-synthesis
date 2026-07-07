@@ -182,14 +182,14 @@ window.
 When a source code directory is provided, the command first sanitizes the source
 tree locally, builds rule-based source mapping candidates, asks Gemini Pro to
 draft a focused operational profile from the sanitized artifacts, and pauses on
-the human-readable code profile URL. The page has no input form: review the
-Gemini questions and the source mapping, then type `APPROVE` in the terminal
-only when the profile matches the system and deployment period you want to
-review. Log sanitization, Evidence Bundle construction, private cloud handoff,
-and the final incident review page are the next step after that approval. Both
-the code profile checkpoint and the final incident review are printed as HTTPS
-URLs, not raw JSON or `gs://` object URIs. You do not need to copy an Evidence
-SHA by hand.
+the human-readable code profile URL. Fill the Human Review Form on that page,
+save or download the review note, then type `APPROVE` in the terminal only when
+the profile matches the system and deployment period you want to review. Log
+sanitization, Evidence Bundle construction, private cloud handoff, and the
+final incident review page are the next step after that approval. Both the code
+profile checkpoint and the final incident review are printed as HTTPS URLs, not
+raw JSON or `gs://` object URIs. You do not need to copy an Evidence SHA by
+hand.
 
 Large log directories are processed as streams. The sanitizer does not keep the
 full corpus in memory, and obvious binary/media/database artifacts such as

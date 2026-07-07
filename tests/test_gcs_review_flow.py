@@ -482,6 +482,13 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     payload = json.loads(artifacts["payload"].read_text(encoding="utf-8"))
     assert "Code Profile Review" in html
     assert "Human approval checkpoint before log analysis" in html
+    assert 'id="code-profile-human-review-form"' in html
+    assert "Human Review Form" in html
+    assert "Save Review" in html
+    assert "Download JSON" in html
+    assert "Copy APPROVE" in html
+    assert "code_profile_human_review_form.v1" in html
+    assert "Confirm this source profile matches the deployed service." in html
     assert "Gemini Pro Code Profile" in markdown
     assert "Gemini Questions For Human Approval" in markdown
     assert "Confirm this source profile matches the deployed service." in markdown
@@ -490,6 +497,8 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     assert "What This Code Appears To Run" in markdown
     assert "What The Logs Should Measure" in markdown
     assert "What Should Not Be Broken" in markdown
+    assert "Use the Human Review Form on the HTML page" in markdown
+    assert "There is no input form" not in markdown
     assert "component_candidates: 2" in markdown
     assert str(source_root) not in html
     assert payload["local_absolute_path_uploaded"] is False
