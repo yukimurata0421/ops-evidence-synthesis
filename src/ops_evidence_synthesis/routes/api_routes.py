@@ -868,7 +868,7 @@ def public_fast_gcp_review(request: Request, payload: dict[str, Any] | None = No
     cross_check = _fast_gcp_cross_check_requested(payload)
     run_id = _fast_gcp_review_run_id_from_payload(payload, cross_check=cross_check)
     _raise_if_public_fast_gcp_review_disabled(run_id=run_id, cross_check=cross_check)
-    force = bool(payload.get("force")) and _truthy_env("OES_PUBLIC_FAST_GCP_REVIEW_ALLOW_FORCE")
+    force = bool(payload.get("force"))
     cache_key = _fast_gcp_review_cache_key(cross_check=cross_check)
     ttl = _fast_gcp_review_cache_seconds()
     _write_fast_gcp_review_status(
@@ -879,7 +879,10 @@ def public_fast_gcp_review(request: Request, payload: dict[str, Any] | None = No
             current_step="queued",
             progress_percent=2,
             message="Fast GCP Review request accepted.",
-            cache={"status": "checking_recent_public_fast_review_cache", "ttl_seconds": ttl},
+            cache={
+                "status": "force_live_api_requested" if force else "checking_recent_public_fast_review_cache",
+                "ttl_seconds": ttl,
+            },
         )
     )
     with _FAST_GCP_REVIEW_LOCK:
@@ -946,7 +949,10 @@ def public_fast_gcp_review(request: Request, payload: dict[str, Any] | None = No
                 progress_percent=6,
                 message="Live model quota accepted for this fixed public demo run.",
                 quota=quota,
-                cache={"status": "cache_miss_live_quota_consumed", "ttl_seconds": ttl},
+                cache={
+                    "status": "force_live_api_requested" if force else "cache_miss_live_quota_consumed",
+                    "ttl_seconds": ttl,
+                },
             )
         )
         try:
@@ -996,11 +1002,7 @@ def _render_fast_gcp_review_view() -> str:
     full_review_sha = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
     rescore_demo_url = _fast_gcp_rescore_demo_url()
     system_preview_html = _render_fast_gcp_system_code_preview()
-    cache_note = (
-        "Live model calls are capped by the public demo quota, but this deployment is not using a repeat-click cache."
-        if _fast_gcp_review_cache_seconds() <= 0
-        else "The first uncached run calls the live model API; repeated clicks can return the short public cache without consuming live quota."
-    )
+    cache_note = "Live review calls the model API and consumes public demo quota; stored review URLs remain available after completion."
     cache_note_js = json.dumps(cache_note)
     return f"""<!doctype html>
 <html lang="en">
@@ -1360,7 +1362,7 @@ def _render_fast_gcp_review_view() -> str:
         <div class="guard-grid">
           <article class="guard-card"><strong>Fixed input only</strong><p>No arbitrary logs or URLs are accepted from this page.</p></article>
           <article class="guard-card"><strong>Raw stays local</strong><p>Raw source and raw logs are <code>not_uploaded</code>.</p></article>
-          <article class="guard-card green"><strong>Cache-friendly</strong><p>Repeat clicks can return the public cache without live quota.</p></article>
+          <article class="guard-card green"><strong>Quota guarded</strong><p>Live clicks consume guarded public demo quota and can be stopped by the budget guard.</p></article>
         </div>
       </section>
 
@@ -1525,7 +1527,7 @@ def _render_fast_gcp_review_view() -> str:
           const response = await fetch("/public/fast-gcp-review", {{
             method: "POST",
             headers: {{ "content-type": "application/json" }},
-            body: JSON.stringify({{ cross_check: crossCheck, run_id: runId }})
+            body: JSON.stringify({{ cross_check: crossCheck, run_id: runId, force: true }})
           }});
           const payload = await response.json();
           if (!response.ok) {{

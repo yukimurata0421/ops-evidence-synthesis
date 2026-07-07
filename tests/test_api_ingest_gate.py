@@ -425,6 +425,11 @@ def test_public_fast_gcp_review_uses_fixed_sample_without_write_token(
     assert 'id="source-preview-panel" hidden' in page.text
     assert "Run Live Fast Review" in page.text
     assert "Run Live Cross-check" in page.text
+    assert "force: true" in page.text
+    assert "Live review calls the model API and consumes public demo quota" in page.text
+    assert "Quota guarded" in page.text
+    assert "Repeat clicks can return the public cache" not in page.text
+    assert "Cache-friendly" not in page.text
     assert "/public/fast-gcp-review/status" in page.text
     assert "/public/fast-gcp-review/owner-session" in page.text
     assert "owner_token" in page.text
@@ -633,6 +638,51 @@ def test_public_fast_gcp_review_cache_hit_does_not_consume_live_quota(
     assert json.loads(total_files[0].read_text(encoding="utf-8"))["count"] == 1
     assert second_status.status_code == 200, second_status.text
     assert second_status.json()["quota"]["status"] == "cache_hit_no_live_quota_consumed"
+
+
+def test_public_fast_gcp_review_force_bypasses_recent_cache(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_fast_gcp_review_state()
+    summaries = tmp_path / "summaries"
+    statuses = tmp_path / "statuses"
+    quotas = tmp_path / "quotas"
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
+    monkeypatch.setenv("OES_API_WRITE_TOKEN", "secret-token")
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_PROVIDER_MODE", "local")
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_SAMPLE_ROWS", "20")
+    monkeypatch.setenv("OES_PUBLIC_FAST_GCP_REVIEW_CACHE_SECONDS", "3600")
+    monkeypatch.setenv("OES_PUBLIC_FAST_GCP_REVIEW_DAILY_LIMIT", "2")
+    monkeypatch.setenv("OES_PUBLIC_FAST_GCP_REVIEW_CLIENT_DAILY_LIMIT", "2")
+    monkeypatch.delenv("OES_PUBLIC_FAST_GCP_REVIEW_ALLOW_FORCE", raising=False)
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_OUTPUT_DIR", str(summaries))
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_STATUS_DIR", str(statuses))
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_QUOTA_DIR", str(quotas))
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", str(summaries))
+
+    with TestClient(app) as client:
+        first = client.post("/public/fast-gcp-review", json={"run_id": "force-first"})
+        second = client.post("/public/fast-gcp-review", json={"run_id": "force-second", "force": True})
+        second_status = client.get("/public/fast-gcp-review/status?run_id=force-second")
+
+    assert first.status_code == 200, first.text
+    assert first.json()["quota"]["client_daily_remaining"] == 1
+    assert second.status_code == 200, second.text
+    second_payload = second.json()
+    assert second_payload["run_id"] == "force-second"
+    assert second_payload["cache"]["status"] == "live_api_result"
+    assert second_payload["quota"]["status"] == "accepted"
+    assert second_payload["quota"]["client_daily_remaining"] == 0
+    total_files = list(quotas.glob("*/total.json"))
+    assert len(total_files) == 1
+    assert json.loads(total_files[0].read_text(encoding="utf-8"))["count"] == 2
+    assert second_status.status_code == 200, second_status.text
+    second_status_payload = second_status.json()
+    assert second_status_payload["status"] == "succeeded"
+    assert second_status_payload["quota"]["status"] == "accepted"
 
 
 def test_public_fast_gcp_review_owner_session_bypasses_live_quota(
