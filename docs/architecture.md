@@ -264,13 +264,13 @@ hash, value type, presence, and secret-like flags.
 The focused profile path is Gemini-backed and intentionally narrow. In the GCS
 handoff review flow, this happens before log analysis: Gemini Pro receives
 sanitized source context and source analysis, then the operator reviews the
-static code profile URL, records answers in the Human Review Form, and types
-`APPROVE` in the terminal before any log Evidence Bundle is built. It asks what
-system is being reviewed, what is logged or measured, which runtime components
-matter, and what orchestration or watchdog loop is visible from sanitized
-source analysis. It is still a draft: source context is not incident evidence,
-runtime support claims require `evidence_id`, and every collector remains
-read-only until human approval.
+static code profile URL, records answers directly under Gemini Questions For
+Human Approval, and types `APPROVE` in the terminal before any log Evidence
+Bundle is built. It asks what system is being reviewed, what is logged or
+measured, which runtime components matter, and what orchestration or watchdog
+loop is visible from sanitized source analysis. It is still a draft: source
+context is not incident evidence, runtime support claims require `evidence_id`,
+and every collector remains read-only until human approval.
 
 `run-case` and `arbitrate-review` accept only the approved profile and sanitized
 source artifacts as context inputs. Cloud workflow inputs remain Evidence

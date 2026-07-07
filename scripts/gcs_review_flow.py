@@ -1348,7 +1348,7 @@ This page is the human approval checkpoint before log analysis starts.
 
 ## Approval Action
 
-Use the Human Review Form on the HTML page to record answers and the approval decision. If the profile is acceptable, save or download the review note, then return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
+Answer directly under Gemini Questions For Human Approval on the HTML page. If the profile is acceptable, save or download the review note, then return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
 
 ## Entrypoint Candidates
 
@@ -1377,12 +1377,7 @@ def _render_code_profile_review_form(
     interpretation: dict[str, object],
 ) -> str:
     focused_public = _focused_profile_public_payload(focused_profile)
-    questions = _unique(
-        [
-            *_string_list(focused_public.get("human_review_required")),
-            *_string_list(interpretation.get("human_review_questions")),
-        ]
-    )
+    questions = _unique(_string_list(focused_public.get("human_review_required")))
     if not questions:
         questions = [
             "Does this code profile match the deployed system for the incident window?",
@@ -1404,21 +1399,11 @@ def _render_code_profile_review_form(
     }
     return f"""<section class="review-form" aria-labelledby="human-review-form-title">
       <script type="application/json" id="review-form-config">{_script_json(config)}</script>
-      <h2 id="human-review-form-title">Human Review Form</h2>
+      <h3 id="human-review-form-title">Answer And Approve</h3>
       <form id="code-profile-human-review-form">
         <div class="review-grid">
-          <div class="field">
-            <label for="reviewer">Reviewer</label>
-            <input id="reviewer" name="reviewer" type="text" autocomplete="name">
-          </div>
-          <div class="field">
-            <label for="decision">Decision</label>
-            <select id="decision" name="decision">
-              <option value="">Select decision</option>
-              <option value="approved">Approved for log analysis</option>
-              <option value="needs_revision">Needs source profile revision</option>
-              <option value="stop">Stop before log analysis</option>
-            </select>
+          <div class="question-list">
+{question_fields}
           </div>
           <div class="check">
             <input id="profile-matches-deployment" name="profile_matches_deployment" type="checkbox">
@@ -1432,8 +1417,18 @@ def _render_code_profile_review_form(
             <input id="log-scope-confirmed" name="log_scope_confirmed" type="checkbox">
             <label for="log-scope-confirmed">The log input path should contain evidence for the runtime surfaces listed below.</label>
           </div>
-          <div class="question-list">
-{question_fields}
+          <div class="field">
+            <label for="reviewer">Reviewer</label>
+            <input id="reviewer" name="reviewer" type="text" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="decision">Decision</label>
+            <select id="decision" name="decision">
+              <option value="">Select decision</option>
+              <option value="approved">Approved for log analysis</option>
+              <option value="needs_revision">Needs source profile revision</option>
+              <option value="stop">Stop before log analysis</option>
+            </select>
           </div>
           <div class="field">
             <label for="approval-note">Approval note</label>
@@ -1459,7 +1454,7 @@ def _render_code_profile_html(
     markdown: str,
     review_form: str,
 ) -> str:
-    body = _markdown_to_html(markdown)
+    body = _insert_review_form_after_gemini_questions(_markdown_to_html(markdown), review_form)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1473,6 +1468,7 @@ def _render_code_profile_html(
     main, .inner {{ max-width:1080px; margin:0 auto; padding:24px; }}
     h1 {{ margin:0 0 8px; font-size:32px; line-height:1.15; letter-spacing:0; }}
     h2 {{ margin:32px 0 10px; font-size:21px; letter-spacing:0; }}
+    h3 {{ margin:0 0 12px; font-size:18px; letter-spacing:0; }}
     p {{ margin:8px 0; }}
     a {{ color:var(--accent); }}
     code {{ background:#edf2f4; padding:2px 5px; border-radius:4px; }}
@@ -1483,7 +1479,6 @@ def _render_code_profile_html(
     .button.primary {{ background:var(--accent); color:#fff; border-color:var(--accent); }}
     .notice {{ margin-top:16px; padding:12px 14px; border:1px solid #e4c46f; border-radius:8px; background:#fff8e1; color:var(--warn); }}
     .review-form {{ margin:24px 0 8px; padding:20px; border:1px solid var(--line); border-radius:8px; background:#fbfcfd; }}
-    .review-form h2 {{ margin-top:0; }}
     .review-grid {{ display:grid; gap:14px; }}
     .field {{ display:grid; gap:6px; }}
     .field label, .check label {{ font-weight:650; }}
@@ -1511,11 +1506,10 @@ def _render_code_profile_html(
         <a class="button primary" href="{_html(code_profile_url)}">Open HTML</a>
         <a class="button" href="{_html(code_profile_report_url)}">Open Markdown</a>
       </div>
-      <p class="notice">Fill the Human Review Form before approving. Type APPROVE in the terminal only when this profile matches the system and deployment period under review.</p>
+      <p class="notice">Answer the fields directly under Gemini Questions For Human Approval. Type APPROVE in the terminal only when this profile matches the system and deployment period under review.</p>
     </div>
   </header>
   <main>
-    {review_form}
     <div class="content">
     {body}
     </div>
@@ -1608,6 +1602,19 @@ def _render_code_profile_html(
   </script>
 </body>
 </html>"""
+
+
+def _insert_review_form_after_gemini_questions(body: str, review_form: str) -> str:
+    heading = "<h2>Gemini Questions For Human Approval</h2>"
+    next_heading = "<h2>Gemini Runtime Components</h2>"
+    heading_index = body.find(heading)
+    if heading_index < 0:
+        return review_form + "\n" + body
+    section_start = heading_index + len(heading)
+    next_heading_index = body.find(next_heading, section_start)
+    if next_heading_index < 0:
+        return body[:section_start] + "\n" + review_form + "\n" + body[section_start:]
+    return body[:section_start] + "\n" + review_form + "\n" + body[next_heading_index:]
 
 
 def _markdown_to_html(markdown: str) -> str:
