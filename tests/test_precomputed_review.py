@@ -1238,6 +1238,39 @@ def test_public_target_classification_routes_no_finding_to_monitor_only() -> Non
     assert healthy_baseline_class == "monitor_only"
     assert healthy_baseline["adjustment"] == "normal_operation_observation"
 
+    expected_watchdog_class, expected_watchdog = _public_target_class(
+        {"canonical_review_unit": "runtime_recovery"},
+        original_class="validation_target",
+        provider_count=1,
+        valid_count=1,
+        evidence_ref_count=6,
+        evidence_family_count=1,
+        source_candidate_count=1,
+        target_explanation={
+            "suspected_issue": "None; watchdog is functioning as expected.",
+            "evidence_summary": [
+                "PATTERN-004, PATTERN-005, and PATTERN-006 show watchdog service cycles completing."
+            ],
+            "counter_evidence_summary": [
+                "No evidence of watchdog failure or restart loops was found."
+            ],
+            "why_it_matters": "Ensures the main service is monitored for health.",
+            "why_not_promoted": "The evidence confirms normal watchdog behavior.",
+            "provider_explanations": [
+                {
+                    "claim_type": "support",
+                    "suspected_issue": "None; service appears healthy.",
+                    "why_not_promoted": "This is a baseline operational observation.",
+                }
+            ],
+        },
+        missing_evidence=["systemd error logs"],
+        blocked_reason="no_baseline_agreement_or_causal_alignment; cause_disagreement",
+    )
+
+    assert expected_watchdog_class == "monitor_only"
+    assert expected_watchdog["adjustment"] == "normal_operation_observation"
+
     structural_caveat_class, structural_caveat = _public_target_class(
         {"canonical_review_unit": "user_experience"},
         original_class="validation_target",
