@@ -180,13 +180,16 @@ accept the default service/environment when they match, then enter the incident
 window.
 
 When a source code directory is provided, the command first sanitizes the source
-tree locally, builds rule-based source mapping candidates, and pauses on the
-human-readable code profile URL. Continue only after confirming that the code
-profile matches the system you want to review. Log sanitization, Evidence Bundle
-construction, private cloud handoff, and the final incident review page are the
-next step after that approval. Both the code profile checkpoint and the final
-incident review are printed as HTTPS URLs, not raw JSON or `gs://` object URIs.
-You do not need to copy an Evidence SHA by hand.
+tree locally, builds rule-based source mapping candidates, asks Gemini Pro to
+draft a focused operational profile from the sanitized artifacts, and pauses on
+the human-readable code profile URL. The page has no input form: review the
+Gemini questions and the source mapping, then type `APPROVE` in the terminal
+only when the profile matches the system and deployment period you want to
+review. Log sanitization, Evidence Bundle construction, private cloud handoff,
+and the final incident review page are the next step after that approval. Both
+the code profile checkpoint and the final incident review are printed as HTTPS
+URLs, not raw JSON or `gs://` object URIs. You do not need to copy an Evidence
+SHA by hand.
 
 Large log directories are processed as streams. The sanitizer does not keep the
 full corpus in memory, and obvious binary/media/database artifacts such as
@@ -207,7 +210,8 @@ Incident window start (example: 2026-06-14T23:15:50Z):
 Incident window end (example: 2026-06-15T23:59:52Z):
 Code profile URL: https://ops-evidence.yukimurata0421.dev/code-profiles/...
 Code profile Markdown URL: https://ops-evidence.yukimurata0421.dev/code-profiles/.../report.md
-Continue with log analysis using this code profile? Type yes to continue [y/N]:
+Gemini source profile: status=ok, model=gemini-3.1-pro-preview, fallback_used=False
+After human review, type APPROVE to start log analysis [N]:
 ```
 
 By default, local outputs are written to `./analyses/${RUN_ID}/` with an

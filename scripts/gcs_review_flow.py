@@ -20,6 +20,8 @@ from ops_evidence_synthesis.timeutils import format_timestamp
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PUBLIC_BASE_URL = "https://ops-evidence.yukimurata0421.dev"
 DEFAULT_PROVIDERS = "local-gemini,local-gpt-oss,local-mistral,local-qwen,local-gemma"
+DEFAULT_CODE_PROFILE_PROVIDER = "gemini"
+DEFAULT_CODE_PROFILE_MODEL = "gemini-3.1-pro-preview"
 DEFAULT_RUN_ID_PREFIX = "review"
 DEFAULT_OUTPUT_DIR_NAME = "analyses"
 DEFAULT_SERVICE = "stream_v3_runtime"
@@ -42,6 +44,16 @@ def main(argv: list[str] | None = None) -> int:
     ).rstrip("/")
     provider_mode = _value(args.provider_mode, "PROVIDER_MODE", "local")
     providers = _value(args.providers, "PROVIDERS", DEFAULT_PROVIDERS)
+    code_profile_provider = _value(
+        args.code_profile_provider,
+        "CODE_PROFILE_PROVIDER",
+        DEFAULT_CODE_PROFILE_PROVIDER,
+    )
+    code_profile_model = _optional_value(
+        args.code_profile_model,
+        "CODE_PROFILE_MODEL",
+        os.environ.get("OES_FOCUSED_PROFILE_GEMINI_MODEL", DEFAULT_CODE_PROFILE_MODEL),
+    )
     min_window_hours = _value(args.min_window_hours, "MIN_WINDOW_HOURS", "0")
     output_dir = _absolute_output_dir(_value(args.output_dir, "OUT", str(_default_output_dir(run_id))))
 
@@ -117,8 +129,11 @@ def main(argv: list[str] | None = None) -> int:
     if source_root is not None:
         source_context_dir = output_dir / "source_context"
         source_analysis_dir = output_dir / "source_analysis"
+        source_profile_dir = output_dir / "source_profile"
         source_context_bundle = source_context_dir / "source_context_bundle.json"
         source_analysis_bundle = source_analysis_dir / "source_analysis_bundle.json"
+        profile_discovery_bundle = source_profile_dir / "profile_discovery_bundle.json"
+        focused_profile = source_profile_dir / "focused_operational_profile.json"
         _run_step(
             "Sanitizing source code",
             [
@@ -149,6 +164,46 @@ def main(argv: list[str] | None = None) -> int:
             ],
         )
         _run_step("Checking source mapping candidates", [*cli, "verify-sanitized", str(source_analysis_dir)])
+        _run_step(
+            "Building source profile discovery",
+            [
+                *cli,
+                "discover-profile",
+                "--source-context",
+                str(source_context_bundle),
+                "--source-analysis",
+                str(source_analysis_bundle),
+                "--service",
+                service,
+                "--environment",
+                environment,
+                "--out",
+                str(source_profile_dir),
+            ],
+        )
+        focused_command = [
+            *cli,
+            "draft-focused-profile",
+            "--discovery-bundle",
+            str(profile_discovery_bundle),
+            "--provider",
+            code_profile_provider,
+            "--source-context",
+            str(source_context_bundle),
+            "--source-analysis",
+            str(source_analysis_bundle),
+            "--out",
+            str(focused_profile),
+        ]
+        if code_profile_model:
+            focused_command.extend(["--model", code_profile_model])
+        focused_env = dict(os.environ)
+        if not focused_env.get("GOOGLE_CLOUD_PROJECT"):
+            focused_env["GOOGLE_CLOUD_PROJECT"] = project_id
+        if not focused_env.get("OES_VERTEX_PROJECT"):
+            focused_env["OES_VERTEX_PROJECT"] = project_id
+        _run_step("Analyzing source profile with Gemini Pro", focused_command, env=focused_env)
+        _run_step("Checking source profile discovery", [*cli, "verify-sanitized", str(source_profile_dir)])
         code_profile_id = _code_profile_public_id(
             run_id=run_id,
             source_context_bundle=source_context_bundle,
@@ -168,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
             source_context_report=source_context_dir / "source_context_report.md",
             source_analysis_bundle=source_analysis_bundle,
             source_analysis_report=source_analysis_dir / "source_analysis_report.md",
+            focused_profile=focused_profile,
         )
         _run_step(
             "Uploading code profile review page",
@@ -187,6 +243,7 @@ def main(argv: list[str] | None = None) -> int:
             source_context_report=source_context_dir / "source_context_report.md",
             source_analysis_bundle=source_analysis_bundle,
             source_analysis_report=source_analysis_dir / "source_analysis_report.md",
+            focused_profile=focused_profile,
             approval_record_path=output_dir / "code_profile_approval.json",
             code_profile_url=code_profile_url,
             code_profile_report_url=code_profile_report_url,
@@ -323,6 +380,17 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--static-review-base-url", default="")
     parser.add_argument("--providers", default="")
     parser.add_argument("--provider-mode", default="")
+    parser.add_argument(
+        "--code-profile-provider",
+        default="",
+        choices=["", "local", "gemini", "vertex-gemini", "gemini-enterprise-agent-platform"],
+        help="Provider used for the pre-log-analysis focused code profile.",
+    )
+    parser.add_argument(
+        "--code-profile-model",
+        default="",
+        help="Optional Gemini model override for the pre-log-analysis focused code profile.",
+    )
     parser.add_argument("--min-window-hours", default="")
     parser.add_argument("--no-prompts", action="store_true")
     parser.add_argument("--no-url-check", action="store_true")
@@ -457,7 +525,6 @@ def _required_timestamp_value(
                 return format_timestamp(recovered)
             raise SystemExit(f"{env_name} must be ISO-8601 date/time, got: {text}") from exc
 
-
 def _absolute_existing_input_path(value: str) -> Path:
     path = Path(value).expanduser()
     if not path.is_absolute():
@@ -479,6 +546,7 @@ def _confirm_code_profile_before_log_analysis(
     code_profile_report_url: str,
     no_prompts: bool,
     skip_confirmation: bool,
+    focused_profile: Path | None = None,
 ) -> None:
     if no_prompts or skip_confirmation or not sys.stdin.isatty():
         return
@@ -508,6 +576,18 @@ def _confirm_code_profile_before_log_analysis(
             f"{summary.get('collector_mapping_candidate_count', 0)} collector mappings",
             file=sys.stderr,
         )
+    focused_summary = _focused_profile_cli_summary(focused_profile)
+    if focused_summary:
+        print(
+            "Gemini source profile: "
+            f"status={focused_summary.get('llm_status') or 'unknown'}, "
+            f"model={focused_summary.get('model_name') or 'unknown'}, "
+            f"fallback_used={focused_summary.get('fallback_used')}",
+            file=sys.stderr,
+        )
+        questions = focused_summary.get("human_review_required") or []
+        if isinstance(questions, list) and questions:
+            print(f"Gemini review questions: {'; '.join(str(item) for item in questions[:3])}", file=sys.stderr)
     print("Open the Code profile URL and approve only after checking the review checklist.", file=sys.stderr)
     answer = _read_prompt_line("After human review, type APPROVE to start log analysis [N]: ").strip()
     if answer.casefold() != "approve":
@@ -525,6 +605,21 @@ def _confirm_code_profile_before_log_analysis(
         code_profile_report_url=code_profile_report_url,
         summary=summary,
     )
+
+
+def _focused_profile_cli_summary(focused_profile: Path | None) -> dict[str, object]:
+    if focused_profile is None:
+        return {}
+    payload = _read_json_object(focused_profile)
+    if not payload:
+        return {}
+    generation = payload.get("focused_profile_generation") if isinstance(payload.get("focused_profile_generation"), dict) else {}
+    return {
+        "llm_status": generation.get("llm_status") or "",
+        "model_name": generation.get("model_name") or "",
+        "fallback_used": bool(generation.get("fallback_used")),
+        "human_review_required": _string_list(payload.get("human_review_required"))[:5],
+    }
 
 
 def _code_profile_summary(source_context_bundle: Path, source_analysis_bundle: Path) -> dict[str, object]:
@@ -901,6 +996,209 @@ def _trim_report(text: str, *, max_lines: int) -> str:
     return "\n".join(kept)
 
 
+def _focused_profile_public_payload(payload: dict[str, object]) -> dict[str, object]:
+    if not payload:
+        return {}
+    generation = payload.get("focused_profile_generation") if isinstance(payload.get("focused_profile_generation"), dict) else {}
+    limits = payload.get("profile_limits") if isinstance(payload.get("profile_limits"), dict) else {}
+    return {
+        "schema_version": payload.get("schema_version") or "",
+        "system_label": payload.get("system_label") or "",
+        "system_summary": payload.get("system_summary") if isinstance(payload.get("system_summary"), dict) else {},
+        "focused_profile_generation": {
+            "provider_id": generation.get("provider_id") or "",
+            "model_name": generation.get("model_name") or "",
+            "prompt_name": generation.get("prompt_name") or "",
+            "llm_status": generation.get("llm_status") or "",
+            "fallback_used": bool(generation.get("fallback_used")),
+            "failure_reason": generation.get("failure_reason") or "",
+            "provider_error_message": generation.get("provider_error_message") or "",
+            "source_context_sha256": generation.get("source_context_sha256") or "",
+            "source_analysis_sha256": generation.get("source_analysis_sha256") or "",
+        },
+        "profile_limits": {
+            "source_context_is_incident_evidence": bool(limits.get("source_context_is_incident_evidence")),
+            "runtime_claims_require_evidence_id": limits.get("runtime_claims_require_evidence_id") is not False,
+            "approval_required_before_explicit_profile": limits.get("approval_required_before_explicit_profile") is not False,
+            "raw_source_sent_to_provider": bool(limits.get("raw_source_sent_to_provider")),
+            "raw_logs_sent_to_provider": bool(limits.get("raw_logs_sent_to_provider")),
+        },
+        "runtime_components": _rows_for_payload(payload.get("runtime_components"), limit=12),
+        "observability_contract": payload.get("observability_contract")
+        if isinstance(payload.get("observability_contract"), dict)
+        else {},
+        "orchestration_flows": _rows_for_payload(payload.get("orchestration_flows"), limit=8),
+        "failure_modes": _rows_for_payload(payload.get("failure_modes"), limit=12),
+        "read_only_collectors": _rows_for_payload(payload.get("read_only_collectors"), limit=10),
+        "human_review_required": _string_list(payload.get("human_review_required"))[:20],
+    }
+
+
+def _markdown_focused_profile_sections(payload: dict[str, object]) -> str:
+    if not payload:
+        return """## Gemini Pro Code Profile
+
+- Gemini focused profile was not generated for this page.
+- Use the local source mapping sections below as a structural hint only.
+"""
+
+    public_payload = _focused_profile_public_payload(payload)
+    generation = (
+        public_payload.get("focused_profile_generation")
+        if isinstance(public_payload.get("focused_profile_generation"), dict)
+        else {}
+    )
+    limits = public_payload.get("profile_limits") if isinstance(public_payload.get("profile_limits"), dict) else {}
+    summary = public_payload.get("system_summary") if isinstance(public_payload.get("system_summary"), dict) else {}
+    status_lines = [
+        f"- provider: {_md(generation.get('provider_id') or 'unknown')}",
+        f"- model: {_md(generation.get('model_name') or 'unknown')}",
+        f"- llm_status: {_md(generation.get('llm_status') or 'unknown')}",
+        f"- fallback_used: {_bool_text(generation.get('fallback_used'))}",
+        f"- raw_source_sent_to_provider: {_bool_text(limits.get('raw_source_sent_to_provider'))}",
+        f"- raw_logs_sent_to_provider: {_bool_text(limits.get('raw_logs_sent_to_provider'))}",
+        f"- runtime_claims_require_evidence_id: {_bool_text(limits.get('runtime_claims_require_evidence_id'))}",
+    ]
+    if generation.get("failure_reason"):
+        status_lines.append(f"- failure_reason: {_md(generation.get('failure_reason'))}")
+    if generation.get("provider_error_message"):
+        status_lines.append(f"- provider_error_message: {_md(generation.get('provider_error_message'))}")
+
+    summary_lines = [
+        f"- system_label: {_md(public_payload.get('system_label') or 'unknown')}",
+        f"- system_type: {_md(summary.get('system_type') or 'unknown')}",
+        f"- primary_purpose: {_md(summary.get('primary_purpose') or 'unknown')}",
+        f"- logged_subject: {_md(summary.get('logged_subject') or 'unknown')}",
+        f"- operational_boundary: {_md(summary.get('operational_boundary') or 'unknown')}",
+        f"- confidence: {_md(summary.get('confidence') if summary.get('confidence') is not None else 'unknown')}",
+    ]
+
+    return f"""## Gemini Pro Code Profile
+
+Gemini Pro analyzes the sanitized source profile before log analysis starts. It does not receive raw source, raw environment values, or raw logs.
+
+{chr(10).join(status_lines)}
+
+## Gemini System Reading
+
+{chr(10).join(summary_lines)}
+
+## Gemini Questions For Human Approval
+
+{_markdown_list(public_payload.get("human_review_required"))}
+
+## Gemini Runtime Components
+
+{_markdown_runtime_components(public_payload.get("runtime_components"))}
+
+## Gemini Observability Contract
+
+{_markdown_observability_contract(public_payload.get("observability_contract"))}
+
+## Gemini Orchestration And Failure Checks
+
+{_markdown_orchestration_and_failure_checks(public_payload)}
+
+## Read-Only Collector Questions
+
+{_markdown_read_only_collectors(public_payload.get("read_only_collectors"))}
+"""
+
+
+def _rows_for_payload(value: object, *, limit: int) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    rows: list[dict[str, object]] = []
+    for row in value:
+        if isinstance(row, dict):
+            rows.append(row)
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def _markdown_runtime_components(value: object) -> str:
+    rows = _rows_for_payload(value, limit=12)
+    if not rows:
+        return "- none inferred"
+    lines: list[str] = []
+    for row in rows:
+        name = row.get("name") or row.get("component_id") or "component"
+        role = row.get("role") or "role not specified"
+        confidence = row.get("confidence")
+        suffix = f"; confidence {_md(confidence)}" if confidence is not None else ""
+        lines.append(f"- {_md(name)}: {_md(role)}{suffix}")
+    return "\n".join(lines)
+
+
+def _markdown_observability_contract(value: object) -> str:
+    if not isinstance(value, dict):
+        return "- none inferred"
+    sections = [
+        ("logs", "logs", "source", "meaning"),
+        ("metrics", "metrics", "metric_name", "meaning"),
+        ("heartbeats", "heartbeats", "name", "meaning"),
+        ("state_files", "state files", "name", "meaning"),
+    ]
+    lines: list[str] = []
+    for key, label, name_key, meaning_key in sections:
+        rows = _rows_for_payload(value.get(key), limit=8)
+        if not rows:
+            continue
+        examples = []
+        for row in rows:
+            name = row.get(name_key) or row.get("name") or row.get("source") or "unnamed"
+            meaning = row.get(meaning_key) or "meaning not specified"
+            examples.append(f"{_md(name)} = {_md(meaning)}")
+        lines.append(f"- {label}: {'; '.join(examples)}")
+    return "\n".join(lines) if lines else "- none inferred"
+
+
+def _markdown_orchestration_and_failure_checks(payload: dict[str, object]) -> str:
+    flow_lines: list[str] = []
+    for row in _rows_for_payload(payload.get("orchestration_flows"), limit=8):
+        name = row.get("flow_name") or "flow"
+        trigger = row.get("trigger") or "trigger not specified"
+        steps = ", ".join(_string_list(row.get("steps"))[:5])
+        suffix = f"; steps: {_md(steps)}" if steps else ""
+        flow_lines.append(f"- flow {_md(name)}: trigger {_md(trigger)}{suffix}")
+    failure_lines: list[str] = []
+    for row in _rows_for_payload(payload.get("failure_modes"), limit=10):
+        failure = row.get("failure_mode") or "failure mode"
+        signals = ", ".join(_string_list(row.get("observable_signals"))[:5])
+        missing = ", ".join(_string_list(row.get("missing_evidence"))[:5])
+        parts = [f"- check {_md(failure)}"]
+        if signals:
+            parts.append(f"signals: {_md(signals)}")
+        if missing:
+            parts.append(f"missing evidence: {_md(missing)}")
+        failure_lines.append("; ".join(parts))
+    lines = flow_lines + failure_lines
+    return "\n".join(lines) if lines else "- none inferred"
+
+
+def _markdown_read_only_collectors(value: object) -> str:
+    rows = _rows_for_payload(value, limit=10)
+    if not rows:
+        return "- none proposed"
+    lines: list[str] = []
+    for row in rows:
+        collector = row.get("collector") or "collector"
+        purpose = row.get("purpose") or "purpose not specified"
+        safety = row.get("safety_level") or "read_only"
+        lines.append(f"- {_md(collector)}: {_md(purpose)}; safety {_md(safety)}")
+    return "\n".join(lines)
+
+
+def _bool_text(value: object) -> str:
+    return "true" if bool(value) else "false"
+
+
+def _md(value: object) -> str:
+    text = str(value if value is not None else "").replace("\n", " ").strip()
+    return _shorten_token(text) if text else "unknown"
+
+
 def _write_code_profile_review_artifacts(
     *,
     output_dir: Path,
@@ -913,11 +1211,13 @@ def _write_code_profile_review_artifacts(
     source_context_report: Path,
     source_analysis_bundle: Path,
     source_analysis_report: Path,
+    focused_profile: Path | None = None,
 ) -> dict[str, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     summary = _code_profile_summary(source_context_bundle, source_analysis_bundle)
     source_context = _read_json_object(source_context_bundle)
     source_analysis = _read_json_object(source_analysis_bundle)
+    focused_profile_payload = _read_json_object(focused_profile) if focused_profile is not None else {}
     interpretation = _code_profile_interpretation(source_context, source_analysis)
     context_report = _trim_report(_read_text_or_empty(source_context_report), max_lines=120)
     analysis_report = _trim_report(_read_text_or_empty(source_analysis_report), max_lines=90)
@@ -928,6 +1228,7 @@ def _write_code_profile_review_artifacts(
         code_profile_report_url=code_profile_report_url,
         source_root_name=source_root.name or "source-root",
         summary=summary,
+        focused_profile=focused_profile_payload,
         interpretation=interpretation,
         context_report=context_report,
         analysis_report=analysis_report,
@@ -947,6 +1248,7 @@ def _write_code_profile_review_artifacts(
         "code_profile_url": code_profile_url,
         "code_profile_report_url": code_profile_report_url,
         "summary": summary,
+        "focused_profile": _focused_profile_public_payload(focused_profile_payload),
         "interpretation": interpretation,
         "source_context_sha256": source_context.get("source_context_sha256") or "",
         "analysis_sha256": source_analysis.get("analysis_sha256") or "",
@@ -970,12 +1272,14 @@ def _render_code_profile_markdown(
     code_profile_report_url: str,
     source_root_name: str,
     summary: dict[str, object],
+    focused_profile: dict[str, object],
     interpretation: dict[str, object],
     context_report: str,
     analysis_report: str,
 ) -> str:
     entrypoints = [str(item) for item in summary.get("entrypoint_candidates") or []]
     entrypoint_text = "\n".join(f"- {item}" for item in entrypoints[:12]) or "- none detected"
+    focused_profile_text = _markdown_focused_profile_sections(focused_profile)
     purpose_text = _markdown_list(interpretation.get("system_purpose"))
     measurement_text = _markdown_signal_sections(interpretation.get("runtime_measurements"))
     invariant_text = _markdown_list(interpretation.get("do_not_break"))
@@ -997,6 +1301,8 @@ This page is the human approval checkpoint before log analysis starts.
 - component_candidates: {summary.get("component_candidate_count", 0)}
 - metric_semantics_candidates: {summary.get("metric_semantics_candidate_count", 0)}
 - collector_mapping_candidates: {summary.get("collector_mapping_candidate_count", 0)}
+
+{focused_profile_text}
 
 ## What This Code Appears To Run
 
@@ -1035,7 +1341,7 @@ This page is the human approval checkpoint before log analysis starts.
 
 ## Approval Action
 
-After reviewing this page, return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
+There is no input form on this static page. Answer the Gemini review questions in your own review notes. If the profile is acceptable, return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
 
 ## Entrypoint Candidates
 

@@ -403,6 +403,60 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
         encoding="utf-8",
     )
     analysis_report.write_text("# Sanitized Source Analysis Bundle\n\n- component_candidates: 2\n", encoding="utf-8")
+    focused_profile = tmp_path / "focused_operational_profile.json"
+    focused_profile.write_text(
+        json.dumps(
+            {
+                "schema_version": "focused_operational_profile.v1",
+                "system_label": "stream_v3_runtime",
+                "system_summary": {
+                    "system_type": "systemd_service",
+                    "primary_purpose": "Keeps a live runtime moving.",
+                    "logged_subject": "service health, recovery, and publish signals",
+                    "operational_boundary": "read-only source profile before log analysis",
+                    "confidence": 0.91,
+                },
+                "runtime_components": [
+                    {"name": "stream watchdog", "role": "observes publishing freshness", "confidence": 0.8}
+                ],
+                "observability_contract": {
+                    "logs": [{"source": "watchdog log", "meaning": "publishing freshness"}],
+                    "metrics": [
+                        {
+                            "metric_name": "upload_pressure",
+                            "meaning": "transport pressure",
+                            "healthy_direction": "decrease",
+                        }
+                    ],
+                },
+                "orchestration_flows": [{"flow_name": "watchdog", "trigger": "stale stream", "steps": ["observe"]}],
+                "failure_modes": [
+                    {
+                        "failure_mode": "stale publish path",
+                        "observable_signals": ["stale stream"],
+                        "missing_evidence": ["runtime log evidence"],
+                    }
+                ],
+                "read_only_collectors": [{"collector": "service status", "purpose": "check runtime state"}],
+                "profile_limits": {
+                    "source_context_is_incident_evidence": False,
+                    "runtime_claims_require_evidence_id": True,
+                    "approval_required_before_explicit_profile": True,
+                    "raw_source_sent_to_provider": False,
+                    "raw_logs_sent_to_provider": False,
+                },
+                "human_review_required": ["Confirm this source profile matches the deployed service."],
+                "focused_profile_generation": {
+                    "provider_id": "gemini-enterprise-agent-platform",
+                    "model_name": "gemini-3.1-pro-preview",
+                    "prompt_name": "focused-operational-profile",
+                    "llm_status": "ok",
+                    "fallback_used": False,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     profile_id = script._code_profile_public_id(
         run_id="review-test",
         source_context_bundle=context_bundle,
@@ -420,6 +474,7 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
         source_context_report=context_report,
         source_analysis_bundle=analysis_bundle,
         source_analysis_report=analysis_report,
+        focused_profile=focused_profile,
     )
 
     html = artifacts["html"].read_text(encoding="utf-8")
@@ -427,6 +482,11 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     payload = json.loads(artifacts["payload"].read_text(encoding="utf-8"))
     assert "Code Profile Review" in html
     assert "Human approval checkpoint before log analysis" in html
+    assert "Gemini Pro Code Profile" in markdown
+    assert "Gemini Questions For Human Approval" in markdown
+    assert "Confirm this source profile matches the deployed service." in markdown
+    assert "raw_source_sent_to_provider: false" in markdown
+    assert "raw_logs_sent_to_provider: false" in markdown
     assert "What This Code Appears To Run" in markdown
     assert "What The Logs Should Measure" in markdown
     assert "What Should Not Be Broken" in markdown
@@ -435,6 +495,8 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     assert payload["local_absolute_path_uploaded"] is False
     assert payload["code_profile_id"] == profile_id
     assert isinstance(payload["interpretation"], dict)
+    assert payload["focused_profile"]["focused_profile_generation"]["llm_status"] == "ok"
+    assert payload["focused_profile"]["focused_profile_generation"]["model_name"] == "gemini-3.1-pro-preview"
 
 
 def test_main_builds_code_profile_before_log_analysis(
@@ -484,6 +546,45 @@ def test_main_builds_code_profile_before_log_analysis(
                 encoding="utf-8",
             )
             (out_dir / "source_analysis_report.md").write_text("# Source Analysis\n", encoding="utf-8")
+        if label == "Building source profile discovery":
+            out_dir = Path(command[command.index("--out") + 1])
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "profile_discovery_bundle.json").write_text(
+                json.dumps({"schema_version": "profile_discovery_bundle.v1", "discovery_sha256": "d" * 64}),
+                encoding="utf-8",
+            )
+        if label == "Analyzing source profile with Gemini Pro":
+            assert env is not None
+            assert env["GOOGLE_CLOUD_PROJECT"] == "ops-evidence-synthesis"
+            assert env["OES_VERTEX_PROJECT"] == "ops-evidence-synthesis"
+            out_path = Path(command[command.index("--out") + 1])
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "focused_operational_profile.v1",
+                        "system_label": "stream_v3_runtime",
+                        "system_summary": {},
+                        "runtime_components": [],
+                        "observability_contract": {},
+                        "orchestration_flows": [],
+                        "failure_modes": [],
+                        "read_only_collectors": [],
+                        "profile_limits": {
+                            "raw_source_sent_to_provider": False,
+                            "raw_logs_sent_to_provider": False,
+                        },
+                        "human_review_required": [],
+                        "focused_profile_generation": {
+                            "provider_id": "gemini-enterprise-agent-platform",
+                            "model_name": "gemini-3.1-pro-preview",
+                            "llm_status": "ok",
+                            "fallback_used": False,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
         if label == "Building human review page":
             stdout = json.dumps(
                 {
@@ -530,6 +631,11 @@ def test_main_builds_code_profile_before_log_analysis(
         "Checking sanitized source code",
         "Building source mapping candidates",
         "Checking source mapping candidates",
+        "Building source profile discovery",
+    ]
+    assert labels[5:8] == [
+        "Analyzing source profile with Gemini Pro",
+        "Checking source profile discovery",
         "Uploading code profile review page",
     ]
     assert labels.index("Uploading code profile review page") < labels.index("Sanitizing logs")

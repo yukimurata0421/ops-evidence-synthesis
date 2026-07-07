@@ -251,10 +251,9 @@ local source/config/unit/env summaries
   -> discover-profile
   -> draft-focused-profile
   -> focused_operational_profile.json
-  -> profile_draft.json
-  -> human approval
-  -> approved profile
-  -> approved context for Multi-AI / Review Arbitration / Evidence Request Planner
+  -> code profile review URL
+  -> terminal APPROVE
+  -> Evidence Bundle / Multi-AI / Evidence Request Planner
 ```
 
 The system does not upload a full source tree. Sanitized source items are short
@@ -262,10 +261,13 @@ summaries or excerpts, configuration items are structural summaries, and
 environment values are represented only by safe metadata such as key name or
 hash, value type, presence, and secret-like flags.
 
-The focused profile path is Gemini-backed and intentionally narrow. It asks
-what system is being reviewed, what is logged or measured, which runtime
-components matter, and what orchestration or watchdog loop is visible from
-sanitized source analysis plus sanitized runtime evidence. It is still a draft:
+The focused profile path is Gemini-backed and intentionally narrow. In the GCS
+handoff review flow, this happens before log analysis: Gemini Pro receives
+sanitized source context and source analysis, then the operator reviews the
+static code profile URL and types `APPROVE` in the terminal before any log
+Evidence Bundle is built. It asks what system is being reviewed, what is logged
+or measured, which runtime components matter, and what orchestration or
+watchdog loop is visible from sanitized source analysis. It is still a draft:
 source context is not incident evidence, runtime support claims require
 `evidence_id`, and every collector remains read-only until human approval.
 

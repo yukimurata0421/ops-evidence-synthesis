@@ -450,6 +450,7 @@ def build_profile_draft_with_provider(discovery: dict[str, Any], provider: Model
             {
                 "fallback_used": True,
                 "failure_reason": run.failure_reason or run.response.status,
+                "provider_error_message": _provider_error_message_from_raw_output(run.response.raw_output),
             }
         )
         return _with_profile_generation_metadata(base, metadata)
@@ -825,7 +826,13 @@ def build_focused_profile_with_provider(
     metadata["llm_status"] = run.response.status
     metadata["raw_output_sha256"] = sha256_text(run.response.raw_output)
     if run.response.status != "ok":
-        metadata.update({"fallback_used": True, "failure_reason": run.failure_reason or run.response.status})
+        metadata.update(
+            {
+                "fallback_used": True,
+                "failure_reason": run.failure_reason or run.response.status,
+                "provider_error_message": _provider_error_message_from_raw_output(run.response.raw_output),
+            }
+        )
         return _with_focused_profile_generation_metadata(base, metadata)
 
     from ops_evidence_synthesis.synthesis.output_ingest import parse_model_output
@@ -1621,6 +1628,17 @@ def _int_env(key: str, default: int) -> int:
         return int(os.environ.get(key, str(default)))
     except ValueError:
         return default
+
+
+def _provider_error_message_from_raw_output(raw_output: str) -> str:
+    try:
+        payload = json.loads(raw_output)
+    except json.JSONDecodeError:
+        return safe_provider_error_message(raw_output, max_chars=500)
+    if not isinstance(payload, dict):
+        return safe_provider_error_message(raw_output, max_chars=500)
+    message = payload.get("message") or payload.get("error") or payload.get("failure_reason") or ""
+    return safe_provider_error_message(str(message), max_chars=500)
 
 
 def _metrics_from_semantics(metric_semantics: dict[str, Any], component_map: dict[str, Any]) -> dict[str, Any]:
