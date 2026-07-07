@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,6 +21,8 @@ def _clear_fast_gcp_review_state() -> None:
     api_routes._FAST_GCP_REVIEW_CACHE.clear()
     api_routes._FAST_GCP_REVIEW_STATUS_CACHE.clear()
     api_routes._FAST_GCP_REVIEW_QUOTA_CACHE.clear()
+    api_routes._FAST_GCP_REVIEW_DISABLE_CACHE = None
+    api_routes._PUBLIC_RATE_LIMIT_COUNTERS.clear()
 
 
 def _clear_fast_gcp_review_storage_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -332,6 +335,58 @@ def test_write_token_guard_blocks_mutations_when_configured(
     assert allowed.status_code == 200
 
 
+def test_public_write_guard_fails_closed_without_token(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+    monkeypatch.delenv("OES_API_WRITE_TOKEN", raising=False)
+
+    with TestClient(app) as client:
+        blocked = client.post("/bundles", json={})
+
+    assert blocked.status_code == 503
+    assert blocked.json()["detail"] == "public write guard is not configured"
+
+
+def test_public_runtime_guard_requires_write_token_and_rate_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OES_PUBLIC_RUNTIME_GUARD", "1")
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+    monkeypatch.setenv("OES_PUBLIC_FAST_GCP_REVIEW_ENABLED", "0")
+    monkeypatch.setenv("OES_PUBLIC_RATE_LIMIT_ENABLED", "1")
+    monkeypatch.delenv("OES_API_WRITE_TOKEN", raising=False)
+
+    with pytest.raises(RuntimeError, match="OES_API_WRITE_TOKEN"):
+        api_routes.validate_public_runtime_config()
+
+    monkeypatch.setenv("OES_API_WRITE_TOKEN", "secret-token")
+    api_routes.validate_public_runtime_config()
+
+
+def test_public_rate_limit_blocks_repeated_public_reads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_fast_gcp_review_state()
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
+    monkeypatch.setenv("OES_API_WRITE_TOKEN", "secret-token")
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+    monkeypatch.setenv("OES_PUBLIC_RATE_LIMIT_ENABLED", "1")
+    monkeypatch.setenv("OES_PUBLIC_RATE_LIMIT_MAX_REQUESTS", "1")
+    monkeypatch.setenv("OES_PUBLIC_FAST_GCP_REVIEW_ENABLED", "0")
+
+    with TestClient(app) as client:
+        first = client.get("/health")
+        second = client.get("/health")
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 429, second.text
+    assert second.json()["detail"]["reason_code"] == "public_rate_limited"
+
+
 def test_public_fast_gcp_review_uses_fixed_sample_without_write_token(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -444,6 +499,59 @@ def test_public_fast_gcp_review_uses_fixed_sample_without_write_token(
     assert status_payload["review"]["public_review_id"] == payload["review"]["public_review_id"]
     assert cross_status.status_code == 200, cross_status.text
     assert cross_status.json()["providers"]["success"] == 2
+
+
+def test_budget_guard_disables_public_fast_gcp_review(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_fast_gcp_review_state()
+    disable_file = tmp_path / "public-fast-gcp-review-disabled.json"
+    summaries = tmp_path / "summaries"
+    statuses = tmp_path / "statuses"
+    quotas = tmp_path / "quotas"
+    notification = {
+        "budgetDisplayName": "Ops Evidence Hackathon Budget",
+        "costAmount": 2900,
+        "budgetAmount": 3000,
+        "currencyCode": "JPY",
+        "alertThresholdExceeded": 0.9,
+    }
+    encoded = base64.b64encode(json.dumps(notification).encode("utf-8")).decode("ascii")
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
+    monkeypatch.setenv("OES_API_WRITE_TOKEN", "secret-token")
+    monkeypatch.setenv("OES_BUDGET_GUARD_TOKEN", "budget-token")
+    monkeypatch.setenv("OES_PUBLIC_FAST_GCP_REVIEW_DISABLE_FILE", str(disable_file))
+    monkeypatch.setenv("OES_PUBLIC_FAST_GCP_REVIEW_DISABLE_CACHE_SECONDS", "0")
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_PROVIDER_MODE", "local")
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_SAMPLE_ROWS", "20")
+    monkeypatch.setenv("OES_PUBLIC_FAST_GCP_REVIEW_CACHE_SECONDS", "0")
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_OUTPUT_DIR", str(summaries))
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_STATUS_DIR", str(statuses))
+    monkeypatch.setenv("OES_FAST_GCP_REVIEW_QUOTA_DIR", str(quotas))
+    monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", str(summaries))
+
+    with TestClient(app) as client:
+        invalid = client.post("/internal/budget-guard/fast-gcp-review", json={})
+        guard = client.post(
+            "/internal/budget-guard/fast-gcp-review?token=budget-token",
+            json={"message": {"data": encoded}},
+        )
+        blocked = client.post("/public/fast-gcp-review", json={"run_id": "budget-disabled"})
+        status = client.get("/public/fast-gcp-review/status?run_id=budget-disabled")
+
+    assert invalid.status_code == 403
+    assert guard.status_code == 200, guard.text
+    assert guard.json()["status"] == "disabled"
+    assert disable_file.exists()
+    state = json.loads(disable_file.read_text(encoding="utf-8"))
+    assert state["disabled"] is True
+    assert state["budget"]["trigger_ratio"] >= 0.9
+    assert blocked.status_code == 503, blocked.text
+    assert blocked.json()["detail"]["reason_code"] == "budget_threshold_exceeded"
+    assert status.status_code == 200
+    assert status.json()["current_step"] == "budget_guard_blocked"
 
 
 def test_public_fast_gcp_review_enforces_live_quota(

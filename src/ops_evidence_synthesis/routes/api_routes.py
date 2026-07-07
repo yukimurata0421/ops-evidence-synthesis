@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -113,7 +114,10 @@ _FAST_GCP_REVIEW_LOCK = threading.Lock()
 _FAST_GCP_REVIEW_STATUS_CACHE: dict[str, dict[str, Any]] = {}
 _FAST_GCP_REVIEW_STATUS_LOCK = threading.Lock()
 _FAST_GCP_REVIEW_QUOTA_CACHE: dict[str, dict[str, Any]] = {}
+_FAST_GCP_REVIEW_DISABLE_CACHE: tuple[float, dict[str, Any] | None] | None = None
 _FAST_GCP_REVIEW_OWNER_COOKIE = "oes_fast_gcp_review_owner"
+_PUBLIC_RATE_LIMIT_COUNTERS: dict[tuple[str, str, int], int] = {}
+_PUBLIC_RATE_LIMIT_LOCK = threading.Lock()
 
 _STORE_FACTORY: Callable[[], Any] | None = None
 _GEMINI_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
@@ -247,6 +251,34 @@ def _precomputed_only_ui_enabled() -> bool:
     return os.environ.get("OES_UI_PRECOMPUTED_ONLY", "0").casefold() in {"1", "true", "yes", "on"}
 
 
+def _public_runtime_guard_enabled() -> bool:
+    return os.environ.get("OES_PUBLIC_RUNTIME_GUARD", "0").strip().casefold() in {"1", "true", "yes", "on"}
+
+
+def _public_write_token_configured() -> bool:
+    return bool(os.environ.get("OES_API_WRITE_TOKEN", "").strip())
+
+
+def _validate_public_runtime_config() -> None:
+    if not _public_runtime_guard_enabled():
+        return
+    if not _precomputed_only_ui_enabled():
+        return
+    missing: list[str] = []
+    if not _public_write_token_configured():
+        missing.append("OES_API_WRITE_TOKEN")
+    if _public_fast_gcp_review_enabled() and _fast_gcp_review_provider_mode() != "local":
+        if not _fast_gcp_review_quota_backend_available():
+            missing.append("OES_FAST_GCP_REVIEW_GCS_PREFIX or OES_FAST_GCP_REVIEW_QUOTA_GCS_PREFIX")
+        if not _fast_gcp_review_disable_state_configured():
+            missing.append("OES_PUBLIC_FAST_GCP_REVIEW_DISABLE_GCS_URI")
+    if os.environ.get("OES_PUBLIC_RUNTIME_REQUIRE_RATE_LIMIT", "1").strip().casefold() in {"1", "true", "yes", "on"}:
+        if not _public_rate_limit_enabled():
+            missing.append("OES_PUBLIC_RATE_LIMIT_ENABLED")
+    if missing:
+        raise RuntimeError("public runtime guard failed: missing " + ", ".join(sorted(set(missing))))
+
+
 def _require_precomputed_review_for_public_read(
     evidence_sha256: str | None,
     *,
@@ -298,6 +330,110 @@ def _public_fast_gcp_review_write_allowed(request: Request) -> bool:
         "/public/fast-gcp-review/owner-session",
         "/public/rescore-demo/run",
     }
+
+
+def _public_budget_guard_path(request: Request) -> bool:
+    return (
+        request.method.upper() == "POST"
+        and (request.url.path.rstrip("/") or "/") == "/internal/budget-guard/fast-gcp-review"
+    )
+
+
+def _budget_guard_token() -> str:
+    return os.environ.get("OES_BUDGET_GUARD_TOKEN", "").strip()
+
+
+def _budget_guard_token_matches(request: Request) -> bool:
+    expected = _budget_guard_token()
+    if not expected:
+        return False
+    supplied = (
+        request.headers.get("x-oes-budget-guard-token")
+        or request.query_params.get("token")
+        or ""
+    ).strip()
+    return bool(supplied) and hmac.compare_digest(expected, supplied)
+
+
+def _public_rate_limit_enabled() -> bool:
+    return os.environ.get("OES_PUBLIC_RATE_LIMIT_ENABLED", "0").strip().casefold() in {"1", "true", "yes", "on"}
+
+
+def _public_rate_limit_response(request: Request, request_id: str) -> JSONResponse | None:
+    if not _public_rate_limit_enabled() or not _precomputed_only_ui_enabled():
+        return None
+    if _public_budget_guard_path(request):
+        return None
+    path = request.url.path.rstrip("/") or "/"
+    method = request.method.upper()
+    action_paths = {"/public/fast-gcp-review", "/public/rescore-demo/run", "/public/fast-gcp-review/owner-session"}
+    if method == "POST" and path in action_paths:
+        bucket = "public-action"
+        window_seconds = _int_env("OES_PUBLIC_ACTION_RATE_LIMIT_WINDOW_SECONDS", 60)
+        limit = _int_env("OES_PUBLIC_ACTION_RATE_LIMIT_MAX_REQUESTS", 8)
+    else:
+        bucket = "public-read"
+        window_seconds = _int_env("OES_PUBLIC_RATE_LIMIT_WINDOW_SECONDS", 60)
+        limit = _int_env("OES_PUBLIC_RATE_LIMIT_MAX_REQUESTS", 120)
+    if limit <= 0 or window_seconds <= 0:
+        return None
+    now = int(time.time())
+    window = now // window_seconds
+    client_key = _public_rate_limit_client_key(request)
+    counter_key = (bucket, client_key, window)
+    retry_after = max(1, window_seconds - (now % window_seconds))
+    with _PUBLIC_RATE_LIMIT_LOCK:
+        _purge_public_rate_limit_counters(window)
+        count = _PUBLIC_RATE_LIMIT_COUNTERS.get(counter_key, 0) + 1
+        _PUBLIC_RATE_LIMIT_COUNTERS[counter_key] = count
+    if count <= limit:
+        return None
+    log_event(
+        LOGGER,
+        "public_rate_limited",
+        request_id=request_id,
+        method=method,
+        path=path,
+        bucket=bucket,
+        limit=limit,
+        window_seconds=window_seconds,
+    )
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": {
+                "message": "public demo rate limit exceeded",
+                "reason_code": "public_rate_limited",
+                "bucket": bucket,
+                "limit": limit,
+                "window_seconds": window_seconds,
+            }
+        },
+        headers={"X-Request-ID": request_id, "Retry-After": str(retry_after)},
+    )
+
+
+def _public_rate_limit_client_key(request: Request) -> str:
+    remote = (request.headers.get("cf-connecting-ip") or "").strip()
+    if not remote:
+        remote = (request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+    if not remote:
+        remote = request.headers.get("x-real-ip", "").strip()
+    if not remote and request.client is not None:
+        remote = request.client.host or ""
+    salt = (
+        os.environ.get("OES_PUBLIC_RATE_LIMIT_SALT", "").strip()
+        or os.environ.get("GOOGLE_CLOUD_PROJECT", "").strip()
+        or "ops-evidence-public-rate-limit"
+    )
+    digest = hashlib.sha256(f"{salt}:{remote or 'unknown'}".encode("utf-8")).hexdigest()[:24]
+    return f"client-{digest}"
+
+
+def _purge_public_rate_limit_counters(current_window: int) -> None:
+    stale = [key for key in _PUBLIC_RATE_LIMIT_COUNTERS if key[2] < current_window - 1]
+    for key in stale:
+        _PUBLIC_RATE_LIMIT_COUNTERS.pop(key, None)
 
 
 def _public_precomputed_read_guard(request: Request, request_id: str) -> JSONResponse | None:
@@ -638,6 +774,8 @@ def public_rescore_demo_run(request: Request, payload: dict[str, Any] | None = N
                 "reason_code": "owner_access_required",
             },
         )
+    if live_model:
+        _raise_if_public_fast_gcp_review_disabled(run_id=run_id, cross_check=False)
     return _run_public_fixed_rescore_demo(demo_id=demo_id, run_id=run_id, live_model=live_model)
 
 
@@ -645,6 +783,7 @@ def public_rescore_demo_run(request: Request, payload: dict[str, Any] | None = N
 def public_fast_gcp_review_view() -> str:
     if not _public_fast_gcp_review_enabled():
         raise HTTPException(status_code=404, detail="fast GCP review is disabled")
+    _raise_if_public_fast_gcp_review_disabled()
     return _render_fast_gcp_review_view()
 
 
@@ -682,6 +821,45 @@ def public_fast_gcp_review_owner_session_status(request: Request) -> dict[str, A
     }
 
 
+@router.post("/internal/budget-guard/fast-gcp-review")
+def budget_guard_fast_gcp_review(request: Request, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    if not _budget_guard_token():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "budget guard token is not configured",
+                "reason_code": "budget_guard_token_unavailable",
+            },
+        )
+    if not _budget_guard_token_matches(request):
+        raise HTTPException(status_code=403, detail="budget guard token required")
+    notification = _budget_guard_notification_from_payload(payload if isinstance(payload, dict) else {})
+    decision = _budget_guard_decision(notification)
+    if not decision["disable"]:
+        return {
+            "schema_version": "budget_guard_fast_gcp_review.v1",
+            "status": "ignored",
+            "decision": decision,
+            "notification": notification,
+        }
+    state = {
+        "schema_version": "public_fast_gcp_review_disable_state.v1",
+        "disabled": True,
+        "disabled_at": utc_now(),
+        "reason_code": "budget_threshold_exceeded",
+        "message": "Public Fast GCP Review is disabled because the billing budget threshold was exceeded.",
+        "budget": decision,
+        "notification": notification,
+    }
+    _write_fast_gcp_review_disable_state(state)
+    return {
+        "schema_version": "budget_guard_fast_gcp_review.v1",
+        "status": "disabled",
+        "decision": decision,
+        "disable_state": state,
+    }
+
+
 @router.post("/public/fast-gcp-review")
 def public_fast_gcp_review(request: Request, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     if not _public_fast_gcp_review_enabled():
@@ -689,6 +867,7 @@ def public_fast_gcp_review(request: Request, payload: dict[str, Any] | None = No
     payload = payload if isinstance(payload, dict) else {}
     cross_check = _fast_gcp_cross_check_requested(payload)
     run_id = _fast_gcp_review_run_id_from_payload(payload, cross_check=cross_check)
+    _raise_if_public_fast_gcp_review_disabled(run_id=run_id, cross_check=cross_check)
     force = bool(payload.get("force")) and _truthy_env("OES_PUBLIC_FAST_GCP_REVIEW_ALLOW_FORCE")
     cache_key = _fast_gcp_review_cache_key(cross_check=cross_check)
     ttl = _fast_gcp_review_cache_seconds()
@@ -1963,6 +2142,169 @@ def _fixed_rescore_after_synthesis(more_data_refs: list[str]) -> dict[str, Any]:
 
 def _fast_gcp_review_cache_seconds() -> int:
     return _int_env("OES_PUBLIC_FAST_GCP_REVIEW_CACHE_SECONDS", 3600)
+
+
+def _fast_gcp_review_disable_cache_seconds() -> int:
+    return _int_env("OES_PUBLIC_FAST_GCP_REVIEW_DISABLE_CACHE_SECONDS", 30)
+
+
+def _fast_gcp_review_disable_file() -> Path | None:
+    configured = os.environ.get("OES_PUBLIC_FAST_GCP_REVIEW_DISABLE_FILE", "").strip()
+    return Path(configured) if configured else None
+
+
+def _fast_gcp_review_disable_gcs_uri() -> str:
+    return os.environ.get("OES_PUBLIC_FAST_GCP_REVIEW_DISABLE_GCS_URI", "").strip()
+
+
+def _fast_gcp_review_disable_state_configured() -> bool:
+    return _fast_gcp_review_disable_file() is not None or _fast_gcp_review_disable_gcs_uri().startswith("gs://")
+
+
+def _public_fast_gcp_review_disabled_state() -> dict[str, Any]:
+    state = _read_fast_gcp_review_disable_state()
+    if not isinstance(state, dict) or not state.get("disabled"):
+        return {}
+    return state
+
+
+def _raise_if_public_fast_gcp_review_disabled(*, run_id: str = "", cross_check: bool = False) -> None:
+    state = _public_fast_gcp_review_disabled_state()
+    if not state:
+        return
+    detail = {
+        "message": str(state.get("message") or "Public Fast GCP Review is disabled by budget guard."),
+        "reason_code": str(state.get("reason_code") or "budget_guard_disabled"),
+        "disabled_at": str(state.get("disabled_at") or ""),
+        "budget": state.get("budget") if isinstance(state.get("budget"), dict) else {},
+    }
+    if run_id:
+        try:
+            _write_fast_gcp_review_status(
+                _fast_gcp_review_status_payload(
+                    run_id=run_id,
+                    cross_check=cross_check,
+                    status="failed",
+                    current_step="budget_guard_blocked",
+                    progress_percent=100,
+                    message=detail["message"],
+                    reason_code=detail["reason_code"],
+                    quota={"live_api_allowed": False, "status": "budget_guard_disabled"},
+                )
+            )
+        except Exception:
+            LOGGER.exception("failed to persist budget guard status")
+    raise HTTPException(status_code=503, detail=detail)
+
+
+def _read_fast_gcp_review_disable_state() -> dict[str, Any]:
+    global _FAST_GCP_REVIEW_DISABLE_CACHE
+    ttl = max(0, _fast_gcp_review_disable_cache_seconds())
+    now = time.monotonic()
+    cached = _FAST_GCP_REVIEW_DISABLE_CACHE
+    if ttl > 0 and cached is not None and now - cached[0] < ttl:
+        return deepcopy(cached[1]) if isinstance(cached[1], dict) else {}
+    state = _read_fast_gcp_review_disable_state_uncached()
+    _FAST_GCP_REVIEW_DISABLE_CACHE = (now, deepcopy(state) if state else None)
+    return state
+
+
+def _read_fast_gcp_review_disable_state_uncached() -> dict[str, Any]:
+    disable_file = _fast_gcp_review_disable_file()
+    if disable_file is not None:
+        try:
+            payload = json.loads(disable_file.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            payload = None
+        except Exception:
+            payload = None
+        if isinstance(payload, dict):
+            return payload
+    disable_uri = _fast_gcp_review_disable_gcs_uri()
+    if disable_uri.startswith("gs://"):
+        try:
+            from ops_evidence_synthesis.gcp.storage import read_text
+
+            payload = json.loads(read_text(disable_uri))
+        except Exception as exc:
+            if not _is_missing_gcs_object_error(exc):
+                LOGGER.warning("failed to read Fast GCP Review disable state", exc_info=True)
+            payload = None
+        if isinstance(payload, dict):
+            return payload
+    return {}
+
+
+def _write_fast_gcp_review_disable_state(state: dict[str, Any]) -> dict[str, Any]:
+    global _FAST_GCP_REVIEW_DISABLE_CACHE
+    text = json.dumps(state, ensure_ascii=True, sort_keys=True) + "\n"
+    wrote = False
+    disable_file = _fast_gcp_review_disable_file()
+    if disable_file is not None:
+        disable_file.parent.mkdir(parents=True, exist_ok=True)
+        disable_file.write_text(text, encoding="utf-8")
+        wrote = True
+    disable_uri = _fast_gcp_review_disable_gcs_uri()
+    if disable_uri.startswith("gs://"):
+        from ops_evidence_synthesis.gcp.storage import write_text
+
+        write_text(disable_uri, text, content_type="application/json")
+        wrote = True
+    if not wrote:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Fast GCP Review disable state storage is not configured.",
+                "reason_code": "disable_state_storage_unavailable",
+            },
+        )
+    _FAST_GCP_REVIEW_DISABLE_CACHE = (time.monotonic(), deepcopy(state))
+    return state
+
+
+def _budget_guard_notification_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    message = payload.get("message") if isinstance(payload.get("message"), dict) else None
+    if message and isinstance(message.get("data"), str):
+        try:
+            decoded = base64.b64decode(str(message["data"])).decode("utf-8")
+            parsed = json.loads(decoded)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="invalid Pub/Sub budget notification") from exc
+        if isinstance(parsed, dict):
+            return parsed
+    if payload:
+        return payload
+    raise HTTPException(status_code=400, detail="budget notification payload is required")
+
+
+def _budget_guard_decision(notification: dict[str, Any]) -> dict[str, Any]:
+    threshold = _float_env("OES_BUDGET_GUARD_DISABLE_THRESHOLD", 0.9)
+    cost = _float_value(notification.get("costAmount"))
+    budget = _float_value(notification.get("budgetAmount"))
+    actual_ratio = cost / budget if budget > 0 else 0.0
+    alert_threshold = _float_value(notification.get("alertThresholdExceeded"))
+    forecast_threshold = _float_value(notification.get("forecastThresholdExceeded"))
+    trigger_ratio = max(actual_ratio, alert_threshold, forecast_threshold)
+    return {
+        "disable": trigger_ratio >= threshold,
+        "disable_threshold": threshold,
+        "trigger_ratio": trigger_ratio,
+        "actual_ratio": actual_ratio,
+        "alert_threshold_exceeded": alert_threshold,
+        "forecast_threshold_exceeded": forecast_threshold,
+        "cost_amount": cost,
+        "budget_amount": budget,
+        "currency_code": str(notification.get("currencyCode") or ""),
+        "budget_display_name": str(notification.get("budgetDisplayName") or ""),
+        "cost_interval_start": str(notification.get("costIntervalStart") or ""),
+    }
+
+
+def _float_value(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _fast_gcp_review_daily_limit() -> int:
@@ -5408,9 +5750,32 @@ def _float_env(key: str, default: float) -> float:
 
 async def _write_guard_response(request: Request, request_id: str) -> JSONResponse | None:
     expected = os.environ.get("OES_API_WRITE_TOKEN", "").strip()
+    if _public_budget_guard_path(request):
+        if _budget_guard_token_matches(request):
+            return None
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "budget guard token required"},
+            headers={"X-Request-ID": request_id},
+        )
     if _public_fast_gcp_review_write_allowed(request):
         return None
-    if not expected or request.method.upper() in {"GET", "HEAD", "OPTIONS"}:
+    if request.method.upper() in {"GET", "HEAD", "OPTIONS"}:
+        return None
+    if not expected:
+        if _precomputed_only_ui_enabled() or _public_runtime_guard_enabled():
+            log_event(
+                LOGGER,
+                "api_write_guard_unconfigured",
+                request_id=request_id,
+                method=request.method,
+                path=request.url.path,
+            )
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "public write guard is not configured"},
+                headers={"X-Request-ID": request_id},
+            )
         return None
     supplied = (request.headers.get("x-oes-write-token") or request.query_params.get("api_token") or "").strip()
     if not supplied and "application/json" in request.headers.get("content-type", ""):
@@ -5950,6 +6315,8 @@ more_data_refresh_summary = _more_data_refresh_summary
 more_data_request_statuses = _more_data_request_statuses
 write_guard_response = _write_guard_response
 public_precomputed_read_guard = _public_precomputed_read_guard
+public_rate_limit_response = _public_rate_limit_response
+validate_public_runtime_config = _validate_public_runtime_config
 
 __all__ = [
     "bundle_with_more_data",
@@ -5960,6 +6327,8 @@ __all__ = [
     "more_data_request_statuses",
     "provider_error_message",
     "public_precomputed_read_guard",
+    "public_rate_limit_response",
     "router",
+    "validate_public_runtime_config",
     "write_guard_response",
 ]

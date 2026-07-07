@@ -24,7 +24,9 @@ from ops_evidence_synthesis.routes.api_routes import (
     more_data_request_statuses as _more_data_request_statuses,
     provider_error_message as _provider_error_message,
     public_precomputed_read_guard as _public_precomputed_read_guard,
+    public_rate_limit_response as _public_rate_limit_response,
     router as api_router,
+    validate_public_runtime_config as _validate_public_runtime_config,
     write_guard_response as _write_guard_response,
 )
 from ops_evidence_synthesis.storage.sqlite_store import DEFAULT_DB_PATH, SQLiteStore
@@ -141,6 +143,7 @@ def _llama_provider() -> ModelProvider:
 
 def _startup() -> None:
     configure_logging()
+    _validate_public_runtime_config()
     store = _store()
     store.init_schema()
     if (
@@ -187,6 +190,9 @@ app.include_router(api_router)
 async def _request_observability(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or f"req-{uuid.uuid4().hex[:16]}"
     started = time.perf_counter()
+    rate_limited_response = _public_rate_limit_response(request, request_id)
+    if rate_limited_response is not None:
+        return rate_limited_response
     blocked_response = await _write_guard_response(request, request_id)
     if blocked_response is not None:
         return blocked_response

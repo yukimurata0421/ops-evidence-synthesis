@@ -101,6 +101,9 @@ are recorded in [docs/review-modes-runbook.md](docs/review-modes-runbook.md).
   a review URL. The optional Cross-check Lite button runs Gemini Flash Lite and
   Gemma 4 in parallel over the same fixed sample. It does not accept arbitrary
   logs, URLs, or file paths.
+- Public deployment fails closed when the write token is missing, rate-limits
+  reviewer traffic in the app and Cloudflare WAF, and supports a billing-budget
+  kill switch that disables Fast GCP Review through a GCS state file.
 - Each public review also exposes a Markdown incident report that states the
   evidence boundary, provider status, human review questions, and promotion
   blockers without converting provider agreement into an accepted cause.

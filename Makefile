@@ -26,8 +26,10 @@ LOCAL_REVIEW_START ?= 2026-06-12T10:00:00Z
 LOCAL_REVIEW_END ?= 2026-06-12T10:20:00Z
 LOCAL_REVIEW_PROVIDER ?= local
 LOCAL_REVIEW_PORT ?= 8097
+CLOUDFLARE_WAF_ARGS ?=
+BUDGET_GUARD_ARGS ?=
 
-.PHONY: demo demo-flagship demo-sample review review-from-local gcs-review publish-gcs-review smoke-gcs-review show-public-review-url run-local-review show-local-review serve-local-review verify-precomputed verify-flagship verify-sample test ci smoke-public deploy-public archive-public
+.PHONY: demo demo-flagship demo-sample review review-from-local gcs-review publish-gcs-review smoke-gcs-review show-public-review-url run-local-review show-local-review serve-local-review verify-precomputed verify-flagship verify-sample test ci smoke-public deploy-public configure-cloudflare-waf configure-budget-guard archive-public
 
 demo: demo-flagship
 
@@ -81,6 +83,12 @@ smoke-public:
 
 deploy-public:
 	scripts/deploy_public_demo.sh
+
+configure-cloudflare-waf:
+	$(PYTHON) scripts/configure_cloudflare_waf.py $(CLOUDFLARE_WAF_ARGS)
+
+configure-budget-guard:
+	$(PYTHON) scripts/configure_budget_fast_gcp_guard.py $(BUDGET_GUARD_ARGS)
 
 archive-public:
 	git archive --format=zip --output $(PUBLIC_ARCHIVE) HEAD

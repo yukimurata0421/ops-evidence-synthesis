@@ -30,6 +30,10 @@ These are not part of the five-minute judging path.
 
 - `cloud_run_smoke.py` checks a mutable Cloud Run deployment with a write token.
 - `configure_cloud_run_domain.py` helps inspect or configure a custom domain.
+- `configure_cloudflare_waf.py` applies Cloudflare rate limiting rules for the
+  public read paths and live action paths.
+- `configure_budget_fast_gcp_guard.py` wires a Cloud Billing budget Pub/Sub
+  notification to the Fast GCP Review kill switch.
 - `terraform_docker.sh` runs Terraform through a container.
 - `run_stream_v3_bigquery_14d.py` and `run_stream_v3_bigquery_aggregate.py`
   are retained as public examples of a second profile, not as the flagship demo.
