@@ -1204,6 +1204,39 @@ def test_public_target_classification_routes_no_finding_to_monitor_only() -> Non
     assert no_finding["adjustment"] == "normal_operation_observation"
     assert anomaly_class == "validation_target"
     assert anomaly["adjustment"] == ""
+
+    for suspected_issue, why_not_promoted in (
+        (
+            "Unknown operational state causing a surge in trace generation.",
+            "The evidence only shows a derived metric spike without identifying the source program, exact failure signature, or user impact.",
+        ),
+        (
+            "Downstream Gmail watch may have expired, causing missed notifications.",
+            "No downstream dependency evidence is present in the current bundle.",
+        ),
+        (
+            "throughput_disappearance",
+            "This is a request for data to move from 'no finding' to a potential 'validation target'.",
+        ),
+    ):
+        target_class, classification = _public_target_class(
+            {"canonical_review_unit": "amazon_notify"},
+            original_class="validation_target",
+            provider_count=2,
+            valid_count=5,
+            evidence_ref_count=4,
+            evidence_family_count=2,
+            source_candidate_count=1,
+            target_explanation={
+                "suspected_issue": suspected_issue,
+                "why_not_promoted": why_not_promoted,
+            },
+            missing_evidence=["Corroborating runtime and user-impact evidence."],
+            blocked_reason="user_impact_unverified; impact_disagreement",
+        )
+        assert target_class == "validation_target"
+        assert classification["adjustment"] == ""
+
     counts = _public_review_counts(
         [
             {"class": no_finding_class},
