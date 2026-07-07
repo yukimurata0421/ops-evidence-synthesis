@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import importlib.util
+import sys
 import tempfile
 import uuid
 from dataclasses import dataclass
@@ -11,7 +12,7 @@ from typing import Any
 from ops_evidence_synthesis.canonical import canonical_json, sha256_json
 from ops_evidence_synthesis.gcp.storage import GcsUri, read_json, upload_file, write_json
 from ops_evidence_synthesis.precomputed_review import stable_precomputed_review_json
-from ops_evidence_synthesis.synthesis.multi_ai import run_multi_ai
+from ops_evidence_synthesis.synthesis.multi_ai import provider_chunk_plan_summary, run_multi_ai
 from ops_evidence_synthesis.web.precomputed_review import (
     render_precomputed_markdown_report,
     render_precomputed_review_detail_page,
@@ -70,12 +71,15 @@ def job_config_from_env() -> ChunkedReviewJobConfig:
 
 
 def run_job(config: ChunkedReviewJobConfig) -> dict[str, Any]:
+    _progress("Loading Evidence Bundle and optional code context...")
     bundle = read_json(config.input_bundle_uri)
     approved_profile = read_json(config.approved_profile_uri) if config.approved_profile_uri else {}
     source_context = read_json(config.source_context_uri) if config.source_context_uri else {}
     source_analysis = read_json(config.source_analysis_uri) if config.source_analysis_uri else {}
+    _emit_review_input_progress(bundle, config)
     with tempfile.TemporaryDirectory(prefix="oes-chunked-review-") as temp_name:
         output_dir = Path(temp_name)
+        _progress("Running provider reviews...")
         result = run_multi_ai(
             bundle,
             approved_profile,
@@ -86,9 +90,17 @@ def run_job(config: ChunkedReviewJobConfig) -> dict[str, Any]:
             source_analysis=source_analysis,
             pipeline_run_id=config.run_id,
         )
+        _progress(
+            "Provider reviews done: "
+            f"providers={len(result.get('model_runs') or [])} "
+            f"chunk_runs={len(result.get('provider_chunk_runs') or [])} "
+            f"review_targets={len(result.get('review_targets') or [])}"
+        )
         run_prefix = config.run_output_prefix
         multi_ai_uri = run_prefix.child("multi_ai_run.json")
+        _progress("Writing multi-provider run to GCS...")
         write_json(multi_ai_uri, result)
+        _progress("Building static human review payload...")
         precomputed_uri = _write_precomputed_payload_if_requested(
             config,
             result=result,
@@ -97,7 +109,9 @@ def run_job(config: ChunkedReviewJobConfig) -> dict[str, Any]:
             source_analysis=source_analysis,
             approved_profile=approved_profile,
         )
+        _progress("Writing static human review HTML and Markdown...")
         static_review_outputs = _write_static_review_outputs_if_requested(config, payload=precomputed_uri.payload)
+        _progress("Uploading local run artifacts...")
         uploaded_artifacts = _upload_output_dir(output_dir, run_prefix.child("artifacts"))
         job_result = _job_result_payload(
             config,
@@ -107,9 +121,11 @@ def run_job(config: ChunkedReviewJobConfig) -> dict[str, Any]:
             static_review_outputs=static_review_outputs,
             uploaded_artifacts=uploaded_artifacts,
         )
+        _progress("Writing job result...")
         write_json(run_prefix.child("job_result.json"), job_result)
         if _truthy(os.environ.get("OES_JOB_WRITE_LATEST", "")):
             write_json(config.output_prefix_uri.child("latest_job_result.json"), job_result)
+        _progress("Human review page build complete.")
         return job_result
 
 
@@ -338,6 +354,38 @@ def _csv_env(name: str) -> list[str]:
 
 def _truthy(value: str) -> bool:
     return str(value or "").strip().casefold() in {"1", "true", "yes", "on"}
+
+
+def _emit_review_input_progress(bundle: dict[str, Any], config: ChunkedReviewJobConfig) -> None:
+    try:
+        plan = provider_chunk_plan_summary(bundle, config.providers, mode=config.provider_mode)
+    except Exception as exc:
+        _progress(f"Review input summary skipped: {exc}")
+        return
+    _progress(
+        "Review input ready: "
+        f"providers={int(plan.get('provider_count') or 0)} "
+        f"provider_chunks={int(plan.get('provider_chunk_count') or 0)} "
+        f"evidence_items={int(plan.get('evidence_item_count') or 0)} "
+        f"source_logs={int(plan.get('source_log_count') or 0)}"
+    )
+    for provider_plan in plan.get("providers") or []:
+        if not isinstance(provider_plan, dict):
+            continue
+        _progress(
+            "Provider input: "
+            f"{provider_plan.get('provider') or ''} "
+            f"chunks={int(provider_plan.get('chunk_count') or 0)} "
+            f"items={int(provider_plan.get('evidence_item_count') or 0)} "
+            f"source_logs={int(provider_plan.get('source_log_count') or 0)} "
+            f"max_est_tokens={int(provider_plan.get('max_chunk_estimated_input_tokens') or 0)}"
+        )
+
+
+def _progress(message: str) -> None:
+    if not _truthy(os.environ.get("OES_PROGRESS_STDERR", "")):
+        return
+    print(f"[review-job] {message}", file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":

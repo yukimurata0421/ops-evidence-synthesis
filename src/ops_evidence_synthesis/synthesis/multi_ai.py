@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import threading
 import time
 import uuid
@@ -99,6 +100,7 @@ CHUNK_FAILURE_STATUSES = {
     "timeout",
 }
 PROVIDER_CHUNK_LEDGER_FILENAME = "provider_chunk_runs.jsonl"
+_PROGRESS_LOCK = threading.Lock()
 
 
 @dataclass(frozen=True, slots=True)
@@ -279,6 +281,8 @@ def run_multi_ai(
     )
     provider_list = build_multi_ai_providers(providers, mode=mode)
     evidence_sha = str(evidence_bundle.get("evidence_sha256") or "")
+    plan = _provider_chunk_plan_summary_for_provider_list(bundle, provider_list)
+    _emit_provider_chunk_plan_progress(plan)
     chunk_ledger = _provider_chunk_ledger_for_output_dir(output_dir)
     owns_pipeline_run = pipeline_run_id is None and store is not None
     if owns_pipeline_run:
@@ -322,6 +326,13 @@ def run_multi_ai(
             store=store,
             pipeline_run_id=pipeline_run_id,
             chunk_ledger=chunk_ledger,
+        )
+        _progress(
+            "Provider review finished: "
+            f"providers={len(model_runs)} "
+            f"ok={sum(1 for run in model_runs if str(run.get('status') or '') == 'ok')} "
+            f"schema_valid={sum(1 for run in model_runs if run.get('schema_valid') is True)} "
+            f"chunk_runs={len(chunk_ledger.records)}"
         )
         record_pipeline_event(
             store,
@@ -465,6 +476,121 @@ def run_multi_ai(
             message=str(exc),
         )
         raise
+
+
+def provider_chunk_plan_summary(
+    evidence_bundle: dict[str, Any],
+    providers: Iterable[str] | None = None,
+    *,
+    mode: str = "real_or_skip",
+) -> dict[str, Any]:
+    provider_list = build_multi_ai_providers(providers, mode=mode)
+    return _provider_chunk_plan_summary_for_provider_list(evidence_bundle, provider_list)
+
+
+def _provider_chunk_plan_summary_for_provider_list(
+    bundle: dict[str, Any],
+    providers: list[ModelProvider],
+) -> dict[str, Any]:
+    items = [row for row in bundle.get("evidence_items") or [] if isinstance(row, dict)]
+    provider_plans = [_provider_chunk_plan(bundle, provider) for provider in providers]
+    return {
+        "schema_version": "multi_ai_provider_chunk_plan.v1",
+        "provider_count": len(provider_plans),
+        "provider_chunk_count": sum(int(plan.get("chunk_count") or 0) for plan in provider_plans),
+        "evidence_item_count": len(items),
+        "source_log_count": _source_log_count_for_items(items),
+        "providers": provider_plans,
+    }
+
+
+def _provider_chunk_plan(bundle: dict[str, Any], provider: ModelProvider) -> dict[str, Any]:
+    items = [row for row in bundle.get("evidence_items") or [] if isinstance(row, dict)]
+    chunks = _evidence_item_chunks(bundle, provider_id=provider.provider)
+    chunk_rows: list[dict[str, Any]] = []
+    for index, chunk_items in enumerate(chunks, start=1):
+        manifest = _chunk_manifest_from_items(
+            chunk_items,
+            chunk_index=index,
+            total_chunks=len(chunks),
+            full_evidence_item_count=len(items),
+            provider_id=provider.provider,
+        )
+        chunk_rows.append(
+            {
+                "chunk_index": int(manifest.get("chunk_index") or index),
+                "chunk_count": int(manifest.get("chunk_count") or len(chunks)),
+                "chunk_id": str(manifest.get("chunk_id") or ""),
+                "chunk_type": str(manifest.get("chunk_type") or ""),
+                "evidence_item_count": int(manifest.get("evidence_item_count") or 0),
+                "source_log_count": int(manifest.get("source_log_count") or 0),
+                "estimated_input_tokens": int(manifest.get("estimated_input_tokens") or 0),
+                "token_budget": int(manifest.get("token_budget") or 0),
+                "coverage_classes": list(manifest.get("coverage_classes") or []),
+                "semantic_key_count": len(manifest.get("semantic_keys") or []),
+                "time_range": dict(manifest.get("time_range") or {}),
+            }
+        )
+    return {
+        "provider": provider.provider,
+        "model_name": provider.model_name,
+        "prompt_name": provider.prompt_name,
+        "chunk_count": len(chunk_rows),
+        "chunk_worker_count": _chunk_worker_count(len(chunk_rows), provider.provider),
+        "evidence_item_count": len(items),
+        "source_log_count": _source_log_count_for_items(items),
+        "estimated_input_tokens": sum(int(row.get("estimated_input_tokens") or 0) for row in chunk_rows),
+        "max_chunk_estimated_input_tokens": max(
+            (int(row.get("estimated_input_tokens") or 0) for row in chunk_rows),
+            default=0,
+        ),
+        "chunk_size": _evidence_chunk_size(provider.provider),
+        "token_budget": _chunk_target_tokens(provider.provider),
+        "packing_strategy": "semantic_bucket_token_budget" if _chunk_target_tokens(provider.provider) > 0 else "item_count",
+        "chunks": chunk_rows,
+    }
+
+
+def _emit_provider_chunk_plan_progress(plan: dict[str, Any]) -> None:
+    if not _progress_enabled():
+        return
+    _progress(
+        "Provider chunk plan: "
+        f"providers={int(plan.get('provider_count') or 0)} "
+        f"provider_chunks={int(plan.get('provider_chunk_count') or 0)} "
+        f"evidence_items={int(plan.get('evidence_item_count') or 0)} "
+        f"source_logs={int(plan.get('source_log_count') or 0)}"
+    )
+    for provider_plan in plan.get("providers") or []:
+        if not isinstance(provider_plan, dict):
+            continue
+        _progress(
+            "Provider plan: "
+            f"provider={provider_plan.get('provider') or ''} "
+            f"chunks={int(provider_plan.get('chunk_count') or 0)} "
+            f"workers={int(provider_plan.get('chunk_worker_count') or 0)} "
+            f"items={int(provider_plan.get('evidence_item_count') or 0)} "
+            f"source_logs={int(provider_plan.get('source_log_count') or 0)} "
+            f"max_est_tokens={int(provider_plan.get('max_chunk_estimated_input_tokens') or 0)} "
+            f"packing={provider_plan.get('packing_strategy') or ''}"
+        )
+
+
+def _progress(message: str) -> None:
+    if not _progress_enabled():
+        return
+    with _PROGRESS_LOCK:
+        print(f"[multi-ai] {message}", file=sys.stderr, flush=True)
+
+
+def _progress_enabled() -> bool:
+    raw = os.environ.get("OES_PROGRESS_STDERR") or os.environ.get("OES_MULTI_AI_PROGRESS_STDERR") or ""
+    return str(raw).strip().casefold() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> None:
@@ -919,6 +1045,33 @@ def _run_provider_chunk(
     return envelope
 
 
+def _progress_chunk_queued(provider: ModelProvider, child_bundle: dict[str, Any]) -> None:
+    chunk = child_bundle.get("full_corpus_chunk") if isinstance(child_bundle.get("full_corpus_chunk"), dict) else {}
+    _progress(
+        "Chunk queued: "
+        f"provider={provider.provider} "
+        f"chunk={int(chunk.get('chunk_index') or 0)}/{int(chunk.get('chunk_count') or 0)} "
+        f"items={int(chunk.get('evidence_item_count') or 0)} "
+        f"source_logs={int(chunk.get('source_log_count') or 0)} "
+        f"est_tokens={int(chunk.get('estimated_input_tokens') or 0)} "
+        f"type={chunk.get('chunk_type') or ''}"
+    )
+
+
+def _progress_chunk_done(provider: ModelProvider, envelope: _ArtifactEnvelope) -> None:
+    chunk = _artifact_chunk_manifest(envelope.artifact)
+    _progress(
+        "Chunk done: "
+        f"provider={provider.provider} "
+        f"chunk={int(chunk.get('chunk_index') or 0)}/{int(chunk.get('chunk_count') or 0)} "
+        f"status={_artifact_execution_status(envelope.artifact)} "
+        f"schema_valid={bool(envelope.artifact.get('schema_valid'))} "
+        f"items={int(chunk.get('evidence_item_count') or 0)} "
+        f"source_logs={int(chunk.get('source_log_count') or 0)} "
+        f"est_tokens={int(chunk.get('estimated_input_tokens') or 0)}"
+    )
+
+
 def _envelope_from_chunk_ledger_record(record: dict[str, Any]) -> _ArtifactEnvelope:
     artifact = json.loads(json.dumps(record.get("artifact") or {}, ensure_ascii=False))
     parsed_payload = json.loads(json.dumps(record.get("parsed_payload") or {}, ensure_ascii=False))
@@ -1000,22 +1153,48 @@ def _run_provider_full_corpus(
     chunk_ledger: _ProviderChunkLedger | None = None,
 ) -> _ArtifactEnvelope:
     chunks = _evidence_item_chunks(bundle, provider_id=provider.provider)
+    total_items = sum(len(items) for items in chunks)
+    total_source_logs = sum(_source_log_count_for_items(items) for items in chunks)
+    _progress(
+        "Provider start: "
+        f"provider={provider.provider} "
+        f"chunks={len(chunks)} "
+        f"items={total_items} "
+        f"source_logs={total_source_logs} "
+        f"workers={_chunk_worker_count(len(chunks), provider.provider)}"
+    )
     if len(chunks) <= 1:
         envelope = _run_single_provider(bundle, provider, preflight)
         coverage = _full_corpus_coverage_summary(bundle, chunk_count=1, provider_id=provider.provider)
         envelope.artifact["full_corpus_coverage"] = coverage
         envelope.artifact.setdefault("model_input_context", {})["full_corpus_coverage"] = coverage
+        _progress(
+            "Provider done: "
+            f"provider={provider.provider} "
+            f"status={_artifact_execution_status(envelope.artifact)} "
+            f"schema_valid={bool(envelope.artifact.get('schema_valid'))} "
+            "chunks=1"
+        )
         return envelope
 
     child_envelopes = _run_provider_chunks_parallel(bundle, provider, preflight, chunks, chunk_ledger=chunk_ledger)
 
-    return _merge_chunked_provider_envelopes(
+    merged = _merge_chunked_provider_envelopes(
         bundle,
         provider,
         preflight,
         child_envelopes,
         chunk_count=len(chunks),
     )
+    _progress(
+        "Provider done: "
+        f"provider={provider.provider} "
+        f"status={_artifact_execution_status(merged.artifact)} "
+        f"schema_valid={bool(merged.artifact.get('schema_valid'))} "
+        f"chunks={len(chunks)} "
+        f"chunk_failures={int(merged.artifact.get('chunk_failure_count') or 0)}"
+    )
+    return merged
 
 
 def _run_provider_chunks_parallel(
@@ -1035,8 +1214,11 @@ def _run_provider_chunks_parallel(
             total_chunks=1,
             provider_id=provider.provider,
         )
+        _progress_chunk_queued(provider, child_bundle)
         pacer.wait(chunks[0] if chunks else [])
-        return [_run_provider_chunk(child_bundle, provider, preflight, chunk_ledger=chunk_ledger)]
+        envelope = _run_provider_chunk(child_bundle, provider, preflight, chunk_ledger=chunk_ledger)
+        _progress_chunk_done(provider, envelope)
+        return [envelope]
 
     by_index: dict[int, _ArtifactEnvelope] = {}
     with ThreadPoolExecutor(
@@ -1052,6 +1234,7 @@ def _run_provider_chunks_parallel(
                 total_chunks=len(chunks),
                 provider_id=provider.provider,
             )
+            _progress_chunk_queued(provider, child_bundle)
             futures[
                 executor.submit(
                     _run_provider_chunk_with_pacing,
@@ -1064,7 +1247,9 @@ def _run_provider_chunks_parallel(
                 )
             ] = index
         for future in as_completed(futures):
-            by_index[futures[future]] = future.result()
+            envelope = future.result()
+            by_index[futures[future]] = envelope
+            _progress_chunk_done(provider, envelope)
     _retry_failed_chunk_envelopes(
         bundle,
         provider,

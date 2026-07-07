@@ -10,10 +10,12 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from urllib.request import urlopen
 
+from ops_evidence_synthesis.synthesis.multi_ai import provider_chunk_plan_summary
 from ops_evidence_synthesis.timeutils import format_timestamp
 
 
@@ -286,6 +288,11 @@ def main(argv: list[str] | None = None) -> int:
             str(evidence_bundle),
         ]
     )
+    _print_review_generation_plan(
+        evidence_bundle=evidence_bundle,
+        providers=providers,
+        provider_mode=provider_mode,
+    )
     _run_step("Uploading Evidence Bundle to GCS", ["gcloud", "storage", "cp", str(evidence_bundle), input_bundle_uri])
 
     if source_root is not None:
@@ -312,6 +319,7 @@ def main(argv: list[str] | None = None) -> int:
             "OES_JOB_PROVIDERS": providers,
             "OES_JOB_MIN_WINDOW_HOURS": min_window_hours,
             "OES_JOB_WRITE_LATEST": "1",
+            "OES_PROGRESS_STDERR": "1",
             "PYTHONPATH": str(ROOT / "src"),
         }
     )
@@ -323,6 +331,7 @@ def main(argv: list[str] | None = None) -> int:
         "Building human review page",
         [sys.executable, "-m", "ops_evidence_synthesis.gcp.chunked_review_job"],
         env=job_env,
+        stream_stderr=True,
     )
     job_result_path.write_text(result.stdout, encoding="utf-8")
     job_result = json.loads(result.stdout)
@@ -451,6 +460,47 @@ def _print_review_summary(
         print(f"GCS review payload: {precomputed_review_uri}")
         print(f"GCS review HTML: {static_review_html_uri}")
         print(f"GCS review Markdown: {static_review_report_uri}")
+
+
+def _print_review_generation_plan(*, evidence_bundle: Path, providers: str, provider_mode: str) -> None:
+    try:
+        bundle = json.loads(evidence_bundle.read_text(encoding="utf-8"))
+        plan = provider_chunk_plan_summary(
+            bundle,
+            _csv_values(providers),
+            mode=provider_mode,
+        )
+    except Exception as exc:
+        print(f"Review generation plan could not be summarized: {exc}", file=sys.stderr)
+        return
+    print(file=sys.stderr)
+    print("Review generation plan.", file=sys.stderr)
+    print(
+        "Inputs: "
+        f"providers={int(plan.get('provider_count') or 0)}, "
+        f"provider_chunks={int(plan.get('provider_chunk_count') or 0)}, "
+        f"evidence_items={int(plan.get('evidence_item_count') or 0)}, "
+        f"source_logs={int(plan.get('source_log_count') or 0)}",
+        file=sys.stderr,
+    )
+    for provider_plan in plan.get("providers") or []:
+        if not isinstance(provider_plan, dict):
+            continue
+        print(
+            "  "
+            f"{provider_plan.get('provider') or ''}: "
+            f"chunks={int(provider_plan.get('chunk_count') or 0)}, "
+            f"workers={int(provider_plan.get('chunk_worker_count') or 0)}, "
+            f"items={int(provider_plan.get('evidence_item_count') or 0)}, "
+            f"source_logs={int(provider_plan.get('source_log_count') or 0)}, "
+            f"max_est_tokens={int(provider_plan.get('max_chunk_estimated_input_tokens') or 0)}, "
+            f"packing={provider_plan.get('packing_strategy') or ''}",
+            file=sys.stderr,
+        )
+
+
+def _csv_values(raw: str) -> tuple[str, ...]:
+    return tuple(part.strip() for part in str(raw or "").split(",") if part.strip())
 
 
 def _required_prompt_value(
@@ -1861,10 +1911,12 @@ def _run_step(
     command: list[str],
     *,
     env: dict[str, str] | None = None,
+    stream_stderr: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     print(f"{label}...", file=sys.stderr)
-    result = _run(command, env=env, capture=True, show_command=False)
-    print(f"{label}: done", file=sys.stderr)
+    started_at = time.monotonic()
+    result = _run(command, env=env, capture=True, show_command=False, stream_stderr=stream_stderr)
+    print(f"{label}: done ({time.monotonic() - started_at:.1f}s)", file=sys.stderr)
     return result
 
 
@@ -1874,9 +1926,12 @@ def _run(
     env: dict[str, str] | None = None,
     capture: bool = False,
     show_command: bool = True,
+    stream_stderr: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     if show_command:
         print("+ " + " ".join(command), file=sys.stderr)
+    if capture and stream_stderr:
+        return _run_with_streamed_stderr(command, env=env)
     try:
         return subprocess.run(
             command,
@@ -1893,6 +1948,43 @@ def _run(
         if exc.stderr:
             print(exc.stderr, file=sys.stderr)
         raise
+
+
+def _run_with_streamed_stderr(
+    command: list[str],
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    process = subprocess.Popen(
+        command,
+        cwd=ROOT,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+    stderr_parts: list[str] = []
+
+    def pump_stderr() -> None:
+        assert process.stderr is not None
+        for line in process.stderr:
+            stderr_parts.append(line)
+            print(line, end="", file=sys.stderr)
+
+    stderr_thread = threading.Thread(target=pump_stderr, daemon=True)
+    stderr_thread.start()
+    assert process.stdout is not None
+    stdout = process.stdout.read()
+    returncode = process.wait()
+    stderr_thread.join()
+    stderr = "".join(stderr_parts)
+    if returncode != 0:
+        print("Command failed: " + " ".join(command), file=sys.stderr)
+        if stdout:
+            print(stdout, file=sys.stderr)
+        raise subprocess.CalledProcessError(returncode, command, output=stdout, stderr=stderr)
+    return subprocess.CompletedProcess(command, returncode, stdout=stdout, stderr=stderr)
 
 
 def _check_url(url: str) -> None:

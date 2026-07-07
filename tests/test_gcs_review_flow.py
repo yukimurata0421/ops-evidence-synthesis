@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import subprocess
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -524,10 +525,18 @@ def test_main_builds_code_profile_before_log_analysis(
     output_dir = tmp_path / "analysis"
     labels: list[str] = []
 
+    streamed_labels: list[str] = []
+
     def fake_run_step(
-        label: str, command: list[str], *, env: dict[str, str] | None = None
+        label: str,
+        command: list[str],
+        *,
+        env: dict[str, str] | None = None,
+        stream_stderr: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         labels.append(label)
+        if stream_stderr:
+            streamed_labels.append(label)
         if label == "Sanitizing source code":
             out_dir = Path(command[command.index("--out") + 1])
             out_dir.mkdir(parents=True, exist_ok=True)
@@ -600,6 +609,9 @@ def test_main_builds_code_profile_before_log_analysis(
                 encoding="utf-8",
             )
         if label == "Building human review page":
+            assert stream_stderr is True
+            assert env is not None
+            assert env["OES_PROGRESS_STDERR"] == "1"
             stdout = json.dumps(
                 {
                     "evidence_sha256": "a" * 64,
@@ -654,6 +666,7 @@ def test_main_builds_code_profile_before_log_analysis(
     ]
     assert labels.index("Uploading code profile review page") < labels.index("Sanitizing logs")
     assert labels.index("Uploading Evidence Bundle to GCS") < labels.index("Uploading sanitized source context to GCS")
+    assert streamed_labels == ["Building human review page"]
     output = capsys.readouterr().out
     assert "https://ops-evidence.yukimurata0421.dev/code-profiles/" in output
     assert "gs://" not in output
@@ -708,3 +721,25 @@ def test_review_summary_can_print_gcs_uris_when_requested(tmp_path: Path, capsys
     output = capsys.readouterr().out
     assert "Code profile URL: https://example.test/code-profiles/profile-1/" in output
     assert "GCS Evidence Bundle: gs://private/job-inputs/abc/evidence_bundle.json" in output
+
+
+def test_run_step_streams_stderr_and_keeps_stdout_json(capsys: pytest.CaptureFixture[str]) -> None:
+    script = _load_script()
+
+    result = script._run_step(
+        "Streaming job",
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json, sys; "
+                "print('visible progress', file=sys.stderr, flush=True); "
+                "print(json.dumps({'status': 'ok'}))"
+            ),
+        ],
+        stream_stderr=True,
+    )
+
+    captured = capsys.readouterr()
+    assert "visible progress" in captured.err
+    assert json.loads(result.stdout) == {"status": "ok"}

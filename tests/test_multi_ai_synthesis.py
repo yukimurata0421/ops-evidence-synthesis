@@ -40,6 +40,7 @@ from ops_evidence_synthesis.synthesis.multi_ai import (
     _retry_after_seconds_from_text,
     _run_provider_full_corpus,
     finding_impact_from_synthesis,
+    provider_chunk_plan_summary,
     run_multi_ai,
     synthesize_multi_ai,
 )
@@ -656,6 +657,48 @@ def test_multi_ai_chunks_all_evidence_items_instead_of_sampling_tail(tmp_path: P
         for claim in run["parsed_result"]["claims"]
     )
     assert result["context_inputs"]["full_corpus_coverage"]["coverage_ratio"] == 1.0
+
+
+def test_provider_chunk_plan_summary_matches_chunking(monkeypatch) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "2")
+    evidence_items = [
+        {
+            "evidence_id": f"PATTERN-{index:03d}",
+            "type": "log_pattern",
+            "coverage_class": "singleton",
+            "event_type": "runtime_restart",
+            "count": 1,
+            "source_log_count": 1,
+            "component": "worker",
+        }
+        for index in range(1, 6)
+    ]
+    bundle = {
+        "schema_version": "evidence_bundle.v1",
+        "evidence_sha256": "chunk-plan-sha",
+        "raw_log_policy": "not_uploaded",
+        "service": "demo-worker",
+        "environment": "prod",
+        "time_window": {"start": "2026-06-16T00:00:00Z", "end": "2026-06-16T01:00:00Z"},
+        "local_first_summary": {"raw_logs_uploaded": False, "sanitized_event_count": 5},
+        "evidence_items": evidence_items,
+        "evidence_refs": {str(item["evidence_id"]): item for item in evidence_items},
+        "signals": [],
+        "prompt_rules": [],
+    }
+
+    plan = provider_chunk_plan_summary(bundle, providers=["local-gemini"], mode="local")
+    provider_plan = plan["providers"][0]
+
+    assert plan["provider_count"] == 1
+    assert plan["provider_chunk_count"] == 3
+    assert plan["evidence_item_count"] == 5
+    assert plan["source_log_count"] == 5
+    assert provider_plan["provider"] == "local-gemini"
+    assert provider_plan["chunk_count"] == 3
+    assert [row["evidence_item_count"] for row in provider_plan["chunks"]] == [2, 2, 1]
+    assert [row["source_log_count"] for row in provider_plan["chunks"]] == [2, 2, 1]
+    assert all(row["estimated_input_tokens"] > 0 for row in provider_plan["chunks"])
 
 
 @dataclass(frozen=True, slots=True)
