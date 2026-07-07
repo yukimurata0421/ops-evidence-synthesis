@@ -306,7 +306,7 @@ def _public_precomputed_read_guard(request: Request, request_id: str) -> JSONRes
     if request.method.upper() not in {"GET", "HEAD"}:
         return None
     path = request.url.path.rstrip("/") or "/"
-    if path in PUBLIC_PRECOMPUTED_READ_PATHS or path.startswith("/reviews/"):
+    if path in PUBLIC_PRECOMPUTED_READ_PATHS or path.startswith("/reviews/") or path.startswith("/code-profiles/"):
         return None
     return JSONResponse(
         status_code=404,

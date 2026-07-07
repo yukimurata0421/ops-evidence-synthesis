@@ -75,6 +75,7 @@ def test_code_profile_review_page_serves_human_readable_artifacts(
     (profile_dir / "index.html").write_text("<!doctype html><h1>Code Profile Review</h1>", encoding="utf-8")
     (profile_dir / "report.md").write_text("# Code Profile Review\n", encoding="utf-8")
     monkeypatch.setenv("OES_CODE_PROFILE_REVIEW_DIR", str(tmp_path / "code-profile-pages"))
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
 
     with TestClient(app) as client:
         page = client.get(f"/code-profiles/{profile_id}/")
