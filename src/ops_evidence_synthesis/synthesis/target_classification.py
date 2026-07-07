@@ -5,6 +5,7 @@ from typing import Any
 
 
 NORMAL_OPERATION_REASON = "normal_operation_observation"
+STRUCTURAL_CAVEAT_REASON = "non_incident_structural_caveat"
 NO_FINDING_STANCE = "no_finding"
 
 _NO_ISSUE_PHRASES = (
@@ -65,6 +66,27 @@ _PROBLEM_PHRASES = (
 )
 
 _INSUFFICIENT_OR_NO_FINDING_TYPES = {"insufficient_evidence", "no_finding"}
+_NON_INCIDENT_CAVEAT_TYPES = {"caveat", "support", "insufficient_evidence", "no_finding"}
+_STRUCTURAL_CAVEAT_PHRASES = (
+    "structural caveat",
+    "structural limitation",
+    "standard caveat",
+    "version anchoring is missing",
+    "version anchoring is unconfirmed",
+    "deployed_version_confirmed field is false",
+    "source context may not match",
+    "source code context and runtime environment",
+    "source code context and deployed runtime",
+    "source code/config and the actual deployed version",
+    "source code/config and the actual running version",
+)
+_NON_INCIDENT_CAVEAT_PHRASES = (
+    "rather than a functional finding",
+    "not a specific incident finding",
+    "not a root cause",
+    "not identifying a failure",
+    "standard caveat for all findings",
+)
 
 
 def target_reads_as_normal_observation(
@@ -116,10 +138,54 @@ def target_reads_as_normal_observation(
     return False
 
 
+def target_reads_as_non_incident_structural_caveat(
+    target: dict[str, Any],
+    *,
+    target_explanation: dict[str, Any] | None = None,
+) -> bool:
+    """Return True when a row is an evidence-boundary caveat, not an incident claim."""
+
+    explanation = target_explanation if isinstance(target_explanation, dict) else {}
+    if not explanation and isinstance(target.get("target_explanation"), dict):
+        explanation = target["target_explanation"]
+
+    combined = _joined_text(
+        [
+            target.get("suspected_issue"),
+            explanation.get("suspected_issue"),
+            target.get("operational_mechanism"),
+            explanation.get("operational_mechanism"),
+            target.get("why_it_matters"),
+            explanation.get("why_it_matters"),
+            target.get("why_not_promoted"),
+            explanation.get("why_not_promoted"),
+            *_string_items(target.get("evidence_summary")),
+            *_string_items(explanation.get("evidence_summary")),
+            *_string_items(target.get("counter_evidence_summary")),
+            *_string_items(explanation.get("counter_evidence_summary")),
+            *_provider_explanation_texts(explanation),
+        ]
+    )
+    if not _contains_structural_caveat_signal(combined):
+        return False
+    claim_types = _provider_claim_types(explanation)
+    if claim_types and not claim_types.issubset(_NON_INCIDENT_CAVEAT_TYPES):
+        return False
+    return _contains_non_incident_caveat_signal(combined) or _contains_no_issue_signal(combined)
+
+
 def normal_observation_reason(target: dict[str, Any], *, target_explanation: dict[str, Any] | None = None) -> str:
     unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
     return (
         f"`{unit}` reads as a normal-operation or no-finding observation. "
+        "It is retained for audit, but excluded from unresolved incident validation targets."
+    )
+
+
+def structural_caveat_reason(target: dict[str, Any], *, target_explanation: dict[str, Any] | None = None) -> str:
+    unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
+    return (
+        f"`{unit}` reads as a source/deployment evidence-boundary caveat rather than an incident finding. "
         "It is retained for audit, but excluded from unresolved incident validation targets."
     )
 
@@ -130,6 +196,16 @@ def _contains_no_issue_signal(text: str) -> bool:
     if normalized in {"none", "n a", "na", "no finding", "no findings"}:
         return True
     return any(phrase in lowered for phrase in _NO_ISSUE_PHRASES)
+
+
+def _contains_structural_caveat_signal(text: str) -> bool:
+    lowered = str(text or "").casefold()
+    return any(phrase in lowered for phrase in _STRUCTURAL_CAVEAT_PHRASES)
+
+
+def _contains_non_incident_caveat_signal(text: str) -> bool:
+    lowered = str(text or "").casefold()
+    return any(phrase in lowered for phrase in _NON_INCIDENT_CAVEAT_PHRASES)
 
 
 def _contains_problem_signal(text: str) -> bool:

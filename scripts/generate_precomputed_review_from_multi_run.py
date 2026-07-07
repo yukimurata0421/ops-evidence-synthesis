@@ -18,7 +18,10 @@ from ops_evidence_synthesis.synthesis.priority_scoring import score_review_prior
 from ops_evidence_synthesis.synthesis.target_classification import (
     NORMAL_OPERATION_REASON,
     NO_FINDING_STANCE,
+    STRUCTURAL_CAVEAT_REASON,
     normal_observation_reason,
+    structural_caveat_reason,
+    target_reads_as_non_incident_structural_caveat,
     target_reads_as_normal_observation,
 )
 from ops_evidence_synthesis.timeutils import parse_timestamp
@@ -504,14 +507,19 @@ def _provider_positions_for_target_class(
     *,
     classification: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    if classification.get("adjustment") != NORMAL_OPERATION_REASON:
+    adjustment = str(classification.get("adjustment") or "")
+    if adjustment not in {NORMAL_OPERATION_REASON, STRUCTURAL_CAVEAT_REASON}:
         return provider_positions
     rows: list[dict[str, Any]] = []
     for row in provider_positions:
         output = dict(row)
         if str(output.get("stance") or "") == "claimed":
             output["stance"] = NO_FINDING_STANCE
-            output["one_line"] = "Reported a no-finding or normal-operation observation for this review unit."
+            output["one_line"] = (
+                "Reported a source/deployment caveat rather than an incident claim."
+                if adjustment == STRUCTURAL_CAVEAT_REASON
+                else "Reported a no-finding or normal-operation observation for this review unit."
+            )
         rows.append(output)
     return rows
 
@@ -652,7 +660,10 @@ def _targets(
             missing_evidence=preliminary_missing_evidence,
             blocked_reason=preliminary_blocked_reason,
         )
-        normal_observation = classification.get("adjustment") == NORMAL_OPERATION_REASON
+        adjustment = str(classification.get("adjustment") or "")
+        normal_observation = adjustment == NORMAL_OPERATION_REASON
+        structural_caveat = adjustment == STRUCTURAL_CAVEAT_REASON
+        monitor_only_adjustment = normal_observation or structural_caveat
         provider_positions = _provider_positions_for_target_class(
             provider_positions,
             classification=classification,
@@ -660,6 +671,8 @@ def _targets(
         provider_count = sum(1 for row in provider_positions if row["stance"] == "claimed")
         if normal_observation:
             verdict = "normal_observation"
+        elif structural_caveat:
+            verdict = "structural_caveat"
         else:
             verdict = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
         blocked_reason = (
@@ -667,8 +680,8 @@ def _targets(
             if classification.get("adjustment") == "demoted_primary_candidate_evidence_thin"
             else preliminary_blocked_reason
         )
-        if normal_observation:
-            blocked_reason = "normal_operation_observation; no_incident_promotion"
+        if monitor_only_adjustment:
+            blocked_reason = f"{adjustment}; no_incident_promotion"
             missing_evidence = _unique_strings(list(public_target.get("missing_evidence") or []))
         else:
             missing_evidence = _public_missing_evidence(target, blocked_reason=blocked_reason)
@@ -707,13 +720,14 @@ def _targets(
             blocked_reasons=[blocked_reason],
             caveats=list(public_target.get("caveats") or []),
         )
-        if normal_observation and float(priority_result["score"]) > 0.35:
+        if monitor_only_adjustment and float(priority_result["score"]) > 0.35:
+            cap_key = "normal_observation_cap" if normal_observation else "structural_caveat_cap"
             priority_result = {
                 **priority_result,
                 "score": 0.35,
                 "breakdown": {
                     **priority_result["breakdown"],
-                    "normal_observation_cap": 0.35,
+                    cap_key: 0.35,
                 },
             }
         targets.append(
@@ -1189,6 +1203,15 @@ def _public_target_class(
             }
         )
         return "monitor_only", classification
+    if target_reads_as_non_incident_structural_caveat(target, target_explanation=target_explanation):
+        classification.update(
+            {
+                "final_class": "monitor_only",
+                "adjustment": STRUCTURAL_CAVEAT_REASON,
+                "reason": structural_caveat_reason(target, target_explanation=target_explanation),
+            }
+        )
+        return "monitor_only", classification
     if original != "primary_candidate":
         return original, classification
     if _primary_candidate_is_evidence_thin(
@@ -1391,6 +1414,23 @@ def _review_reason_summary(
             "headline": f"No-finding observation retained for audit: `{canonical_unit}`.",
             "factors": factors,
             "operator_question": f"Only reopen `{canonical_unit}` if contrary runtime or user-impact evidence appears.",
+        }
+    if STRUCTURAL_CAVEAT_REASON in blocked_reason:
+        factors = [
+            (
+                f"{provider_count}/{valid_count} schema-valid provider outputs surfaced a source/deployment "
+                f"evidence-boundary caveat for `{canonical_unit}`."
+            ),
+            (
+                f"{evidence_ref_count} chunk-tracked Evidence Item association(s) remain available for audit "
+                f"against the {log_count:,}-row sanitized corpus."
+            ),
+            "The row is a structural caveat rather than a functional incident finding, so it is excluded from unresolved validation targets.",
+        ]
+        return {
+            "headline": f"Evidence-boundary caveat retained for audit: `{canonical_unit}`.",
+            "factors": factors,
+            "operator_question": "Confirm the deployment/version anchor separately if source-code interpretation becomes important.",
         }
     provider_noun = "provider" if valid_count == 1 else "providers"
     factors = [
@@ -2307,6 +2347,12 @@ def _target_claim(
         unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
         return (
             f"{unit} was surfaced as a no-finding / normal-operation observation; "
+            "it is retained for audit and excluded from unresolved incident validation targets."
+        )
+    if isinstance(classification, dict) and classification.get("adjustment") == STRUCTURAL_CAVEAT_REASON:
+        unit = str(target.get("canonical_review_unit") or target.get("subsystem") or "review unit")
+        return (
+            f"{unit} was surfaced as a source/deployment evidence-boundary caveat; "
             "it is retained for audit and excluded from unresolved incident validation targets."
         )
     text = str(target.get("impact_summary") or "").strip()

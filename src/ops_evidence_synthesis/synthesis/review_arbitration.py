@@ -11,6 +11,8 @@ from ops_evidence_synthesis.synthesis.output_ingest import (
 from ops_evidence_synthesis.synthesis.priority_scoring import score_review_priority
 from ops_evidence_synthesis.synthesis.target_classification import (
     NORMAL_OPERATION_REASON,
+    STRUCTURAL_CAVEAT_REASON,
+    target_reads_as_non_incident_structural_caveat,
     target_reads_as_normal_observation,
 )
 from ops_evidence_synthesis.timeutils import utc_now
@@ -985,6 +987,10 @@ def _arbitrate_candidate(
         candidate,
         target_explanation=raw_target_explanation,
     )
+    structural_caveat = target_reads_as_non_incident_structural_caveat(
+        candidate,
+        target_explanation=raw_target_explanation,
+    )
 
     baseline = agreement_dimensions.get("baseline_agreement") if isinstance(agreement_dimensions.get("baseline_agreement"), dict) else {}
     cause = agreement_dimensions.get("cause_agreement") if isinstance(agreement_dimensions.get("cause_agreement"), dict) else {}
@@ -992,6 +998,9 @@ def _arbitrate_candidate(
     if normal_observation:
         reasons.append(NORMAL_OPERATION_REASON)
         score_after = _cap(score_after, 0.35, NORMAL_OPERATION_REASON, score_caps)
+    if structural_caveat:
+        reasons.append(STRUCTURAL_CAVEAT_REASON)
+        score_after = _cap(score_after, 0.35, STRUCTURAL_CAVEAT_REASON, score_caps)
     if baseline.get("established") is False and cause.get("value") == "none":
         reasons.append("no_baseline_agreement_or_causal_alignment")
     if not runtime:
@@ -1049,13 +1058,14 @@ def _arbitrate_candidate(
         blocked_reasons=reasons,
         caveats=_unique(candidate.get("caveats") or []),
     )
-    if normal_observation and float(priority_result["score"]) > 0.35:
+    if (normal_observation or structural_caveat) and float(priority_result["score"]) > 0.35:
+        cap_key = "normal_observation_cap" if normal_observation else "structural_caveat_cap"
         priority_result = {
             **priority_result,
             "score": 0.35,
             "breakdown": {
                 **priority_result["breakdown"],
-                "normal_observation_cap": 0.35,
+                cap_key: 0.35,
             },
         }
     review_priority_score = float(priority_result["score"])
@@ -1422,6 +1432,8 @@ def _final_class(original: str, *, runtime: bool, reasons: list[str], score: flo
     if original == "context":
         return "monitor_only"
     if NORMAL_OPERATION_REASON in reasons:
+        return "monitor_only"
+    if STRUCTURAL_CAVEAT_REASON in reasons:
         return "monitor_only"
     if "support_without_evidence_id" in reasons and not runtime:
         return "auto_archived"

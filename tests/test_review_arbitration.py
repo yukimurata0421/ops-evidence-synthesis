@@ -287,6 +287,66 @@ def test_no_finding_validation_target_routes_to_monitor_only() -> None:
     assert graph["planner_inputs"]["validation_target_ids"] == [graph["validation_targets"][0]["target_id"]]
 
 
+def test_structural_caveat_routes_to_monitor_only() -> None:
+    synthesis = {
+        "schema_version": "multi_ai_synthesis.v1",
+        "evidence_sha256": "sha",
+        "provider_count": 2,
+        "successful_provider_count": 2,
+        "validation_targets": [
+            {
+                "group_id": "cg-version-anchor",
+                "title": "Review target requires validation: user_experience",
+                "core_target_type": "user_outcome_check",
+                "subsystem": "user_experience",
+                "providers": ["gemini", "gemma"],
+                "provider_count": 2,
+                "evidence_refs": ["PATTERN-1", "PATTERN-2"],
+                "target_explanation": {
+                    "suspected_issue": "Potential mismatch between source code context and runtime environment.",
+                    "operational_mechanism": (
+                        "The source context provides templates, but there is no deployment evidence to "
+                        "confirm these specific versions were active during the incident window."
+                    ),
+                    "why_it_matters": (
+                        "Hypotheses based on the provided source code may be invalid if the running code differs."
+                    ),
+                    "why_not_promoted": "This is a structural caveat rather than a functional finding.",
+                    "provider_explanations": [
+                        {
+                            "provider_id": "gemma",
+                            "claim_type": "caveat",
+                            "suspected_issue": "Potential mismatch between source code context and deployed runtime.",
+                            "why_not_promoted": (
+                                "This is a structural limitation of the evidence bundle, not a specific incident finding."
+                            ),
+                        },
+                        {
+                            "provider_id": "gemini",
+                            "claim_type": "insufficient_evidence",
+                            "suspected_issue": "None identified",
+                            "why_not_promoted": "The evidence indicates normal operation rather than an incident.",
+                        },
+                    ],
+                },
+            }
+        ],
+    }
+
+    graph = arbitrate_review_targets(_bundle(), multi_ai_synthesis=synthesis)
+
+    assert graph["summary"]["primary_count"] == 0
+    assert graph["summary"]["validation_count"] == 0
+    assert graph["summary"]["monitor_only_count"] == 1
+    monitor = graph["monitor_only"][0]
+    assert monitor["canonical_review_unit"] == "user_experience"
+    assert monitor["class"] == "monitor_only"
+    decision = next(row for row in graph["promotion_decisions"] if row["target_id"] == monitor["target_id"])
+    assert decision["final_class"] == "monitor_only"
+    assert "non_incident_structural_caveat" in decision["reasons"]
+    assert graph["planner_inputs"]["validation_target_ids"] == []
+
+
 def test_same_provider_duplicates_have_limited_convergence_bonus() -> None:
     multi_provider = {
         "schema_version": "multi_ai_synthesis.v1",

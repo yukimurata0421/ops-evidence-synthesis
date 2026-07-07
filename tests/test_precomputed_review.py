@@ -1238,6 +1238,53 @@ def test_public_target_classification_routes_no_finding_to_monitor_only() -> Non
     assert healthy_baseline_class == "monitor_only"
     assert healthy_baseline["adjustment"] == "normal_operation_observation"
 
+    structural_caveat_class, structural_caveat = _public_target_class(
+        {"canonical_review_unit": "user_experience"},
+        original_class="validation_target",
+        provider_count=2,
+        valid_count=2,
+        evidence_ref_count=52,
+        evidence_family_count=1,
+        source_candidate_count=3,
+        target_explanation={
+            "suspected_issue": "Potential mismatch between source code context and runtime environment.",
+            "evidence_summary": [
+                "The source_context.version_context.deployed_version_confirmed field is false.",
+                "Multiple patterns confirm that messages are being accepted by the system.",
+            ],
+            "counter_evidence_summary": [
+                "No evidence of message processing delays or ingestion errors was found."
+            ],
+            "operational_mechanism": (
+                "The source context provides templates, but there is no deployment evidence to confirm "
+                "these specific versions were active during the incident window."
+            ),
+            "why_it_matters": (
+                "Hypotheses based on the provided source code may be invalid if the running code differs."
+            ),
+            "why_not_promoted": "This is a structural caveat rather than a functional finding.",
+            "provider_explanations": [
+                {
+                    "claim_type": "caveat",
+                    "suspected_issue": "Potential mismatch between source code context and deployed runtime.",
+                    "why_not_promoted": (
+                        "This is a structural limitation of the evidence bundle, not a specific incident finding."
+                    ),
+                },
+                {
+                    "claim_type": "support",
+                    "suspected_issue": "None; message ingestion is functional.",
+                    "why_not_promoted": "This confirms operational status rather than identifying a failure.",
+                },
+            ],
+        },
+        missing_evidence=["deployment_history"],
+        blocked_reason="incident_baseline_open; user_impact_or_business_output_unverified",
+    )
+
+    assert structural_caveat_class == "monitor_only"
+    assert structural_caveat["adjustment"] == "non_incident_structural_caveat"
+
     for suspected_issue, why_not_promoted in (
         (
             "Unknown operational state causing a surge in trace generation.",
