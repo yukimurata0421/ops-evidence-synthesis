@@ -485,7 +485,9 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     assert 'id="code-profile-human-review-form"' in html
     assert "Answer And Approve" in html
     assert "Save Review" in html
-    assert "Download JSON" in html
+    assert "Show JSON" in html
+    assert "Review JSON" in html
+    assert 'id="review-json-output"' in html
     assert "Copy APPROVE" in html
     assert "code_profile_human_review_form.v1" in html
     assert "Confirm this source profile matches the deployed service." in html

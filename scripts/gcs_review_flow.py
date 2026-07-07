@@ -1348,7 +1348,7 @@ This page is the human approval checkpoint before log analysis starts.
 
 ## Approval Action
 
-Answer directly under Gemini Questions For Human Approval on the HTML page. If the profile is acceptable, save or download the review note, then return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
+Answer directly under Gemini Questions For Human Approval on the HTML page. If the profile is acceptable, save the review note or show the review JSON, then return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
 
 ## Entrypoint Candidates
 
@@ -1437,8 +1437,12 @@ def _render_code_profile_review_form(
           <div class="form-actions">
             <button class="primary" type="submit">Save Review</button>
             <button type="button" id="save-review-form">Save In Browser</button>
-            <button type="button" id="download-review-form">Download JSON</button>
+            <button type="button" id="show-review-json">Show JSON</button>
             <button type="button" id="copy-approve-command">Copy APPROVE</button>
+          </div>
+          <div class="field">
+            <label for="review-json-output">Review JSON</label>
+            <textarea id="review-json-output" readonly></textarea>
           </div>
           <div id="review-form-status" class="form-status" role="status" aria-live="polite"></div>
         </div>
@@ -1463,13 +1467,15 @@ def _render_code_profile_html(
   <title>{_html(title)}</title>
   <style>
     :root {{ color-scheme: light; --ink:#182026; --muted:#5b6670; --line:#d7dde2; --panel:#f6f8fa; --accent:#126a72; --warn:#8a5a00; --ok:#17663a; }}
-    body {{ margin:0; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#fff; }}
+    * {{ box-sizing:border-box; }}
+    body {{ margin:0; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#fff; overflow-x:hidden; }}
     header {{ border-bottom:1px solid var(--line); background:#f8fafb; }}
-    main, .inner {{ max-width:1080px; margin:0 auto; padding:24px; }}
+    main, .inner {{ width:100%; max-width:1080px; margin:0 auto; padding:24px; }}
     h1 {{ margin:0 0 8px; font-size:32px; line-height:1.15; letter-spacing:0; }}
     h2 {{ margin:32px 0 10px; font-size:21px; letter-spacing:0; }}
     h3 {{ margin:0 0 12px; font-size:18px; letter-spacing:0; }}
     p {{ margin:8px 0; }}
+    p, li, h1, h2, h3, label {{ overflow-wrap:anywhere; }}
     a {{ color:var(--accent); }}
     code {{ background:#edf2f4; padding:2px 5px; border-radius:4px; }}
     pre {{ overflow:auto; padding:16px; border:1px solid var(--line); background:#fbfcfd; border-radius:8px; }}
@@ -1495,6 +1501,7 @@ def _render_code_profile_html(
     .content ul {{ padding-left:22px; }}
     .content li {{ margin:4px 0; }}
     footer {{ border-top:1px solid var(--line); color:var(--muted); }}
+    @media (max-width: 520px) {{ main, .inner {{ padding:16px; }} .review-form {{ padding:14px; }} }}
   </style>
 </head>
 <body>
@@ -1572,17 +1579,12 @@ def _render_code_profile_html(
         localStorage.setItem(storageKey, JSON.stringify(collect()));
         setStatus("Review answers saved in this browser.");
       }});
-      document.getElementById("download-review-form").addEventListener("click", () => {{
+      document.getElementById("show-review-json").addEventListener("click", () => {{
         const payload = collect();
-        const blob = new Blob([JSON.stringify(payload, null, 2) + "\\n"], {{ type: "application/json" }});
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "code-profile-review-" + (config.code_profile_id || "unknown") + ".json";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(link.href);
-        setStatus("Review JSON downloaded.");
+        localStorage.setItem(storageKey, JSON.stringify(payload));
+        const output = document.getElementById("review-json-output");
+        if (output) output.value = JSON.stringify(payload, null, 2) + "\\n";
+        setStatus("Review JSON generated below.");
       }});
       document.getElementById("copy-approve-command").addEventListener("click", async () => {{
         try {{

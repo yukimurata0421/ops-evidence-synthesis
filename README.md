@@ -183,7 +183,7 @@ When a source code directory is provided, the command first sanitizes the source
 tree locally, builds rule-based source mapping candidates, asks Gemini Pro to
 draft a focused operational profile from the sanitized artifacts, and pauses on
 the human-readable code profile URL. Answer directly under the Gemini Questions
-For Human Approval section, save or download the review note, then type
+For Human Approval section, save the review note or show the review JSON, then type
 `APPROVE` in the terminal only when the profile matches the system and
 deployment period you want to review. Log sanitization, Evidence Bundle
 construction, private cloud handoff, and the final incident review page are the
