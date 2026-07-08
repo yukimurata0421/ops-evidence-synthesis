@@ -3158,12 +3158,7 @@ def _review_graph_target_model(target: dict[str, Any], *, index: int, provider_i
         target.get("raw_review_priority_score"),
         agreement.get("convergence_score"),
     )
-    suspected = (
-        str(target.get("suspected_issue") or "").strip()
-        or str(explanation.get("suspected_issue") or "").strip()
-        or str(target.get("claim") or "").strip()
-        or str(agreement.get("summary") or "").strip()
-    )
+    suspected = _target_issue_display_text(target).strip() or str(agreement.get("summary") or "").strip()
     next_question = (
         str(target.get("next_validation_question") or "").strip()
         or str(explanation.get("next_validation_question") or "").strip()
@@ -3989,7 +3984,7 @@ def _target_markdown_section(target: dict[str, Any], *, index: int) -> list[str]
         lines.append(f"- Why this target is in review: {_markdown_text(headline)}")
     for factor in _string_items(review_reason.get("factors"))[:4]:
         lines.append(f"  - {_markdown_text(factor)}")
-    suspected_issue = str(target.get("suspected_issue") or explanation.get("suspected_issue") or "").strip()
+    suspected_issue = _target_issue_display_text(target).strip()
     mechanism = str(target.get("operational_mechanism") or explanation.get("operational_mechanism") or "").strip()
     why_it_matters = str(target.get("why_it_matters") or explanation.get("why_it_matters") or "").strip()
     next_question = str(
@@ -4371,6 +4366,8 @@ def _target_reads_as_observation_or_no_issue(target: dict[str, Any]) -> bool:
         "no evidence of service failure",
         "no failure evidence",
         "service appears healthy",
+        "appear healthy",
+        "appears healthy",
         "likely healthy",
         "normal operation",
         "operating normally",
@@ -4414,6 +4411,12 @@ def _target_no_issue_support_text(target: dict[str, Any]) -> str:
         or explanation.get("suspected_issue")
         or "Evidence currently reads as normal operation, not an accepted incident cause."
     )
+
+
+def _target_issue_display_text(target: dict[str, Any]) -> str:
+    if _target_reads_as_observation_or_no_issue(target):
+        return _target_no_issue_support_text(target)
+    return _target_operational_issue_text(target)
 
 
 def _target_next_check_text(target: dict[str, Any]) -> str:
@@ -4586,7 +4589,7 @@ def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
     agreement = target.get("agreement") if isinstance(target.get("agreement"), dict) else {}
     convergence_score = _target_score_value({"review_priority_score": agreement.get("convergence_score")})
     explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
-    suspected_issue = str(target.get("suspected_issue") or explanation.get("suspected_issue") or target.get("claim") or unit)
+    suspected_issue = _target_issue_display_text(target)
     operational_mechanism = str(
         target.get("operational_mechanism")
         or explanation.get("operational_mechanism")
@@ -6789,14 +6792,7 @@ def _target_review_reason_html(target: dict[str, Any]) -> str:
 
 def _target_explanation_html(target: dict[str, Any]) -> str:
     explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
-    suspected_issue = str(
-        target.get("suspected_issue")
-        or explanation.get("suspected_issue")
-        or target.get("impact_summary")
-        or target.get("claim")
-        or target.get("title")
-        or "Review target needs human validation."
-    )
+    suspected_issue = _target_issue_display_text(target)
     operational_mechanism = str(
         target.get("operational_mechanism")
         or explanation.get("operational_mechanism")

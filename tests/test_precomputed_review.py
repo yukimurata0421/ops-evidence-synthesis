@@ -1006,6 +1006,8 @@ def test_observation_validation_target_is_not_labeled_as_suspected_issue() -> No
 
     assert "Current finding" in detail_html
     assert "<label>Suspected issue</label>" not in detail_html
+    assert "None identified" not in detail_html
+    assert "The evidence indicates normal operation rather than an incident." in detail_html
     assert "score is queue priority, not incident probability" in detail_html
     assert "<span>priority</span>0.77" in queue_html
     assert "Review priority, not incident probability" in queue_html
@@ -1045,6 +1047,22 @@ def test_observation_validation_target_is_not_labeled_as_suspected_issue() -> No
 
     assert "<label>Suspected issue</label>" in anomaly_html
     assert "<label>Current finding</label>" not in anomaly_html
+
+    healthy_validation_target = {
+        **target,
+        "canonical_review_unit": "youtube_health",
+        "target_explanation": {
+            "suspected_issue": "None; reporting jobs appear healthy.",
+            "why_not_promoted": "This is a secondary operational task and not the primary streaming service.",
+            "why_it_matters": "Ensures that operational cost reporting is functioning.",
+            "next_validation_question": "Is this reporting job expected during the incident window?",
+        },
+    }
+    healthy_html = _workspace_target_detail_html(healthy_validation_target, index=3)
+
+    assert "<label>Current finding</label>" in healthy_html
+    assert "None; reporting jobs appear healthy." not in healthy_html
+    assert "This is a secondary operational task and not the primary streaming service." in healthy_html
 
 
 def test_review_workbench_separates_problem_candidates_from_no_issue_observations() -> None:
