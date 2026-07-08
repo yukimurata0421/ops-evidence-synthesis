@@ -4358,11 +4358,20 @@ def _target_observation_text(target: dict[str, Any]) -> str:
 
 def _target_reads_as_observation_or_no_issue(target: dict[str, Any]) -> bool:
     text = _target_observation_text(target)
+    explanation = target.get("target_explanation") if isinstance(target.get("target_explanation"), dict) else {}
+    issue_values = [
+        str(target.get("suspected_issue") or "").strip().casefold(),
+        str(explanation.get("suspected_issue") or "").strip().casefold(),
+    ]
+    if any(value in {"none", "none.", "no incident detected", "no incident detected."} for value in issue_values):
+        return True
     no_issue_phrases = (
         "none identified",
         "no issue",
+        "no incident evidence",
         "no observed failure",
         "no observed failures",
+        "no failure signals",
         "no evidence of service failure",
         "no failure evidence",
         "service appears healthy",

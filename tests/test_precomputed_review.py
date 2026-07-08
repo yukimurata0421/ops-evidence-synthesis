@@ -1064,6 +1064,24 @@ def test_observation_validation_target_is_not_labeled_as_suspected_issue() -> No
     assert "None; reporting jobs appear healthy." not in healthy_html
     assert "This is a secondary operational task and not the primary streaming service." in healthy_html
 
+    for issue_text, why_not_promoted in (
+        ("None", "No failure signals exist."),
+        ("No incident detected.", "No incident evidence exists."),
+    ):
+        no_incident_target = {
+            **target,
+            "target_explanation": {
+                "suspected_issue": issue_text,
+                "why_not_promoted": why_not_promoted,
+                "why_it_matters": "Without error signals, no incident hypothesis can be formed.",
+            },
+        }
+        no_incident_html = _workspace_target_detail_html(no_incident_target, index=4)
+
+        assert "<label>Current finding</label>" in no_incident_html
+        assert f"<p>{issue_text}</p>" not in no_incident_html
+        assert why_not_promoted in no_incident_html
+
 
 def test_review_workbench_separates_problem_candidates_from_no_issue_observations() -> None:
     no_issue_user_experience = {
