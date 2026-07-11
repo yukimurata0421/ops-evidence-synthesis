@@ -1734,7 +1734,7 @@ def _render_code_profile_review_form(
             <textarea id="profile-patch-output" class="json-editor"></textarea>
           </div>
           <div class="form-actions">
-            <button class="primary" type="button" id="preview-profile-review" disabled>Review Edited Interpretation</button>
+            <button class="primary" type="button" id="preview-profile-review" disabled>1. Review Edited Interpretation</button>
           </div>
           <div class="field">
             <label for="interpreted-profile-preview">Gemini interpretation — review again before approval</label>
@@ -1742,14 +1742,14 @@ def _render_code_profile_review_form(
           </div>
           <div class="check">
             <input id="interpretation-review-confirmed" name="interpretation_review_confirmed" type="checkbox" disabled>
-            <label for="interpretation-review-confirmed">I reviewed the interpreted system purpose, metric semantics, components, logs, outcomes, and unresolved questions.</label>
+            <label for="interpretation-review-confirmed">2. I reviewed the interpreted system purpose, metric semantics, components, logs, outcomes, and unresolved questions.</label>
           </div>
           <div class="field">
             <label for="profile-change-summary">Candidate change summary</label>
             <pre id="profile-change-summary">No candidate patch yet.</pre>
           </div>
           <div class="form-actions">
-            <button class="primary" type="button" id="approve-profile-review" disabled>Approve Reviewed Interpretation</button>
+            <button class="primary" type="button" id="approve-profile-review">3. Approve Reviewed Interpretation</button>
             <button type="button" id="download-approved-profile" disabled>Download Approved Profile JSON</button>
             <button type="button" id="copy-approve-command" disabled>Copy APPROVE</button>
           </div>
@@ -1955,12 +1955,14 @@ def _render_code_profile_html(
           previewButton.disabled = false;
           interpretationReview.checked = false;
           interpretationReview.disabled = true;
-          approveButton.disabled = true;
+          approveButton.disabled = false;
           approvedProfile = null;
           approvedOutput.value = "";
           downloadApprovedButton.disabled = true;
           copyApproveButton.disabled = true;
-          setStatus("Candidate patch ready. Inspect or edit it, then approve the edited patch.");
+          setStatus("Candidate patch ready. Next, complete step 1: Review Edited Interpretation.");
+          previewButton.scrollIntoView({{behavior:"smooth", block:"center"}});
+          previewButton.focus();
         }} catch (error) {{
           setStatus("Gemini normalization failed: " + error.message);
         }}
@@ -1970,7 +1972,7 @@ def _render_code_profile_html(
         previewOutput.value = "";
         interpretationReview.checked = false;
         interpretationReview.disabled = true;
-        approveButton.disabled = true;
+        approveButton.disabled = false;
         setStatus("Candidate patch changed. Review the edited interpretation again before approval.");
       }});
       previewButton.addEventListener("click", async () => {{
@@ -2004,17 +2006,34 @@ def _render_code_profile_html(
           }}, null, 2);
           interpretationReview.checked = false;
           interpretationReview.disabled = false;
-          approveButton.disabled = true;
+          approveButton.disabled = false;
           setStatus("Gemini interpretation rebuilt. Review it, then confirm the second review before final approval.");
+          interpretationReview.scrollIntoView({{behavior:"smooth", block:"center"}});
         }} catch (error) {{
           setStatus("Interpretation preview failed: " + error.message);
         }}
       }});
       interpretationReview.addEventListener("change", () => {{
-        approveButton.disabled = !(interpretationReview.checked && reviewedPatchSha256);
         if (interpretationReview.checked) setStatus("Second human review confirmed. Final approval is now enabled.");
+        else setStatus("Step 2 is required: confirm that you reviewed the interpreted profile.");
       }});
       approveButton.addEventListener("click", async () => {{
+        if (!patchOutput.value.trim()) {{
+          setStatus("Normalize with Gemini first, then complete steps 1 and 2 before final approval.");
+          return;
+        }}
+        if (!reviewedPatchSha256) {{
+          setStatus("Step 1 is required: click Review Edited Interpretation before final approval.");
+          previewButton.scrollIntoView({{behavior:"smooth", block:"center"}});
+          previewButton.focus();
+          return;
+        }}
+        if (!interpretationReview.checked) {{
+          setStatus("Step 2 is required: review the interpreted profile and select the confirmation checkbox.");
+          interpretationReview.scrollIntoView({{behavior:"smooth", block:"center"}});
+          interpretationReview.focus();
+          return;
+        }}
         const token = writeToken();
         if (!token) {{ setStatus("Enter the API write token before final approval."); return; }}
         let patch;

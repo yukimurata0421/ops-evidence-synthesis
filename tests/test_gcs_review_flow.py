@@ -494,10 +494,13 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     assert "Copy APPROVE" in html
     assert "Normalize With Gemini" in html
     assert "Gemini candidate patch" in html
-    assert "Review Edited Interpretation" in html
+    assert "1. Review Edited Interpretation" in html
     assert 'id="interpreted-profile-preview"' in html
     assert 'id="interpretation-review-confirmed"' in html
-    assert "Approve Reviewed Interpretation" in html
+    assert "2. I reviewed the interpreted system purpose" in html
+    assert "3. Approve Reviewed Interpretation" in html
+    assert "Step 1 is required: click Review Edited Interpretation" in html
+    assert "Step 2 is required: review the interpreted profile" in html
     assert "Download Approved Profile JSON" in html
     assert '"normalize_endpoint": "/profile-reviews/normalize"' in html
     assert '"preview_endpoint": "/profile-reviews/preview"' in html
