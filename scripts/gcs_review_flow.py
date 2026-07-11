@@ -133,7 +133,55 @@ def main(argv: list[str] | None = None) -> int:
     approved_profile_bundle = None
     code_profile_url = ""
     code_profile_report_url = ""
-    if source_root is not None:
+    if source_root is not None and args.resume_after_profile_approval:
+        source_context_dir = output_dir / "source_context"
+        source_analysis_dir = output_dir / "source_analysis"
+        source_profile_dir = output_dir / "source_profile"
+        source_context_bundle = source_context_dir / "source_context_bundle.json"
+        source_analysis_bundle = source_analysis_dir / "source_analysis_bundle.json"
+        focused_profile = source_profile_dir / "focused_operational_profile.json"
+        approved_profile_path = _optional_approved_profile_path(
+            args.approved_profile or os.environ.get("APPROVED_PROFILE", "")
+        )
+        if approved_profile_path is None:
+            raise SystemExit("--resume-after-profile-approval requires --approved-profile")
+        required_artifacts = [
+            source_context_bundle,
+            source_context_dir / "source_context_report.md",
+            source_analysis_bundle,
+            source_analysis_dir / "source_analysis_report.md",
+            focused_profile,
+        ]
+        missing_artifacts = [str(path) for path in required_artifacts if not path.is_file()]
+        if missing_artifacts:
+            raise SystemExit(
+                "resume artifacts are missing from the selected output directory: "
+                + ", ".join(missing_artifacts)
+            )
+        code_profile_id = _code_profile_public_id(
+            run_id=run_id,
+            source_context_bundle=source_context_bundle,
+            source_analysis_bundle=source_analysis_bundle,
+        )
+        code_profile_url = f"{public_base_url}/code-profiles/{code_profile_id}/"
+        code_profile_report_url = f"{code_profile_url.rstrip('/')}/report.md"
+        approved_profile_bundle = _confirm_code_profile_before_log_analysis(
+            source_root=source_root,
+            source_context_bundle=source_context_bundle,
+            source_context_report=source_context_dir / "source_context_report.md",
+            source_analysis_bundle=source_analysis_bundle,
+            source_analysis_report=source_analysis_dir / "source_analysis_report.md",
+            focused_profile=focused_profile,
+            approval_record_path=output_dir / "code_profile_approval.json",
+            code_profile_url=code_profile_url,
+            code_profile_report_url=code_profile_report_url,
+            no_prompts=True,
+            skip_confirmation=False,
+            approved_profile_path=approved_profile_path,
+            frozen_profile_path=source_profile_dir / "approved_operational_profile.json",
+        )
+        print("Resuming after the SHA-bound code profile approval; source profiling was not rerun.", file=sys.stderr)
+    if source_root is not None and not args.resume_after_profile_approval:
         source_context_dir = output_dir / "source_context"
         source_analysis_dir = output_dir / "source_analysis"
         source_profile_dir = output_dir / "source_profile"
@@ -464,6 +512,14 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--skip-source-confirmation",
         action="store_true",
         help="Do not pause for the local code profile review before log analysis.",
+    )
+    parser.add_argument(
+        "--resume-after-profile-approval",
+        action="store_true",
+        help=(
+            "Reuse source/profile artifacts already present in --output-dir and continue with a SHA-bound "
+            "--approved-profile without rerunning Gemini source profiling."
+        ),
     )
     return parser.parse_args(argv)
 
