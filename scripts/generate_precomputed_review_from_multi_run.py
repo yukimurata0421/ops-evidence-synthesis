@@ -15,6 +15,10 @@ from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.precomputed_review import SCORE_DEFINITION, stable_precomputed_review_json
 from ops_evidence_synthesis.profile_gate import build_profile_context_summary
 from ops_evidence_synthesis.synthesis.priority_scoring import score_review_priority
+from ops_evidence_synthesis.synthesis.evidence_reconciliation import (
+    filter_contradicted_absence_claims,
+    reconcile_missing_evidence,
+)
 from ops_evidence_synthesis.synthesis.target_classification import (
     NORMAL_OPERATION_REASON,
     NO_FINDING_STANCE,
@@ -689,6 +693,10 @@ def _targets(
             missing_evidence = _unique_strings(list(public_target.get("missing_evidence") or []))
         else:
             missing_evidence = _public_missing_evidence(target, blocked_reason=blocked_reason)
+        missing_evidence = reconcile_missing_evidence(
+            missing_evidence,
+            evidence_items=evidence_lookup.values(),
+        )
         if classification.get("adjustment") == "demoted_primary_candidate_evidence_thin":
             missing_evidence = _unique_strings(
                 [
@@ -1557,6 +1565,10 @@ def _public_target_explanation(
         evidence_lookup=evidence_lookup,
         window_start=window_start,
         window_end=window_end,
+    )
+    counter_summary = filter_contradicted_absence_claims(
+        counter_summary,
+        evidence_items=evidence_lookup.values(),
     )
     if not counter_summary and blocked_reason:
         counter_summary = [f"Promotion blocker: {blocked_reason}."]

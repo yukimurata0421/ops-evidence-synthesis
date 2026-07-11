@@ -9,6 +9,11 @@ from ops_evidence_synthesis.synthesis.output_ingest import (
     merge_candidate_observations,
     observation_groups_from_graph,
 )
+from ops_evidence_synthesis.synthesis.evidence_reconciliation import (
+    evidence_items_from_bundle,
+    filter_contradicted_absence_claims,
+    reconcile_missing_evidence,
+)
 from ops_evidence_synthesis.synthesis.priority_scoring import score_review_priority
 from ops_evidence_synthesis.synthesis.target_classification import (
     NORMAL_OPERATION_REASON,
@@ -1081,7 +1086,11 @@ def _arbitrate_candidate(
     }.get(final_class, "validation_target")
     linked_theme = theme_by_group.get(str(candidate.get("group_id") or "")) or _theme_for_candidate(candidate, text)
     request_type = request_by_theme.get(linked_theme) or _request_type_for_reasons(reasons, linked_theme)
-    missing_evidence = _missing_evidence_for_target(candidate, reasons)
+    evidence_items = evidence_items_from_bundle(bundle)
+    missing_evidence = reconcile_missing_evidence(
+        _missing_evidence_for_target(candidate, reasons),
+        evidence_items=evidence_items,
+    )
     target_explanation = _target_explanation_for_candidate(
         candidate,
         refs=refs,
@@ -1089,6 +1098,7 @@ def _arbitrate_candidate(
         request_type=request_type,
         linked_theme=linked_theme,
         has_user_impact=has_user_impact,
+        evidence_items=evidence_items,
     )
     target = {
         "target_id": str(candidate.get("target_id") or ""),
@@ -1206,6 +1216,7 @@ def _target_explanation_for_candidate(
     request_type: str,
     linked_theme: str,
     has_user_impact: bool,
+    evidence_items: list[dict[str, Any]],
 ) -> dict[str, Any]:
     raw = candidate.get("target_explanation") if isinstance(candidate.get("target_explanation"), dict) else {}
     unit = str(candidate.get("canonical_review_unit") or candidate.get("component") or candidate.get("subsystem") or "review unit")
@@ -1250,6 +1261,10 @@ def _target_explanation_for_candidate(
             *_string_items(candidate.get("counter_evidence_summary")),
             *_string_items(raw.get("counter_evidence_summary")),
         ]
+    )
+    counter_summary = filter_contradicted_absence_claims(
+        counter_summary,
+        evidence_items=evidence_items,
     )
     if not counter_summary and reasons:
         counter_summary = [f"Promotion blocker: {reason}." for reason in reasons[:4]]
