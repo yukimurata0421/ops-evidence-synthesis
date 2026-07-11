@@ -17,6 +17,29 @@ from ops_evidence_synthesis.gcp.chunked_review_job import (
 from ops_evidence_synthesis.gcp.storage import GcsUri
 
 
+def _approved_profile(*, profile_id: str = "stream-runtime") -> dict[str, Any]:
+    profile: dict[str, Any] = {
+        "schema_version": "approved_operational_profile.v1",
+        "status": "approved",
+        "explicit_profile": True,
+        "profile_id": profile_id,
+        "human_review": {
+            "decision": "approved",
+            "reviewer": "operator-1",
+            "profile_matches_deployment": True,
+            "deployment_period_confirmed": True,
+            "log_scope_confirmed": True,
+        },
+        "review_policy": {
+            "source_access_after_approval": "disabled",
+            "context_is_not_evidence": True,
+            "require_evidence_id_for_support": True,
+        },
+    }
+    profile["approved_profile_sha256"] = sha256_json(profile)
+    return profile
+
+
 def test_job_config_from_env_uses_private_gcs_inputs(monkeypatch) -> None:
     monkeypatch.setenv("OES_JOB_INPUT_BUNDLE_URI", "gs://private/input/evidence_bundle.json")
     monkeypatch.setenv("OES_JOB_APPROVED_PROFILE_URI", "gs://private/input/profile.json")
@@ -55,25 +78,19 @@ def test_public_provider_mode_tracks_local_job_mode(monkeypatch) -> None:
 
 
 def test_approved_profile_disables_source_context_after_approval(monkeypatch) -> None:
-    approved_profile = {
-        "schema_version": "approved_operational_profile.v1",
-        "status": "approved",
-        "explicit_profile": True,
-        "profile_id": "stream-runtime",
-        "human_review": {
-            "profile_matches_deployment": True,
-            "deployment_period_confirmed": True,
-            "log_scope_confirmed": True,
-        },
-        "review_policy": {"source_access_after_approval": "disabled"},
-    }
-    approved_profile["approved_profile_sha256"] = sha256_json(approved_profile)
+    approved_profile = _approved_profile()
     reads = {
         "gs://private/input/evidence.json": {"evidence_sha256": "e" * 64},
         "gs://private/input/profile.json": approved_profile,
         "gs://private/input/source.json": {"schema_version": "source_context_bundle.v1"},
     }
-    monkeypatch.setattr(chunked_review_job, "read_json", lambda uri: reads[str(uri)])
+    read_uris: list[str] = []
+
+    def fake_read_json(uri: GcsUri) -> dict[str, Any]:
+        read_uris.append(str(uri))
+        return reads[str(uri)]
+
+    monkeypatch.setattr(chunked_review_job, "read_json", fake_read_json)
     config = chunked_review_job.ChunkedReviewJobConfig(
         input_bundle_uri=GcsUri.parse("gs://private/input/evidence.json"),
         output_prefix_uri=GcsUri.parse("gs://private/output"),
@@ -84,22 +101,12 @@ def test_approved_profile_disables_source_context_after_approval(monkeypatch) ->
 
     with pytest.raises(ValueError, match="source context cannot be supplied"):
         chunked_review_job.run_job(config)
+    assert "gs://private/input/source.json" not in read_uris
 
 
 def test_chunked_job_rejects_tampered_approved_profile(monkeypatch) -> None:
-    approved_profile = {
-        "schema_version": "approved_operational_profile.v1",
-        "status": "approved",
-        "explicit_profile": True,
-        "profile_id": "stream-runtime",
-        "human_review": {
-            "profile_matches_deployment": True,
-            "deployment_period_confirmed": True,
-            "log_scope_confirmed": True,
-        },
-        "review_policy": {"source_access_after_approval": "disabled"},
-        "approved_profile_sha256": "0" * 64,
-    }
+    approved_profile = _approved_profile()
+    approved_profile["approved_profile_sha256"] = "0" * 64
     reads = {
         "gs://private/input/evidence.json": {"evidence_sha256": "e" * 64},
         "gs://private/input/profile.json": approved_profile,
@@ -116,15 +123,87 @@ def test_chunked_job_rejects_tampered_approved_profile(monkeypatch) -> None:
         chunked_review_job.run_job(config)
 
 
+def test_chunked_job_rejects_legacy_profile_when_uri_is_configured(monkeypatch) -> None:
+    reads = {
+        "gs://private/input/evidence.json": {"evidence_sha256": "e" * 64},
+        "gs://private/input/profile.json": {
+            "profile_id": "legacy-profile",
+            "explicit_profile": True,
+        },
+    }
+    monkeypatch.setattr(chunked_review_job, "read_json", lambda uri: reads[str(uri)])
+    config = chunked_review_job.ChunkedReviewJobConfig(
+        input_bundle_uri=GcsUri.parse("gs://private/input/evidence.json"),
+        output_prefix_uri=GcsUri.parse("gs://private/output"),
+        run_id="run-legacy-profile",
+        approved_profile_uri=GcsUri.parse("gs://private/input/profile.json"),
+    )
+
+    with pytest.raises(ValueError, match="approved profile must use approved_operational_profile.v1"):
+        chunked_review_job.run_job(config)
+
+
+def test_chunked_job_accepts_valid_approved_profile_without_source_context(monkeypatch) -> None:
+    evidence_sha = "e" * 64
+    approved_profile = _approved_profile()
+    reads = {
+        "gs://private/input/evidence.json": {"evidence_sha256": evidence_sha},
+        "gs://private/input/profile.json": approved_profile,
+    }
+    captured: dict[str, Any] = {}
+
+    def fake_run_multi_ai(bundle: dict[str, Any], profile: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+        captured["bundle"] = bundle
+        captured["profile"] = profile
+        captured["source_context"] = kwargs["source_context"]
+        captured["source_analysis"] = kwargs["source_analysis"]
+        return {
+            "evidence_sha256": evidence_sha,
+            "model_runs": [],
+            "provider_chunk_runs": [],
+            "review_targets": [],
+        }
+
+    monkeypatch.setattr(chunked_review_job, "read_json", lambda uri: reads[str(uri)])
+    monkeypatch.setattr(chunked_review_job, "run_multi_ai", fake_run_multi_ai)
+    monkeypatch.setattr(chunked_review_job, "write_json", lambda uri, payload: None)
+    monkeypatch.setattr(
+        chunked_review_job,
+        "_write_precomputed_payload_if_requested",
+        lambda config, **kwargs: chunked_review_job.PrecomputedReviewOutput(
+            uri=None,
+            payload={"evidence_sha256": evidence_sha},
+        ),
+    )
+    config = chunked_review_job.ChunkedReviewJobConfig(
+        input_bundle_uri=GcsUri.parse("gs://private/input/evidence.json"),
+        output_prefix_uri=GcsUri.parse("gs://private/output"),
+        run_id="run-approved-profile",
+        approved_profile_uri=GcsUri.parse("gs://private/input/profile.json"),
+        providers=("local",),
+        provider_mode="local",
+    )
+
+    result = chunked_review_job.run_job(config)
+
+    assert captured == {
+        "bundle": reads["gs://private/input/evidence.json"],
+        "profile": approved_profile,
+        "source_context": {},
+        "source_analysis": {},
+    }
+    assert result["approved_profile_uri"] == "gs://private/input/profile.json"
+    assert result["source_context_uri"] == ""
+    assert result["source_analysis_uri"] == ""
+
+
 def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch) -> None:
     evidence_sha = "e" * 64
     input_bundle = {"evidence_sha256": evidence_sha, "service": "amazon-notify"}
-    approved_profile = {"profile_id": "approved-amazon-notify", "explicit_profile": True}
     source_context = {"schema_version": "source_context_bundle.v1"}
     source_analysis = {"schema_version": "source_analysis_bundle.v1"}
     reads = {
         "gs://private/input/evidence_bundle.json": input_bundle,
-        "gs://private/input/approved_profile.json": approved_profile,
         "gs://private/input/source_context.json": source_context,
         "gs://private/input/source_analysis.json": source_analysis,
     }
@@ -153,7 +232,7 @@ def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch)
         pipeline_run_id: str,
     ) -> dict[str, Any]:
         assert bundle == input_bundle
-        assert profile == approved_profile
+        assert profile == {}
         assert providers == ("gemini-fast-lite", "gemma")
         assert mode == "real_or_skip"
         assert source_context == reads["gs://private/input/source_context.json"]
@@ -194,7 +273,7 @@ def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch)
         assert bundle == input_bundle
         assert source_context == reads["gs://private/input/source_context.json"]
         assert source_analysis == reads["gs://private/input/source_analysis.json"]
-        assert approved_profile == reads["gs://private/input/approved_profile.json"]
+        assert approved_profile == {}
         return {
             "schema_version": "precomputed_review_summary.v1",
             "evidence_sha256": evidence_sha,
@@ -226,7 +305,6 @@ def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch)
         input_bundle_uri=GcsUri.parse("gs://private/input/evidence_bundle.json"),
         output_prefix_uri=GcsUri.parse("gs://private/output/runs"),
         run_id="run-001",
-        approved_profile_uri=GcsUri.parse("gs://private/input/approved_profile.json"),
         source_context_uri=GcsUri.parse("gs://private/input/source_context.json"),
         source_analysis_uri=GcsUri.parse("gs://private/input/source_analysis.json"),
         precomputed_output_prefix_uri=GcsUri.parse("gs://private/precomputed"),
@@ -246,7 +324,7 @@ def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch)
         "run_id": "run-001",
         "evidence_sha256": evidence_sha,
         "input_bundle_uri": "gs://private/input/evidence_bundle.json",
-        "approved_profile_uri": "gs://private/input/approved_profile.json",
+        "approved_profile_uri": "",
         "source_context_uri": "gs://private/input/source_context.json",
         "source_analysis_uri": "gs://private/input/source_analysis.json",
         "output_prefix_uri": "gs://private/output/runs/run-001",

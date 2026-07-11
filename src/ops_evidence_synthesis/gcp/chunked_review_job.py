@@ -12,7 +12,10 @@ from typing import Any
 from ops_evidence_synthesis.canonical import canonical_json, sha256_json
 from ops_evidence_synthesis.gcp.storage import GcsUri, read_json, upload_file, write_json
 from ops_evidence_synthesis.precomputed_review import stable_precomputed_review_json
-from ops_evidence_synthesis.profile_review import validate_approved_operational_profile
+from ops_evidence_synthesis.profile_review import (
+    APPROVED_OPERATIONAL_PROFILE_SCHEMA_VERSION,
+    validate_approved_operational_profile,
+)
 from ops_evidence_synthesis.synthesis.multi_ai import provider_chunk_plan_summary, run_multi_ai
 from ops_evidence_synthesis.web.precomputed_review import (
     render_precomputed_markdown_report,
@@ -75,9 +78,14 @@ def run_job(config: ChunkedReviewJobConfig) -> dict[str, Any]:
     _progress("Loading Evidence Bundle and optional code context...")
     bundle = read_json(config.input_bundle_uri)
     approved_profile = read_json(config.approved_profile_uri) if config.approved_profile_uri else {}
-    source_context = read_json(config.source_context_uri) if config.source_context_uri else {}
-    source_analysis = read_json(config.source_analysis_uri) if config.source_analysis_uri else {}
-    if approved_profile.get("schema_version") == "approved_operational_profile.v1":
+    if config.approved_profile_uri is not None:
+        if (
+            not isinstance(approved_profile, dict)
+            or approved_profile.get("schema_version") != APPROVED_OPERATIONAL_PROFILE_SCHEMA_VERSION
+        ):
+            raise ValueError(
+                f"approved profile must use {APPROVED_OPERATIONAL_PROFILE_SCHEMA_VERSION}"
+            )
         profile_errors = validate_approved_operational_profile(approved_profile)
         if profile_errors:
             raise ValueError("approved operational profile validation failed: " + "; ".join(profile_errors))
@@ -92,6 +100,8 @@ def run_job(config: ChunkedReviewJobConfig) -> dict[str, Any]:
             raise ValueError(
                 "source context cannot be supplied after approved profile freezes source access"
             )
+    source_context = read_json(config.source_context_uri) if config.source_context_uri else {}
+    source_analysis = read_json(config.source_analysis_uri) if config.source_analysis_uri else {}
     _emit_review_input_progress(bundle, config)
     with tempfile.TemporaryDirectory(prefix="oes-chunked-review-") as temp_name:
         output_dir = Path(temp_name)

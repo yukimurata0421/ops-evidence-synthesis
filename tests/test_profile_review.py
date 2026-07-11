@@ -6,6 +6,7 @@ import json
 import pytest
 
 from ops_evidence_synthesis.ai.base import ModelResponse
+from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.profile_review import (
     ProfileReviewError,
     build_approved_operational_profile,
@@ -177,6 +178,10 @@ def test_human_approved_profile_is_hash_bound_and_applies_semantics() -> None:
     assert profile["metric_semantics"]["publish_gap_seconds"]["zero_behavior"] == "healthy"
     assert profile["review_policy"]["source_access_after_approval"] == "disabled"
     assert profile["human_review"]["reviewer"] == "operator-1"
+    assert (
+        profile["metric_semantics"]["publish_gap_seconds"]["review_provenance"]
+        == "human_approved:gemini-enterprise-agent-platform"
+    )
     assert len(profile["approved_profile_sha256"]) == 64
 
 
@@ -186,10 +191,58 @@ def test_approved_profile_tampering_is_detected() -> None:
         human_review=human_review(approved=True),
         accepted_patch=candidate_patch(),
     )
+    assert (
+        profile["metric_semantics"]["publish_gap_seconds"]["review_provenance"]
+        == "human_approved:deterministic"
+    )
+    assert profile["approval_provenance"]["normalization_provider_id"] == "deterministic"
     tampered = copy.deepcopy(profile)
     tampered["system_profile"]["purpose"] = "A different purpose."
 
     assert "approved_profile_sha256 mismatch" in validate_approved_operational_profile(tampered)
+
+
+@pytest.mark.parametrize(
+    ("section", "key", "value", "expected"),
+    [
+        ("human_review", "decision", "rejected", "human_review.decision must be approved"),
+        ("human_review", "reviewer", " ", "human_review.reviewer is required"),
+        (
+            "review_policy",
+            "source_access_after_approval",
+            "enabled",
+            "review_policy.source_access_after_approval must be disabled",
+        ),
+        (
+            "review_policy",
+            "context_is_not_evidence",
+            False,
+            "review_policy.context_is_not_evidence must be true",
+        ),
+        (
+            "review_policy",
+            "require_evidence_id_for_support",
+            False,
+            "review_policy.require_evidence_id_for_support must be true",
+        ),
+    ],
+)
+def test_approved_profile_validator_requires_human_approval_contract(
+    section: str,
+    key: str,
+    value: object,
+    expected: str,
+) -> None:
+    profile = build_approved_operational_profile(
+        focused_profile=focused_profile(),
+        human_review=human_review(approved=True),
+        accepted_patch=candidate_patch(),
+    )
+    profile[section][key] = value
+    profile.pop("approved_profile_sha256")
+    profile["approved_profile_sha256"] = sha256_json(profile)
+
+    assert expected in validate_approved_operational_profile(profile)
 
 
 def test_normalization_rejects_secret_like_human_answer() -> None:

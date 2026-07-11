@@ -281,6 +281,9 @@ def build_approved_operational_profile(
         raise ProfileReviewError("profile review patch validation failed: " + "; ".join(errors))
 
     reviewer = _text(human_review.get("reviewer"), 300)
+    normalization = normalization if isinstance(normalization, dict) else {}
+    normalization_provider_id = str(normalization.get("provider_id") or "").strip() or "deterministic"
+    review_provenance = f"human_approved:{normalization_provider_id}"
     effective_profile_id = profile_id or str(focused_profile.get("system_label") or "approved-operational-profile")
     approved = focused_profile_to_approved_profile(
         profile_id=effective_profile_id,
@@ -311,7 +314,7 @@ def build_approved_operational_profile(
             if row.get(key) not in (None, ""):
                 current[key] = row[key]
         current["review_reason"] = str(row.get("reason") or "")
-        current["review_provenance"] = "human_approved_gemini_normalization"
+        current["review_provenance"] = review_provenance
 
     component_map = approved.setdefault("component_map", {})
     for row in patch.get("component_role_overrides") or []:
@@ -319,7 +322,7 @@ def build_approved_operational_profile(
         current = component_map.setdefault(component_id, {})
         current["role"] = str(row.get("role") or current.get("role") or "")
         current["review_reason"] = str(row.get("reason") or "")
-        current["review_provenance"] = "human_approved_gemini_normalization"
+        current["review_provenance"] = review_provenance
     ignored = set(patch.get("ignored_component_ids") or [])
     for component_id in ignored:
         component_map.pop(component_id, None)
@@ -358,7 +361,6 @@ def build_approved_operational_profile(
         "approval_note": _text(human_review.get("approval_note"), 2000),
         "answers_sha256": sha256_json(human_review.get("answers") or []),
     }
-    normalization = normalization if isinstance(normalization, dict) else {}
     approved["approval_provenance"] = {
         "focused_profile_sha256": sha256_json(focused_profile),
         "human_review_sha256": sha256_json(human_review),
@@ -372,7 +374,7 @@ def build_approved_operational_profile(
         "source_discovery_sha256": str(focused_profile.get("source_discovery_sha256") or ""),
         "source_context_sha256": str(focused_profile.get("source_context_sha256") or ""),
         "source_analysis_sha256": str(focused_profile.get("source_analysis_sha256") or ""),
-        "normalization_provider_id": str(normalization.get("provider_id") or ""),
+        "normalization_provider_id": normalization_provider_id,
         "normalization_model_name": str(normalization.get("model_name") or ""),
     }
     approved.pop("approved_profile_sha256", None)
@@ -405,9 +407,20 @@ def validate_approved_operational_profile(
     if not claimed or claimed != sha256_json(material):
         errors.append("approved_profile_sha256 mismatch")
     review = profile.get("human_review") if isinstance(profile.get("human_review"), dict) else {}
+    if review.get("decision") != "approved":
+        errors.append("human_review.decision must be approved")
+    if not str(review.get("reviewer") or "").strip():
+        errors.append("human_review.reviewer is required")
     for key in ("profile_matches_deployment", "deployment_period_confirmed", "log_scope_confirmed"):
         if review.get(key) is not True:
             errors.append(f"human_review.{key} must be true")
+    review_policy = profile.get("review_policy") if isinstance(profile.get("review_policy"), dict) else {}
+    if review_policy.get("source_access_after_approval") != "disabled":
+        errors.append("review_policy.source_access_after_approval must be disabled")
+    if review_policy.get("context_is_not_evidence") is not True:
+        errors.append("review_policy.context_is_not_evidence must be true")
+    if review_policy.get("require_evidence_id_for_support") is not True:
+        errors.append("review_policy.require_evidence_id_for_support must be true")
     if focused_profile is not None:
         provenance = profile.get("approval_provenance") if isinstance(profile.get("approval_provenance"), dict) else {}
         if provenance.get("focused_profile_sha256") != sha256_json(focused_profile):
