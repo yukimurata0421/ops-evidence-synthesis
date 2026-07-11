@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
+from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.gcp import chunked_review_job
 from ops_evidence_synthesis.gcp.chunked_review_job import (
     DEFAULT_JOB_PROVIDERS,
@@ -49,6 +52,68 @@ def test_public_provider_mode_tracks_local_job_mode(monkeypatch) -> None:
 
     monkeypatch.setenv("OES_JOB_PUBLIC_PROVIDER_MODE", "manual-public-mode")
     assert _public_provider_mode() == "manual-public-mode"
+
+
+def test_approved_profile_disables_source_context_after_approval(monkeypatch) -> None:
+    approved_profile = {
+        "schema_version": "approved_operational_profile.v1",
+        "status": "approved",
+        "explicit_profile": True,
+        "profile_id": "stream-runtime",
+        "human_review": {
+            "profile_matches_deployment": True,
+            "deployment_period_confirmed": True,
+            "log_scope_confirmed": True,
+        },
+        "review_policy": {"source_access_after_approval": "disabled"},
+    }
+    approved_profile["approved_profile_sha256"] = sha256_json(approved_profile)
+    reads = {
+        "gs://private/input/evidence.json": {"evidence_sha256": "e" * 64},
+        "gs://private/input/profile.json": approved_profile,
+        "gs://private/input/source.json": {"schema_version": "source_context_bundle.v1"},
+    }
+    monkeypatch.setattr(chunked_review_job, "read_json", lambda uri: reads[str(uri)])
+    config = chunked_review_job.ChunkedReviewJobConfig(
+        input_bundle_uri=GcsUri.parse("gs://private/input/evidence.json"),
+        output_prefix_uri=GcsUri.parse("gs://private/output"),
+        run_id="run-source-boundary",
+        approved_profile_uri=GcsUri.parse("gs://private/input/profile.json"),
+        source_context_uri=GcsUri.parse("gs://private/input/source.json"),
+    )
+
+    with pytest.raises(ValueError, match="source context cannot be supplied"):
+        chunked_review_job.run_job(config)
+
+
+def test_chunked_job_rejects_tampered_approved_profile(monkeypatch) -> None:
+    approved_profile = {
+        "schema_version": "approved_operational_profile.v1",
+        "status": "approved",
+        "explicit_profile": True,
+        "profile_id": "stream-runtime",
+        "human_review": {
+            "profile_matches_deployment": True,
+            "deployment_period_confirmed": True,
+            "log_scope_confirmed": True,
+        },
+        "review_policy": {"source_access_after_approval": "disabled"},
+        "approved_profile_sha256": "0" * 64,
+    }
+    reads = {
+        "gs://private/input/evidence.json": {"evidence_sha256": "e" * 64},
+        "gs://private/input/profile.json": approved_profile,
+    }
+    monkeypatch.setattr(chunked_review_job, "read_json", lambda uri: reads[str(uri)])
+    config = chunked_review_job.ChunkedReviewJobConfig(
+        input_bundle_uri=GcsUri.parse("gs://private/input/evidence.json"),
+        output_prefix_uri=GcsUri.parse("gs://private/output"),
+        run_id="run-tampered-profile",
+        approved_profile_uri=GcsUri.parse("gs://private/input/profile.json"),
+    )
+
+    with pytest.raises(ValueError, match="approved_profile_sha256 mismatch"):
+        chunked_review_job.run_job(config)
 
 
 def test_run_job_reads_private_gcs_artifacts_and_writes_job_outputs(monkeypatch) -> None:

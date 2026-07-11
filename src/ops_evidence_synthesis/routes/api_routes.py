@@ -55,6 +55,12 @@ from ops_evidence_synthesis.profile_discovery import (
     build_profile_draft_with_provider,
     validate_profile_discovery_bundle_for_upload,
 )
+from ops_evidence_synthesis.profile_review import (
+    ProfileReviewError,
+    build_approved_operational_profile,
+    normalize_profile_review_with_provider,
+    validate_approved_operational_profile,
+)
 from ops_evidence_synthesis.profiles import profile_context_for_bundle
 from ops_evidence_synthesis.source_context import (
     validate_source_analysis_bundle_for_upload,
@@ -122,6 +128,7 @@ _PUBLIC_RATE_LIMIT_LOCK = threading.Lock()
 _STORE_FACTORY: Callable[[], Any] | None = None
 _GEMINI_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _PROFILE_DRAFT_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
+_PROFILE_REVIEW_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _EVIDENCE_REQUIREMENT_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _CLAUDE_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
 _GPT_OSS_PROVIDER_FACTORY: Callable[[], ModelProvider] | None = None
@@ -136,6 +143,7 @@ def configure_api_routes(
     store_factory: Callable[[], Any],
     gemini_provider_factory: Callable[[], ModelProvider],
     profile_draft_provider_factory: Callable[[], ModelProvider],
+    profile_review_provider_factory: Callable[[], ModelProvider],
     evidence_requirement_provider_factory: Callable[[], ModelProvider],
     claude_provider_factory: Callable[[], ModelProvider],
     gpt_oss_provider_factory: Callable[[], ModelProvider],
@@ -147,6 +155,7 @@ def configure_api_routes(
     global _STORE_FACTORY
     global _GEMINI_PROVIDER_FACTORY
     global _PROFILE_DRAFT_PROVIDER_FACTORY
+    global _PROFILE_REVIEW_PROVIDER_FACTORY
     global _EVIDENCE_REQUIREMENT_PROVIDER_FACTORY
     global _CLAUDE_PROVIDER_FACTORY
     global _GPT_OSS_PROVIDER_FACTORY
@@ -157,6 +166,7 @@ def configure_api_routes(
     _STORE_FACTORY = store_factory
     _GEMINI_PROVIDER_FACTORY = gemini_provider_factory
     _PROFILE_DRAFT_PROVIDER_FACTORY = profile_draft_provider_factory
+    _PROFILE_REVIEW_PROVIDER_FACTORY = profile_review_provider_factory
     _EVIDENCE_REQUIREMENT_PROVIDER_FACTORY = evidence_requirement_provider_factory
     _CLAUDE_PROVIDER_FACTORY = claude_provider_factory
     _GPT_OSS_PROVIDER_FACTORY = gpt_oss_provider_factory
@@ -182,6 +192,12 @@ def _profile_draft_provider() -> ModelProvider:
     if _PROFILE_DRAFT_PROVIDER_FACTORY is None:
         raise RuntimeError("profile draft provider factory is not configured")
     return _PROFILE_DRAFT_PROVIDER_FACTORY()
+
+
+def _profile_review_provider() -> ModelProvider:
+    if _PROFILE_REVIEW_PROVIDER_FACTORY is None:
+        raise RuntimeError("profile review provider is not configured")
+    return _PROFILE_REVIEW_PROVIDER_FACTORY()
 
 
 def _evidence_requirement_provider() -> ModelProvider:
@@ -4021,6 +4037,63 @@ def approve_profile_draft_api(payload: dict[str, Any]) -> dict[str, Any]:
         "profile_id": profile["profile_id"],
         "approved": True,
         "explicit_profile": True,
+        "approved_profile": profile,
+    }
+
+
+@router.post("/profile-reviews/normalize")
+def normalize_profile_review_api(payload: dict[str, Any]) -> dict[str, Any]:
+    focused_profile = payload.get("focused_profile")
+    human_review = payload.get("human_review")
+    if not isinstance(focused_profile, dict):
+        raise HTTPException(status_code=400, detail="focused_profile object is required")
+    if not isinstance(human_review, dict):
+        raise HTTPException(status_code=400, detail="human_review object is required")
+    try:
+        result = normalize_profile_review_with_provider(
+            focused_profile,
+            human_review,
+            _profile_review_provider(),
+        )
+    except ProfileReviewError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result
+
+
+@router.post("/profile-reviews/approve")
+def approve_profile_review_api(payload: dict[str, Any]) -> dict[str, Any]:
+    focused_profile = payload.get("focused_profile")
+    human_review = payload.get("human_review")
+    accepted_patch = payload.get("accepted_patch")
+    normalization = payload.get("normalization")
+    if not isinstance(focused_profile, dict):
+        raise HTTPException(status_code=400, detail="focused_profile object is required")
+    if not isinstance(human_review, dict):
+        raise HTTPException(status_code=400, detail="human_review object is required")
+    if not isinstance(accepted_patch, dict):
+        raise HTTPException(status_code=400, detail="accepted_patch object is required")
+    if normalization is not None and not isinstance(normalization, dict):
+        raise HTTPException(status_code=400, detail="normalization must be an object or null")
+    try:
+        profile = build_approved_operational_profile(
+            focused_profile=focused_profile,
+            human_review=human_review,
+            accepted_patch=accepted_patch,
+            normalization=normalization if isinstance(normalization, dict) else {},
+            profile_id=str(payload.get("profile_id") or focused_profile.get("system_label") or ""),
+        )
+    except ProfileReviewError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    errors = validate_approved_operational_profile(profile, focused_profile=focused_profile)
+    if errors:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "approved operational profile validation failed", "errors": errors},
+        )
+    return {
+        "status": "approved",
+        "profile_id": profile.get("profile_id") or "",
+        "approved_profile_sha256": profile["approved_profile_sha256"],
         "approved_profile": profile,
     }
 

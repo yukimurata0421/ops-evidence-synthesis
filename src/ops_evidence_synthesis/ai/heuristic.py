@@ -147,6 +147,8 @@ class HeuristicProvider:
         )
 
     def _payload(self, bundle: dict[str, Any]) -> dict[str, Any]:
+        if self.prompt_name == "profile-review-normalization" or bundle.get("llm_task") == "profile_review_normalization":
+            return self._profile_review_patch_payload(bundle)
         if self.prompt_name == "evidence-requirements" or bundle.get("llm_task") == "evidence_requirement_planner":
             return self._evidence_requirements_payload(bundle)
         if self.prompt_name == "root-cause":
@@ -154,6 +156,31 @@ class HeuristicProvider:
         if self.prompt_name == "verifier":
             return self._verifier_payload(bundle)
         return self._contrast_payload(bundle)
+
+    def _profile_review_patch_payload(self, bundle: dict[str, Any]) -> dict[str, Any]:
+        human_review = bundle.get("human_review") if isinstance(bundle.get("human_review"), dict) else {}
+        return {
+            "schema_version": "operational_profile_review_patch.v1",
+            "system_summary_overrides": {
+                "primary_purpose": "",
+                "logged_subject": "",
+                "operational_boundary": "",
+            },
+            "metric_semantics_overrides": [],
+            "component_role_overrides": [],
+            "log_source_overrides": [],
+            "confirmed_user_outcomes": [],
+            "ignored_component_ids": [],
+            "approved_collectors": [],
+            "unresolved_questions": [
+                {
+                    "question": str(row.get("question") or ""),
+                    "reason": "Local fallback preserves the human answer for explicit structured review.",
+                }
+                for row in human_review.get("answers") or []
+                if isinstance(row, dict) and str(row.get("answer") or "").strip()
+            ],
+        }
 
     def _evidence_requirements_payload(self, bundle: dict[str, Any]) -> dict[str, Any]:
         context = bundle.get("requirement_context") if isinstance(bundle.get("requirement_context"), dict) else {}

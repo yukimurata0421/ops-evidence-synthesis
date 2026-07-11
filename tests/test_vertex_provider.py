@@ -64,3 +64,24 @@ def test_vertex_thinking_level_from_env(monkeypatch) -> None:
     provider = VertexGeminiProvider.from_env()
 
     assert provider._generation_config()["thinkingConfig"] == {"thinkingLevel": "high"}
+
+
+def test_profile_review_normalization_uses_candidate_patch_prompt_and_schema() -> None:
+    provider = VertexGeminiProvider(
+        project_id="ops-evidence-synthesis",
+        prompt_name="profile-review-normalization",
+    )
+    bundle = {
+        "llm_task": "profile_review_normalization",
+        "focused_profile": {"schema_version": "focused_operational_profile.v1"},
+        "human_review": {"answers": []},
+    }
+
+    prompt = provider._prompt(bundle)
+    schema = provider._generation_config()["responseSchema"]
+
+    assert "candidate patch" in prompt
+    assert "human will inspect and accept or edit it" in prompt
+    assert schema["properties"]["schema_version"] == {"type": "STRING"}
+    assert "metric_semantics_overrides" in schema["required"]
+    assert provider.model_name == "gemini-3.1-pro-preview"

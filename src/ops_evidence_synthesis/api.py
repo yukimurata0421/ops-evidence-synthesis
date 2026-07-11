@@ -76,6 +76,23 @@ def _profile_draft_provider() -> ModelProvider:
     )
 
 
+def _profile_review_provider() -> ModelProvider:
+    provider_name = os.environ.get("OES_PROFILE_REVIEW_PROVIDER", "gemini").casefold()
+    if provider_name in {"local", "heuristic"}:
+        return HeuristicProvider(
+            "profile-review-local",
+            "profile-review-simulated",
+            "profile-review-normalization",
+        )
+    model_name = os.environ.get("OES_PROFILE_REVIEW_GEMINI_MODEL", "gemini-3.1-pro-preview")
+    return VertexGeminiProvider.from_env(
+        prompt_name="profile-review-normalization",
+        model_name=model_name,
+        max_output_tokens=int(os.environ.get("OES_PROFILE_REVIEW_GEMINI_MAX_OUTPUT_TOKENS", "4096")),
+        timeout_seconds=int(os.environ.get("OES_PROFILE_REVIEW_GEMINI_TIMEOUT_SECONDS", "180")),
+    )
+
+
 def _evidence_requirement_provider() -> ModelProvider:
     provider_name = os.environ.get("OES_EVIDENCE_REQUIREMENTS_PROVIDER", "gemini").casefold()
     if provider_name in {"local", "heuristic"}:
@@ -168,6 +185,7 @@ configure_api_routes(
     store_factory=_store,
     gemini_provider_factory=_gemini_provider,
     profile_draft_provider_factory=_profile_draft_provider,
+    profile_review_provider_factory=_profile_review_provider,
     evidence_requirement_provider_factory=_evidence_requirement_provider,
     claude_provider_factory=_claude_provider,
     gpt_oss_provider_factory=_gpt_oss_provider,

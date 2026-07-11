@@ -9,6 +9,8 @@ from types import ModuleType
 
 import pytest
 
+from ops_evidence_synthesis.profile_review import build_approved_operational_profile
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -490,6 +492,12 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     assert "Review JSON" in html
     assert 'id="review-json-output"' in html
     assert "Copy APPROVE" in html
+    assert "Normalize With Gemini" in html
+    assert "Gemini candidate patch" in html
+    assert "Approve Edited Patch" in html
+    assert "Download Approved Profile JSON" in html
+    assert '"normalize_endpoint": "/profile-reviews/normalize"' in html
+    assert '"approve_endpoint": "/profile-reviews/approve"' in html
     assert "code_profile_human_review_form.v1" in html
     assert "Confirm this source profile matches the deployed service." in html
     assert html.index("Gemini Questions For Human Approval") < html.index('id="code-profile-human-review-form"')
@@ -524,6 +532,58 @@ def test_main_builds_code_profile_before_log_analysis(
     source_root.mkdir()
     output_dir = tmp_path / "analysis"
     labels: list[str] = []
+    focused_payload = {
+        "schema_version": "focused_operational_profile.v1",
+        "system_label": "stream_v3_runtime",
+        "system_summary": {},
+        "runtime_components": [],
+        "observability_contract": {},
+        "orchestration_flows": [],
+        "failure_modes": [],
+        "read_only_collectors": [],
+        "profile_limits": {
+            "raw_source_sent_to_provider": False,
+            "raw_logs_sent_to_provider": False,
+        },
+        "human_review_required": [],
+        "focused_profile_generation": {
+            "provider_id": "gemini-enterprise-agent-platform",
+            "model_name": "gemini-3.1-pro-preview",
+            "llm_status": "ok",
+            "fallback_used": False,
+        },
+    }
+    approved_profile_path = tmp_path / "approved-operational-profile.json"
+    approved_profile_path.write_text(
+        json.dumps(
+            build_approved_operational_profile(
+                focused_profile=focused_payload,
+                human_review={
+                    "schema_version": "code_profile_human_review_form.v1",
+                    "reviewer": "test-reviewer",
+                    "decision": "approved",
+                    "profile_matches_deployment": True,
+                    "deployment_period_confirmed": True,
+                    "log_scope_confirmed": True,
+                    "answers": [],
+                    "approval_note": "test approval",
+                },
+                accepted_patch={
+                    "schema_version": "operational_profile_review_patch.v1",
+                    "system_summary_overrides": {},
+                    "metric_semantics_overrides": [],
+                    "component_role_overrides": [],
+                    "log_source_overrides": [],
+                    "confirmed_user_outcomes": [],
+                    "ignored_component_ids": [],
+                    "approved_collectors": [],
+                    "unresolved_questions": [],
+                },
+            ),
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
 
     streamed_labels: list[str] = []
 
@@ -582,36 +642,17 @@ def test_main_builds_code_profile_before_log_analysis(
             assert env["OES_VERTEX_PROJECT"] == "ops-evidence-synthesis"
             out_path = Path(command[command.index("--out") + 1])
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(
-                json.dumps(
-                    {
-                        "schema_version": "focused_operational_profile.v1",
-                        "system_label": "stream_v3_runtime",
-                        "system_summary": {},
-                        "runtime_components": [],
-                        "observability_contract": {},
-                        "orchestration_flows": [],
-                        "failure_modes": [],
-                        "read_only_collectors": [],
-                        "profile_limits": {
-                            "raw_source_sent_to_provider": False,
-                            "raw_logs_sent_to_provider": False,
-                        },
-                        "human_review_required": [],
-                        "focused_profile_generation": {
-                            "provider_id": "gemini-enterprise-agent-platform",
-                            "model_name": "gemini-3.1-pro-preview",
-                            "llm_status": "ok",
-                            "fallback_used": False,
-                        },
-                    }
-                ),
-                encoding="utf-8",
-            )
+            out_path.write_text(json.dumps(focused_payload), encoding="utf-8")
         if label == "Building human review page":
             assert stream_stderr is True
             assert env is not None
             assert env["OES_PROGRESS_STDERR"] == "1"
+            assert env["OES_JOB_APPROVED_PROFILE_URI"].endswith(
+                "/job-inputs/review-test/approved_operational_profile.json"
+            )
+            assert env["OES_JOB_PROFILE_ID"] == "stream_v3_runtime"
+            assert "OES_JOB_SOURCE_CONTEXT_URI" not in env
+            assert "OES_JOB_SOURCE_ANALYSIS_URI" not in env
             stdout = json.dumps(
                 {
                     "evidence_sha256": "a" * 64,
@@ -646,6 +687,8 @@ def test_main_builds_code_profile_before_log_analysis(
                 str(output_dir),
                 "--run-id",
                 "review-test",
+                "--approved-profile",
+                str(approved_profile_path),
                 "--no-prompts",
             ]
         )
@@ -666,6 +709,9 @@ def test_main_builds_code_profile_before_log_analysis(
     ]
     assert labels.index("Uploading code profile review page") < labels.index("Sanitizing logs")
     assert labels.index("Uploading Evidence Bundle to GCS") < labels.index("Uploading sanitized source context to GCS")
+    assert labels.index("Uploading source analysis to GCS") < labels.index(
+        "Uploading approved operational profile to GCS"
+    )
     assert streamed_labels == ["Building human review page"]
     output = capsys.readouterr().out
     assert "https://ops-evidence.yukimurata0421.dev/code-profiles/" in output

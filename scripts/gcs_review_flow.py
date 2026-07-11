@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from ops_evidence_synthesis.synthesis.multi_ai import provider_chunk_plan_summary
+from ops_evidence_synthesis.profile_review import validate_approved_operational_profile
 from ops_evidence_synthesis.timeutils import format_timestamp
 
 
@@ -119,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     source_context_uri = f"gs://{bucket}/job-inputs/{run_id}/source_context_bundle.json"
     source_analysis_uri = f"gs://{bucket}/job-inputs/{run_id}/source_analysis_bundle.json"
     code_profile_pages_prefix_uri = f"gs://{bucket}/code-profile-pages"
+    approved_profile_uri = f"gs://{bucket}/job-inputs/{run_id}/approved_operational_profile.json"
     output_prefix_uri = f"gs://{bucket}/job-runs"
     precomputed_prefix_uri = f"gs://{bucket}/precomputed_review_summaries"
     static_review_prefix_uri = f"gs://{bucket}/review-pages"
@@ -126,6 +128,7 @@ def main(argv: list[str] | None = None) -> int:
     cli = [sys.executable, "-m", "ops_evidence_synthesis.cli"]
     source_context_bundle = None
     source_analysis_bundle = None
+    approved_profile_bundle = None
     code_profile_url = ""
     code_profile_report_url = ""
     if source_root is not None:
@@ -239,7 +242,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"{code_profile_pages_prefix_uri.rstrip('/')}/{code_profile_id}/",
             ],
         )
-        _confirm_code_profile_before_log_analysis(
+        approved_profile_bundle = _confirm_code_profile_before_log_analysis(
             source_root=source_root,
             source_context_bundle=source_context_bundle,
             source_context_report=source_context_dir / "source_context_report.md",
@@ -251,6 +254,10 @@ def main(argv: list[str] | None = None) -> int:
             code_profile_report_url=code_profile_report_url,
             no_prompts=args.no_prompts,
             skip_confirmation=args.skip_source_confirmation,
+            approved_profile_path=_optional_approved_profile_path(
+                args.approved_profile or os.environ.get("APPROVED_PROFILE", "")
+            ),
+            frozen_profile_path=source_profile_dir / "approved_operational_profile.json",
         )
 
     _run_step(
@@ -304,6 +311,11 @@ def main(argv: list[str] | None = None) -> int:
             "Uploading source analysis to GCS",
             ["gcloud", "storage", "cp", str(source_analysis_bundle), source_analysis_uri],
         )
+    if approved_profile_bundle is not None:
+        _run_step(
+            "Uploading approved operational profile to GCS",
+            ["gcloud", "storage", "cp", str(approved_profile_bundle), approved_profile_uri],
+        )
 
     job_env = dict(os.environ)
     job_env.update(
@@ -323,9 +335,17 @@ def main(argv: list[str] | None = None) -> int:
             "PYTHONPATH": str(ROOT / "src"),
         }
     )
-    if source_context_bundle is not None:
+    if approved_profile_bundle is not None:
+        approved_profile_payload = _read_json_object(approved_profile_bundle)
+        job_env["OES_JOB_APPROVED_PROFILE_URI"] = approved_profile_uri
+        job_env["OES_JOB_PROFILE_ID"] = str(approved_profile_payload.get("profile_id") or "")
+        job_env["OES_JOB_SOURCE_NOTE"] = (
+            "generated from sanitized logs and a human-approved operational profile; "
+            "source access disabled after profile approval"
+        )
+    elif source_context_bundle is not None:
         job_env["OES_JOB_SOURCE_CONTEXT_URI"] = source_context_uri
-    if source_analysis_bundle is not None:
+    if approved_profile_bundle is None and source_analysis_bundle is not None:
         job_env["OES_JOB_SOURCE_ANALYSIS_URI"] = source_analysis_uri
     result = _run_step(
         "Building human review page",
@@ -361,6 +381,7 @@ def main(argv: list[str] | None = None) -> int:
         sanitized_dir=sanitized_dir,
         source_context_bundle=source_context_bundle,
         source_analysis_bundle=source_analysis_bundle,
+        approved_profile_bundle=approved_profile_bundle,
         input_bundle_uri=input_bundle_uri,
         precomputed_review_uri=str(job_result.get("precomputed_review_uri", "")),
         static_review_html_uri=str(job_result.get("static_review_html_uri", "")),
@@ -385,6 +406,14 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--bucket", default="")
     parser.add_argument("--run-id", default="")
     parser.add_argument("--output-dir", default="")
+    parser.add_argument(
+        "--approved-profile",
+        default="",
+        help=(
+            "Absolute path to approved_operational_profile.json downloaded after the code-profile review. "
+            "Required with --source-root in non-interactive mode unless --skip-source-confirmation is used."
+        ),
+    )
     parser.add_argument("--public-base-url", default="")
     parser.add_argument("--static-review-base-url", default="")
     parser.add_argument("--providers", default="")
@@ -439,6 +468,7 @@ def _print_review_summary(
     static_review_html_uri: str,
     static_review_report_uri: str,
     show_gcs_uris: bool,
+    approved_profile_bundle: Path | None = None,
 ) -> None:
     print()
     print("Human review is ready.")
@@ -455,6 +485,10 @@ def _print_review_summary(
     if source_context_bundle is not None and source_analysis_bundle is not None:
         print(f"Sanitized source context: {source_context_bundle}")
         print(f"Source analysis: {source_analysis_bundle}")
+    if approved_profile_bundle is not None:
+        approved_payload = _read_json_object(approved_profile_bundle)
+        print(f"Approved operational profile: {approved_profile_bundle}")
+        print(f"Approved profile SHA-256: {approved_payload.get('approved_profile_sha256') or ''}")
     if show_gcs_uris:
         print(f"GCS Evidence Bundle: {input_bundle_uri}")
         print(f"GCS review payload: {precomputed_review_uri}")
@@ -584,6 +618,18 @@ def _absolute_existing_input_path(value: str) -> Path:
     return path
 
 
+def _optional_approved_profile_path(value: str) -> Path | None:
+    text = str(value or "").strip().strip('"')
+    if not text:
+        return None
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        raise SystemExit(f"APPROVED_PROFILE must be an absolute path: {value}")
+    if not path.is_file():
+        raise SystemExit(f"approved operational profile was not found: {path}")
+    return path.resolve()
+
+
 def _confirm_code_profile_before_log_analysis(
     *,
     source_root: Path,
@@ -597,9 +643,39 @@ def _confirm_code_profile_before_log_analysis(
     no_prompts: bool,
     skip_confirmation: bool,
     focused_profile: Path | None = None,
-) -> None:
-    if no_prompts or skip_confirmation or not sys.stdin.isatty():
-        return
+    approved_profile_path: Path | None = None,
+    frozen_profile_path: Path | None = None,
+) -> Path | None:
+    if skip_confirmation:
+        if approved_profile_path is None:
+            return None
+        return _freeze_approved_operational_profile(
+            approved_profile_path=approved_profile_path,
+            focused_profile=focused_profile,
+            frozen_profile_path=frozen_profile_path,
+        )
+    if no_prompts or not sys.stdin.isatty():
+        if approved_profile_path is None:
+            raise SystemExit(
+                "Approved operational profile is required before log analysis; "
+                "pass --approved-profile with the downloaded JSON, or explicitly use --skip-source-confirmation."
+            )
+        frozen = _freeze_approved_operational_profile(
+            approved_profile_path=approved_profile_path,
+            focused_profile=focused_profile,
+            frozen_profile_path=frozen_profile_path,
+        )
+        _write_code_profile_approval_record(
+            approval_record_path=approval_record_path,
+            source_root=source_root,
+            source_context_bundle=source_context_bundle,
+            source_analysis_bundle=source_analysis_bundle,
+            code_profile_url=code_profile_url,
+            code_profile_report_url=code_profile_report_url,
+            summary=_code_profile_summary(source_context_bundle, source_analysis_bundle),
+            approved_profile=frozen,
+        )
+        return frozen
     summary = _code_profile_summary(source_context_bundle, source_analysis_bundle)
     print(file=sys.stderr)
     print("Code profile human review is ready.", file=sys.stderr)
@@ -646,6 +722,32 @@ def _confirm_code_profile_before_log_analysis(
             file=sys.stderr,
         )
         raise SystemExit(0)
+    if focused_profile is None and approved_profile_path is None:
+        _write_code_profile_approval_record(
+            approval_record_path=approval_record_path,
+            source_root=source_root,
+            source_context_bundle=source_context_bundle,
+            source_analysis_bundle=source_analysis_bundle,
+            code_profile_url=code_profile_url,
+            code_profile_report_url=code_profile_report_url,
+            summary=summary,
+        )
+        return None
+    if approved_profile_path is None:
+        approved_profile_path = _optional_approved_profile_path(
+            _read_prompt_line(
+                "Absolute path to the downloaded approved_operational_profile.json: "
+            )
+        )
+    if approved_profile_path is None:
+        raise SystemExit(
+            "The approved operational profile JSON is required. Download it from the Code profile page and rerun."
+        )
+    frozen = _freeze_approved_operational_profile(
+        approved_profile_path=approved_profile_path,
+        focused_profile=focused_profile,
+        frozen_profile_path=frozen_profile_path,
+    )
     _write_code_profile_approval_record(
         approval_record_path=approval_record_path,
         source_root=source_root,
@@ -654,7 +756,32 @@ def _confirm_code_profile_before_log_analysis(
         code_profile_url=code_profile_url,
         code_profile_report_url=code_profile_report_url,
         summary=summary,
+        approved_profile=frozen,
     )
+    return frozen
+
+
+def _freeze_approved_operational_profile(
+    *,
+    approved_profile_path: Path,
+    focused_profile: Path | None,
+    frozen_profile_path: Path | None,
+) -> Path:
+    approved = _read_json_object(approved_profile_path)
+    if not approved:
+        raise SystemExit(f"approved operational profile is not valid JSON: {approved_profile_path}")
+    focused = _read_json_object(focused_profile) if focused_profile is not None else None
+    errors = validate_approved_operational_profile(
+        approved,
+        focused_profile=focused if focused else None,
+    )
+    if errors:
+        raise SystemExit("approved operational profile validation failed: " + "; ".join(errors))
+    destination = frozen_profile_path or approved_profile_path
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if approved_profile_path.resolve() != destination.resolve():
+        shutil.copyfile(approved_profile_path, destination)
+    return destination
 
 
 def _focused_profile_cli_summary(focused_profile: Path | None) -> dict[str, object]:
@@ -725,6 +852,7 @@ def _write_code_profile_approval_record(
     code_profile_url: str,
     code_profile_report_url: str,
     summary: dict[str, object],
+    approved_profile: Path | None = None,
 ) -> None:
     if approval_record_path is None:
         return
@@ -742,6 +870,11 @@ def _write_code_profile_approval_record(
         "analysis_sha256": _json_field(source_analysis_bundle, "analysis_sha256"),
         "summary": summary,
     }
+    if approved_profile is not None:
+        approved_payload = _read_json_object(approved_profile)
+        record["approved_profile_id"] = str(approved_payload.get("profile_id") or "")
+        record["approved_profile_sha256"] = str(approved_payload.get("approved_profile_sha256") or "")
+        record["approved_profile_schema_version"] = str(approved_payload.get("schema_version") or "")
     approval_record_path.write_text(
         json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
@@ -1398,7 +1531,7 @@ This page is the human approval checkpoint before log analysis starts.
 
 ## Approval Action
 
-Answer directly under Gemini Questions For Human Approval on the HTML page. If the profile is acceptable, save the review note or show the review JSON, then return to the terminal and type `APPROVE` to start log analysis. Anything else stops before log analysis.
+Answer directly under Gemini Questions For Human Approval on the HTML page. Normalize the answers with Gemini, inspect or edit the candidate patch, approve it, and download the resulting approved operational profile JSON. Then return to the terminal, type `APPROVE`, and provide the downloaded file's absolute path. Anything else stops before log analysis.
 
 ## Entrypoint Candidates
 
@@ -1446,6 +1579,10 @@ def _render_code_profile_review_form(
         "code_profile_id": code_profile_id,
         "code_profile_url": code_profile_url,
         "question_count": len(questions),
+        "profile_id": str(focused_profile.get("system_label") or code_profile_id),
+        "focused_profile": focused_profile,
+        "normalize_endpoint": "/profile-reviews/normalize",
+        "approve_endpoint": "/profile-reviews/approve",
     }
     return f"""<section class="review-form" aria-labelledby="human-review-form-title">
       <script type="application/json" id="review-form-config">{_script_json(config)}</script>
@@ -1484,15 +1621,38 @@ def _render_code_profile_review_form(
             <label for="approval-note">Approval note</label>
             <textarea id="approval-note" name="approval_note"></textarea>
           </div>
+          <div class="field">
+            <label for="profile-review-write-token">Write token for Gemini normalization</label>
+            <input id="profile-review-write-token" type="password" autocomplete="off" placeholder="OES API write token">
+            <small>The token is sent only in the request header and is not saved in browser storage.</small>
+          </div>
           <div class="form-actions">
             <button class="primary" type="submit">Save Review</button>
             <button type="button" id="save-review-form">Save In Browser</button>
             <button type="button" id="show-review-json">Show JSON</button>
-            <button type="button" id="copy-approve-command">Copy APPROVE</button>
+            <button type="button" id="download-review-json">Download Review JSON</button>
+            <button class="primary" type="button" id="normalize-profile-review">Normalize With Gemini</button>
           </div>
           <div class="field">
             <label for="review-json-output">Review JSON</label>
             <textarea id="review-json-output" readonly></textarea>
+          </div>
+          <div class="field">
+            <label for="profile-patch-output">Gemini candidate patch — edit before final approval</label>
+            <textarea id="profile-patch-output" class="json-editor"></textarea>
+          </div>
+          <div class="field">
+            <label for="profile-change-summary">Candidate change summary</label>
+            <pre id="profile-change-summary">No candidate patch yet.</pre>
+          </div>
+          <div class="form-actions">
+            <button class="primary" type="button" id="approve-profile-review" disabled>Approve Edited Patch</button>
+            <button type="button" id="download-approved-profile" disabled>Download Approved Profile JSON</button>
+            <button type="button" id="copy-approve-command" disabled>Copy APPROVE</button>
+          </div>
+          <div class="field">
+            <label for="approved-profile-output">Approved operational profile</label>
+            <textarea id="approved-profile-output" class="json-editor" readonly></textarea>
           </div>
           <div id="review-form-status" class="form-status" role="status" aria-live="polite"></div>
         </div>
@@ -1538,8 +1698,10 @@ def _render_code_profile_html(
     .review-grid {{ display:grid; gap:14px; }}
     .field {{ display:grid; gap:6px; }}
     .field label, .check label {{ font-weight:650; }}
-    input[type="text"], select, textarea {{ width:100%; box-sizing:border-box; border:1px solid #bac3cb; border-radius:6px; padding:9px 10px; font:inherit; background:#fff; color:var(--ink); }}
+    input[type="text"], input[type="password"], select, textarea {{ width:100%; box-sizing:border-box; border:1px solid #bac3cb; border-radius:6px; padding:9px 10px; font:inherit; background:#fff; color:var(--ink); }}
     textarea {{ min-height:84px; resize:vertical; }}
+    textarea.json-editor {{ min-height:240px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:13px; }}
+    small {{ color:var(--muted); }}
     .question-list {{ display:grid; gap:12px; }}
     .check {{ display:flex; align-items:flex-start; gap:9px; }}
     .check input {{ margin-top:5px; }}
@@ -1581,7 +1743,27 @@ def _render_code_profile_html(
       const status = document.getElementById("review-form-status");
       const config = JSON.parse(document.getElementById("review-form-config").textContent || "{{}}");
       const storageKey = "ops-evidence-code-profile-review:" + (config.code_profile_id || "unknown");
+      const patchOutput = document.getElementById("profile-patch-output");
+      const approvedOutput = document.getElementById("approved-profile-output");
+      const changeSummary = document.getElementById("profile-change-summary");
+      const approveButton = document.getElementById("approve-profile-review");
+      const downloadApprovedButton = document.getElementById("download-approved-profile");
+      const copyApproveButton = document.getElementById("copy-approve-command");
+      let normalizationMetadata = {{}};
+      let approvedProfile = null;
       const setStatus = (message) => {{ if (status) status.textContent = message; }};
+      const writeToken = () => (document.getElementById("profile-review-write-token")?.value || "").trim();
+      const downloadJson = (filename, payload) => {{
+        const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], {{type:"application/json"}});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }};
       const collect = () => {{
         const data = new FormData(form);
         const answers = [];
@@ -1636,10 +1818,80 @@ def _render_code_profile_html(
         if (output) output.value = JSON.stringify(payload, null, 2) + "\\n";
         setStatus("Review JSON generated below.");
       }});
-      document.getElementById("copy-approve-command").addEventListener("click", async () => {{
+      document.getElementById("download-review-json").addEventListener("click", () => {{
+        const payload = collect();
+        localStorage.setItem(storageKey, JSON.stringify(payload));
+        downloadJson(`human-review-${{config.code_profile_id || "profile"}}.json`, payload);
+        setStatus("Human review JSON downloaded.");
+      }});
+      document.getElementById("normalize-profile-review").addEventListener("click", async () => {{
+        const token = writeToken();
+        if (!token) {{ setStatus("Enter the API write token before Gemini normalization."); return; }}
+        const review = collect();
+        localStorage.setItem(storageKey, JSON.stringify(review));
+        setStatus("Gemini is translating the human review into a candidate patch...");
+        try {{
+          const response = await fetch(config.normalize_endpoint || "/profile-reviews/normalize", {{
+            method: "POST",
+            headers: {{"content-type":"application/json", "x-oes-write-token":token}},
+            body: JSON.stringify({{focused_profile:config.focused_profile || {{}}, human_review:review}})
+          }});
+          const result = await response.json();
+          if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : JSON.stringify(result.detail || result));
+          normalizationMetadata = result.normalization || {{}};
+          patchOutput.value = JSON.stringify(result.patch || {{}}, null, 2) + "\n";
+          changeSummary.textContent = JSON.stringify(result.change_summary || {{}}, null, 2);
+          approveButton.disabled = false;
+          approvedProfile = null;
+          approvedOutput.value = "";
+          downloadApprovedButton.disabled = true;
+          copyApproveButton.disabled = true;
+          setStatus("Candidate patch ready. Inspect or edit it, then approve the edited patch.");
+        }} catch (error) {{
+          setStatus("Gemini normalization failed: " + error.message);
+        }}
+      }});
+      approveButton.addEventListener("click", async () => {{
+        const token = writeToken();
+        if (!token) {{ setStatus("Enter the API write token before final approval."); return; }}
+        let patch;
+        try {{ patch = JSON.parse(patchOutput.value || "{{}}"); }}
+        catch (error) {{ setStatus("Candidate patch is not valid JSON: " + error.message); return; }}
+        const review = collect();
+        setStatus("Validating the edited patch and freezing the approved profile...");
+        try {{
+          const response = await fetch(config.approve_endpoint || "/profile-reviews/approve", {{
+            method: "POST",
+            headers: {{"content-type":"application/json", "x-oes-write-token":token}},
+            body: JSON.stringify({{
+              focused_profile:config.focused_profile || {{}},
+              human_review:review,
+              accepted_patch:patch,
+              normalization:normalizationMetadata,
+              profile_id:config.profile_id || config.code_profile_id || ""
+            }})
+          }});
+          const result = await response.json();
+          if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : JSON.stringify(result.detail || result));
+          approvedProfile = result.approved_profile;
+          approvedOutput.value = JSON.stringify(approvedProfile, null, 2) + "\n";
+          downloadApprovedButton.disabled = false;
+          copyApproveButton.disabled = false;
+          setStatus("Approved profile frozen as " + (result.approved_profile_sha256 || "unknown hash") + ". Download it before returning to the terminal.");
+        }} catch (error) {{
+          setStatus("Final profile approval failed: " + error.message);
+        }}
+      }});
+      downloadApprovedButton.addEventListener("click", () => {{
+        if (!approvedProfile) return;
+        downloadJson(`approved-operational-profile-${{config.code_profile_id || "profile"}}.json`, approvedProfile);
+        setStatus("Approved operational profile downloaded. Provide its absolute path to the waiting terminal.");
+      }});
+      copyApproveButton.addEventListener("click", async () => {{
+        if (!approvedProfile) {{ setStatus("Approve and download the profile before continuing."); return; }}
         try {{
           await navigator.clipboard.writeText("APPROVE");
-          setStatus("APPROVE copied for the terminal.");
+          setStatus("APPROVE copied. The terminal will also ask for the downloaded approved profile path.");
         }} catch (error) {{
           setStatus("Copy failed. Type APPROVE in the terminal.");
         }}
@@ -1647,7 +1899,7 @@ def _render_code_profile_html(
       form.addEventListener("submit", (event) => {{
         event.preventDefault();
         localStorage.setItem(storageKey, JSON.stringify(collect()));
-        setStatus("Review answers saved. Return to the terminal and type APPROVE only if the decision is approved.");
+        setStatus("Review answers saved. Normalize them with Gemini before final approval.");
       }});
       restore();
     }})();
@@ -1825,7 +2077,11 @@ def _line_contains_only_source_roots(text: str) -> bool:
 
 def _looks_like_misplaced_source_root_answer(text: str) -> bool:
     value = str(text or "").strip()
-    return bool(value) and (value.startswith("/") or _line_contains_only_source_roots(value))
+    return bool(value) and (
+        value.startswith("/")
+        or _line_contains_only_source_roots(value)
+        or bool(_timestamp_suffix_after_existing_dir(value))
+    )
 
 
 TIMESTAMP_SUFFIX_RE = re.compile(

@@ -186,13 +186,24 @@ When a source code directory is provided, the command first sanitizes the source
 tree locally, builds rule-based source mapping candidates, asks Gemini Pro to
 draft a focused operational profile from the sanitized artifacts, and pauses on
 the human-readable code profile URL. Answer directly under the Gemini Questions
-For Human Approval section, save the review note or show the review JSON, then type
-`APPROVE` in the terminal only when the profile matches the system and
-deployment period you want to review. Log sanitization, Evidence Bundle
+For Human Approval section, confirm the deployment/log-scope checkboxes, select
+`Approved for log analysis`, and enter the API write token. `Normalize With
+Gemini` returns a candidate JSON patch; inspect or edit that patch before choosing
+`Approve Edited Patch`. Download the resulting approved operational profile JSON,
+then type `APPROVE` in the terminal and provide the downloaded file's absolute
+path. Log sanitization, Evidence Bundle
 construction, private cloud handoff, and the final incident review page are the
 next step after that approval. Both the code profile checkpoint and the final
 incident review are printed as HTTPS URLs, not raw JSON or `gs://` object URIs.
 You do not need to copy an Evidence SHA by hand.
+
+Gemini cannot approve its own interpretation. It only produces the candidate
+patch. The approval endpoint validates existing metric/component/log identifiers,
+freezes human answers and model provenance into a SHA-256-bound
+`approved_operational_profile.v1`, and requires all three human confirmations.
+After that profile is frozen, the downstream log-analysis job receives the
+approved profile instead of sanitized source context and rejects attempts to
+reintroduce source context.
 
 Large log directories are processed as streams. The sanitizer does not keep the
 full corpus in memory, and obvious binary/media/database artifacts such as
@@ -215,6 +226,7 @@ Code profile URL: https://ops-evidence.yukimurata0421.dev/code-profiles/...
 Code profile Markdown URL: https://ops-evidence.yukimurata0421.dev/code-profiles/.../report.md
 Gemini source profile: status=ok, model=gemini-3.1-pro-preview, fallback_used=False
 After human review, type APPROVE to start log analysis [N]:
+Absolute path to the downloaded approved_operational_profile.json:
 ```
 
 By default, local outputs are written to `./analyses/${RUN_ID}/` with an
@@ -230,8 +242,14 @@ export SERVICE="stream_v3_runtime"
 export ENVIRONMENT="stream_v3"
 export START="2026-06-14T23:15:50Z"
 export END="2026-06-15T23:59:52Z"
+export APPROVED_PROFILE="/absolute/path/to/downloaded/approved-operational-profile.json"
 make review
 ```
+
+`APPROVED_PROFILE` is required for a non-interactive source-root run. The same
+path can be passed as `--approved-profile`. `--skip-source-confirmation` remains
+an explicit opt-out for legacy/diagnostic runs and does not create an approved
+profile.
 
 The command prints a short human-readable summary:
 
@@ -242,6 +260,8 @@ The command prints a short human-readable summary:
 - `Local analysis directory`: local sanitized artifacts under `analyses/`.
 - `Sanitized source context` and `Source analysis`: shown when `SOURCE_ROOT`
   was provided.
+- `Approved operational profile` and `Approved profile SHA-256`: the exact
+  human-approved context supplied to downstream log analysis.
 
 Private artifact URIs are hidden by default so the copyable output is browser
 friendly. Pass `--show-gcs-uris` through `REVIEW_ARGS` only when you need the

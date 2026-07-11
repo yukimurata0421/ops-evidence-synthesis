@@ -229,6 +229,38 @@ def focused_operational_profile_prompt(payload: dict[str, Any]) -> str:
     )
 
 
+def profile_review_normalization_prompt(payload: dict[str, Any]) -> str:
+    return (
+        "Return only valid JSON. Do not wrap the JSON in Markdown. "
+        "Translate the human review answers into a candidate patch for the focused operational profile. "
+        "The candidate is not approval; a human will inspect and accept or edit it. "
+        "Use exactly this top-level object shape: "
+        '{"schema_version":"operational_profile_review_patch.v1",'
+        '"system_summary_overrides":{"primary_purpose":"","logged_subject":"","operational_boundary":""},'
+        '"metric_semantics_overrides":[{"metric_name":"...","meaning":"...",'
+        '"healthy_direction":"increase|decrease|stable|nonzero|zero|unknown",'
+        '"zero_behavior":"healthy|suspicious|neutral|unknown",'
+        '"increase_behavior":"healthy|suspicious|neutral|unknown",'
+        '"decrease_behavior":"healthy|suspicious|neutral|unknown",'
+        '"reason":"...","provenance":"human_answer"}],'
+        '"component_role_overrides":[{"component_id":"...","role":"...","reason":"...","provenance":"human_answer"}],'
+        '"log_source_overrides":[{"source":"...","meaning":"...","reason":"...","provenance":"human_answer"}],'
+        '"confirmed_user_outcomes":["..."],'
+        '"ignored_component_ids":["..."],'
+        '"approved_collectors":["..."],'
+        '"unresolved_questions":[{"question":"...","reason":"..."}]}. '
+        "Only emit changes directly supported by a human answer. Do not silently accept the Gemini draft. "
+        "Use only metric names, component ids, log source names, and collector names present in focused_profile. "
+        "Never invent an identifier, path, endpoint, command, credential, environment value, or runtime fact. "
+        "If an answer is ambiguous, preserve it in unresolved_questions and leave the corresponding override empty. "
+        "If the human says that zero is good, map zero_behavior to healthy. If zero means missing liveness or stopped work, "
+        "map zero_behavior to suspicious. Do not infer this direction without an explicit answer. "
+        "System purpose and user outcomes are human-approved interpretation context, not incident evidence. "
+        "Do not propose write actions, restarts, rollback, deletion, credential changes, or raw data collection. "
+        f"Profile review input:\n{pretty_json(payload)}"
+    )
+
+
 def _prompt(
     bundle: dict[str, Any],
     *,
@@ -245,6 +277,8 @@ def _prompt(
         return focused_operational_profile_prompt(bundle)
     if bundle.get("llm_task") == "profile_draft":
         return profile_draft_prompt(bundle)
+    if bundle.get("llm_task") == "profile_review_normalization":
+        return profile_review_normalization_prompt(bundle)
     subsystem_values = "|".join(GENERIC_SUBSYSTEMS)
     claim_values = "|".join(CLAIM_TYPES)
     finding_status_values = "|".join(FINDING_STATUSES)
@@ -1663,5 +1697,115 @@ def focused_operational_profile_response_schema() -> dict[str, Any]:
             "read_only_collectors",
             "profile_limits",
             "human_review_required",
+        ],
+    }
+
+
+def profile_review_patch_response_schema() -> dict[str, Any]:
+    string_array = {"type": "ARRAY", "items": {"type": "STRING"}}
+    metric = {
+        "type": "OBJECT",
+        "properties": {
+            "metric_name": {"type": "STRING"},
+            "meaning": {"type": "STRING"},
+            "healthy_direction": {"type": "STRING"},
+            "zero_behavior": {"type": "STRING"},
+            "increase_behavior": {"type": "STRING"},
+            "decrease_behavior": {"type": "STRING"},
+            "reason": {"type": "STRING"},
+            "provenance": {"type": "STRING"},
+        },
+        "required": [
+            "metric_name",
+            "meaning",
+            "healthy_direction",
+            "zero_behavior",
+            "increase_behavior",
+            "decrease_behavior",
+            "reason",
+            "provenance",
+        ],
+        "propertyOrdering": [
+            "metric_name",
+            "meaning",
+            "healthy_direction",
+            "zero_behavior",
+            "increase_behavior",
+            "decrease_behavior",
+            "reason",
+            "provenance",
+        ],
+    }
+    component = {
+        "type": "OBJECT",
+        "properties": {
+            "component_id": {"type": "STRING"},
+            "role": {"type": "STRING"},
+            "reason": {"type": "STRING"},
+            "provenance": {"type": "STRING"},
+        },
+        "required": ["component_id", "role", "reason", "provenance"],
+        "propertyOrdering": ["component_id", "role", "reason", "provenance"],
+    }
+    log_source = {
+        "type": "OBJECT",
+        "properties": {
+            "source": {"type": "STRING"},
+            "meaning": {"type": "STRING"},
+            "reason": {"type": "STRING"},
+            "provenance": {"type": "STRING"},
+        },
+        "required": ["source", "meaning", "reason", "provenance"],
+        "propertyOrdering": ["source", "meaning", "reason", "provenance"],
+    }
+    unresolved = {
+        "type": "OBJECT",
+        "properties": {"question": {"type": "STRING"}, "reason": {"type": "STRING"}},
+        "required": ["question", "reason"],
+        "propertyOrdering": ["question", "reason"],
+    }
+    return {
+        "type": "OBJECT",
+        "properties": {
+            "schema_version": {"type": "STRING"},
+            "system_summary_overrides": {
+                "type": "OBJECT",
+                "properties": {
+                    "primary_purpose": {"type": "STRING"},
+                    "logged_subject": {"type": "STRING"},
+                    "operational_boundary": {"type": "STRING"},
+                },
+                "required": ["primary_purpose", "logged_subject", "operational_boundary"],
+                "propertyOrdering": ["primary_purpose", "logged_subject", "operational_boundary"],
+            },
+            "metric_semantics_overrides": {"type": "ARRAY", "items": metric},
+            "component_role_overrides": {"type": "ARRAY", "items": component},
+            "log_source_overrides": {"type": "ARRAY", "items": log_source},
+            "confirmed_user_outcomes": string_array,
+            "ignored_component_ids": string_array,
+            "approved_collectors": string_array,
+            "unresolved_questions": {"type": "ARRAY", "items": unresolved},
+        },
+        "required": [
+            "schema_version",
+            "system_summary_overrides",
+            "metric_semantics_overrides",
+            "component_role_overrides",
+            "log_source_overrides",
+            "confirmed_user_outcomes",
+            "ignored_component_ids",
+            "approved_collectors",
+            "unresolved_questions",
+        ],
+        "propertyOrdering": [
+            "schema_version",
+            "system_summary_overrides",
+            "metric_semantics_overrides",
+            "component_role_overrides",
+            "log_source_overrides",
+            "confirmed_user_outcomes",
+            "ignored_component_ids",
+            "approved_collectors",
+            "unresolved_questions",
         ],
     }

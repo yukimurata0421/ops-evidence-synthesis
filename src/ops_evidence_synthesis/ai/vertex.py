@@ -16,6 +16,8 @@ from ops_evidence_synthesis.ai.prompts import (
     evidence_requirements_response_schema,
     focused_operational_profile_prompt,
     focused_operational_profile_response_schema,
+    profile_review_normalization_prompt,
+    profile_review_patch_response_schema,
     profile_draft_prompt,
     profile_draft_response_schema,
     root_cause_prompt,
@@ -128,6 +130,8 @@ class VertexGeminiProvider:
         return f"https://{endpoint}/{self.api_version}/{model}:generateContent"
 
     def _prompt(self, bundle: dict[str, Any]) -> str:
+        if self.prompt_name == "profile-review-normalization" or bundle.get("llm_task") == "profile_review_normalization":
+            return profile_review_normalization_prompt(bundle)
         if self.prompt_name == "focused-operational-profile" or bundle.get("llm_task") == "focused_operational_profile":
             return focused_operational_profile_prompt(bundle)
         if self.prompt_name == "profile-draft" or bundle.get("llm_task") == "profile_draft":
@@ -160,6 +164,8 @@ class VertexGeminiProvider:
         return {"thinkingLevel": level}
 
     def _response_schema(self) -> dict[str, Any]:
+        if self.prompt_name == "profile-review-normalization":
+            return profile_review_patch_response_schema()
         if self.prompt_name == "focused-operational-profile":
             return focused_operational_profile_response_schema()
         if self.prompt_name == "profile-draft":

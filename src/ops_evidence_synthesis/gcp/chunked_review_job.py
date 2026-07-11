@@ -12,6 +12,7 @@ from typing import Any
 from ops_evidence_synthesis.canonical import canonical_json, sha256_json
 from ops_evidence_synthesis.gcp.storage import GcsUri, read_json, upload_file, write_json
 from ops_evidence_synthesis.precomputed_review import stable_precomputed_review_json
+from ops_evidence_synthesis.profile_review import validate_approved_operational_profile
 from ops_evidence_synthesis.synthesis.multi_ai import provider_chunk_plan_summary, run_multi_ai
 from ops_evidence_synthesis.web.precomputed_review import (
     render_precomputed_markdown_report,
@@ -76,6 +77,21 @@ def run_job(config: ChunkedReviewJobConfig) -> dict[str, Any]:
     approved_profile = read_json(config.approved_profile_uri) if config.approved_profile_uri else {}
     source_context = read_json(config.source_context_uri) if config.source_context_uri else {}
     source_analysis = read_json(config.source_analysis_uri) if config.source_analysis_uri else {}
+    if approved_profile.get("schema_version") == "approved_operational_profile.v1":
+        profile_errors = validate_approved_operational_profile(approved_profile)
+        if profile_errors:
+            raise ValueError("approved operational profile validation failed: " + "; ".join(profile_errors))
+        review_policy = (
+            approved_profile.get("review_policy")
+            if isinstance(approved_profile.get("review_policy"), dict)
+            else {}
+        )
+        if review_policy.get("source_access_after_approval") == "disabled" and (
+            config.source_context_uri is not None or config.source_analysis_uri is not None
+        ):
+            raise ValueError(
+                "source context cannot be supplied after approved profile freezes source access"
+            )
     _emit_review_input_progress(bundle, config)
     with tempfile.TemporaryDirectory(prefix="oes-chunked-review-") as temp_name:
         output_dir = Path(temp_name)
