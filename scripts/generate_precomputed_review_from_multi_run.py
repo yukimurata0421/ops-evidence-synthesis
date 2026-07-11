@@ -708,6 +708,16 @@ def _targets(
             missing_evidence,
             evidence_items=evidence_lookup.values(),
         )
+        if (
+            canonical_review_unit == "database_connection_pool"
+            and public_target.get("evidence_relationship_supported") is True
+            and public_target.get("has_user_impact_evidence") is True
+        ):
+            missing_evidence = [
+                item
+                for item in missing_evidence
+                if "causal alignment evidence connecting this review unit" not in item.casefold()
+            ]
         if classification.get("adjustment") == "demoted_primary_candidate_evidence_thin":
             missing_evidence = _unique_strings(
                 [
