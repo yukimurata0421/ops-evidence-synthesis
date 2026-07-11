@@ -30,9 +30,10 @@ def build_profile_context_summary(
     generation = _as_dict(profile_draft.get("profile_generation"))
     confidence_summary = _confidence_summary(profile_draft, approved_profile, component_map, metric_semantics)
     overall_confidence = _float(confidence_summary.get("overall_confidence"))
-    confidence_action = profile_confidence_action(overall_confidence)
+    final_human_approval = _is_final_human_approved_profile(approved_profile)
+    confidence_action = "approved_human_reviewed" if final_human_approval else profile_confidence_action(overall_confidence)
     human_questions = profile_human_questions(profile_draft, approved_profile)
-    required_decisions = _required_human_decisions(profile_draft)
+    required_decisions = _required_human_decisions(profile_draft, approved_profile)
     confirmed_outcomes = confirmed_user_outcomes(approved_profile, profile_draft)
     provisional_outcomes = provisional_user_outcomes(approved_profile, profile_draft)
     approval = _as_dict(approved_profile.get("profile_discovery_approval"))
@@ -292,12 +293,7 @@ def profile_human_questions(profile_draft: dict[str, Any], approved_profile: dic
     )
     questions.extend(_to_text_list(approved_profile.get("human_questions")))
     questions.extend(_to_text_list(approved_profile.get("required_profile_questions")))
-    human_review = _as_dict(approved_profile.get("human_review"))
-    if (
-        approved_profile.get("schema_version") == "approved_operational_profile.v1"
-        and approved_profile.get("status") == "approved"
-        and human_review.get("decision") == "approved"
-    ):
+    if _is_final_human_approved_profile(approved_profile):
         return _unique(questions)
     if not any("critical user outcome" in item.lower() for item in questions):
         questions.append("What is the critical user outcome?")
@@ -439,7 +435,12 @@ def _confidence_summary(
     }
 
 
-def _required_human_decisions(profile_draft: dict[str, Any]) -> list[str]:
+def _required_human_decisions(
+    profile_draft: dict[str, Any],
+    approved_profile: dict[str, Any],
+) -> list[str]:
+    if _is_final_human_approved_profile(approved_profile):
+        return []
     decisions = _to_text_list(profile_draft.get("required_human_decisions"))
     if decisions:
         return _unique(decisions)
@@ -447,6 +448,15 @@ def _required_human_decisions(profile_draft: dict[str, Any]) -> list[str]:
         "Approve profile context before treating it as an explicit operational profile.",
         "Keep source context separate from runtime evidence.",
     ]
+
+
+def _is_final_human_approved_profile(profile: dict[str, Any]) -> bool:
+    human_review = _as_dict(profile.get("human_review"))
+    return (
+        profile.get("schema_version") == "approved_operational_profile.v1"
+        and profile.get("status") == "approved"
+        and human_review.get("decision") == "approved"
+    )
 
 
 def _profile_status(*, has_context: bool, approved: bool, explicit: bool) -> str:

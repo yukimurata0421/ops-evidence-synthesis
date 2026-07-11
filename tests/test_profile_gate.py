@@ -290,4 +290,6 @@ def test_final_human_approved_profile_does_not_reopen_resolved_questions() -> No
     )
 
     assert summary["human_questions"] == []
+    assert summary["required_human_decisions"] == []
+    assert summary["confidence_action"] == "approved_human_reviewed"
     assert summary["confirmed_user_outcomes"] == ["Checkout HTTP 500 responses are direct user impact."]

@@ -676,7 +676,11 @@ def _targets(
         else:
             verdict = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
         blocked_reason = (
-            "evidence_thin_primary_candidate; human_review_required; core_evidence_or_user_impact_unverified"
+            (
+                "evidence_thin_primary_candidate; human_review_required; core_evidence_unverified"
+                if public_target.get("has_user_impact_evidence") is True
+                else "evidence_thin_primary_candidate; human_review_required; core_evidence_or_user_impact_unverified"
+            )
             if classification.get("adjustment") == "demoted_primary_candidate_evidence_thin"
             else preliminary_blocked_reason
         )
@@ -2331,6 +2335,8 @@ def _blocked_reason(target: dict[str, Any], *, provider_count: int, target_class
     if reasons:
         return "; ".join(reasons)
     if provider_count >= 2:
+        if target.get("has_user_impact_evidence") is True:
+            return "incident_baseline_open; causal_alignment_unverified"
         return "incident_baseline_open; user_impact_or_business_output_unverified"
     return "user_impact_unverified; impact_disagreement"
 

@@ -717,3 +717,18 @@ def test_primary_candidates_remain_review_targets_not_accepted_causes() -> None:
     assert summary["incident_baseline_established_count"] == 0
     assert "promotion remains human-gated" in summary["target_promotion_policy"]
     assert "technical support only" in summary["note"]
+
+
+def test_verified_impact_target_keeps_causal_validation_without_reopening_impact() -> None:
+    module = _generator_module()
+
+    blocked_reason = module._blocked_reason(
+        {
+            "class": "validation_target",
+            "has_user_impact_evidence": True,
+            "promotion_blocked_reasons": [],
+        },
+        provider_count=3,
+    )
+
+    assert blocked_reason == "incident_baseline_open; causal_alignment_unverified"
