@@ -1861,7 +1861,7 @@ def _render_code_profile_html(
       const setStatus = (message) => {{ if (status) status.textContent = message; }};
       const writeToken = () => (document.getElementById("profile-review-write-token")?.value || "").trim();
       const downloadJson = (filename, payload) => {{
-        const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], {{type:"application/json"}});
+        const blob = new Blob([JSON.stringify(payload, null, 2) + "\\n"], {{type:"application/json"}});
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -1948,7 +1948,7 @@ def _render_code_profile_html(
           const result = await response.json();
           if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : JSON.stringify(result.detail || result));
           normalizationMetadata = result.normalization || {{}};
-          patchOutput.value = JSON.stringify(result.patch || {{}}, null, 2) + "\n";
+          patchOutput.value = JSON.stringify(result.patch || {{}}, null, 2) + "\\n";
           changeSummary.textContent = JSON.stringify(result.change_summary || {{}}, null, 2);
           reviewedPatchSha256 = "";
           previewOutput.value = "";
@@ -1996,7 +1996,7 @@ def _render_code_profile_html(
           const result = await response.json();
           if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : JSON.stringify(result.detail || result));
           reviewedPatchSha256 = result.reviewed_patch_sha256 || "";
-          previewOutput.value = JSON.stringify(result.interpreted_profile || {{}}, null, 2) + "\n";
+          previewOutput.value = JSON.stringify(result.interpreted_profile || {{}}, null, 2) + "\\n";
           changeSummary.textContent = JSON.stringify({{
             answer_count:result.answer_count || 0,
             unresolved_question_count:result.unresolved_question_count || 0,
@@ -2039,7 +2039,7 @@ def _render_code_profile_html(
           const result = await response.json();
           if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : JSON.stringify(result.detail || result));
           approvedProfile = result.approved_profile;
-          approvedOutput.value = JSON.stringify(approvedProfile, null, 2) + "\n";
+          approvedOutput.value = JSON.stringify(approvedProfile, null, 2) + "\\n";
           downloadApprovedButton.disabled = false;
           copyApproveButton.disabled = false;
           setStatus("Approved profile frozen as " + (result.approved_profile_sha256 || "unknown hash") + ". Download it before returning to the terminal.");
