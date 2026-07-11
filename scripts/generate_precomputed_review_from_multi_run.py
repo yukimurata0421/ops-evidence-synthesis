@@ -1043,7 +1043,9 @@ def _merge_duplicate_public_target(
 ) -> dict[str, Any]:
     merged = dict(winner)
     evidence_refs = _sorted_unique_strings(
-        [
+        list(winner.get("evidence_refs") or [])
+        if winner.get("evidence_relationship_supported") is True
+        else [
             *(winner.get("evidence_refs") or []),
             *(duplicate.get("evidence_refs") or []),
         ]
@@ -1102,6 +1104,8 @@ def _merge_duplicate_public_target(
     else:
         agreement["verdict"] = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
     agreement["convergence_score"] = round(provider_count / denominator, 10)
+    agreement["technical_baseline"] = "established" if provider_count >= 2 else "open"
+    agreement["incident_baseline"] = "open"
     agreement["summary"] = (
         "Provider surfaced a no-finding / normal-operation observation; it is retained for audit and excluded "
         "from unresolved incident validation targets."
@@ -1113,6 +1117,26 @@ def _merge_duplicate_public_target(
         )
     )
     merged["agreement"] = agreement
+    classification = dict(merged.get("classification") or {})
+    classification["provider_support"] = f"{provider_count}/{denominator}"
+    merged["classification"] = classification
+    promotion = dict(merged.get("promotion") or {})
+    promotion["explanation"] = _promotion_explanation(
+        state=str(merged.get("state") or "validation"),
+        provider_count=provider_count,
+        valid_count=denominator,
+        has_user_impact="user_impact" not in str(promotion.get("blocked_reason") or ""),
+    )
+    merged["promotion"] = promotion
+    review_reason = dict(merged.get("review_reason") or {})
+    factors = list(review_reason.get("factors") or [])
+    if factors:
+        factors[0] = (
+            f"{provider_count}/{denominator} schema-valid providers independently projected "
+            f"the normalized review unit `{merged.get('canonical_review_unit') or 'general'}`."
+        )
+    review_reason["factors"] = factors
+    merged["review_reason"] = review_reason
     return merged
 
 
