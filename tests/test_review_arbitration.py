@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 from fastapi.testclient import TestClient
 
 from ops_evidence_synthesis.evidence_request_planner import build_evidence_request_plan
@@ -165,6 +167,37 @@ def test_technical_baseline_without_impact_is_visible_but_not_primary() -> None:
     decision = graph["promotion_decisions"][0]
     assert decision["final_class"] == "validation_target"
     assert "user_impact_unverified" in decision["reasons"]
+
+
+def test_approved_outcome_and_matching_http_5xx_evidence_verify_user_impact() -> None:
+    bundle = deepcopy(_bundle())
+    bundle["evidence_refs"]["PATTERN-500"] = {
+        "evidence_id": "PATTERN-500",
+        "event_type": "http_5xx",
+        "message_template": "checkout failed HTTP 500",
+    }
+    bundle["evidence_items"] = [bundle["evidence_refs"]["PATTERN-500"]]
+    synthesis = _technical_agreement_without_impact_synthesis()
+    for section in ("agreement_groups", "disagreement_groups", "primary_candidates"):
+        for row in synthesis.get(section) or []:
+            row["evidence_refs"] = ["PATTERN-500"]
+            row["title"] = "Database pool saturation requires review"
+            row["impact_summary"] = "Database pool saturation is the suspected mechanism."
+    approved_profile = {
+        "confirmed_user_outcomes": ["Checkout HTTP 500 responses are direct user impact."],
+    }
+
+    graph = arbitrate_review_targets(
+        bundle,
+        multi_ai_synthesis=synthesis,
+        approved_profile=approved_profile,
+    )
+
+    decision = graph["promotion_decisions"][0]
+    target = graph["review_targets"][0]
+    assert target["has_user_impact_evidence"] is True
+    assert "user_impact_unverified" not in decision["reasons"]
+    assert "impact_disagreement" not in decision["reasons"]
 
 
 def test_review_unit_convergence_increases_priority_without_primary_promotion() -> None:

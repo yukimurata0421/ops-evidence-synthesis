@@ -262,3 +262,32 @@ def test_empty_approved_profile_model_context_is_explicitly_not_run() -> None:
             "runtime_support_must_cite_evidence_id": True,
         },
     }
+
+
+def test_final_human_approved_profile_does_not_reopen_resolved_questions() -> None:
+    profile = {
+        "schema_version": "approved_operational_profile.v1",
+        "status": "approved",
+        "explicit_profile": True,
+        "profile_id": "payment-api",
+        "human_review": {"decision": "approved", "reviewer": "operator"},
+        "confirmed_user_outcomes": ["Checkout HTTP 500 responses are direct user impact."],
+        "human_questions": [],
+        "required_profile_questions": [],
+        "metric_semantics": {
+            "checkout_500_count": {
+                "zero_behavior": "healthy",
+                "increase_behavior": "suspicious",
+                "confidence": 0.7,
+            }
+        },
+    }
+
+    summary = build_profile_context_summary(
+        profile_id="payment-api",
+        profile_draft={},
+        approved_profile=profile,
+    )
+
+    assert summary["human_questions"] == []
+    assert summary["confirmed_user_outcomes"] == ["Checkout HTTP 500 responses are direct user impact."]

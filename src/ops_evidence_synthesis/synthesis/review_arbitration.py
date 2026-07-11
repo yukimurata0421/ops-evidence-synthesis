@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from typing import Any, Iterable
 
@@ -140,6 +141,7 @@ def arbitrate_review_targets(
         target, decision = _arbitrate_candidate(
             candidate,
             bundle=bundle,
+            approved_profile=profile,
             agreement_dimensions=agreement_dimensions,
             theme_by_group=theme_by_group,
             request_by_theme=request_by_theme,
@@ -957,6 +959,7 @@ def _arbitrate_candidate(
     candidate: dict[str, Any],
     *,
     bundle: dict[str, Any],
+    approved_profile: dict[str, Any],
     agreement_dimensions: dict[str, Any],
     theme_by_group: dict[str, str],
     request_by_theme: dict[str, str],
@@ -966,7 +969,7 @@ def _arbitrate_candidate(
     support_role = str(candidate.get("support_role_override") or _support_role(refs, candidate))
     runtime = support_role == "runtime_evidence"
     evidence_diversity = len(refs)
-    has_user_impact = _has_user_impact(candidate, text)
+    has_user_impact = _has_user_impact(candidate, text, bundle=bundle, approved_profile=approved_profile)
     severity_only = _is_severity_only(candidate, text)
     blocking_caveats = _blocking_caveats(candidate, text)
     missing_core = _core_missing_evidence(candidate)
@@ -1657,11 +1660,68 @@ def _is_runtime_evidence_ref(ref: str) -> bool:
     return bool(value) and (value.startswith(RUNTIME_EVIDENCE_PREFIXES) or "EVIDENCE" in value)
 
 
-def _has_user_impact(candidate: dict[str, Any], text: str) -> bool:
+def _has_user_impact(
+    candidate: dict[str, Any],
+    text: str,
+    *,
+    bundle: dict[str, Any],
+    approved_profile: dict[str, Any],
+) -> bool:
     if any(token in text for token in USER_IMPACT_TOKENS):
         return True
     target = str(candidate.get("core_target_type") or "").casefold()
-    return target in {"user_impact_signal_gap", "external_dependency_failure", "network_error_signal"}
+    if target in {"user_impact_signal_gap", "external_dependency_failure", "network_error_signal"}:
+        return True
+    confirmed = " ".join(str(item) for item in approved_profile.get("confirmed_user_outcomes") or []).casefold()
+    if not confirmed:
+        return False
+    refs_by_id = {
+        str(item.get("evidence_id") or item.get("id") or ""): item
+        for item in bundle.get("evidence_items") or []
+        if isinstance(item, dict)
+    }
+    if isinstance(bundle.get("evidence_refs"), dict):
+        refs_by_id.update(
+            {
+                str(key): value
+                for key, value in bundle["evidence_refs"].items()
+                if isinstance(value, dict)
+            }
+        )
+    outcome_words = _impact_domain_words(confirmed)
+    for ref in candidate.get("evidence_refs") or []:
+        item = refs_by_id.get(str(ref)) or {}
+        item_text = _joined_text(
+            [
+                item.get("event_type"),
+                item.get("message_template"),
+                item.get("message_sanitized"),
+                item.get("summary"),
+                item.get("example_sanitized"),
+            ]
+        )
+        direct_signal = str(item.get("event_type") or "").casefold() == "http_5xx" or any(
+            token in item_text
+            for token in ("http 5", "status=5", "failed", "not delivered", "unavailable", "user_visible")
+        )
+        if direct_signal and outcome_words.intersection(_impact_domain_words(item_text)):
+            return True
+    return False
+
+
+def _impact_domain_words(text: str) -> set[str]:
+    excluded = {
+        "and",
+        "are",
+        "direct",
+        "evidence",
+        "impact",
+        "is",
+        "the",
+        "user",
+        "with",
+    }
+    return {word for word in re.findall(r"[a-z0-9_]+", text.casefold()) if len(word) >= 4 and word not in excluded}
 
 
 def _is_severity_only(candidate: dict[str, Any], text: str) -> bool:

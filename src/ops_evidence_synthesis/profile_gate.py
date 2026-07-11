@@ -292,6 +292,13 @@ def profile_human_questions(profile_draft: dict[str, Any], approved_profile: dic
     )
     questions.extend(_to_text_list(approved_profile.get("human_questions")))
     questions.extend(_to_text_list(approved_profile.get("required_profile_questions")))
+    human_review = _as_dict(approved_profile.get("human_review"))
+    if (
+        approved_profile.get("schema_version") == "approved_operational_profile.v1"
+        and approved_profile.get("status") == "approved"
+        and human_review.get("decision") == "approved"
+    ):
+        return _unique(questions)
     if not any("critical user outcome" in item.lower() for item in questions):
         questions.append("What is the critical user outcome?")
     if not any("zero-is-good" in item.lower() or "zero-is-bad" in item.lower() for item in questions):
