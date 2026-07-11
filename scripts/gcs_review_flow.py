@@ -151,6 +151,7 @@ def main(argv: list[str] | None = None) -> int:
             source_analysis_bundle,
             source_analysis_dir / "source_analysis_report.md",
             focused_profile,
+            output_dir / "code_profile_review" / "payload.json",
         ]
         missing_artifacts = [str(path) for path in required_artifacts if not path.is_file()]
         if missing_artifacts:
@@ -158,13 +159,12 @@ def main(argv: list[str] | None = None) -> int:
                 "resume artifacts are missing from the selected output directory: "
                 + ", ".join(missing_artifacts)
             )
-        code_profile_id = _code_profile_public_id(
-            run_id=run_id,
+        code_profile_url, code_profile_report_url = _resume_code_profile_urls(
+            payload_path=output_dir / "code_profile_review" / "payload.json",
             source_context_bundle=source_context_bundle,
             source_analysis_bundle=source_analysis_bundle,
+            public_base_url=public_base_url,
         )
-        code_profile_url = f"{public_base_url}/code-profiles/{code_profile_id}/"
-        code_profile_report_url = f"{code_profile_url.rstrip('/')}/report.md"
         approved_profile_bundle = _confirm_code_profile_before_log_analysis(
             source_root=source_root,
             source_context_bundle=source_context_bundle,
@@ -982,12 +982,32 @@ def _code_profile_summary(source_context_bundle: Path, source_analysis_bundle: P
 def _code_profile_public_id(*, run_id: str, source_context_bundle: Path, source_analysis_bundle: Path) -> str:
     summary = _code_profile_summary(source_context_bundle, source_analysis_bundle)
     material = {
-        "run_id": str(run_id or ""),
         "source_context_sha256": _json_field(source_context_bundle, "source_context_sha256"),
         "analysis_sha256": _json_field(source_analysis_bundle, "analysis_sha256"),
         "summary": summary,
     }
     return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _resume_code_profile_urls(
+    *,
+    payload_path: Path,
+    source_context_bundle: Path,
+    source_analysis_bundle: Path,
+    public_base_url: str,
+) -> tuple[str, str]:
+    payload = _read_json_object(payload_path)
+    code_profile_id = str(payload.get("code_profile_id") or "").strip()
+    if not re.fullmatch(r"[0-9a-f]{64}", code_profile_id):
+        raise SystemExit(f"resume code profile payload has an invalid code_profile_id: {payload_path}")
+    expected_context_sha = _json_field(source_context_bundle, "source_context_sha256")
+    expected_analysis_sha = _json_field(source_analysis_bundle, "analysis_sha256")
+    if str(payload.get("source_context_sha256") or "") != expected_context_sha:
+        raise SystemExit("resume code profile payload does not match the selected source context")
+    if str(payload.get("analysis_sha256") or "") != expected_analysis_sha:
+        raise SystemExit("resume code profile payload does not match the selected source analysis")
+    code_profile_url = f"{public_base_url.rstrip('/')}/code-profiles/{code_profile_id}/"
+    return code_profile_url, f"{code_profile_url.rstrip('/')}/report.md"
 
 
 def _write_code_profile_approval_record(

@@ -55,6 +55,57 @@ def test_default_output_dir_uses_repo_analyses() -> None:
     )
 
 
+def test_code_profile_public_id_is_stable_across_analysis_run_ids(tmp_path: Path) -> None:
+    script = _load_script()
+    context = tmp_path / "context.json"
+    analysis = tmp_path / "analysis.json"
+    context.write_text(json.dumps({"source_context_sha256": "context-sha"}), encoding="utf-8")
+    analysis.write_text(json.dumps({"analysis_sha256": "analysis-sha"}), encoding="utf-8")
+
+    first = script._code_profile_public_id(
+        run_id="first-analysis-run",
+        source_context_bundle=context,
+        source_analysis_bundle=analysis,
+    )
+    second = script._code_profile_public_id(
+        run_id="second-analysis-run",
+        source_context_bundle=context,
+        source_analysis_bundle=analysis,
+    )
+
+    assert first == second
+
+
+def test_resume_code_profile_url_uses_persisted_review_id(tmp_path: Path) -> None:
+    script = _load_script()
+    context = tmp_path / "context.json"
+    analysis = tmp_path / "analysis.json"
+    payload = tmp_path / "payload.json"
+    context.write_text(json.dumps({"source_context_sha256": "context-sha"}), encoding="utf-8")
+    analysis.write_text(json.dumps({"analysis_sha256": "analysis-sha"}), encoding="utf-8")
+    persisted_id = "a" * 64
+    payload.write_text(
+        json.dumps(
+            {
+                "code_profile_id": persisted_id,
+                "source_context_sha256": "context-sha",
+                "analysis_sha256": "analysis-sha",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    url, report_url = script._resume_code_profile_urls(
+        payload_path=payload,
+        source_context_bundle=context,
+        source_analysis_bundle=analysis,
+        public_base_url="https://example.test",
+    )
+
+    assert url == f"https://example.test/code-profiles/{persisted_id}/"
+    assert report_url == f"https://example.test/code-profiles/{persisted_id}/report.md"
+
+
 def test_required_prompt_value_fails_without_tty() -> None:
     script = _load_script()
 
