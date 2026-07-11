@@ -83,6 +83,20 @@ def reconcile_missing_evidence(
             or "checkout_500_count metric" in lowered
         ):
             continue
+        elif "db_pool_exhausted_signal" in facts and (
+            re.fullmatch(r"db_pool_exhausted_count(?:\s+metric)?(?:\s+(?:data|metrics?|values))?", lowered)
+            or "metric deviations such as checkout_500_count or db_pool_exhausted_count" in lowered
+        ):
+            continue
+        elif "runtime_error" in facts and (
+            "runtime error logs" in lowered
+            or "error or warning logs from the payment-api" in lowered
+        ):
+            continue
+        elif "restart" in facts and "restart or watchdog behavior logs" in lowered:
+            continue
+        elif "deployment" in facts and lowered == "deployment event logs":
+            continue
         if text not in output:
             output.append(text)
     return output
@@ -148,6 +162,7 @@ def _absence_claim_is_contradicted(text: str, facts: set[str]) -> bool:
                 token in lowered
                 for token in (
                     "error signals",
+                    "error patterns",
                     "error or failure evidence",
                     "failure evidence",
                     "errors or anomalies",

@@ -1729,6 +1729,14 @@ def _is_chunk_scoped_absence_only(candidate: dict[str, Any]) -> bool:
     if str(candidate.get("source") or "") == "evidence_relationship":
         return False
     explanation = candidate.get("target_explanation") if isinstance(candidate.get("target_explanation"), dict) else {}
+    primary_text = _joined_text(
+        [
+            candidate.get("title"),
+            candidate.get("impact_summary"),
+            candidate.get("suspected_issue"),
+            explanation.get("suspected_issue"),
+        ]
+    )
     text = _joined_text(
         [
             candidate.get("title"),
@@ -1754,18 +1762,19 @@ def _is_chunk_scoped_absence_only(candidate: dict[str, Any]) -> bool:
         )
     )
     absence_observation = any(
-        token in text
+        token in primary_text
         for token in (
             "absence of runtime",
             "absence of error",
             "missing runtime",
             "no runtime",
+            "lack of runtime",
+            "lack of error",
             "no supporting log",
             "no supporting runtime",
             "not included",
             "not present",
             "not cited",
-            "was provided",
         )
     )
     return bounded_to_chunk and absence_observation
@@ -2084,6 +2093,26 @@ def _reconcile_target_explanation(
     contradicted_claims: list[str],
 ) -> dict[str, Any]:
     output = dict(explanation)
+    evidence_items = evidence_items_from_bundle(bundle)
+    for key in ("evidence_summary", "counter_evidence_summary"):
+        output[key] = filter_contradicted_absence_claims(
+            output.get(key) or [],
+            evidence_items=evidence_items,
+        )
+    output["provider_explanations"] = [
+        row
+        for row in output.get("provider_explanations") or []
+        if isinstance(row, dict)
+        and not contradicted_absence_claims(
+            [
+                row.get("claim_text"),
+                row.get("suspected_issue"),
+                row.get("operational_mechanism"),
+                row.get("why_not_promoted"),
+            ],
+            evidence_items=evidence_items,
+        )
+    ]
     unit = str(candidate.get("canonical_review_unit") or candidate.get("subsystem") or "").casefold()
     if contradicted_claims:
         output["why_not_promoted"] = (

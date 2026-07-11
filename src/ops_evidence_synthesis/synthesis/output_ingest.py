@@ -454,8 +454,23 @@ def _canonical_subject(candidate: dict[str, Any], text: str) -> str:
         return "database_connection_pool"
     if explicit_target == "deployment_regression" or "deployment_regression" in {explicit_subsystem, explicit_component}:
         return "deployment_regression"
-    if "payment_gateway" in {explicit_subsystem, explicit_component}:
-        return "payment_gateway"
+    trusted_explicit_units = {
+        "database_connection_pool",
+        "database_dependency",
+        "deployment_regression",
+        "job_configuration",
+        "observability_contract",
+        "payment_gateway",
+        "resource_pressure",
+        "runtime_recovery",
+        "service_liveness",
+        "traffic",
+        "user_experience",
+    }
+    if explicit_component in trusted_explicit_units:
+        return explicit_component
+    if explicit_subsystem in trusted_explicit_units:
+        return explicit_subsystem
     if any(token in text for token in ("connection pool", "pool exhaust", "db_pool", "checkout-db")):
         return "database_connection_pool"
     if "database" in text and any(token in text for token in ("timeout", "timed out", "latency", "slow query")):

@@ -35,6 +35,7 @@ def test_chunk_local_absence_claims_are_removed_when_full_evidence_contradicts_t
     values = [
         "No direct evidence of HTTP 500s or checkout failures is present in the bundle.",
         "No evidence of complete pool exhaustion is present in the corpus.",
+        "Only successful checkouts are logged; no error patterns observed.",
         "No database-side metrics are available.",
     ]
     assert filter_contradicted_absence_claims(values, evidence_items=EVIDENCE_ITEMS) == [
@@ -56,7 +57,15 @@ def test_satisfied_log_request_is_reduced_to_the_still_missing_metric() -> None:
 
 
 def test_existing_runtime_errors_and_checkout_count_are_not_requested_again() -> None:
-    values = ["Application error logs", "HTTP 500 metric counts", "Deployment manifest diff"]
+    values = [
+        "Application error logs",
+        "HTTP 500 metric counts",
+        "db_pool_exhausted_count metrics",
+        "Runtime error logs (e.g., HTTP 500s, stack traces) during the deployment window.",
+        "Restart or watchdog behavior logs post-deployment.",
+        "Deployment event logs",
+        "Deployment manifest diff",
+    ]
     assert reconcile_missing_evidence(values, evidence_items=EVIDENCE_ITEMS) == [
         "Deployment manifest diff"
     ]
