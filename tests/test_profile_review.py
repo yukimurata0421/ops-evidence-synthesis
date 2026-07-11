@@ -10,6 +10,7 @@ from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.profile_review import (
     ProfileReviewError,
     build_approved_operational_profile,
+    build_profile_review_interpretation_preview,
     normalize_profile_review_with_provider,
     validate_approved_operational_profile,
     validate_profile_review_patch,
@@ -185,6 +186,29 @@ def test_human_approved_profile_is_hash_bound_and_applies_semantics() -> None:
     assert len(profile["approved_profile_sha256"]) == 64
 
 
+def test_interpreted_profile_returns_to_human_review_before_approval() -> None:
+    preview = build_profile_review_interpretation_preview(
+        focused_profile=focused_profile(),
+        human_review=human_review(approved=True),
+        accepted_patch=candidate_patch(),
+        normalization={
+            "provider_id": "gemini-enterprise-agent-platform",
+            "model_name": "gemini-3.1-pro-preview",
+        },
+    )
+
+    interpreted = preview["interpreted_profile"]
+    assert preview["status"] == "ready_for_human_re_review"
+    assert preview["answer_count"] == 1
+    assert preview["unresolved_question_count"] == 0
+    assert len(preview["reviewed_patch_sha256"]) == 64
+    assert interpreted["status"] == "candidate_interpretation"
+    assert interpreted["explicit_profile"] is False
+    assert interpreted["human_review"]["decision"] == "pending_interpretation_review"
+    assert interpreted["review_policy"]["source_access_after_approval"] == "pending_interpretation_review"
+    assert interpreted["metric_semantics"]["publish_gap_seconds"]["zero_behavior"] == "healthy"
+
+
 def test_approved_profile_tampering_is_detected() -> None:
     profile = build_approved_operational_profile(
         focused_profile=focused_profile(),
@@ -286,7 +310,7 @@ def test_profile_review_api_requires_token_then_returns_approved_json(
             headers={"x-oes-write-token": "profile-review-token"},
             json={"focused_profile": focused_profile(), "human_review": human_review()},
         )
-        approved = client.post(
+        premature_approval = client.post(
             "/profile-reviews/approve",
             headers={"x-oes-write-token": "profile-review-token"},
             json={
@@ -297,9 +321,58 @@ def test_profile_review_api_requires_token_then_returns_approved_json(
                 "profile_id": "stream-runtime",
             },
         )
+        preview = client.post(
+            "/profile-reviews/preview",
+            headers={"x-oes-write-token": "profile-review-token"},
+            json={
+                "focused_profile": focused_profile(),
+                "human_review": human_review(approved=True),
+                "accepted_patch": normalized.json()["patch"],
+                "normalization": normalized.json()["normalization"],
+                "profile_id": "stream-runtime",
+            },
+        )
+        changed_patch = copy.deepcopy(normalized.json()["patch"])
+        changed_patch["system_summary_overrides"]["primary_purpose"] = "Changed after review."
+        changed_after_review = client.post(
+            "/profile-reviews/approve",
+            headers={"x-oes-write-token": "profile-review-token"},
+            json={
+                "focused_profile": focused_profile(),
+                "human_review": human_review(approved=True),
+                "accepted_patch": changed_patch,
+                "normalization": normalized.json()["normalization"],
+                "reviewed_patch_sha256": preview.json()["reviewed_patch_sha256"],
+                "interpretation_review_confirmed": True,
+                "profile_id": "stream-runtime",
+            },
+        )
+        approved = client.post(
+            "/profile-reviews/approve",
+            headers={"x-oes-write-token": "profile-review-token"},
+            json={
+                "focused_profile": focused_profile(),
+                "human_review": human_review(approved=True),
+                "accepted_patch": normalized.json()["patch"],
+                "normalization": normalized.json()["normalization"],
+                "reviewed_patch_sha256": preview.json()["reviewed_patch_sha256"],
+                "interpretation_review_confirmed": True,
+                "profile_id": "stream-runtime",
+            },
+        )
 
     assert blocked.status_code == 403
     assert normalized.status_code == 200, normalized.text
+    assert premature_approval.status_code == 400
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["status"] == "ready_for_human_re_review"
+    assert changed_after_review.status_code == 400
+    assert changed_after_review.json()["detail"] == "edited patch changed after interpretation review"
     assert approved.status_code == 200, approved.text
     assert approved.json()["approved_profile"]["status"] == "approved"
+    assert approved.json()["approved_profile"]["human_review"]["interpretation_review_confirmed"] is True
+    assert (
+        approved.json()["approved_profile"]["human_review"]["reviewed_patch_sha256"]
+        == preview.json()["reviewed_patch_sha256"]
+    )
     assert len(approved.json()["approved_profile_sha256"]) == 64

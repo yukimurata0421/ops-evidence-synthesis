@@ -58,7 +58,9 @@ from ops_evidence_synthesis.profile_discovery import (
 from ops_evidence_synthesis.profile_review import (
     ProfileReviewError,
     build_approved_operational_profile,
+    build_profile_review_interpretation_preview,
     normalize_profile_review_with_provider,
+    normalize_profile_review_patch,
     validate_approved_operational_profile,
 )
 from ops_evidence_synthesis.profiles import profile_context_for_bundle
@@ -4075,10 +4077,19 @@ def approve_profile_review_api(payload: dict[str, Any]) -> dict[str, Any]:
     if normalization is not None and not isinstance(normalization, dict):
         raise HTTPException(status_code=400, detail="normalization must be an object or null")
     try:
+        normalized_patch = normalize_profile_review_patch(accepted_patch)
+        reviewed_patch_sha256 = str(payload.get("reviewed_patch_sha256") or "")
+        if payload.get("interpretation_review_confirmed") is not True:
+            raise ProfileReviewError("Gemini interpretation must be reviewed before final approval")
+        if reviewed_patch_sha256 != sha256_json(normalized_patch):
+            raise ProfileReviewError("edited patch changed after interpretation review")
+        reviewed_human_review = deepcopy(human_review)
+        reviewed_human_review["interpretation_review_confirmed"] = True
+        reviewed_human_review["reviewed_patch_sha256"] = reviewed_patch_sha256
         profile = build_approved_operational_profile(
             focused_profile=focused_profile,
-            human_review=human_review,
-            accepted_patch=accepted_patch,
+            human_review=reviewed_human_review,
+            accepted_patch=normalized_patch,
             normalization=normalization if isinstance(normalization, dict) else {},
             profile_id=str(payload.get("profile_id") or focused_profile.get("system_label") or ""),
         )
@@ -4096,6 +4107,32 @@ def approve_profile_review_api(payload: dict[str, Any]) -> dict[str, Any]:
         "approved_profile_sha256": profile["approved_profile_sha256"],
         "approved_profile": profile,
     }
+
+
+@router.post("/profile-reviews/preview")
+def preview_profile_review_api(payload: dict[str, Any]) -> dict[str, Any]:
+    focused_profile = payload.get("focused_profile")
+    human_review = payload.get("human_review")
+    accepted_patch = payload.get("accepted_patch")
+    normalization = payload.get("normalization")
+    if not isinstance(focused_profile, dict):
+        raise HTTPException(status_code=400, detail="focused_profile object is required")
+    if not isinstance(human_review, dict):
+        raise HTTPException(status_code=400, detail="human_review object is required")
+    if not isinstance(accepted_patch, dict):
+        raise HTTPException(status_code=400, detail="accepted_patch object is required")
+    if normalization is not None and not isinstance(normalization, dict):
+        raise HTTPException(status_code=400, detail="normalization must be an object or null")
+    try:
+        return build_profile_review_interpretation_preview(
+            focused_profile=focused_profile,
+            human_review=human_review,
+            accepted_patch=accepted_patch,
+            normalization=normalization if isinstance(normalization, dict) else {},
+            profile_id=str(payload.get("profile_id") or focused_profile.get("system_label") or ""),
+        )
+    except ProfileReviewError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/evidence-requests/plan")

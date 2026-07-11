@@ -14,6 +14,7 @@ from ops_evidence_synthesis.timeutils import utc_now
 
 PROFILE_REVIEW_PATCH_SCHEMA_VERSION = "operational_profile_review_patch.v1"
 APPROVED_OPERATIONAL_PROFILE_SCHEMA_VERSION = "approved_operational_profile.v1"
+PROFILE_INTERPRETATION_PREVIEW_SCHEMA_VERSION = "operational_profile_interpretation_preview.v1"
 
 HEALTHY_DIRECTIONS = {"increase", "decrease", "stable", "nonzero", "zero", "unknown"}
 METRIC_BEHAVIORS = {"healthy", "suspicious", "neutral", "unknown"}
@@ -157,6 +158,52 @@ def deterministic_profile_review_patch(
             "unresolved_questions": unresolved,
         }
     )
+
+
+def build_profile_review_interpretation_preview(
+    *,
+    focused_profile: dict[str, Any],
+    human_review: dict[str, Any],
+    accepted_patch: dict[str, Any],
+    normalization: dict[str, Any] | None = None,
+    profile_id: str = "",
+) -> dict[str, Any]:
+    """Apply the edited interpretation without making it an approved profile."""
+    candidate = build_approved_operational_profile(
+        focused_profile=focused_profile,
+        human_review=human_review,
+        accepted_patch=accepted_patch,
+        normalization=normalization,
+        profile_id=profile_id,
+    )
+    patch = normalize_profile_review_patch(accepted_patch)
+    reviewed_patch_sha256 = sha256_json(patch)
+    candidate.pop("approved_profile_sha256", None)
+    candidate["schema_version"] = PROFILE_INTERPRETATION_PREVIEW_SCHEMA_VERSION
+    candidate["status"] = "candidate_interpretation"
+    candidate["explicit_profile"] = False
+    candidate["candidate_patch_sha256"] = reviewed_patch_sha256
+    candidate_review = candidate.get("human_review") if isinstance(candidate.get("human_review"), dict) else {}
+    candidate_review.pop("approved_at", None)
+    candidate_review["decision"] = "pending_interpretation_review"
+    candidate["human_review"] = candidate_review
+    policy = candidate.get("review_policy") if isinstance(candidate.get("review_policy"), dict) else {}
+    policy["source_access_after_approval"] = "pending_interpretation_review"
+    candidate["review_policy"] = policy
+    answer_count = sum(
+        1
+        for row in human_review.get("answers") or []
+        if isinstance(row, dict) and _text(row.get("answer"), 2000)
+    )
+    return {
+        "schema_version": PROFILE_INTERPRETATION_PREVIEW_SCHEMA_VERSION,
+        "status": "ready_for_human_re_review",
+        "reviewed_patch_sha256": reviewed_patch_sha256,
+        "answer_count": answer_count,
+        "unresolved_question_count": len(patch.get("unresolved_questions") or []),
+        "change_summary": profile_review_change_summary(patch),
+        "interpreted_profile": candidate,
+    }
 
 
 def normalize_profile_review_patch(value: dict[str, Any]) -> dict[str, Any]:
@@ -358,6 +405,8 @@ def build_approved_operational_profile(
         "profile_matches_deployment": True,
         "deployment_period_confirmed": True,
         "log_scope_confirmed": True,
+        "interpretation_review_confirmed": human_review.get("interpretation_review_confirmed") is True,
+        "reviewed_patch_sha256": str(human_review.get("reviewed_patch_sha256") or ""),
         "approval_note": _text(human_review.get("approval_note"), 2000),
         "answers_sha256": sha256_json(human_review.get("answers") or []),
     }

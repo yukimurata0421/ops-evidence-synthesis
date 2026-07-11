@@ -494,9 +494,13 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     assert "Copy APPROVE" in html
     assert "Normalize With Gemini" in html
     assert "Gemini candidate patch" in html
-    assert "Approve Edited Patch" in html
+    assert "Review Edited Interpretation" in html
+    assert 'id="interpreted-profile-preview"' in html
+    assert 'id="interpretation-review-confirmed"' in html
+    assert "Approve Reviewed Interpretation" in html
     assert "Download Approved Profile JSON" in html
     assert '"normalize_endpoint": "/profile-reviews/normalize"' in html
+    assert '"preview_endpoint": "/profile-reviews/preview"' in html
     assert '"approve_endpoint": "/profile-reviews/approve"' in html
     assert "code_profile_human_review_form.v1" in html
     assert "Confirm this source profile matches the deployed service." in html
@@ -789,3 +793,29 @@ def test_run_step_streams_stderr_and_keeps_stdout_json(capsys: pytest.CaptureFix
     captured = capsys.readouterr()
     assert "visible progress" in captured.err
     assert json.loads(result.stdout) == {"status": "ok"}
+
+
+def test_write_token_is_copied_without_being_printed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    script = _load_script()
+    clipboard_inputs: list[str] = []
+
+    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ["gcloud", "secrets", "versions"]:
+            return subprocess.CompletedProcess(command, 0, stdout="clipboard-value\n", stderr="")
+        clipboard_inputs.append(str(kwargs.get("input") or ""))
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(script.subprocess, "run", fake_run)
+    monkeypatch.setattr(script.shutil, "which", lambda name: "/usr/bin/wl-copy" if name == "wl-copy" else None)
+
+    assert script._copy_write_token_to_clipboard(
+        project_id="example-project",
+        secret_name="write-token-secret",
+    ) is True
+
+    captured = capsys.readouterr()
+    assert clipboard_inputs == ["clipboard-value"]
+    assert "Write token copied to clipboard" in captured.err
+    assert "clipboard-value" not in captured.out + captured.err

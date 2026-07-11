@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import html
 import json
@@ -25,6 +26,7 @@ DEFAULT_PUBLIC_BASE_URL = "https://ops-evidence.yukimurata0421.dev"
 DEFAULT_PROVIDERS = "local-gemini,local-gpt-oss,local-mistral,local-qwen,local-gemma"
 DEFAULT_CODE_PROFILE_PROVIDER = "gemini"
 DEFAULT_CODE_PROFILE_MODEL = "gemini-3.1-pro-preview"
+DEFAULT_WRITE_TOKEN_SECRET = "ops-evidence-api-write-token"
 DEFAULT_RUN_ID_PREFIX = "review"
 DEFAULT_OUTPUT_DIR_NAME = "analyses"
 DEFAULT_SERVICE = "stream_v3_runtime"
@@ -242,6 +244,21 @@ def main(argv: list[str] | None = None) -> int:
                 f"{code_profile_pages_prefix_uri.rstrip('/')}/{code_profile_id}/",
             ],
         )
+        copy_write_token = args.copy_write_token or _truthy(os.environ.get("OES_COPY_WRITE_TOKEN", ""))
+        if not copy_write_token and not args.no_prompts and sys.stdin.isatty():
+            answer = _read_prompt_line("Copy the Code Profile write token to the clipboard now? [Y/n]: ").strip()
+            copy_write_token = answer.casefold() not in {"n", "no"}
+        if copy_write_token:
+            _copy_write_token_to_clipboard(
+                project_id=project_id,
+                secret_name=args.write_token_secret or DEFAULT_WRITE_TOKEN_SECRET,
+            )
+        else:
+            print(
+                "Code Profile Normalize/Approve requires the Secret Manager write token. "
+                "Rerun with --copy-write-token to copy it without printing it.",
+                file=sys.stderr,
+            )
         approved_profile_bundle = _confirm_code_profile_before_log_analysis(
             source_root=source_root,
             source_context_bundle=source_context_bundle,
@@ -430,6 +447,16 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Optional Gemini model override for the pre-log-analysis focused code profile.",
     )
     parser.add_argument("--min-window-hours", default="")
+    parser.add_argument(
+        "--copy-write-token",
+        action="store_true",
+        help="Copy the Code Profile API write token from Secret Manager without printing it.",
+    )
+    parser.add_argument(
+        "--write-token-secret",
+        default=os.environ.get("OES_API_WRITE_TOKEN_SECRET", DEFAULT_WRITE_TOKEN_SECRET),
+        help="Secret Manager secret id used by --copy-write-token.",
+    )
     parser.add_argument("--no-prompts", action="store_true")
     parser.add_argument("--no-url-check", action="store_true")
     parser.add_argument("--show-gcs-uris", action="store_true", help="Print private gs:// artifact URIs after the HTTP review URLs.")
@@ -446,6 +473,70 @@ def _value(cli_value: str, env_name: str, default: str) -> str:
     if not value:
         raise SystemExit(f"{env_name} is required")
     return value
+
+
+def _truthy(value: str) -> bool:
+    return str(value or "").strip().casefold() in {"1", "true", "yes", "on"}
+
+
+def _copy_write_token_to_clipboard(*, project_id: str, secret_name: str) -> bool:
+    result = subprocess.run(
+        [
+            "gcloud",
+            "secrets",
+            "versions",
+            "access",
+            "latest",
+            "--secret",
+            secret_name,
+            "--project",
+            project_id,
+        ],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    token = result.stdout.strip()
+    if result.returncode != 0 or not token:
+        print(
+            f"Write token could not be read from Secret Manager secret {secret_name}. "
+            "The token value was not printed.",
+            file=sys.stderr,
+        )
+        return False
+    method = _copy_secret_text(token)
+    token = ""
+    if not method:
+        print(
+            "Write token was retrieved but no supported clipboard integration was found. "
+            "Install wl-copy, xclip, xsel, pbcopy, or clip.exe, then rerun --copy-write-token.",
+            file=sys.stderr,
+        )
+        return False
+    print(f"Write token copied to clipboard using {method}. The token value was not printed.", file=sys.stderr)
+    return True
+
+
+def _copy_secret_text(value: str) -> str:
+    candidates = [
+        ("wl-copy", ["wl-copy"]),
+        ("xclip", ["xclip", "-selection", "clipboard"]),
+        ("xsel", ["xsel", "--clipboard", "--input"]),
+        ("pbcopy", ["pbcopy"]),
+        ("clip.exe", ["clip.exe"]),
+    ]
+    for name, command in candidates:
+        if shutil.which(command[0]) is None:
+            continue
+        completed = subprocess.run(command, input=value, text=True, check=False, capture_output=True)
+        if completed.returncode == 0:
+            return name
+    if sys.stderr.isatty():
+        encoded = base64.b64encode(value.encode("utf-8")).decode("ascii")
+        sys.stderr.write(f"\033]52;c;{encoded}\a")
+        sys.stderr.flush()
+        return "terminal OSC 52"
+    return ""
 
 
 def _optional_value(cli_value: str, env_name: str, default: str) -> str:
@@ -1582,6 +1673,7 @@ def _render_code_profile_review_form(
         "profile_id": str(focused_profile.get("system_label") or code_profile_id),
         "focused_profile": focused_profile,
         "normalize_endpoint": "/profile-reviews/normalize",
+        "preview_endpoint": "/profile-reviews/preview",
         "approve_endpoint": "/profile-reviews/approve",
     }
     return f"""<section class="review-form" aria-labelledby="human-review-form-title">
@@ -1641,12 +1733,23 @@ def _render_code_profile_review_form(
             <label for="profile-patch-output">Gemini candidate patch — edit before final approval</label>
             <textarea id="profile-patch-output" class="json-editor"></textarea>
           </div>
+          <div class="form-actions">
+            <button class="primary" type="button" id="preview-profile-review" disabled>Review Edited Interpretation</button>
+          </div>
+          <div class="field">
+            <label for="interpreted-profile-preview">Gemini interpretation — review again before approval</label>
+            <textarea id="interpreted-profile-preview" class="json-editor" readonly></textarea>
+          </div>
+          <div class="check">
+            <input id="interpretation-review-confirmed" name="interpretation_review_confirmed" type="checkbox" disabled>
+            <label for="interpretation-review-confirmed">I reviewed the interpreted system purpose, metric semantics, components, logs, outcomes, and unresolved questions.</label>
+          </div>
           <div class="field">
             <label for="profile-change-summary">Candidate change summary</label>
             <pre id="profile-change-summary">No candidate patch yet.</pre>
           </div>
           <div class="form-actions">
-            <button class="primary" type="button" id="approve-profile-review" disabled>Approve Edited Patch</button>
+            <button class="primary" type="button" id="approve-profile-review" disabled>Approve Reviewed Interpretation</button>
             <button type="button" id="download-approved-profile" disabled>Download Approved Profile JSON</button>
             <button type="button" id="copy-approve-command" disabled>Copy APPROVE</button>
           </div>
@@ -1744,6 +1847,9 @@ def _render_code_profile_html(
       const config = JSON.parse(document.getElementById("review-form-config").textContent || "{{}}");
       const storageKey = "ops-evidence-code-profile-review:" + (config.code_profile_id || "unknown");
       const patchOutput = document.getElementById("profile-patch-output");
+      const previewOutput = document.getElementById("interpreted-profile-preview");
+      const previewButton = document.getElementById("preview-profile-review");
+      const interpretationReview = document.getElementById("interpretation-review-confirmed");
       const approvedOutput = document.getElementById("approved-profile-output");
       const changeSummary = document.getElementById("profile-change-summary");
       const approveButton = document.getElementById("approve-profile-review");
@@ -1751,6 +1857,7 @@ def _render_code_profile_html(
       const copyApproveButton = document.getElementById("copy-approve-command");
       let normalizationMetadata = {{}};
       let approvedProfile = null;
+      let reviewedPatchSha256 = "";
       const setStatus = (message) => {{ if (status) status.textContent = message; }};
       const writeToken = () => (document.getElementById("profile-review-write-token")?.value || "").trim();
       const downloadJson = (filename, payload) => {{
@@ -1784,6 +1891,7 @@ def _render_code_profile_html(
           profile_matches_deployment: data.get("profile_matches_deployment") === "on",
           deployment_period_confirmed: data.get("deployment_period_confirmed") === "on",
           log_scope_confirmed: data.get("log_scope_confirmed") === "on",
+          interpretation_review_confirmed: data.get("interpretation_review_confirmed") === "on",
           answers,
           approval_note: data.get("approval_note") || ""
         }};
@@ -1797,6 +1905,7 @@ def _render_code_profile_html(
           form.profile_matches_deployment.checked = Boolean(saved.profile_matches_deployment);
           form.deployment_period_confirmed.checked = Boolean(saved.deployment_period_confirmed);
           form.log_scope_confirmed.checked = Boolean(saved.log_scope_confirmed);
+          form.interpretation_review_confirmed.checked = Boolean(saved.interpretation_review_confirmed);
           form.approval_note.value = saved.approval_note || "";
           const answers = Array.isArray(saved.answers) ? saved.answers : [];
           form.querySelectorAll("[data-review-question]").forEach((field, index) => {{
@@ -1841,7 +1950,12 @@ def _render_code_profile_html(
           normalizationMetadata = result.normalization || {{}};
           patchOutput.value = JSON.stringify(result.patch || {{}}, null, 2) + "\n";
           changeSummary.textContent = JSON.stringify(result.change_summary || {{}}, null, 2);
-          approveButton.disabled = false;
+          reviewedPatchSha256 = "";
+          previewOutput.value = "";
+          previewButton.disabled = false;
+          interpretationReview.checked = false;
+          interpretationReview.disabled = true;
+          approveButton.disabled = true;
           approvedProfile = null;
           approvedOutput.value = "";
           downloadApprovedButton.disabled = true;
@@ -1850,6 +1964,55 @@ def _render_code_profile_html(
         }} catch (error) {{
           setStatus("Gemini normalization failed: " + error.message);
         }}
+      }});
+      patchOutput.addEventListener("input", () => {{
+        reviewedPatchSha256 = "";
+        previewOutput.value = "";
+        interpretationReview.checked = false;
+        interpretationReview.disabled = true;
+        approveButton.disabled = true;
+        setStatus("Candidate patch changed. Review the edited interpretation again before approval.");
+      }});
+      previewButton.addEventListener("click", async () => {{
+        const token = writeToken();
+        if (!token) {{ setStatus("Enter the API write token before interpretation review."); return; }}
+        let patch;
+        try {{ patch = JSON.parse(patchOutput.value || "{{}}"); }}
+        catch (error) {{ setStatus("Candidate patch is not valid JSON: " + error.message); return; }}
+        const review = collect();
+        setStatus("Applying the edited patch and rebuilding the code interpretation for human re-review...");
+        try {{
+          const response = await fetch(config.preview_endpoint || "/profile-reviews/preview", {{
+            method: "POST",
+            headers: {{"content-type":"application/json", "x-oes-write-token":token}},
+            body: JSON.stringify({{
+              focused_profile:config.focused_profile || {{}},
+              human_review:review,
+              accepted_patch:patch,
+              normalization:normalizationMetadata,
+              profile_id:config.profile_id || config.code_profile_id || ""
+            }})
+          }});
+          const result = await response.json();
+          if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : JSON.stringify(result.detail || result));
+          reviewedPatchSha256 = result.reviewed_patch_sha256 || "";
+          previewOutput.value = JSON.stringify(result.interpreted_profile || {{}}, null, 2) + "\n";
+          changeSummary.textContent = JSON.stringify({{
+            answer_count:result.answer_count || 0,
+            unresolved_question_count:result.unresolved_question_count || 0,
+            changes:result.change_summary || {{}}
+          }}, null, 2);
+          interpretationReview.checked = false;
+          interpretationReview.disabled = false;
+          approveButton.disabled = true;
+          setStatus("Gemini interpretation rebuilt. Review it, then confirm the second review before final approval.");
+        }} catch (error) {{
+          setStatus("Interpretation preview failed: " + error.message);
+        }}
+      }});
+      interpretationReview.addEventListener("change", () => {{
+        approveButton.disabled = !(interpretationReview.checked && reviewedPatchSha256);
+        if (interpretationReview.checked) setStatus("Second human review confirmed. Final approval is now enabled.");
       }});
       approveButton.addEventListener("click", async () => {{
         const token = writeToken();
@@ -1868,6 +2031,8 @@ def _render_code_profile_html(
               human_review:review,
               accepted_patch:patch,
               normalization:normalizationMetadata,
+              reviewed_patch_sha256:reviewedPatchSha256,
+              interpretation_review_confirmed:interpretationReview.checked,
               profile_id:config.profile_id || config.code_profile_id || ""
             }})
           }});
