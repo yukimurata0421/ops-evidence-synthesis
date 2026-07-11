@@ -198,6 +198,8 @@ def test_approved_outcome_and_matching_http_5xx_evidence_verify_user_impact() ->
     assert target["has_user_impact_evidence"] is True
     assert "user_impact_unverified" not in decision["reasons"]
     assert "impact_disagreement" not in decision["reasons"]
+    assert "establish direct user impact" in target["why_it_matters"]
+    assert "user impact is not proven" not in target["why_it_matters"]
 
 
 def test_review_unit_convergence_increases_priority_without_primary_promotion() -> None:

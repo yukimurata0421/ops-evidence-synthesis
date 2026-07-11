@@ -800,6 +800,7 @@ def _targets(
                         state=promotion_state,
                         provider_count=provider_count,
                         valid_count=valid_count,
+                        has_user_impact=bool(public_target.get("has_user_impact_evidence")),
                     ),
                     "score_cap_applied": False,
                     "score_note": "Priority is review urgency, not truth probability.",
@@ -1501,10 +1502,21 @@ def _public_target_explanation(
         str(target.get("operational_mechanism") or raw.get("operational_mechanism") or "").strip()
         or _fallback_operational_mechanism(target, canonical_unit=canonical_unit)
     )
-    why_it_matters = (
-        str(target.get("why_it_matters") or raw.get("why_it_matters") or "").strip()
-        or "This review unit may affect an operational outcome, but the current payload does not prove user impact."
-    )
+    target_why = str(target.get("why_it_matters") or raw.get("why_it_matters") or "").strip()
+    has_user_impact = bool(target.get("has_user_impact_evidence"))
+    if has_user_impact and (
+        not target_why
+        or "user impact is not proven" in target_why.casefold()
+        or "does not prove user impact" in target_why.casefold()
+    ):
+        why_it_matters = (
+            "The approved operational profile and cited Evidence Items establish direct user impact for this "
+            "review unit; causal and operational attribution still require human validation."
+        )
+    else:
+        why_it_matters = target_why or (
+            "This review unit may affect an operational outcome, but the current payload does not prove user impact."
+        )
     evidence_summary = _hydrate_evidence_summary(
         [
             *_string_items(target.get("evidence_summary")),
@@ -2020,11 +2032,7 @@ def _review_graph_summary(
         "incident_baseline": "established" if incident_established else "open",
         "incident_gate_signal": "signal_present" if incident_established else "not_established",
         "incident_gate_scope": "graph_level_signal_not_target_promotion",
-        "target_promotion_policy": (
-            "Incident gate signal is a graph-level support signal. Each review target still has its own "
-            "promotion state, and promotion remains human-gated until impact and operational outcome evidence "
-            "are attached to that target."
-        ),
+        "target_promotion_policy": _target_promotion_policy(targets),
         "provider_detection_overlap": str((agreement.get("provider_detection_overlap") or {}).get("value") or ""),
         "review_unit_convergence": str((agreement.get("review_unit_convergence") or {}).get("value") or ""),
         "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
@@ -2383,7 +2391,13 @@ def _target_claim(
     return f"Deterministic routing projected {unit} with {refs}; provider support still needs validation."
 
 
-def _promotion_explanation(*, state: str, provider_count: int, valid_count: int) -> str:
+def _promotion_explanation(
+    *,
+    state: str,
+    provider_count: int,
+    valid_count: int,
+    has_user_impact: bool = False,
+) -> str:
     if state == "primary_candidate":
         return (
             "Primary candidacy is based on review priority, subsystem relevance, and unresolved operational risk, "
@@ -2395,6 +2409,11 @@ def _promotion_explanation(*, state: str, provider_count: int, valid_count: int)
             "It is not unresolved incident validation work."
         )
     if provider_count >= 2:
+        if has_user_impact:
+            return (
+                f"{provider_count}/{max(valid_count, 1)} providers converged and direct user impact is established; "
+                "the target remains validation work until its causal and operational evidence gates are closed."
+            )
         return (
             f"{provider_count}/{max(valid_count, 1)} providers converged, so this is technical support; "
             "it remains validation work until user impact or operational outcome evidence is attached."
@@ -2402,6 +2421,16 @@ def _promotion_explanation(*, state: str, provider_count: int, valid_count: int)
     if provider_count == 1:
         return "A single provider surfaced this target; it needs corroboration before promotion."
     return "This target is context/rule driven and needs runtime support before promotion."
+
+
+def _target_promotion_policy(targets: list[dict[str, Any]]) -> str:
+    prefix = (
+        "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, "
+        "and promotion remains human-gated"
+    )
+    if targets and all(bool(target.get("has_user_impact_evidence")) for target in targets):
+        return f"{prefix} until the remaining causal and operational evidence gates are closed."
+    return f"{prefix} until impact and operational outcome evidence are attached to that target."
 
 
 def _analysis_conclusion_impact(

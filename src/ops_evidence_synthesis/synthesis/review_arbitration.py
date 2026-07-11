@@ -1088,6 +1088,7 @@ def _arbitrate_candidate(
         reasons=reasons,
         request_type=request_type,
         linked_theme=linked_theme,
+        has_user_impact=has_user_impact,
     )
     target = {
         "target_id": str(candidate.get("target_id") or ""),
@@ -1204,6 +1205,7 @@ def _target_explanation_for_candidate(
     reasons: list[str],
     request_type: str,
     linked_theme: str,
+    has_user_impact: bool,
 ) -> dict[str, Any]:
     raw = candidate.get("target_explanation") if isinstance(candidate.get("target_explanation"), dict) else {}
     unit = str(candidate.get("canonical_review_unit") or candidate.get("component") or candidate.get("subsystem") or "review unit")
@@ -1220,10 +1222,18 @@ def _target_explanation_for_candidate(
         str(candidate.get("operational_mechanism") or raw.get("operational_mechanism") or "").strip()
         or _fallback_operational_mechanism(candidate, unit=unit)
     )
-    why_it_matters = (
-        str(candidate.get("why_it_matters") or raw.get("why_it_matters") or "").strip()
-        or "The current evidence may affect an operational outcome, but user impact is not proven by this target alone."
-    )
+    candidate_why = str(candidate.get("why_it_matters") or raw.get("why_it_matters") or "").strip()
+    if has_user_impact and (
+        not candidate_why or "user impact is not proven" in candidate_why.casefold()
+    ):
+        why_it_matters = (
+            "The approved operational profile and cited Evidence Items establish direct user impact for this "
+            "review unit; causal and operational attribution still require human validation."
+        )
+    else:
+        why_it_matters = candidate_why or (
+            "The current evidence may affect an operational outcome, but user impact is not proven by this target alone."
+        )
     evidence_summary = _unique(
         [
             *_string_items(candidate.get("evidence_summary")),

@@ -732,3 +732,17 @@ def test_verified_impact_target_keeps_causal_validation_without_reopening_impact
     )
 
     assert blocked_reason == "incident_baseline_open; causal_alignment_unverified"
+    explanation = module._promotion_explanation(
+        state="validation",
+        provider_count=3,
+        valid_count=5,
+        has_user_impact=True,
+    )
+    assert "direct user impact is established" in explanation
+    assert "until user impact" not in explanation
+
+    policy = module._target_promotion_policy(
+        [{"has_user_impact_evidence": True}, {"has_user_impact_evidence": True}]
+    )
+    assert "causal and operational evidence gates" in policy
+    assert "until impact" not in policy
