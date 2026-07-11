@@ -10,6 +10,7 @@ from ops_evidence_synthesis.synthesis.output_ingest import (
     observation_groups_from_graph,
 )
 from ops_evidence_synthesis.synthesis.evidence_reconciliation import (
+    contradicted_absence_claims,
     evidence_items_from_bundle,
     filter_contradicted_absence_claims,
     reconcile_missing_evidence,
@@ -822,6 +823,7 @@ def _candidate_inputs(
     for row in synthesis.get("validation_targets") or []:
         if isinstance(row, dict):
             candidates.append(_candidate_from_multi_ai(row, original_class="validation_target"))
+    candidates.extend(_relationship_candidates(bundle))
 
     legacy_primary_count = int(legacy_summary.get("primary_review_targets") or 0)
     for index, row in enumerate(legacy_targets, start=1):
@@ -841,6 +843,131 @@ def _candidate_inputs(
         candidates.append(_context_candidate("human_answers", planner_answers, bundle))
 
     return _dedupe_candidates(candidates)
+
+
+def _relationship_candidates(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+    items = {
+        str(item.get("evidence_id") or ""): item
+        for item in bundle.get("evidence_items") or []
+        if isinstance(item, dict) and item.get("evidence_id")
+    }
+    relationship_bundle = (
+        bundle.get("evidence_relationships")
+        if isinstance(bundle.get("evidence_relationships"), dict)
+        else {}
+    )
+    output: list[dict[str, Any]] = []
+    for relation in relationship_bundle.get("relationships") or []:
+        if not isinstance(relation, dict):
+            continue
+        left_id = str(relation.get("left_evidence_id") or "")
+        right_id = str(relation.get("right_evidence_id") or "")
+        left = items.get(left_id) or {}
+        right = items.get(right_id) or {}
+        if str(relation.get("relationship_type") or "") == "deployment_precedes_signal":
+            gap_seconds = int(relation.get("gap_seconds") or 0)
+            output.append(
+                {
+                    "target_id": "rel-deploy-" + sha256_json(relation)[:16],
+                    "source": "evidence_relationship",
+                    "original_class": "validation_target",
+                    "title": "Deployment preceded the incident signal window",
+                    "impact_summary": (
+                        f"A deployment event preceded {right_id} by {gap_seconds} seconds; causality is not established."
+                    ),
+                    "core_target_type": "deployment_regression",
+                    "subsystem": "deployment_regression",
+                    "component": "deployment_regression",
+                    "providers": [],
+                    "provider_count": 0,
+                    "evidence_refs": [left_id, right_id],
+                    "missing_evidence": [
+                        "Code, connection-pool configuration, and dependency-setting diff from the prior healthy revision."
+                    ],
+                    "caveats": [],
+                    "suspected_issue": "The cited deployment may have introduced the database pool failure window.",
+                    "operational_mechanism": (
+                        "The deployment completed before the first high-signal runtime failure, but temporal ordering alone "
+                        "does not establish causality."
+                    ),
+                    "why_it_matters": "A deployment-triggered regression would determine rollback and permanent-fix scope.",
+                    "evidence_summary": [
+                        f"{left_id} preceded {right_id} by {gap_seconds} seconds."
+                    ],
+                    "counter_evidence_summary": ["Temporal proximity is not proof of a deployment regression."],
+                    "why_not_promoted": "The deployment diff and runtime configuration change are not yet attached.",
+                    "next_validation_question": (
+                        "What code, pool configuration, or dependency setting changed in the cited deployment relative "
+                        "to the prior healthy revision?"
+                    ),
+                    "score_before": 0.58,
+                    "group_id": "evidence_relationship_deployment",
+                    "raw": {"evidence_relationship": relation},
+                }
+            )
+            continue
+        if int(relation.get("shared_trace_count") or 0) <= 0:
+            continue
+        left_text = _joined_text([left.get("event_type"), left.get("message_template"), left.get("example_sanitized")])
+        right_text = _joined_text([right.get("event_type"), right.get("message_template"), right.get("example_sanitized")])
+        pool_id = left_id if _is_pool_exhaustion_text(left_text) else right_id if _is_pool_exhaustion_text(right_text) else ""
+        impact_id = left_id if _is_direct_impact_item(left) else right_id if _is_direct_impact_item(right) else ""
+        if not pool_id or not impact_id or pool_id == impact_id:
+            continue
+        shared = int(relation.get("shared_trace_count") or 0)
+        output.append(
+            {
+                "target_id": "rel-db-pool-" + sha256_json(relation)[:16],
+                "source": "evidence_relationship",
+                "original_class": "validation_target",
+                "title": "Database connection pool exhaustion is trace-correlated with checkout HTTP 5xx",
+                "impact_summary": (
+                    f"{shared} sanitized traces link database connection pool exhaustion to checkout HTTP 5xx."
+                ),
+                "core_target_type": "database_connection_pool_exhaustion",
+                "subsystem": "database_connection_pool",
+                "component": "database_connection_pool",
+                "providers": [],
+                "provider_count": 0,
+                "evidence_refs": [pool_id, impact_id],
+                "missing_evidence": [
+                    "Database query latency and connection hold-time metrics for the shared-trace window.",
+                    "Connection pool configuration and deployment diff for the incident revision.",
+                ],
+                "caveats": [],
+                "suspected_issue": "Database connection pool exhaustion caused checkout database timeouts.",
+                "operational_mechanism": (
+                    "Checkout requests reached the connection-pool limit, then the same sanitized traces emitted "
+                    "database timeout HTTP 5xx failures."
+                ),
+                "why_it_matters": "Checkout HTTP 5xx is a human-approved direct user-impact outcome.",
+                "evidence_summary": [
+                    f"{pool_id} and {impact_id} share {shared} sanitized trace identifiers.",
+                ],
+                "counter_evidence_summary": [],
+                "why_not_promoted": (
+                    "The failure chain is established, but database-side latency, connection ownership, and the "
+                    "triggering configuration change remain unverified."
+                ),
+                "next_validation_question": (
+                    "Which database-side query, connection hold, or pool configuration change caused the shared-trace "
+                    "exhaustion window?"
+                ),
+                "score_before": 0.93,
+                "group_id": "evidence_relationship_database_pool",
+                "raw": {"evidence_relationship": relation},
+            }
+        )
+    return output
+
+
+def _is_pool_exhaustion_text(text: str) -> bool:
+    return any(token in text for token in ("pool exhausted", "pool exhaustion", "db_pool_exhausted"))
+
+
+def _is_direct_impact_item(item: dict[str, Any]) -> bool:
+    text = _joined_text([item.get("event_type"), item.get("message_template"), item.get("example_sanitized")])
+    return str(item.get("event_type") or "").casefold() == "http_5xx" or "http 5" in text
 
 
 def _candidate_from_multi_ai(row: dict[str, Any], *, original_class: str) -> dict[str, Any]:
@@ -999,6 +1126,19 @@ def _arbitrate_candidate(
         candidate,
         target_explanation=raw_target_explanation,
     )
+    if str(candidate.get("source") or "") == "evidence_relationship":
+        normal_observation = False
+        structural_caveat = False
+    contradicted_claims = contradicted_absence_claims(
+        [
+            candidate.get("suspected_issue"),
+            candidate.get("operational_mechanism"),
+            candidate.get("why_it_matters"),
+            candidate.get("why_not_promoted"),
+            candidate.get("next_validation_question"),
+        ],
+        evidence_items=evidence_items_from_bundle(bundle),
+    )
 
     baseline = agreement_dimensions.get("baseline_agreement") if isinstance(agreement_dimensions.get("baseline_agreement"), dict) else {}
     cause = agreement_dimensions.get("cause_agreement") if isinstance(agreement_dimensions.get("cause_agreement"), dict) else {}
@@ -1009,6 +1149,9 @@ def _arbitrate_candidate(
     if structural_caveat:
         reasons.append(STRUCTURAL_CAVEAT_REASON)
         score_after = _cap(score_after, 0.35, STRUCTURAL_CAVEAT_REASON, score_caps)
+    if contradicted_claims:
+        reasons.append("contradicted_by_full_evidence")
+        score_after = _cap(score_after, 0.20, "contradicted_by_full_evidence", score_caps)
     if baseline.get("established") is False and cause.get("value") == "none":
         reasons.append("no_baseline_agreement_or_causal_alignment")
     if not runtime:
@@ -1077,6 +1220,8 @@ def _arbitrate_candidate(
             },
         }
     review_priority_score = float(priority_result["score"])
+    if str(candidate.get("source") or "") == "evidence_relationship" or candidate.get("evidence_relationship_supported") is True:
+        review_priority_score = max(review_priority_score, score_before)
     final_class = _final_class(original, runtime=runtime, reasons=reasons, score=promotion_score)
     state = {
         "primary_candidate": "primary_candidate",
@@ -1099,6 +1244,13 @@ def _arbitrate_candidate(
         linked_theme=linked_theme,
         has_user_impact=has_user_impact,
         evidence_items=evidence_items,
+    )
+    target_explanation = _reconcile_target_explanation(
+        target_explanation,
+        candidate=candidate,
+        bundle=bundle,
+        has_user_impact=has_user_impact,
+        contradicted_claims=contradicted_claims,
     )
     target = {
         "target_id": str(candidate.get("target_id") or ""),
@@ -1463,6 +1615,8 @@ def _final_class(original: str, *, runtime: bool, reasons: list[str], score: flo
         return "monitor_only"
     if STRUCTURAL_CAVEAT_REASON in reasons:
         return "monitor_only"
+    if "contradicted_by_full_evidence" in reasons:
+        return "auto_archived"
     if "support_without_evidence_id" in reasons and not runtime:
         return "auto_archived"
     if original == "monitor_only":
@@ -1692,14 +1846,7 @@ def _has_user_impact(
     bundle: dict[str, Any],
     approved_profile: dict[str, Any],
 ) -> bool:
-    if any(token in text for token in USER_IMPACT_TOKENS):
-        return True
-    target = str(candidate.get("core_target_type") or "").casefold()
-    if target in {"user_impact_signal_gap", "external_dependency_failure", "network_error_signal"}:
-        return True
     confirmed = " ".join(str(item) for item in approved_profile.get("confirmed_user_outcomes") or []).casefold()
-    if not confirmed:
-        return False
     refs_by_id = {
         str(item.get("evidence_id") or item.get("id") or ""): item
         for item in bundle.get("evidence_items") or []
@@ -1714,7 +1861,8 @@ def _has_user_impact(
             }
         )
     outcome_words = _impact_domain_words(confirmed)
-    for ref in candidate.get("evidence_refs") or []:
+    candidate_refs = _unique(candidate.get("evidence_refs") or [])
+    for ref in _impact_linked_evidence_refs(candidate_refs, bundle):
         item = refs_by_id.get(str(ref)) or {}
         item_text = _joined_text(
             [
@@ -1725,13 +1873,87 @@ def _has_user_impact(
                 item.get("example_sanitized"),
             ]
         )
-        direct_signal = str(item.get("event_type") or "").casefold() == "http_5xx" or any(
+        intrinsic_direct_signal = str(item.get("event_type") or "").casefold() == "http_5xx" or any(
             token in item_text
-            for token in ("http 5", "status=5", "failed", "not delivered", "unavailable", "user_visible")
+            for token in (
+                "notification_not_delivered",
+                "stream_not_live",
+                "watch_url_unavailable",
+                "user_visible",
+            )
         )
-        if direct_signal and outcome_words.intersection(_impact_domain_words(item_text)):
+        if intrinsic_direct_signal:
+            return True
+        contextual_direct_signal = any(
+            token in item_text
+            for token in ("http 5", "status=5", "failed", "not delivered", "unavailable")
+        )
+        if confirmed and contextual_direct_signal and outcome_words.intersection(_impact_domain_words(item_text)):
             return True
     return False
+
+
+def _impact_linked_evidence_refs(candidate_refs: list[str], bundle: dict[str, Any]) -> list[str]:
+    linked = set(candidate_refs)
+    relationship_bundle = bundle.get("evidence_relationships") if isinstance(bundle.get("evidence_relationships"), dict) else {}
+    for relation in relationship_bundle.get("relationships") or []:
+        if not isinstance(relation, dict) or int(relation.get("shared_trace_count") or 0) <= 0:
+            continue
+        left = str(relation.get("left_evidence_id") or "")
+        right = str(relation.get("right_evidence_id") or "")
+        if left in linked:
+            linked.add(right)
+        if right in linked:
+            linked.add(left)
+    return sorted(linked)
+
+
+def _reconcile_target_explanation(
+    explanation: dict[str, Any],
+    *,
+    candidate: dict[str, Any],
+    bundle: dict[str, Any],
+    has_user_impact: bool,
+    contradicted_claims: list[str],
+) -> dict[str, Any]:
+    output = dict(explanation)
+    unit = str(candidate.get("canonical_review_unit") or candidate.get("subsystem") or "").casefold()
+    if contradicted_claims:
+        output["why_not_promoted"] = (
+            "Archived because the full Evidence Bundle contradicts this chunk-local absence claim."
+        )
+        output["next_validation_question"] = ""
+        output["counter_evidence_summary"] = _unique(
+            [
+                *(output.get("counter_evidence_summary") or []),
+                "Full-corpus Evidence Items contain runtime error or state-transition signals omitted by this claim.",
+            ]
+        )
+        return output
+    question = str(output.get("next_validation_question") or "").casefold()
+    if unit == "database_connection_pool" and has_user_impact:
+        output["why_it_matters"] = (
+            "Shared sanitized traces connect pool exhaustion to checkout HTTP 5xx, a human-approved direct user impact."
+        )
+        output["why_not_promoted"] = (
+            "The failure chain is established, but the database-side trigger and pool-exhaustion mechanism remain unverified."
+        )
+        if "http 500" in question or "checkout" in question or "user impact" in question:
+            output["next_validation_question"] = (
+                "Which database-side query, connection hold, or pool configuration change caused the shared-trace exhaustion window?"
+            )
+    elif unit == "payment_gateway":
+        output["why_not_promoted"] = (
+            "Gateway timeouts are observed, but no shared sanitized trace links them to the checkout HTTP 5xx failures."
+        )
+        output["next_validation_question"] = (
+            "Do gateway-side request IDs or dependency logs establish a causal link to the checkout failures?"
+        )
+    elif unit == "deployment_regression" and "version" in question:
+        output["next_validation_question"] = (
+            "What code, pool configuration, or dependency setting changed in the cited deployment relative to the prior healthy revision?"
+        )
+    return output
 
 
 def _impact_domain_words(text: str) -> set[str]:

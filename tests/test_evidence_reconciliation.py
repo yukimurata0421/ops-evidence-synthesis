@@ -1,4 +1,5 @@
 from ops_evidence_synthesis.synthesis.evidence_reconciliation import (
+    contradicted_absence_claims,
     filter_contradicted_absence_claims,
     observed_evidence_facts,
     reconcile_missing_evidence,
@@ -52,3 +53,11 @@ def test_satisfied_log_request_is_reduced_to_the_still_missing_metric() -> None:
         "HTTP 5xx time-series metrics tied to this review unit.",
         "Database server logs",
     ]
+
+
+def test_full_corpus_absence_claim_is_contradicted_but_chunk_scoped_claim_is_retained() -> None:
+    values = [
+        "Absence of error signals in the sanitized logs.",
+        "No error signals are cited in this chunk.",
+    ]
+    assert contradicted_absence_claims(values, evidence_items=EVIDENCE_ITEMS) == [values[0]]

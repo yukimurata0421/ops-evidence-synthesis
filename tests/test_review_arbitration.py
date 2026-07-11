@@ -580,3 +580,108 @@ def test_review_arbitrate_api_accepts_payload(tmp_path, monkeypatch) -> None:
         graph = response.json()["canonical_review_graph"]
         assert graph["summary"]["primary_count"] == 0
         assert graph["summary"]["validation_count"] >= 1
+
+
+def test_trace_relationship_ranks_database_pool_above_unlinked_gateway_and_archives_false_absence() -> None:
+    bundle = {
+        **_bundle(),
+        "evidence_items": [
+            {
+                "evidence_id": "PATTERN-001",
+                "event_type": "info",
+                "message_template": "checkout completed status=200",
+            },
+            {
+                "evidence_id": "PATTERN-003",
+                "event_type": "http_5xx",
+                "message_template": "checkout failed HTTP 500 database timeout",
+            },
+            {
+                "evidence_id": "PATTERN-004",
+                "event_type": "unknown",
+                "message_template": "database connection pool exhausted",
+            },
+            {
+                "evidence_id": "PATTERN-005",
+                "event_type": "timeout",
+                "message_template": "payment-gateway timeout",
+            },
+        ],
+        "evidence_relationships": {
+            "schema_version": "evidence_relationships.v1",
+            "relationships": [
+                {
+                    "relationship_type": "shared_trace",
+                    "left_evidence_id": "PATTERN-003",
+                    "right_evidence_id": "PATTERN-004",
+                    "shared_trace_count": 120,
+                    "left_trace_count": 120,
+                    "right_trace_count": 120,
+                },
+                {
+                    "relationship_type": "overlapping_window_no_shared_trace",
+                    "left_evidence_id": "PATTERN-003",
+                    "right_evidence_id": "PATTERN-005",
+                    "shared_trace_count": 0,
+                    "left_trace_count": 120,
+                    "right_trace_count": 80,
+                },
+            ],
+        },
+    }
+    synthesis = {
+        "schema_version": "multi_ai_synthesis.v1",
+        "provider_count": 5,
+        "successful_provider_count": 5,
+        "validation_targets": [
+            {
+                "group_id": "gateway",
+                "title": "Payment gateway timeout",
+                "core_target_type": "external_dependency_health",
+                "subsystem": "downstream_dependency",
+                "providers": ["gemini", "gpt-oss", "mistral", "qwen", "gemma"],
+                "provider_count": 5,
+                "evidence_refs": ["PATTERN-005"],
+                "review_priority_score": 0.81,
+                "suspected_issue": "External dependency payment-gateway timeout",
+                "why_it_matters": "This could cause checkout failures.",
+                "next_validation_question": "Are checkout HTTP 500 responses correlated with these timeouts?",
+            },
+            {
+                "group_id": "false-absence",
+                "title": "No runtime errors",
+                "core_target_type": "general_review",
+                "subsystem": "generic_runtime",
+                "providers": ["gemini", "qwen"],
+                "provider_count": 2,
+                "evidence_refs": ["PATTERN-001"],
+                "review_priority_score": 0.6,
+                "suspected_issue": "Absence of error signals in the sanitized logs.",
+                "why_not_promoted": "No error or failure evidence was found.",
+            },
+        ],
+    }
+    approved_profile = {
+        "confirmed_user_outcomes": ["Checkout HTTP 500 responses are direct user impact."],
+    }
+
+    graph = arbitrate_review_targets(
+        bundle,
+        multi_ai_synthesis=synthesis,
+        approved_profile=approved_profile,
+    )
+
+    targets = graph["review_targets"]
+    assert targets[0]["canonical_review_unit"] == "database_connection_pool"
+    assert targets[0]["review_priority_score"] == 0.93
+    assert targets[0]["has_user_impact_evidence"] is True
+    assert set(targets[0]["evidence_refs"]) == {"PATTERN-003", "PATTERN-004"}
+    assert "shared-trace exhaustion window" in targets[0]["next_validation_question"]
+    gateway = next(target for target in targets if target["canonical_review_unit"] == "payment_gateway")
+    assert gateway["has_user_impact_evidence"] is False
+    assert "no shared sanitized trace" in gateway["why_not_promoted"]
+    assert any(
+        target.get("canonical_review_unit") == "generic_runtime"
+        and "contradicted_by_full_evidence" in target.get("promotion_blocked_reasons", [])
+        for target in graph["auto_archived"]
+    )

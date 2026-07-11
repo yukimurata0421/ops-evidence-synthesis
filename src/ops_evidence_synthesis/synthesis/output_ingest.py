@@ -421,6 +421,12 @@ def _canonical_target_type(candidate: dict[str, Any], text: str) -> str:
         if normalized in {"external_dependency_failure", "external_dependency_health"}:
             return "external_dependency_health"
         return normalized
+    if any(token in text for token in ("connection pool", "pool exhaust", "db_pool", "checkout-db")):
+        return "database_connection_pool_exhaustion"
+    if "database" in text and any(token in text for token in ("timeout", "timed out", "latency", "slow query")):
+        return "database_timeout"
+    if any(token in text for token in ("payment-gateway", "payment gateway")):
+        return "external_dependency_timeout"
     if any(token in text for token in ("restart", "restarted", "crash", "crashed", "exit code", "process state", "loop")):
         return "process_restart_loop"
     if any(token in text for token in ("memory", "oom", "resource pressure", "memory_critical", "memory critical")):
@@ -441,6 +447,19 @@ def _canonical_target_type(candidate: dict[str, Any], text: str) -> str:
 
 
 def _canonical_subject(candidate: dict[str, Any], text: str) -> str:
+    explicit_target = _normalize_token(str(candidate.get("core_target_type") or ""))
+    explicit_subsystem = _normalize_token(str(candidate.get("subsystem") or ""))
+    explicit_component = _normalize_token(str(candidate.get("component") or ""))
+    if explicit_target == "database_connection_pool_exhaustion":
+        return "database_connection_pool"
+    if explicit_target == "deployment_regression" or "deployment_regression" in {explicit_subsystem, explicit_component}:
+        return "deployment_regression"
+    if any(token in text for token in ("connection pool", "pool exhaust", "db_pool", "checkout-db")):
+        return "database_connection_pool"
+    if "database" in text and any(token in text for token in ("timeout", "timed out", "latency", "slow query")):
+        return "database_dependency"
+    if any(token in text for token in ("payment-gateway", "payment gateway")):
+        return "payment_gateway"
     if any(token in text for token in ("memory", "oom", "resource pressure", "memory_critical", "memory critical")):
         return "resource_pressure"
     if any(token in text for token in ("traceback", "exception occurred", "unhandled exception", "request processing")):
@@ -464,7 +483,13 @@ def _canonical_subject(candidate: dict[str, Any], text: str) -> str:
 
 def _canonical_review_unit(candidate: dict[str, Any], subject: str) -> str:
     normalized_subject = _normalize_token(subject or "general")
-    if normalized_subject == "transport_sender":
+    if normalized_subject in {
+        "transport_sender",
+        "database_connection_pool",
+        "database_dependency",
+        "payment_gateway",
+        "deployment_regression",
+    }:
         return normalized_subject
     component = _normalize_token(str(candidate.get("component") or ""))
     if component and component not in {"general", "unknown", "none", "null"}:
@@ -482,6 +507,8 @@ def _canonical_review_family(
     target_type: str,
     review_unit: str,
 ) -> str:
+    if str(candidate.get("source") or "") == "evidence_relationship":
+        return "evidence_relationship"
     subsystem = _normalize_token(str(candidate.get("subsystem") or ""))
     if subsystem and subsystem not in {"general", "unknown", "none", "null"}:
         return ""
@@ -530,6 +557,9 @@ def _merge_observation_group(
         }
     )[:20]
     original_classes = {str(row.get("original_class") or "") for row in rows}
+    evidence_relationship_supported = any(
+        str(row.get("source") or "") == "evidence_relationship" for row in rows
+    )
     original_class = "primary_candidate" if "primary_candidate" in original_classes else str(top.get("original_class") or "validation_target")
     merged = {
         **top,
@@ -562,6 +592,7 @@ def _merge_observation_group(
         "rollup": rollup,
         "rollup_provider_ratio": rollup["rollup_provider_ratio"],
         "baseline_support_score": rollup["baseline_support_score"],
+        "evidence_relationship_supported": evidence_relationship_supported,
         "raw": {
             "source": "canonical_observation_group",
             "source_candidates": [row.get("raw") if isinstance(row.get("raw"), dict) else row for row in rows],

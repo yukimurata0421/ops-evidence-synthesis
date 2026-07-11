@@ -4,8 +4,9 @@ import json
 import re
 import shlex
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from itertools import combinations
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -406,6 +407,7 @@ class EvidencePatternStats:
     last_seen: str = ""
     example_sanitized: str = ""
     example_sort_key: tuple[str, str] = ("", "")
+    trace_hashes: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -692,6 +694,7 @@ def build_bundle_from_sanitized(
     }
     source_system = _source_system_for_bundle(summary.source_counts, profile, service)
     evidence_items = build_evidence_items_from_summary(summary)
+    evidence_relationships = build_evidence_relationships_from_summary(summary, evidence_items)
     signals = build_signals(evidence_items)
     redaction_summary = _merge_redaction_summaries(_load_redaction_summary(input_path), profile_redactions.summary())
     manifest = _load_manifest(input_path)
@@ -744,6 +747,7 @@ def build_bundle_from_sanitized(
         "redaction_summary": redaction_summary,
         "required_profile_questions": REQUIRED_PROFILE_QUESTIONS if analysis_policy["require_profile_questions"] else [],
         "evidence_items": evidence_items,
+        "evidence_relationships": evidence_relationships,
         "signals": signals,
         "prompt_rules": ai_evidence_rules(),
     }
@@ -835,6 +839,9 @@ def _add_event_to_summary(summary: BundleEventSummary, event: dict[str, Any]) ->
     if not stats.example_sanitized or sort_key < stats.example_sort_key:
         stats.example_sanitized = str(event.get("message_sanitized") or "")
         stats.example_sort_key = sort_key
+    trace_id = str(event.get("trace_id") or attrs.get("trace_id") or "").strip()
+    if trace_id:
+        stats.trace_hashes.add(sha256_text(trace_id))
 
 
 def _event_is_in_window(
@@ -928,9 +935,111 @@ def build_evidence_items_from_summary(summary: BundleEventSummary) -> list[dict[
                 "example_sanitized": stats.example_sanitized,
                 "component": component,
                 "source": "sanitized_events",
+                "trace_id_count": len(stats.trace_hashes),
             }
         )
     return items
+
+
+def build_evidence_relationships_from_summary(
+    summary: BundleEventSummary,
+    evidence_items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    ordered_stats = [
+        stats
+        for _key, stats in sorted(
+            summary.grouped.items(),
+            key=lambda item: (-item[1].count, item[0][0], item[0][2], item[0][3], item[0][4]),
+        )
+    ]
+    trace_sets = {
+        str(item.get("evidence_id") or ""): set(stats.trace_hashes)
+        for item, stats in zip(evidence_items, ordered_stats)
+        if item.get("evidence_id")
+    }
+    item_by_id = {str(item.get("evidence_id") or ""): item for item in evidence_items if item.get("evidence_id")}
+    high_signal_ids = [
+        evidence_id
+        for evidence_id, item in sorted(
+            item_by_id.items(),
+            key=lambda pair: (-_severity_rank(str(pair[1].get("severity_text") or "info")), -int(pair[1].get("count") or 0), pair[0]),
+        )
+        if _severity_rank(str(item.get("severity_text") or "info")) >= _severity_rank("warning")
+    ][:32]
+    relationships: list[dict[str, Any]] = []
+    for left_id, right_id in combinations(high_signal_ids, 2):
+        left = item_by_id[left_id]
+        right = item_by_id[right_id]
+        left_traces = trace_sets.get(left_id, set())
+        right_traces = trace_sets.get(right_id, set())
+        if not left_traces or not right_traces:
+            continue
+        shared = len(left_traces.intersection(right_traces))
+        if not shared and not _evidence_time_ranges_overlap(left, right):
+            continue
+        relationships.append(
+            {
+                "relationship_type": "shared_trace" if shared else "overlapping_window_no_shared_trace",
+                "left_evidence_id": left_id,
+                "right_evidence_id": right_id,
+                "shared_trace_count": shared,
+                "left_trace_count": len(left_traces),
+                "right_trace_count": len(right_traces),
+                "left_trace_coverage_ratio": round(shared / len(left_traces), 6),
+                "right_trace_coverage_ratio": round(shared / len(right_traces), 6),
+                "raw_trace_ids_exposed": False,
+            }
+        )
+    deployment_items = [item for item in evidence_items if _is_deployment_evidence_item(item)]
+    high_signal_items = [item_by_id[evidence_id] for evidence_id in high_signal_ids]
+    for deployment in deployment_items:
+        try:
+            deployment_time = parse_timestamp(str(deployment.get("last_seen") or deployment.get("first_seen") or ""))
+        except (TypeError, ValueError):
+            continue
+        for signal in high_signal_items:
+            try:
+                signal_time = parse_timestamp(str(signal.get("first_seen") or ""))
+            except (TypeError, ValueError):
+                continue
+            gap_seconds = int((signal_time - deployment_time).total_seconds())
+            if gap_seconds < 0 or gap_seconds > 1800:
+                continue
+            relationships.append(
+                {
+                    "relationship_type": "deployment_precedes_signal",
+                    "left_evidence_id": str(deployment.get("evidence_id") or ""),
+                    "right_evidence_id": str(signal.get("evidence_id") or ""),
+                    "gap_seconds": gap_seconds,
+                    "causality_established": False,
+                    "raw_trace_ids_exposed": False,
+                }
+            )
+    return {
+        "schema_version": "evidence_relationships.v1",
+        "relationship_count": len(relationships),
+        "trace_id_policy": "hashed_for_local_correlation_not_exposed",
+        "relationships": relationships,
+    }
+
+
+def _evidence_time_ranges_overlap(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    try:
+        left_start = parse_timestamp(str(left.get("first_seen") or ""))
+        left_end = parse_timestamp(str(left.get("last_seen") or ""))
+        right_start = parse_timestamp(str(right.get("first_seen") or ""))
+        right_end = parse_timestamp(str(right.get("last_seen") or ""))
+    except (TypeError, ValueError):
+        return False
+    return max(left_start, right_start) <= min(left_end, right_end)
+
+
+def _is_deployment_evidence_item(item: dict[str, Any]) -> bool:
+    text = " ".join(
+        str(item.get(key) or "")
+        for key in ("event_type", "message_template", "example_sanitized")
+    ).casefold()
+    return "deploy rollout" in text or "deployment completed" in text
 
 
 def build_signals(evidence_items: list[dict[str, Any]]) -> list[dict[str, Any]]:

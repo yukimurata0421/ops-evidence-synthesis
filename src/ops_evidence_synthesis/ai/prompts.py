@@ -362,6 +362,9 @@ def _prompt(
         "When the input is one chunk of a larger Evidence Bundle, absence from the current chunk is not proof of "
         "absence from the full bundle or corpus. Never claim that a signal is absent from the bundle or corpus based "
         "only on the current chunk; describe it as not cited in this chunk and request cross-chunk validation instead. "
+        "evidence_relationships is deterministic cross-Evidence metadata derived locally from sanitized trace IDs and "
+        "time windows. A positive shared_trace_count supports correlation; zero shared traces means trace-level causality "
+        "is not established and must not be described as a causal link. Raw trace IDs are never exposed. "
         "why_not_promoted must explain why this is not a root-cause finding yet; "
         "next_validation_question must be the single read-only question that would promote, weaken, or close the target. "
         "For each support, counter_evidence, caveat, or validation_target claim, fill temporary_action, "
@@ -489,6 +492,7 @@ def compact_bundle_for_model(
         "source_context": _compact_source_context(bundle.get("source_context_context") or {}, max_text_chars=max_text_chars),
         "source_analysis": _compact_source_analysis(bundle.get("source_analysis_context") or {}, max_text_chars=max_text_chars),
         "evidence_items": evidence_items,
+        "evidence_relationships": _truncate_nested(bundle.get("evidence_relationships") or {}, max_text_chars),
         "signals": local_first_signals,
         "evidence_signals": evidence_signals,
         "candidate_targets": candidate_targets,

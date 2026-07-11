@@ -14,6 +14,9 @@ _ABSENCE_MARKERS = (
     "was not provided",
     "are missing",
     "is missing",
+    "contains 0",
+    "only successful",
+    "absence of",
 )
 
 
@@ -31,6 +34,19 @@ def filter_contradicted_absence_claims(
         if text not in output:
             output.append(text)
     return output
+
+
+def contradicted_absence_claims(
+    values: Iterable[object],
+    *,
+    evidence_items: Iterable[dict[str, Any]],
+) -> list[str]:
+    facts = observed_evidence_facts(evidence_items)
+    return [
+        text
+        for value in values
+        if (text := str(value or "").strip()) and _absence_claim_is_contradicted(text, facts)
+    ]
 
 
 def reconcile_missing_evidence(
@@ -93,6 +109,10 @@ def observed_evidence_facts(evidence_items: Iterable[dict[str, Any]]) -> set[str
             facts.add("checkout_500_signal")
         if "db_pool_exhausted_count" in text:
             facts.add("db_pool_exhausted_signal")
+        if "deploy rollout" in text or "deployment" in text or event_type == "deployment_event":
+            facts.add("deployment")
+        if "checkout completed" in text and ("status=200" in text or "status=<num>" in text):
+            facts.add("successful_checkout")
     return facts
 
 
@@ -102,6 +122,8 @@ def _absence_claim_is_contradicted(text: str, facts: set[str]) -> bool:
         return False
     if "correlated" in lowered:
         return False
+    if "this chunk" in lowered or "current chunk" in lowered:
+        return False
     checks = (
         ("http_error", bool(re.search(r"http\s*(?:500|5xx)|http error", lowered))),
         ("checkout_failure", "checkout fail" in lowered),
@@ -109,7 +131,21 @@ def _absence_claim_is_contradicted(text: str, facts: set[str]) -> bool:
         ("restart", bool(re.search(r"\brestart(?:ed|s)?\b", lowered))),
         ("timeout", "timeout" in lowered),
         ("runtime_error", "error logs" in lowered or "failure signals" in lowered),
+        (
+            "runtime_error",
+            any(
+                token in lowered
+                for token in (
+                    "error signals",
+                    "error or failure evidence",
+                    "failure evidence",
+                    "errors or anomalies",
+                    "500-status patterns",
+                )
+            ),
+        ),
         ("checkout_500_signal", "checkout_500_count" in lowered),
         ("db_pool_exhausted_signal", "db_pool_exhausted_count" in lowered),
+        ("deployment", "deployment logs" in lowered or "version anchors" in lowered),
     )
     return any(observed and fact in facts for fact, observed in checks)

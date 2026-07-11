@@ -35,6 +35,91 @@ def test_event_type_does_not_treat_source_line_numbers_as_http_5xx() -> None:
     assert infer_event_type("checkout failed", "ERROR", {"httpRequest": {"status": 503}}) == "http_5xx"
 
 
+def test_bundle_records_cross_evidence_trace_and_deployment_relationships(tmp_path: Path) -> None:
+    events_path = tmp_path / "sanitized_events.jsonl"
+    rows = [
+        {
+            "event_id": "EV-DEPLOY",
+            "timestamp": "2026-06-12T09:45:00Z",
+            "event_type": "info",
+            "severity_text": "info",
+            "message_template": "deploy rollout completed version=<NUM>",
+            "message_sanitized": "deploy rollout completed version=42",
+            "component": "cloud_deploy",
+            "source_system": "cloud_deploy",
+            "trace_id": "deploy-trace",
+        },
+        {
+            "event_id": "EV-POOL",
+            "timestamp": "2026-06-12T09:50:00Z",
+            "event_type": "unknown",
+            "severity_text": "error",
+            "message_template": "database connection pool exhausted",
+            "message_sanitized": "database connection pool exhausted",
+            "component": "payment-api",
+            "source_system": "cloud_run_revision",
+            "trace_id": "shared-incident-trace",
+        },
+        {
+            "event_id": "EV-HTTP",
+            "timestamp": "2026-06-12T09:50:01Z",
+            "event_type": "http_5xx",
+            "severity_text": "error",
+            "message_template": "checkout failed HTTP <NUM> database timeout",
+            "message_sanitized": "checkout failed HTTP 500 database timeout",
+            "component": "payment-api",
+            "source_system": "cloud_run_revision",
+            "trace_id": "shared-incident-trace",
+        },
+        {
+            "event_id": "EV-GATEWAY",
+            "timestamp": "2026-06-12T09:50:01Z",
+            "event_type": "timeout",
+            "severity_text": "warning",
+            "message_template": "payment-gateway timeout",
+            "message_sanitized": "payment-gateway timeout",
+            "component": "payment-api",
+            "source_system": "cloud_run_revision",
+            "trace_id": "unrelated-gateway-trace",
+        },
+    ]
+    events_path.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+
+    bundle = build_bundle_from_sanitized(
+        events_path,
+        service="payment-api",
+        environment="prod",
+        start="2026-06-12T09:00:00Z",
+        end="2026-06-12T11:00:00Z",
+        profile_name="generic",
+        out_path=tmp_path / "bundle.json",
+    )
+    item_by_template = {item["message_template"]: item for item in bundle["evidence_items"]}
+    pool_id = item_by_template["database connection pool exhausted"]["evidence_id"]
+    http_id = item_by_template["checkout failed HTTP <NUM> database timeout"]["evidence_id"]
+    gateway_id = item_by_template["payment-gateway timeout"]["evidence_id"]
+    relations = bundle["evidence_relationships"]["relationships"]
+
+    shared = next(
+        row
+        for row in relations
+        if {row["left_evidence_id"], row["right_evidence_id"]} == {pool_id, http_id}
+    )
+    no_gateway_link = next(
+        row
+        for row in relations
+        if {row["left_evidence_id"], row["right_evidence_id"]} == {gateway_id, http_id}
+    )
+    assert shared["relationship_type"] == "shared_trace"
+    assert shared["shared_trace_count"] == 1
+    assert shared["raw_trace_ids_exposed"] is False
+    assert no_gateway_link["relationship_type"] == "overlapping_window_no_shared_trace"
+    assert no_gateway_link["shared_trace_count"] == 0
+    assert any(row["relationship_type"] == "deployment_precedes_signal" for row in relations)
+    assert "shared-incident-trace" not in json.dumps(bundle)
+    assert compact_bundle_for_model(bundle)["evidence_relationships"]["relationship_count"] >= 3
+
+
 def _write_log(path: Path) -> None:
     path.write_text(
         "\n".join(
