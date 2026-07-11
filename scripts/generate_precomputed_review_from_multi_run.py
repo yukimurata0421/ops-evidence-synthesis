@@ -15,6 +15,7 @@ from ops_evidence_synthesis.canonical import sha256_json
 from ops_evidence_synthesis.precomputed_review import SCORE_DEFINITION, stable_precomputed_review_json
 from ops_evidence_synthesis.profile_gate import build_profile_context_summary
 from ops_evidence_synthesis.synthesis.priority_scoring import score_review_priority
+from ops_evidence_synthesis.synthesis.review_arbitration import arbitrate_review_targets
 from ops_evidence_synthesis.synthesis.evidence_reconciliation import (
     filter_contradicted_absence_claims,
     reconcile_missing_evidence,
@@ -168,11 +169,21 @@ def build_payload(
         context=f"public real-provider payload {evidence_sha256}",
     )
     synthesis = api_response.get("multi_ai_synthesis") if isinstance(api_response.get("multi_ai_synthesis"), dict) else {}
-    canonical_graph = (
-        api_response.get("canonical_review_graph")
-        if isinstance(api_response.get("canonical_review_graph"), dict)
-        else {}
+    canonical_graph = arbitrate_review_targets(
+        bundle,
+        model_runs=[row for row in api_response.get("model_runs") or [] if isinstance(row, dict)],
+        multi_ai_synthesis=synthesis,
+        approved_profile=approved_profile,
+        source_context=source_context,
+        source_analysis=source_analysis,
     )
+    api_response = {
+        **api_response,
+        "canonical_review_graph": canonical_graph,
+        "canonical_graph_sha256": str(canonical_graph.get("canonical_graph_sha256") or ""),
+        "canonical_graph_status": "recomputed_for_public_payload",
+        "review_targets": list(canonical_graph.get("review_targets") or []),
+    }
     graph_summary = canonical_graph.get("summary") if isinstance(canonical_graph.get("summary"), dict) else {}
     provider_statuses = _provider_statuses(api_response)
     provider_count = len(provider_statuses)
@@ -742,6 +753,21 @@ def _targets(
                     cap_key: 0.35,
                 },
             }
+        if public_target.get("evidence_relationship_supported") is True:
+            priority_result = {
+                **priority_result,
+                "score": max(
+                    float(priority_result["score"]),
+                    float(public_target.get("review_priority_score") or 0.0),
+                ),
+                "breakdown": {
+                    **priority_result["breakdown"],
+                    "evidence_relationship_priority_floor": round(
+                        float(public_target.get("review_priority_score") or 0.0),
+                        4,
+                    ),
+                },
+            }
         targets.append(
             {
                 "target_id": str(public_target.get("target_id") or public_target.get("review_target_id") or ""),
@@ -754,6 +780,7 @@ def _targets(
                 "status": str(public_target.get("status") or "pending"),
                 "subsystem": str(public_target.get("subsystem") or "general"),
                 "canonical_review_unit": canonical_review_unit,
+                "evidence_relationship_supported": bool(public_target.get("evidence_relationship_supported")),
                 "review_priority_score": priority_result["score"],
                 "raw_review_priority_score": round(float(public_target.get("review_priority_score") or 0.0), 4),
                 "score_breakdown": priority_result["breakdown"],
@@ -971,7 +998,7 @@ def _filter_and_dedupe_public_targets(targets: list[dict[str, Any]]) -> list[dic
         key=lambda target: (
             -_public_target_rank(target)[0],
             -float(target.get("review_priority_score") or 0.0),
-            -_public_target_rank(target)[1],
+            -_public_target_rank(target)[3],
             str(target.get("canonical_review_unit") or ""),
             str(target.get("target_id") or ""),
         ),
@@ -1028,7 +1055,9 @@ def _merge_duplicate_public_target(
         ]
     )
     missing_evidence = _sorted_unique_strings(
-        [
+        list(winner.get("missing_evidence") or [])
+        if winner.get("evidence_relationship_supported") is True
+        else [
             *(winner.get("missing_evidence") or []),
             *(duplicate.get("missing_evidence") or []),
         ]
@@ -1164,7 +1193,7 @@ def _sorted_unique_strings(values: list[Any]) -> list[str]:
     return sorted(unique)
 
 
-def _public_target_rank(target: dict[str, Any]) -> tuple[int, int, float, int, int]:
+def _public_target_rank(target: dict[str, Any]) -> tuple[int, int, float, int, int, int]:
     class_rank = {
         "primary_candidate": 3,
         "validation_target": 2,
@@ -1174,7 +1203,15 @@ def _public_target_rank(target: dict[str, Any]) -> tuple[int, int, float, int, i
     priority = float(target.get("review_priority_score") or 0.0)
     evidence_count = len(target.get("evidence_refs") or [])
     source_candidates = _int((target.get("raw") or {}).get("source_candidate_count"))
-    return (class_rank, provider_count, priority, evidence_count, source_candidates)
+    relationship_supported = 1 if target.get("evidence_relationship_supported") is True else 0
+    return (
+        class_rank,
+        relationship_supported,
+        priority,
+        provider_count,
+        evidence_count,
+        source_candidates,
+    )
 
 
 def _public_target_class(
@@ -2354,6 +2391,8 @@ def _blocked_reason(target: dict[str, Any], *, provider_count: int, target_class
     reasons = [str(reason) for reason in target.get("promotion_blocked_reasons") or [] if str(reason)]
     if reasons:
         return "; ".join(reasons)
+    if target.get("evidence_relationship_supported") is True and target.get("has_user_impact_evidence") is True:
+        return "incident_baseline_open; causal_mechanism_unverified"
     if provider_count >= 2:
         if target.get("has_user_impact_evidence") is True:
             return "incident_baseline_open; causal_alignment_unverified"

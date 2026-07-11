@@ -659,6 +659,18 @@ def test_trace_relationship_ranks_database_pool_above_unlinked_gateway_and_archi
                 "suspected_issue": "Absence of error signals in the sanitized logs.",
                 "why_not_promoted": "No error or failure evidence was found.",
             },
+            {
+                "group_id": "chunk-absence",
+                "title": "Missing runtime evidence",
+                "core_target_type": "restart_loop",
+                "subsystem": "runtime_recovery",
+                "providers": ["qwen"],
+                "provider_count": 1,
+                "evidence_refs": ["PATTERN-001"],
+                "review_priority_score": 0.59,
+                "suspected_issue": "Missing runtime errors in this bundle chunk.",
+                "operational_mechanism": "No supporting runtime evidence was included in this chunk.",
+            },
         ],
     }
     approved_profile = {
@@ -674,14 +686,25 @@ def test_trace_relationship_ranks_database_pool_above_unlinked_gateway_and_archi
     targets = graph["review_targets"]
     assert targets[0]["canonical_review_unit"] == "database_connection_pool"
     assert targets[0]["review_priority_score"] == 0.93
+    assert targets[0]["evidence_relationship_supported"] is True
     assert targets[0]["has_user_impact_evidence"] is True
     assert set(targets[0]["evidence_refs"]) == {"PATTERN-003", "PATTERN-004"}
     assert "shared-trace exhaustion window" in targets[0]["next_validation_question"]
-    gateway = next(target for target in targets if target["canonical_review_unit"] == "payment_gateway")
+    gateway = next(
+        target
+        for target in targets
+        if target["canonical_review_unit"] == "payment_gateway"
+        and target["evidence_relationship_supported"] is True
+    )
     assert gateway["has_user_impact_evidence"] is False
     assert "no shared sanitized trace" in gateway["why_not_promoted"]
     assert any(
         target.get("canonical_review_unit") == "generic_runtime"
         and "contradicted_by_full_evidence" in target.get("promotion_blocked_reasons", [])
+        for target in graph["auto_archived"]
+    )
+    assert any(
+        target.get("canonical_review_unit") == "runtime_recovery"
+        and "chunk_scoped_absence_only" in target.get("promotion_blocked_reasons", [])
         for target in graph["auto_archived"]
     )

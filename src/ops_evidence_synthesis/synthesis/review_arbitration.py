@@ -27,7 +27,7 @@ SCORE_NOTE = "Score is review priority, not truth probability."
 
 
 CANONICAL_REVIEW_GRAPH_SCHEMA_VERSION = "canonical_review_graph.v1"
-REVIEW_ARBITRATION_VERSION = "review_arbitration.v6"
+REVIEW_ARBITRATION_VERSION = "review_arbitration.v7"
 
 RUNTIME_EVIDENCE_PREFIXES = ("EVIDENCE-", "LOG-", "METRIC-", "PATTERN-", "OPS-")
 SEVERITY_ONLY_SIGNALS = {"info", "warning", "debug"}
@@ -842,7 +842,40 @@ def _candidate_inputs(
     if planner_answers:
         candidates.append(_context_candidate("human_answers", planner_answers, bundle))
 
-    return _dedupe_candidates(candidates)
+    return _dedupe_candidates(
+        [_apply_bundle_evidence_identity(candidate, bundle) for candidate in candidates]
+    )
+
+
+def _apply_bundle_evidence_identity(
+    candidate: dict[str, Any],
+    bundle: dict[str, Any],
+) -> dict[str, Any]:
+    if str(candidate.get("source") or "") == "evidence_relationship":
+        return candidate
+    evidence_by_id = {
+        str(item.get("evidence_id") or item.get("id") or ""): item
+        for item in bundle.get("evidence_items") or []
+        if isinstance(item, dict)
+    }
+    referenced_text = _joined_text(
+        [
+            value
+            for ref in candidate.get("evidence_refs") or []
+            for value in (
+                (evidence_by_id.get(str(ref)) or {}).get("event_type"),
+                (evidence_by_id.get(str(ref)) or {}).get("message_template"),
+                (evidence_by_id.get(str(ref)) or {}).get("example_sanitized"),
+            )
+        ]
+    )
+    if _is_payment_gateway_text(referenced_text) and not _is_pool_exhaustion_text(referenced_text):
+        return {
+            **candidate,
+            "subsystem": "payment_gateway",
+            "component": "payment_gateway",
+        }
+    return candidate
 
 
 def _relationship_candidates(bundle: dict[str, Any]) -> list[dict[str, Any]]:
@@ -906,6 +939,72 @@ def _relationship_candidates(bundle: dict[str, Any]) -> list[dict[str, Any]]:
                 }
             )
             continue
+        if str(relation.get("relationship_type") or "") == "overlapping_window_no_shared_trace":
+            left_text = _joined_text(
+                [left.get("event_type"), left.get("message_template"), left.get("example_sanitized")]
+            )
+            right_text = _joined_text(
+                [right.get("event_type"), right.get("message_template"), right.get("example_sanitized")]
+            )
+            gateway_id = (
+                left_id
+                if _is_payment_gateway_text(left_text)
+                else right_id
+                if _is_payment_gateway_text(right_text)
+                else ""
+            )
+            impact_id = left_id if _is_direct_impact_item(left) else right_id if _is_direct_impact_item(right) else ""
+            if gateway_id and impact_id and gateway_id != impact_id:
+                output.append(
+                    {
+                        "target_id": "rel-payment-gateway-" + sha256_json(relation)[:16],
+                        "source": "evidence_relationship",
+                        "original_class": "validation_target",
+                        "title": "Payment gateway timeouts overlap checkout HTTP 5xx but are not trace-correlated",
+                        "impact_summary": (
+                            "Payment gateway timeouts occurred during the checkout failure window, but shared-trace "
+                            "correlation is zero."
+                        ),
+                        "core_target_type": "external_dependency_health",
+                        "subsystem": "payment_gateway",
+                        "component": "payment_gateway",
+                        "providers": [],
+                        "provider_count": 0,
+                        "has_user_impact_override": False,
+                        "evidence_refs": [gateway_id, impact_id],
+                        "missing_evidence": [
+                            "Gateway-side request identifiers, latency metrics, and error logs for the overlap window."
+                        ],
+                        "caveats": [],
+                        "suspected_issue": (
+                            "Payment gateway latency is a concurrent signal, but is not linked to the checkout HTTP 5xx traces."
+                        ),
+                        "operational_mechanism": (
+                            "Gateway requests timed out in the same time window; the sanitized trace sets do not connect "
+                            "those requests to the database-timeout checkout failures."
+                        ),
+                        "why_it_matters": (
+                            "The gateway may represent a separate dependency incident or a secondary contributor that "
+                            "requires gateway-side correlation."
+                        ),
+                        "evidence_summary": [
+                            f"{gateway_id} and {impact_id} overlap in time but share no sanitized trace identifiers."
+                        ],
+                        "counter_evidence_summary": [
+                            "Zero shared sanitized traces weakens the claim that gateway timeout caused the cited checkout HTTP 5xx."
+                        ],
+                        "why_not_promoted": (
+                            "The overlapping signals have no shared sanitized trace; gateway-side identifiers or logs are needed."
+                        ),
+                        "next_validation_question": (
+                            "Do gateway-side request IDs or latency logs connect the payment gateway timeouts to affected checkout requests?"
+                        ),
+                        "score_before": 0.72,
+                        "group_id": "evidence_relationship_payment_gateway",
+                        "raw": {"evidence_relationship": relation},
+                    }
+                )
+            continue
         if int(relation.get("shared_trace_count") or 0) <= 0:
             continue
         left_text = _joined_text([left.get("event_type"), left.get("message_template"), left.get("example_sanitized")])
@@ -963,6 +1062,10 @@ def _relationship_candidates(bundle: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _is_pool_exhaustion_text(text: str) -> bool:
     return any(token in text for token in ("pool exhausted", "pool exhaustion", "db_pool_exhausted"))
+
+
+def _is_payment_gateway_text(text: str) -> bool:
+    return any(token in text for token in ("payment-gateway", "payment gateway"))
 
 
 def _is_direct_impact_item(item: dict[str, Any]) -> bool:
@@ -1139,6 +1242,7 @@ def _arbitrate_candidate(
         ],
         evidence_items=evidence_items_from_bundle(bundle),
     )
+    chunk_scoped_absence_only = _is_chunk_scoped_absence_only(candidate)
 
     baseline = agreement_dimensions.get("baseline_agreement") if isinstance(agreement_dimensions.get("baseline_agreement"), dict) else {}
     cause = agreement_dimensions.get("cause_agreement") if isinstance(agreement_dimensions.get("cause_agreement"), dict) else {}
@@ -1152,6 +1256,9 @@ def _arbitrate_candidate(
     if contradicted_claims:
         reasons.append("contradicted_by_full_evidence")
         score_after = _cap(score_after, 0.20, "contradicted_by_full_evidence", score_caps)
+    if chunk_scoped_absence_only:
+        reasons.append("chunk_scoped_absence_only")
+        score_after = _cap(score_after, 0.20, "chunk_scoped_absence_only", score_caps)
     if baseline.get("established") is False and cause.get("value") == "none":
         reasons.append("no_baseline_agreement_or_causal_alignment")
     if not runtime:
@@ -1236,6 +1343,12 @@ def _arbitrate_candidate(
         _missing_evidence_for_target(candidate, reasons),
         evidence_items=evidence_items,
     )
+    if has_user_impact:
+        missing_evidence = [
+            item
+            for item in missing_evidence
+            if "user impact or operational outcome evidence tied to this review unit" not in item.casefold()
+        ]
     target_explanation = _target_explanation_for_candidate(
         candidate,
         refs=refs,
@@ -1258,6 +1371,10 @@ def _arbitrate_candidate(
         "class": final_class,
         "state": state,
         "source": str(candidate.get("source") or ""),
+        "evidence_relationship_supported": bool(
+            candidate.get("evidence_relationship_supported")
+            or str(candidate.get("source") or "") == "evidence_relationship"
+        ),
         "source_target_id": str(candidate.get("target_id") or ""),
         "title": str(candidate.get("title") or "Review target requires validation"),
         "impact_summary": str(candidate.get("impact_summary") or "Evidence requires validation."),
@@ -1608,6 +1725,52 @@ def _evidence_family(ref: str) -> str:
     return "".join(ch for ch in value if ch.isalpha())
 
 
+def _is_chunk_scoped_absence_only(candidate: dict[str, Any]) -> bool:
+    if str(candidate.get("source") or "") == "evidence_relationship":
+        return False
+    explanation = candidate.get("target_explanation") if isinstance(candidate.get("target_explanation"), dict) else {}
+    text = _joined_text(
+        [
+            candidate.get("title"),
+            candidate.get("impact_summary"),
+            candidate.get("suspected_issue"),
+            candidate.get("operational_mechanism"),
+            candidate.get("why_it_matters"),
+            candidate.get("why_not_promoted"),
+            explanation.get("suspected_issue"),
+            explanation.get("operational_mechanism"),
+            explanation.get("why_not_promoted"),
+        ]
+    )
+    bounded_to_chunk = any(
+        token in text
+        for token in (
+            "this chunk",
+            "bundle chunk",
+            "current evidence chunk",
+            "included in this chunk",
+            "present in this chunk",
+            "cited in this chunk",
+        )
+    )
+    absence_observation = any(
+        token in text
+        for token in (
+            "absence of runtime",
+            "absence of error",
+            "missing runtime",
+            "no runtime",
+            "no supporting log",
+            "no supporting runtime",
+            "not included",
+            "not present",
+            "not cited",
+            "was provided",
+        )
+    )
+    return bounded_to_chunk and absence_observation
+
+
 def _final_class(original: str, *, runtime: bool, reasons: list[str], score: float) -> str:
     if original == "context":
         return "monitor_only"
@@ -1616,6 +1779,8 @@ def _final_class(original: str, *, runtime: bool, reasons: list[str], score: flo
     if STRUCTURAL_CAVEAT_REASON in reasons:
         return "monitor_only"
     if "contradicted_by_full_evidence" in reasons:
+        return "auto_archived"
+    if "chunk_scoped_absence_only" in reasons:
         return "auto_archived"
     if "support_without_evidence_id" in reasons and not runtime:
         return "auto_archived"
@@ -1846,6 +2011,8 @@ def _has_user_impact(
     bundle: dict[str, Any],
     approved_profile: dict[str, Any],
 ) -> bool:
+    if candidate.get("has_user_impact_override") is False:
+        return False
     confirmed = " ".join(str(item) for item in approved_profile.get("confirmed_user_outcomes") or []).casefold()
     refs_by_id = {
         str(item.get("evidence_id") or item.get("id") or ""): item
@@ -1949,7 +2116,7 @@ def _reconcile_target_explanation(
         output["next_validation_question"] = (
             "Do gateway-side request IDs or dependency logs establish a causal link to the checkout failures?"
         )
-    elif unit == "deployment_regression" and "version" in question:
+    elif unit == "deployment_regression" and candidate.get("evidence_relationship_supported") is True:
         output["next_validation_question"] = (
             "What code, pool configuration, or dependency setting changed in the cited deployment relative to the prior healthy revision?"
         )

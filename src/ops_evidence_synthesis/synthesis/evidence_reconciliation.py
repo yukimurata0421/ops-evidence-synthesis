@@ -72,6 +72,17 @@ def reconcile_missing_evidence(
             continue
         elif "restart" in facts and "restart events" in lowered and "metric" not in lowered:
             continue
+        elif "runtime_error" in facts and lowered in {
+            "application error logs",
+            "runtime error logs",
+            "error logs",
+        }:
+            continue
+        elif "checkout_500_signal" in facts and (
+            re.search(r"http\s*(?:500|5xx)\s+(?:metric\s+)?counts?", lowered)
+            or "checkout_500_count metric" in lowered
+        ):
+            continue
         if text not in output:
             output.append(text)
     return output

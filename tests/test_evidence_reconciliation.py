@@ -55,6 +55,13 @@ def test_satisfied_log_request_is_reduced_to_the_still_missing_metric() -> None:
     ]
 
 
+def test_existing_runtime_errors_and_checkout_count_are_not_requested_again() -> None:
+    values = ["Application error logs", "HTTP 500 metric counts", "Deployment manifest diff"]
+    assert reconcile_missing_evidence(values, evidence_items=EVIDENCE_ITEMS) == [
+        "Deployment manifest diff"
+    ]
+
+
 def test_full_corpus_absence_claim_is_contradicted_but_chunk_scoped_claim_is_retained() -> None:
     values = [
         "Absence of error signals in the sanitized logs.",
