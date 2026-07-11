@@ -505,8 +505,9 @@ def test_code_profile_review_artifacts_are_human_readable(tmp_path: Path) -> Non
     assert '"normalize_endpoint": "/profile-reviews/normalize"' in html
     assert '"preview_endpoint": "/profile-reviews/preview"' in html
     assert '"approve_endpoint": "/profile-reviews/approve"' in html
-    assert 'JSON.stringify(payload, null, 2) + "\\n"' in html
+    assert 'const content = JSON.stringify(payload, null, 2) + "\\n"' in html
     assert 'JSON.stringify(payload, null, 2) + "\n"' not in html
+    assert '"data:application/json;charset=utf-8," + encodeURIComponent(content)' in html
     assert "code_profile_human_review_form.v1" in html
     assert "Confirm this source profile matches the deployed service." in html
     assert html.index("Gemini Questions For Human Approval") < html.index('id="code-profile-human-review-form"')

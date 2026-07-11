@@ -1861,15 +1861,13 @@ def _render_code_profile_html(
       const setStatus = (message) => {{ if (status) status.textContent = message; }};
       const writeToken = () => (document.getElementById("profile-review-write-token")?.value || "").trim();
       const downloadJson = (filename, payload) => {{
-        const blob = new Blob([JSON.stringify(payload, null, 2) + "\\n"], {{type:"application/json"}});
-        const url = URL.createObjectURL(blob);
+        const content = JSON.stringify(payload, null, 2) + "\\n";
         const link = document.createElement("a");
-        link.href = url;
+        link.href = "data:application/json;charset=utf-8," + encodeURIComponent(content);
         link.download = filename;
         document.body.appendChild(link);
         link.click();
         link.remove();
-        URL.revokeObjectURL(url);
       }};
       const collect = () => {{
         const data = new FormData(form);
