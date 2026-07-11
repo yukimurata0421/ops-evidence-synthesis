@@ -16,7 +16,7 @@ from ops_evidence_synthesis.profiles.registry import normalize_profile_id
 from ops_evidence_synthesis.timeutils import format_timestamp, parse_timestamp, utc_now
 
 
-SANITIZER_VERSION = "sanitize.v1"
+SANITIZER_VERSION = "sanitize.v1.1"
 CANONICALIZATION_VERSION = "canonical_json.v1"
 RAW_LOG_POLICY = "not_uploaded"
 LARGE_SEEK_THRESHOLD_BYTES = 50 * 1024 * 1024
@@ -1232,6 +1232,7 @@ def detect_format(line: str) -> str:
 
 
 def infer_event_type(message: str, severity_text: str, attributes: dict[str, Any] | None = None) -> str:
+    message_text = message.casefold()
     text = " ".join([message, canonical_json(attributes or {})]).casefold()
     if "no such file or directory" in text:
         if any(term in text for term in ("can't open file", "execstart", "executable", "command", ".service", ".py", ".sh")):
@@ -1249,6 +1250,12 @@ def infer_event_type(message: str, severity_text: str, attributes: dict[str, Any
         return "process_exit"
     if "connection reset by peer" in text or "connection reset" in text:
         return "connection_reset"
+    if (
+        "http 5" in message_text
+        or re.search(r"\b(?:status|status_code|http_status|response_status)\s*[=:]\s*5\d\d\b", message_text)
+        or _attributes_contain_http_5xx(attributes or {})
+    ):
+        return "http_5xx"
     if "timed out" in text or "timeout" in text or "deadline exceeded" in text:
         return "timeout"
     if "temporary failure in name resolution" in text or "dns" in text and any(term in text for term in ("failure", "failed", "nxdomain")):
@@ -1259,8 +1266,6 @@ def infer_event_type(message: str, severity_text: str, attributes: dict[str, Any
         return "config_error"
     if any(term in text for term in ("connection refused", "unreachable", "no route to host", "upstream unavailable")):
         return "dependency_unreachable"
-    if "http 5" in text or "status=5" in text or re.search(r"\b5\d\d\b", text):
-        return "http_5xx"
     if "out of memory" in text or "oom" in text or "memory cgroup out of memory" in text:
         return "oom"
     if any(term in text for term in ("state mismatch", "status mismatch", "expected state", "actual state", "contradicts", "healthy but")):
@@ -1298,6 +1303,19 @@ def infer_event_type(message: str, severity_text: str, attributes: dict[str, Any
     if severity in {"info", "notice", "debug"}:
         return "info"
     return "unknown"
+
+
+def _attributes_contain_http_5xx(attributes: dict[str, Any]) -> bool:
+    status_keys = {"status", "status_code", "http_status", "response_status", "response_code"}
+    for key, value in attributes.items():
+        normalized_key = str(key).strip().casefold().replace("-", "_")
+        if normalized_key in status_keys:
+            match = re.search(r"\b(\d{3})\b", str(value))
+            if match and 500 <= int(match.group(1)) <= 599:
+                return True
+        if isinstance(value, dict) and _attributes_contain_http_5xx(value):
+            return True
+    return False
 
 
 def message_template(message: str) -> str:

@@ -11,6 +11,7 @@ from ops_evidence_synthesis.ai.prompts import compact_bundle_for_model, root_cau
 from ops_evidence_synthesis.evidence_rules import ai_evidence_rules
 from ops_evidence_synthesis.local_first import (
     build_bundle_from_sanitized,
+    infer_event_type,
     inspect_input,
     iter_input_files,
     sanitize_input,
@@ -19,6 +20,19 @@ from ops_evidence_synthesis.local_first import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_event_type_does_not_treat_source_line_numbers_as_http_5xx() -> None:
+    attributes = {
+        "source_line": 500,
+        "trace_id": "trace-000500",
+        "latency_ms": 503,
+    }
+
+    assert infer_event_type("checkout completed status=200", "INFO", attributes) == "info"
+    assert infer_event_type("checkout failed HTTP 503", "ERROR", attributes) == "http_5xx"
+    assert infer_event_type("checkout failed HTTP 500 database timeout", "ERROR", attributes) == "http_5xx"
+    assert infer_event_type("checkout failed", "ERROR", {"httpRequest": {"status": 503}}) == "http_5xx"
 
 
 def _write_log(path: Path) -> None:
