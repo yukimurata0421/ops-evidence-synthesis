@@ -79,25 +79,26 @@ Final public graphs:
 
 ## Fast Cross-Check Lite Measurement
 
-Gemma 4 was also tested in the public Fast GCP Review path against the same
-2,000-row fixed sanitized amazon-notify sample as Gemini Flash Lite. The path
-uses `run_multi_ai` with `gemini-fast-lite` and `gemma`, so provider execution is
-parallel and successful outputs are merged into a separate public review artifact.
+Gemma 4 was also tested in the public Fast GCP Review path against a bounded
+200-row prefix of the same fixed sanitized amazon-notify fixture used by Gemini
+Flash Lite. The path uses `run_multi_ai` with `gemini-fast-lite` and `gemma`, so
+provider execution is parallel and successful outputs are merged into a separate
+public review artifact. The bounded prefix keeps the live comparison inside the
+Cloud Run request limit; the single-provider Fast Review retains 2,000 rows.
 
 | Variant | Providers | Server wall time | Client wall time | Provider latency sum | Result |
 | --- | --- | ---: | ---: | ---: | --- |
-| Fast GCP Review | Gemini Flash Lite | not stored | observed live request | 29.854s | 1/1 schema-valid, 0 primary / 1 validation |
-| Fast Cross-check Lite | Gemini Flash Lite + Gemma 4 | not stored | observed live request | 416.490s | 2/2 schema-valid, 0 primary / 5 validation |
+| Fast GCP Review | Gemini Flash Lite | 13.758s | 13.758s | 31.583s chunk latency | 1/1 schema-valid, 0 primary / 1 validation |
+| Fast Cross-check Lite | Gemini Flash Lite + Gemma 4 | 231.935s | 231.935s | 414.631s chunk latency sum | 2/2 schema-valid, 0 primary / 3 validation |
 
 Generated public review IDs:
 
-- Fast GCP Review: `5ae4f02d8390ecff4007c641c95fbfaa38af6356e4b53ff8267876a63e61781f`
-- Fast Cross-check Lite: `9c09eaf87d152911e39a3d52bd982c8d68e397f6cf05505c3261804f5e070f27`
+- Fast GCP Review: `2641cb5fe5850d006864dec4aad3b3d2539e9efcef3753b43d5624f8b6e5136b`
+- Fast Cross-check Lite: `6eac99d73635678165f54d1c5b82e96e86d0709ad5fcb243129e33f58400a9e5`
 
-Both variants used the same Evidence SHA256 because they read the same fixed
-input: `9fa67b71c3f1a3a3a39dc712ae7692e199c4694a3393dcfb3bd4b3ba3a4d9e51`.
-The public UI therefore stores generated review artifacts under a separate
-`public_review_id` so repeated runs do not overwrite each other by evidence hash.
+The variants use the same public-safe fixture but intentionally different row
+counts, so each has its own Evidence SHA256 and `public_review_id`. Repeated runs
+also remain distinct public artifacts and do not overwrite prior model output.
 
 ## Recommendation
 

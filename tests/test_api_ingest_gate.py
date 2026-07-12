@@ -42,11 +42,17 @@ def test_public_fast_gcp_review_default_contract_is_fixed_sample_and_flash_lite(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("OES_FAST_GCP_REVIEW_SAMPLE_ROWS", raising=False)
+    monkeypatch.delenv("OES_FAST_GCP_CROSS_CHECK_SAMPLE_ROWS", raising=False)
     monkeypatch.delenv("OES_FAST_GCP_REVIEW_PROVIDER_MODE", raising=False)
     monkeypatch.delenv("OES_FAST_GCP_GEMINI_MODEL", raising=False)
     monkeypatch.delenv("OES_GEMMA_MODEL", raising=False)
 
     assert api_routes._fast_gcp_review_sample_rows() == 2000
+    assert api_routes._fast_gcp_cross_check_sample_rows() == 200
+    assert api_routes._fast_gcp_effective_sample_rows(cross_check=False) == 2000
+    assert api_routes._fast_gcp_effective_sample_rows(cross_check=True) == 200
+    assert api_routes._FAST_GCP_REVIEW_LOGIC_REVISION == "source-approved-evidence-v2"
+    assert "source-approved-evidence-v2" in api_routes._fast_gcp_review_cache_key(cross_check=False)
     assert api_routes._fast_gcp_review_provider_names(cross_check=False) == ["gemini-fast-lite"]
     assert api_routes._fast_gcp_review_model_names(cross_check=False) == ["gemini-3.1-flash-lite"]
     assert api_routes._fast_gcp_public_provider_mode(cross_check=False) == "fast_gcp_vertex_gemini_flash_lite"
@@ -432,6 +438,8 @@ def test_public_fast_gcp_review_uses_fixed_sample_without_write_token(
     assert "Cache-friendly" not in page.text
     assert "/public/fast-gcp-review/status" in page.text
     assert "/public/fast-gcp-review/owner-session" in page.text
+    assert "source-approved-evidence-v2" in page.text
+    assert "Cross-check rows" in page.text
     assert "owner_token" in page.text
     assert "Watch More Data Rescore" in page.text
     assert "Sanitized system code preview" in page.text

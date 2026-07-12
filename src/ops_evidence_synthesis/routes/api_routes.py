@@ -124,6 +124,7 @@ _FAST_GCP_REVIEW_STATUS_LOCK = threading.Lock()
 _FAST_GCP_REVIEW_QUOTA_CACHE: dict[str, dict[str, Any]] = {}
 _FAST_GCP_REVIEW_DISABLE_CACHE: tuple[float, dict[str, Any] | None] | None = None
 _FAST_GCP_REVIEW_OWNER_COOKIE = "oes_fast_gcp_review_owner"
+_FAST_GCP_REVIEW_LOGIC_REVISION = "source-approved-evidence-v2"
 _PUBLIC_RATE_LIMIT_COUNTERS: dict[tuple[str, str, int], int] = {}
 _PUBLIC_RATE_LIMIT_LOCK = threading.Lock()
 
@@ -1017,6 +1018,7 @@ def public_fast_gcp_review(request: Request, payload: dict[str, Any] | None = No
 def _render_fast_gcp_review_view() -> str:
     model = _fast_gcp_review_model_name()
     sample_rows = _fast_gcp_review_sample_rows()
+    cross_check_rows = _fast_gcp_cross_check_sample_rows()
     full_review_sha = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
     rescore_demo_url = _fast_gcp_rescore_demo_url()
     system_preview_html = _render_fast_gcp_system_code_preview()
@@ -1031,372 +1033,107 @@ def _render_fast_gcp_review_view() -> str:
     <style>
       :root {{
         color-scheme: light;
-        --bg: #f4f2ec;
-        --bg-2: #faf8f2;
-        --surface: #fffdf8;
-        --paper: #ffffff;
-        --ink: #1c1a15;
-        --ink-2: #4a463d;
-        --ink-3: #7a746a;
-        --muted: #8a857a;
-        --border: #e5dfd1;
-        --border-2: #e7e0d1;
-        --blue: #3f63a8;
-        --blue-soft: #eef2f9;
-        --blue-border: #cdd8ec;
-        --green: #2f8a5b;
-        --green-soft: #eef7f1;
-        --green-border: #bfe0cd;
-        --gold: #a7845a;
-        --gold-soft: #f2ead9;
-        --dark: #1c1a15;
-        --shadow: 0 24px 55px -34px rgba(60, 50, 30, .42);
-        --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        --sans: "IBM Plex Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        --display: "Space Grotesk", var(--sans);
-        --serif: "Newsreader", Georgia, "Times New Roman", serif;
+        --bg: #eef2f7;
+        --surface: #fff;
+        --ink: #0f1b2d;
+        --muted: #526173;
+        --line: #d9e1ec;
+        --accent: #2a6fdb;
+        --green: #12836b;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }}
       * {{ box-sizing: border-box; }}
-      body {{
-        margin: 0;
-        background: var(--bg);
-        color: var(--ink);
-        font-family: var(--sans);
-        letter-spacing: 0;
-        -webkit-font-smoothing: antialiased;
-      }}
-      a {{ color: inherit; text-decoration: none; }}
-      p {{ margin: 0; color: var(--ink-3); line-height: 1.6; }}
-      code, pre {{ font-family: var(--mono); }}
-      .page {{ width: 100%; overflow-x: hidden; }}
-      .wrap {{ max-width: 1220px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }}
-      .nav {{
-        position: sticky;
-        top: 0;
-        z-index: 20;
-        border-bottom: 1px solid var(--border);
-        background: rgba(250, 248, 242, .9);
-        backdrop-filter: blur(8px);
-      }}
-      .nav-inner {{
-        min-height: 58px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 18px;
-        padding-top: 14px;
-        padding-bottom: 14px;
-      }}
-      .crumbs, .nav-actions {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }}
-      .brand {{ display: inline-flex; align-items: center; gap: 9px; color: var(--ink); font-family: var(--display); font-weight: 700; font-size: 14.5px; }}
-      .brand-mark {{ width: 26px; height: 26px; border-radius: 7px; background: var(--ink); color: var(--bg); display: grid; place-items: center; font: 700 11px/1 var(--mono); }}
-      .crumbs span, .crumbs a, .nav-actions a {{ color: var(--muted); font-size: 13.5px; }}
-      .crumb-sep {{ color: #c9c1b2; }}
-      .nav-actions {{ justify-content: flex-end; gap: 16px; }}
-      .nav-actions a:hover, .crumbs a:hover {{ color: var(--ink); }}
-      .live-chip, .soft-chip {{
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        border-radius: 20px;
-        font: 600 11.5px/1 var(--mono);
-        white-space: nowrap;
-      }}
-      .live-chip {{ color: var(--green); border: 1px solid var(--green-border); background: var(--green-soft); padding: 5px 11px; }}
-      .live-chip i {{ width: 7px; height: 7px; border-radius: 50%; background: var(--green); }}
-      .soft-chip {{ color: var(--muted); background: #efe9db; border: 1px solid #e0d8c7; padding: 4px 10px; }}
-      .hero {{ padding-top: 52px; padding-bottom: 34px; }}
-      .hero-kickers {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }}
-      .kicker, .section-kicker {{ color: var(--gold); font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }}
-      h1 {{ margin: 0 0 18px; max-width: 900px; color: var(--ink); font-family: var(--serif); font-size: clamp(42px, 4.4vw, 64px); line-height: 1.03; font-weight: 500; letter-spacing: 0; overflow-wrap: anywhere; }}
-      h2 {{ margin: 0; color: var(--ink); font-family: var(--serif); font-size: 31px; line-height: 1.1; font-weight: 500; letter-spacing: 0; overflow-wrap: anywhere; }}
-      h3 {{ margin: 0; color: var(--ink); font-family: var(--display); font-size: 16px; line-height: 1.3; font-weight: 600; letter-spacing: 0; }}
-      .hero-copy {{ max-width: 860px; color: var(--ink-2); font-size: 16.5px; line-height: 1.6; }}
-      .stat-strip {{
-        display: grid;
-        grid-template-columns: .95fr .7fr 1.15fr .9fr;
-        margin-top: 34px;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        overflow: hidden;
-        background: var(--border);
-      }}
-      .stat-cell {{ min-width: 0; background: var(--bg-2); padding: 16px 18px; }}
-      .stat-cell span {{ display: block; margin-bottom: 5px; color: var(--muted); font: 600 11px/1.3 var(--mono); text-transform: uppercase; }}
-      .stat-cell strong {{ display: block; color: var(--ink); font-family: var(--display); font-size: 21px; line-height: 1.15; overflow-wrap: anywhere; }}
-      .live-band {{ margin-top: 18px; padding: 42px 0; background: #efe9db; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }}
-      .section-head {{
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 20px;
-        flex-wrap: wrap;
-        margin-bottom: 22px;
-      }}
-      .section-head p {{ max-width: 720px; margin-top: 8px; color: var(--ink-3); font-size: 14.5px; }}
-      .live-grid {{
-        display: grid;
-        grid-template-columns: minmax(420px, .95fr) minmax(440px, 1.05fr);
-        gap: 22px;
-        align-items: start;
-      }}
-      .summary-card, .run-card, .loop-card, .guard-card {{
-        border: 1px solid var(--border-2);
-        border-radius: 14px;
-        background: var(--paper);
-        box-shadow: var(--shadow);
-        min-width: 0;
-      }}
-      .summary-card {{ padding: 24px; background: var(--surface); }}
-      .summary-gate {{ display: grid; gap: 16px; }}
-      .summary-status {{ margin-top: 8px; color: var(--ink-3); font-size: 13.5px; }}
-      .summary-terminal {{
-        margin-top: 18px;
-        border: 1px solid #312d26;
-        border-radius: 12px;
-        background: #1c1a15;
-        overflow: hidden;
-      }}
-      .terminal-head {{
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        border-bottom: 1px solid #342f27;
-        padding: 10px 13px;
-        color: #a89f8d;
-        font: 500 11.5px/1 var(--mono);
-      }}
-      .terminal-dots {{ display: inline-flex; gap: 5px; }}
-      .terminal-dots i {{ width: 8px; height: 8px; border-radius: 50%; background: #6d6659; }}
-      .terminal-body {{
-        min-height: 132px;
-        padding: 16px 18px;
-        color: #d6cdbb;
-        font: 12.5px/1.7 var(--mono);
-      }}
-      .terminal-body p {{ color: #d6cdbb; font: inherit; }}
-      .source-preview {{
-        margin-top: 18px;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: var(--bg-2);
-        padding: 18px;
-        overflow: hidden;
-      }}
-      .source-preview h2 {{ margin-top: 8px; font-size: 22px; line-height: 1.16; }}
-      .preview-note {{ margin-top: 8px; max-width: 820px; font-size: 13.5px; }}
-      .preview-grid {{ display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 16px; }}
-      .preview-column {{ min-width: 0; border-top: 1px solid var(--border); padding-top: 13px; }}
-      .preview-column:first-child {{ border-top: 0; padding-top: 0; }}
-      .preview-column h3 {{ margin-bottom: 8px; font-size: 13.5px; }}
+      body {{ margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+      main {{ width: min(calc(100% - 40px), 1120px); margin: 0 auto; padding: 42px 0; }}
+      .panel {{ border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 24px; box-shadow: 0 18px 48px rgba(15,27,45,.08); }}
+      .top {{ display: flex; justify-content: space-between; gap: 16px; align-items: start; margin-bottom: 22px; }}
+      h1 {{ margin: 0 0 10px; font-size: clamp(36px, 6vw, 64px); line-height: .96; letter-spacing: 0; }}
+      p {{ margin: 0; color: var(--muted); line-height: 1.55; }}
+      .badge {{ display: inline-flex; border: 1px solid #d3e4fb; border-radius: 999px; padding: 7px 10px; background: #e7f0fc; color: var(--accent); font: 800 12px/1 var(--mono); }}
+      .grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 22px 0; }}
+      .metric {{ border: 1px solid var(--line); border-radius: 8px; padding: 13px; background: #f8fafc; }}
+      .metric span {{ display: block; color: var(--muted); font-size: 12px; font-weight: 800; }}
+      .metric b {{ display: block; margin-top: 7px; font-size: 18px; overflow-wrap: anywhere; }}
+      .source-preview {{ border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 20px 0 0; padding: 18px 0; }}
+      .summary-gate {{ display: flex; justify-content: space-between; align-items: center; gap: 16px; border-top: 1px solid var(--line); margin-top: 20px; padding-top: 18px; }}
+      .summary-gate-text {{ min-width: 0; }}
+      .summary-status {{ margin-top: 6px; font-size: 14px; }}
+      .section-kicker {{ color: var(--accent); font: 850 12px/1 var(--mono); text-transform: uppercase; }}
+      h2 {{ margin: 8px 0 6px; font-size: 24px; letter-spacing: 0; }}
+      .preview-note {{ margin-top: 6px; max-width: 820px; }}
+      .preview-grid {{ display: grid; grid-template-columns: 1.05fr 1fr 1fr; gap: 18px; margin-top: 16px; }}
+      .preview-column {{ min-width: 0; }}
+      .preview-column h3 {{ margin: 0 0 8px; font-size: 14px; }}
       .preview-list {{ display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }}
-      .preview-list li {{ border-left: 3px solid var(--blue-border); padding: 0 0 0 10px; color: var(--ink-3); line-height: 1.45; font-size: 12.5px; overflow-wrap: anywhere; word-break: break-word; }}
-      .preview-list b {{ color: var(--ink); overflow-wrap: anywhere; word-break: break-word; }}
+      .preview-list li {{ border-left: 3px solid #c7dbf6; padding: 0 0 0 10px; color: var(--muted); line-height: 1.45; }}
+      .preview-list b {{ color: var(--ink); }}
       .chip-row {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }}
-      .chip {{ display: inline-flex; max-width: 100%; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink-2); padding: 6px 8px; font: 600 11.5px/1 var(--mono); overflow-wrap: anywhere; word-break: break-word; }}
-      .hash-line {{ margin-top: 12px; color: var(--muted); font: 11.5px/1.5 var(--mono); overflow-wrap: anywhere; word-break: break-word; }}
-      .run-card {{ overflow: hidden; background: var(--paper); }}
-      .run-controls, .run-status, .run-log, .run-result {{ padding: 20px 22px; border-bottom: 1px solid #efe8d9; }}
-      .run-controls {{ display: flex; gap: 10px; flex-wrap: wrap; }}
-      .run-status {{ background: #fdfbf6; }}
-      .status-top {{ display: flex; align-items: center; gap: 10px; }}
-      .status-led {{ width: 11px; height: 11px; border-radius: 50%; flex: none; background: #cfc7b6; }}
-      .status-title {{ color: var(--ink); font-family: var(--display); font-size: 14px; font-weight: 600; }}
-      .elapsed {{ margin-left: auto; color: var(--muted); font-family: var(--display); font-size: 26px; font-weight: 700; }}
-      .progress {{ height: 7px; width: 100%; border-radius: 5px; overflow: hidden; background: #efe8d9; margin-top: 12px; }}
-      .progress div {{ width: 0%; height: 100%; border-radius: 5px; background: var(--blue); transition: width .25s ease; }}
-      .status-labels {{ display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; color: #a49b89; font: 500 10.5px/1.35 var(--mono); }}
-      .status-detail {{ margin-top: 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--paper); padding: 12px; color: var(--ink-3); font: 12px/1.5 var(--mono); overflow-wrap: anywhere; }}
+      .chip {{ display: inline-flex; max-width: 100%; border: 1px solid var(--line); border-radius: 999px; background: #f8fafc; color: var(--ink); padding: 6px 8px; font: 750 12px/1 var(--mono); overflow-wrap: anywhere; }}
+      .hash-line {{ margin-top: 12px; color: var(--muted); font: 12px/1.5 var(--mono); overflow-wrap: anywhere; }}
+      .loop-panel {{ border: 1px solid #d3e4fb; border-radius: 8px; background: #f4f8fe; margin-top: 18px; padding: 16px; }}
+      .loop-panel strong {{ display: block; margin-bottom: 5px; color: var(--ink); }}
+      button, a.button {{ display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: #fff; padding: 11px 14px; font-weight: 850; text-decoration: none; cursor: pointer; }}
+      button:disabled {{ opacity: .55; cursor: not-allowed; }}
+      a.secondary {{ background: #fff; color: var(--ink); border-color: var(--line); }}
+      .actions {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }}
+      pre {{ margin: 18px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: 8px; background: #0f1b2d; color: #e6edf7; padding: 14px; font: 12px/1.5 var(--mono); }}
+      .status {{ margin-top: 16px; color: var(--muted); font-weight: 750; }}
+      .status-progress {{ margin-top: 10px; }}
+      .status-progress div {{ width: 0%; animation: none; transform: none; transition: width .25s ease; }}
+      .status-detail {{ margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 12px; color: var(--muted); font: 12px/1.5 var(--mono); overflow-wrap: anywhere; }}
       .status-detail b {{ color: var(--ink); }}
-      .run-log {{ min-height: 136px; }}
-      .status {{ margin: 0; color: var(--ink-3); font-size: 13px; font-weight: 600; }}
-      .result-actions {{ border-top: 1px solid #efe8d9; border-bottom: 0; padding: 16px 22px 0; }}
-      button, a.button {{
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid var(--border-2);
-        border-radius: 10px;
-        background: var(--paper);
-        color: var(--ink);
-        padding: 11px 15px;
-        font-family: var(--display);
-        font-size: 13.5px;
-        font-weight: 700;
-        text-decoration: none;
-        cursor: pointer;
-      }}
-      button.primary, a.primary {{ border-color: var(--dark); background: var(--dark); color: var(--bg); }}
-      button:disabled {{ cursor: not-allowed; opacity: .55; }}
-      a.secondary {{ background: var(--paper); color: var(--ink); border-color: var(--border-2); }}
-      .actions {{ display: flex; flex-wrap: wrap; gap: 10px; }}
-      pre {{ margin: 18px 22px 22px; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #312d26; border-radius: 10px; background: #1c1a15; color: #d6cdbb; padding: 14px; font: 12px/1.5 var(--mono); }}
-      .inspect {{ padding-top: 48px; padding-bottom: 12px; }}
-      .loop-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }}
-      .loop-card {{ display: block; padding: 22px; box-shadow: none; background: var(--surface); }}
-      .loop-card-top {{ display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }}
-      .loop-card small {{ color: var(--gold); font: 600 11px/1 var(--mono); }}
-      .loop-card .tag {{ color: var(--green); background: var(--green-soft); border: 1px solid var(--green-border); padding: 3px 8px; border-radius: 12px; font: 600 10.5px/1 var(--mono); }}
-      .loop-card strong {{ display: block; color: var(--ink); font-size: 15.5px; line-height: 1.4; }}
-      .guardrails {{ padding-top: 8px; padding-bottom: 52px; }}
-      .guard-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }}
-      .guard-card {{ padding: 18px; box-shadow: none; background: var(--surface); }}
-      .guard-card.green {{ border-color: var(--green-border); background: var(--green-soft); }}
-      .guard-card strong {{ display: block; color: var(--ink); font-family: var(--display); font-size: 15px; }}
-      .guard-card.green strong {{ color: var(--green); }}
-      .guard-card p {{ margin-top: 5px; font-size: 12.5px; }}
-      .footer {{ margin-top: 8px; background: var(--dark); }}
-      .footer-inner {{ display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 36px; padding-bottom: 36px; }}
-      .footer .brand {{ color: var(--bg); }}
-      .footer .brand-mark {{ background: var(--bg); color: var(--dark); }}
-      .footer-links {{ display: flex; gap: 20px; font-size: 13px; color: #c9c2b3; flex-wrap: wrap; }}
-      .footer-links a:hover {{ color: var(--bg); }}
-      .foot-id {{ color: var(--ink-3); font: 500 11px/1.4 var(--mono); }}
       .ok {{ color: var(--green); }}
       [hidden] {{ display: none !important; }}
-      @media (max-width: 1020px) {{
-        .live-grid, .loop-grid, .guard-grid {{ grid-template-columns: 1fr; }}
-        .stat-strip {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-      }}
-      @media (max-width: 760px) {{
-        .wrap {{ padding-left: 20px; padding-right: 20px; }}
-        .nav-inner, .section-head {{ align-items: flex-start; flex-direction: column; }}
-        .preview-grid, .stat-strip {{ grid-template-columns: 1fr; }}
-        .run-controls .actions, .actions, button, a.button {{ width: 100%; }}
-        .status-top {{ align-items: flex-start; flex-direction: column; }}
-        .elapsed {{ margin-left: 0; }}
-      }}
+      @media (max-width: 760px) {{ .top, .grid, .summary-gate {{ grid-template-columns: 1fr; display: grid; }} }}
     </style>
   </head>
   <body>
-    <div class="page">
-      <nav class="nav" aria-label="Primary">
-        <div class="wrap nav-inner">
-          <div class="crumbs">
-            <a class="brand" href="/"><span class="brand-mark">OE</span><span>Ops Evidence</span></a>
-            <span class="crumb-sep">/</span>
-            <a href="/#improvement-loop">Review modes</a>
-            <span class="crumb-sep">/</span>
-            <span>Fast GCP Review</span>
+    <main>
+      <section class="panel">
+        <div class="top">
+          <div>
+            <span class="badge">Fast GCP Review</span>
+            <h1>Run a fixed sanitized sample on GCP.</h1>
+            <p>This public action uses a bundled amazon-notify sanitized sample only. It calls Vertex Gemini Flash Lite from Cloud Run and builds the review with the current source-approved evidence logic. The cross-check path runs Gemini Flash Lite and Gemma 4 over a smaller fixed prefix of the same fixture so the live comparison stays bounded. It does not accept arbitrary logs or URLs.</p>
           </div>
-          <div class="nav-actions">
-            <span class="live-chip"><i></i>Cloud Run live</span>
-            <a href="https://github.com/yukimurata0421/ops-evidence-synthesis">GitHub</a>
-            <span class="soft-chip">fixed_input_only</span>
+          <a class="button secondary" href="/">Back</a>
+        </div>
+        <div class="grid">
+          <div class="metric"><span>Sample</span><b>amazon-notify</b></div>
+          <div class="metric"><span>Rows</span><b>{_human_count(sample_rows)}</b></div>
+          <div class="metric"><span>Cross-check rows</span><b>{_human_count(cross_check_rows)}</b></div>
+          <div class="metric"><span>Primary model</span><b>{_html(model)}</b></div>
+          <div class="metric"><span>Logic</span><b>{_html(_FAST_GCP_REVIEW_LOGIC_REVISION)}</b></div>
+        </div>
+        <div class="summary-gate">
+          <div class="summary-gate-text">
+            <span class="section-kicker">Code summary</span>
+            <h2>Load the sanitized system summary before running the live review.</h2>
+            <p class="summary-status" id="summary-status">The public demo reads a precomputed sanitized source summary. Raw source and raw logs are not accepted from this page.</p>
           </div>
+          <button id="load-code-summary" type="button">Load Sanitized Code Summary</button>
         </div>
-      </nav>
-
-      <header class="wrap hero">
-        <div class="hero-kickers">
-          <div class="kicker">Cloud Run live path</div>
-          <span class="soft-chip">fixed sanitized sample</span>
+        {system_preview_html}
+        <div class="actions">
+          <button id="run-fast-review" type="button" disabled>Run Live Fast Review</button>
+          <button id="run-cross-check" type="button" disabled>Run Live Cross-check</button>
+          <a class="button secondary" href="{_html(rescore_demo_url)}">Watch More Data Rescore</a>
+          <a class="button secondary" href="/ui/full-review-page?evidence_sha256={full_review_sha}">Open Full Forensic Review</a>
         </div>
-        <h1>Run a fixed sanitized sample on GCP.</h1>
-        <p class="hero-copy">This public action uses a bundled amazon-notify sanitized sample only. It calls Vertex Gemini Flash Lite from Cloud Run, records elapsed time, and returns a review URL. The cross-check path runs Gemini Flash Lite and Gemma 4 in parallel over the same fixed sample. It does not accept arbitrary logs or URLs.</p>
-        <div class="stat-strip" aria-label="Fast GCP Review run boundary">
-          <article class="stat-cell"><span>Sample</span><strong>amazon-notify</strong></article>
-          <article class="stat-cell"><span>Rows</span><strong>{_human_count(sample_rows)}</strong></article>
-          <article class="stat-cell"><span>Primary model</span><strong>{_html(model)}</strong></article>
-          <article class="stat-cell"><span>Mode</span><strong>fixed input only</strong></article>
+        <div class="loop-panel">
+          <strong>After the fast review, inspect the evidence loop.</strong>
+          <p>The fixed 2,000-row run usually produces validation targets. The More Data Rescore demo shows how added evidence can change review priority while the final incident cause remains human-gated.</p>
+          <p><strong>Quota guarded.</strong> Live clicks consume guarded public demo quota and can be stopped by the budget guard.</p>
         </div>
-      </header>
-
-      <section class="live-band">
-        <div class="wrap">
-          <div class="section-head">
-            <div>
-              <div class="kicker">Live review gate</div>
-              <h2>Load the sanitized system summary first.</h2>
-              <p>Raw source and raw logs are not accepted from this page. The live action is deliberately narrow: fixed sample in, review artifact out.</p>
-            </div>
-            <a class="button secondary" href="/">Back to public entry</a>
-          </div>
-
-          <div class="live-grid">
-            <article class="summary-card">
-              <div class="summary-gate">
-                <div>
-                  <span class="section-kicker">Code summary</span>
-                  <h3>Sanitized context before model call</h3>
-                  <p class="summary-status" id="summary-status">The public demo reads a precomputed sanitized source summary. Raw source and raw logs are not accepted from this page.</p>
-                </div>
-                <button class="primary" id="load-code-summary" type="button">Load Sanitized Code Summary</button>
-              </div>
-              <div class="summary-terminal" aria-hidden="true">
-                <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>sanitized_source_summary - amazon-notify</span></div>
-                <div class="terminal-body"><p>// summary not loaded - click the button above<br>sample: amazon-notify<br>raw_logs: not_uploaded<br>mode: fixed_input_only</p></div>
-              </div>
-              {system_preview_html}
-            </article>
-
-            <article class="run-card">
-              <div class="run-controls">
-                <div class="actions">
-                  <button class="primary" id="run-fast-review" type="button" disabled>Run Live Fast Review</button>
-                  <button id="run-cross-check" type="button" disabled>Run Live Cross-check</button>
-                </div>
-              </div>
-              <div class="run-status">
-                <div class="status-top">
-                  <span class="status-led"></span>
-                  <span class="status-title">Load the summary to begin</span>
-                  <span class="elapsed">--</span>
-                </div>
-                <div class="progress status-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Fast GCP Review progress">
-                  <div id="status-progress-bar"></div>
-                </div>
-                <div class="status-labels"><span>idle</span><span>no run yet</span></div>
-                <div class="status-detail" id="status-detail" hidden></div>
-              </div>
-              <div class="run-log">
-                <p class="status" id="status">Load the sanitized code summary first. {_html(cache_note)}</p>
-              </div>
-              <div class="actions result-actions" id="result-links" hidden></div>
-              <pre id="result" hidden></pre>
-            </article>
-          </div>
+        <p class="status" id="status">Load the sanitized code summary first. {_html(cache_note)}</p>
+        <div class="progress status-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Fast GCP Review progress">
+          <div id="status-progress-bar"></div>
         </div>
+        <div class="status-detail" id="status-detail" hidden></div>
+        <div class="actions" id="result-links" hidden></div>
+        <pre id="result" hidden></pre>
       </section>
-
-      <section class="wrap inspect">
-        <div class="kicker">After the fast review</div>
-        <h2>Inspect the evidence loop.</h2>
-        <p class="hero-copy">The fixed 2,000-row run usually produces validation targets. From there, added evidence can change review priority while final incident cause remains human-gated.</p>
-        <div class="loop-grid">
-          <a class="loop-card" href="{_html(rescore_demo_url)}">
-            <div class="loop-card-top"><small>More data rescore</small><span class="tag">0.69 -> 0.84</span></div>
-            <strong>Watch More Data Rescore: added evidence re-scores a validation target to primary candidate.</strong>
-          </a>
-          <a class="loop-card" href="/ui/full-review-page?evidence_sha256={full_review_sha}">
-            <div class="loop-card-top"><small>Full forensic review</small><span class="tag">11 targets</span></div>
-            <strong>Open the full evidence graph, provider positions, and human gate.</strong>
-          </a>
-        </div>
-      </section>
-
-      <section class="wrap guardrails">
-        <div class="guard-grid">
-          <article class="guard-card"><strong>Fixed input only</strong><p>No arbitrary logs or URLs are accepted from this page.</p></article>
-          <article class="guard-card"><strong>Raw stays local</strong><p>Raw source and raw logs are <code>not_uploaded</code>.</p></article>
-          <article class="guard-card green"><strong>Quota guarded</strong><p>Live clicks consume guarded public demo quota and can be stopped by the budget guard.</p></article>
-        </div>
-      </section>
-
-      <footer class="footer">
-        <div class="wrap footer-inner">
-          <a class="brand" href="/"><span class="brand-mark">OE</span><span>Ops Evidence Synthesis</span></a>
-          <div class="footer-links">
-            <a href="{_html(rescore_demo_url)}">More data loop</a>
-            <a href="/ui/full-review-page?evidence_sha256={full_review_sha}">Full review</a>
-            <a href="/ui/review-graph?evidence_sha256={full_review_sha}">Review graph</a>
-            <a href="https://github.com/yukimurata0421/ops-evidence-synthesis">GitHub</a>
-          </div>
-          <span class="foot-id">fast-gcp-review - fixed_input_only</span>
-        </div>
-      </footer>
-    </div>
+    </main>
     <script>
       const button = document.getElementById("run-fast-review");
       const crossButton = document.getElementById("run-cross-check");
@@ -2624,6 +2361,14 @@ def _fast_gcp_review_sample_rows() -> int:
     return max(20, int(os.environ.get("OES_FAST_GCP_REVIEW_SAMPLE_ROWS", "2000")))
 
 
+def _fast_gcp_cross_check_sample_rows() -> int:
+    return max(20, int(os.environ.get("OES_FAST_GCP_CROSS_CHECK_SAMPLE_ROWS", "200")))
+
+
+def _fast_gcp_effective_sample_rows(*, cross_check: bool) -> int:
+    return _fast_gcp_cross_check_sample_rows() if cross_check else _fast_gcp_review_sample_rows()
+
+
 def _fast_gcp_review_model_name() -> str:
     if _fast_gcp_review_provider_mode() == "local":
         return "local-gemini"
@@ -2720,7 +2465,8 @@ def _fast_gcp_review_status_payload(
         "reason_code": reason_code,
         "input": {
             "sample": "amazon-notify",
-            "sample_rows": _fast_gcp_review_sample_rows(),
+            "sample_rows": _fast_gcp_effective_sample_rows(cross_check=cross_check),
+            "logic_revision": _FAST_GCP_REVIEW_LOGIC_REVISION,
             "raw_log_policy": "not_uploaded",
             "arbitrary_input_accepted": False,
         },
@@ -2839,8 +2585,9 @@ def _fast_gcp_review_cache_key(*, cross_check: bool) -> str:
     return ":".join(
         [
             "amazon-notify",
+            _FAST_GCP_REVIEW_LOGIC_REVISION,
             _fast_gcp_review_variant(cross_check),
-            str(_fast_gcp_review_sample_rows()),
+            str(_fast_gcp_effective_sample_rows(cross_check=cross_check)),
             _fast_gcp_review_provider_mode(),
             ",".join(_fast_gcp_review_provider_names(cross_check=cross_check)),
             ",".join(_fast_gcp_review_model_names(cross_check=cross_check)),
@@ -2865,7 +2612,9 @@ def _run_public_fast_gcp_review(*, cross_check: bool = False, run_id: str | None
         temp_dir = Path(tmp)
         store = SQLiteStore(temp_dir / "fast_review.sqlite3")
         store.init_schema()
-        sanitized_rows = _load_fixed_fast_review_sample()
+        sanitized_rows = _load_fixed_fast_review_sample(
+            limit=_fast_gcp_effective_sample_rows(cross_check=cross_check)
+        )
         if not sanitized_rows:
             raise HTTPException(status_code=500, detail="fixed fast review sample is empty")
         _write_fast_gcp_review_status(
@@ -2902,6 +2651,7 @@ def _run_public_fast_gcp_review(*, cross_check: bool = False, run_id: str | None
                     "input": {
                         "sample": "amazon-notify",
                         "sample_rows": len(sanitized_rows),
+                        "logic_revision": _FAST_GCP_REVIEW_LOGIC_REVISION,
                         "raw_log_policy": "not_uploaded",
                         "arbitrary_input_accepted": False,
                         "evidence_sha256": str(bundle.get("evidence_sha256") or ""),
@@ -3006,6 +2756,7 @@ def _run_public_fast_gcp_review(*, cross_check: bool = False, run_id: str | None
             approved_profile=approved_profile,
             run_id=run_id,
             cross_check=cross_check,
+            sample_rows=len(sanitized_rows),
         )
         _write_fast_gcp_review_status(
             _fast_gcp_review_status_payload(
@@ -3054,6 +2805,7 @@ def _run_public_fast_gcp_review(*, cross_check: bool = False, run_id: str | None
         "input": {
             "sample": "amazon-notify",
             "sample_rows": len(sanitized_rows),
+            "logic_revision": _FAST_GCP_REVIEW_LOGIC_REVISION,
             "raw_log_policy": "not_uploaded",
             "arbitrary_input_accepted": False,
             "window_start": str(public_payload.get("analysis_context", {}).get("window_start") or ""),
@@ -3150,10 +2902,10 @@ def _run_public_fast_gcp_review(*, cross_check: bool = False, run_id: str | None
     return result
 
 
-def _load_fixed_fast_review_sample() -> list[SanitizedLog]:
+def _load_fixed_fast_review_sample(*, limit: int | None = None) -> list[SanitizedLog]:
     sample_path = Path(os.environ.get("OES_FAST_GCP_REVIEW_SAMPLE_PATH", "data/amazon_notify_flagship_logs.jsonl"))
     raw_rows: list[RawLog] = []
-    limit = _fast_gcp_review_sample_rows()
+    limit = int(limit or _fast_gcp_review_sample_rows())
     with sample_path.open("r", encoding="utf-8", errors="replace") as handle:
         for index, line in enumerate(handle, start=1):
             if index > limit:
@@ -3199,6 +2951,7 @@ def _fast_gcp_public_payload(
     approved_profile: dict[str, Any],
     run_id: str,
     cross_check: bool = False,
+    sample_rows: int,
 ) -> dict[str, Any]:
     from scripts.generate_precomputed_review_from_multi_run import build_payload
 
@@ -3209,7 +2962,7 @@ def _fast_gcp_public_payload(
         source_analysis=source_analysis,
         profile_draft=profile_draft,
         approved_profile=approved_profile,
-        api_revision="public-fast-gcp-review-v1",
+        api_revision="public-fast-gcp-review-v2",
         profile_id=str(approved_profile.get("profile_id") or "amazon_notify_fast_sample_approved"),
         updated_at=utc_now(),
         source_note=(
@@ -3230,11 +2983,12 @@ def _fast_gcp_public_payload(
         min_window_hours=0,
     )
     payload.setdefault("generation", {})["fast_gcp_review"] = {
-        "schema_version": "public_fast_gcp_review_generation.v1",
+        "schema_version": "public_fast_gcp_review_generation.v2",
+        "logic_revision": _FAST_GCP_REVIEW_LOGIC_REVISION,
         "run_id": run_id,
         "variant": _fast_gcp_review_variant(cross_check),
         "sample": "amazon-notify",
-        "sample_rows": _fast_gcp_review_sample_rows(),
+        "sample_rows": sample_rows,
         "providers": _fast_gcp_review_provider_names(cross_check=cross_check),
         "model_names": _fast_gcp_review_model_names(cross_check=cross_check),
         "provider": _fast_gcp_review_provider_name(),
@@ -3255,7 +3009,8 @@ def _fast_gcp_public_review_id(payload: dict[str, Any], *, run_id: str, cross_ch
     provider_statuses = payload.get("provider_statuses") if isinstance(payload.get("provider_statuses"), list) else []
     return sha256_json(
         {
-            "schema_version": "public_fast_gcp_review_id.v1",
+            "schema_version": "public_fast_gcp_review_id.v2",
+            "logic_revision": _FAST_GCP_REVIEW_LOGIC_REVISION,
             "run_id": run_id,
             "variant": _fast_gcp_review_variant(cross_check),
             "evidence_sha256": str(payload.get("evidence_sha256") or ""),

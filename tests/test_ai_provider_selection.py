@@ -91,6 +91,23 @@ def test_provider_registry_exposes_qwen_glm_gemma_grok_and_llama(monkeypatch) ->
     assert infos["llama-agent-platform"]["status"] == "configured"
 
 
+def test_multi_ai_provider_registry_supports_fast_gcp_gemini(monkeypatch) -> None:
+    monkeypatch.setenv("OES_ENABLE_REAL_AI", "1")
+    monkeypatch.setenv("OES_VERTEX_PROJECT", "ops-evidence-synthesis")
+    monkeypatch.setenv("OES_FAST_GCP_GEMINI_MODEL", "gemini-3.1-flash-lite")
+    monkeypatch.setenv("OES_FAST_GCP_GEMINI_THINKING_LEVEL", "minimal")
+
+    providers = build_multi_ai_providers(["gemini-fast-lite"], mode="real_or_skip")
+    infos = {row["provider_id"]: row for row in provider_infos()}
+
+    assert len(providers) == 1
+    assert isinstance(providers[0], VertexGeminiProvider)
+    assert providers[0].provider == "gemini-fast-lite-agent-platform"
+    assert providers[0].model_name == "gemini-3.1-flash-lite"
+    assert providers[0].thinking_level == "minimal"
+    assert infos["gemini-fast-lite-agent-platform"]["status"] == "configured"
+
+
 def test_multi_ai_provider_registry_defaults_to_five_local_providers() -> None:
     providers = build_multi_ai_providers([], mode="local")
 

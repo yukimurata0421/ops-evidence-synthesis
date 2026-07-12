@@ -1,6 +1,6 @@
 # Submission Checklist
 
-Status as of 2026-07-01 after the public Cloud Run deployment.
+Status as of 2026-07-12 after the source-approved Fast GCP Review refresh.
 
 ## Official Sources Checked
 
@@ -33,11 +33,12 @@ is for a different event.
 - Cloud Run service: `ops-evidence-api`
 - Cloud Run region: `asia-northeast1`
 - Public custom domain: https://ops-evidence.yukimurata0421.dev/
-- Deployed revision: `ops-evidence-api-00246-h98`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:26647d929611ca9c3d10e66b8ed2d717e17caa6a525ee54d62cfec8183c7b1f1`
+- Deployed revision: `ops-evidence-api-00260-qj4`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:c37293fc079fd4f3fc8392923e313431131397cd6c9c7ffa9b369aaf27eeaacd`
 - Public smoke after deploy: passed
-- Fast GCP Review smoke: passed with `gemini-3.1-flash-lite`, 2,000 fixed sanitized amazon-notify rows, run `fast-gcp-review-20260707-final3`, 0 primary / 1 validation.
-- Fast Cross-check Lite smoke: passed with `gemini-3.1-flash-lite` + `gemma-4-26b-a4b-it-maas`, 2,000 fixed sanitized amazon-notify rows, run `fast-cross-check-20260707-final3`, 0 primary / 5 validation.
+- Fast GCP Review smoke: passed with `source-approved-evidence-v2`, `gemini-3.1-flash-lite`, 2,000 fixed sanitized amazon-notify rows, run `fast-gcp-review-20260712-source-approved-v2-final`, 0 primary / 1 validation.
+- Fast Cross-check Lite smoke: passed with `source-approved-evidence-v2`, `gemini-3.1-flash-lite` + `gemma-4-26b-a4b-it-maas`, a bounded 200-row prefix of the same fixture, run `fast-cross-check-20260712-source-approved-v2-200-final`, 0 primary / 3 validation.
+- Cloud Run request timeout: 900 seconds.
 - Digest note: this digest is a public demo release attestation, not a private
   execution identifier.
 - Cloud Run min instances: `1`

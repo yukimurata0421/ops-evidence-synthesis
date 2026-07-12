@@ -12,8 +12,7 @@ evidence coverage.
 | --- | --- | --- |
 | Public Deterministic Replay | A committed public-safe fixture can regenerate a review graph locally without external AI API calls. | It is not a live AI latency benchmark. |
 | More Data Rescore / Evidence Promotion Demo | New evidence can change a review target from `validation_target` to `primary_candidate` while preserving the human gate. | It does not auto-accept an incident cause. |
-| Fast GCP Review | The deployed Cloud Run service can run a fixed sanitized amazon-notify sample through Vertex Gemini Flash Lite and return a measured review URL. | It is not the 45k-50k row forensic path and it does not accept arbitrary logs or URLs. |
-| Fast Cross-check Lite | The same fixed sample can run Gemini Flash Lite and Gemma 4 in parallel and persist a separate public review artifact. | It is not the default fast path because Gemma 4 is materially slower on this sample. |
+| Live AI Review | Gemini-led, ADK-compatible tooling can run the real provider path over sanitized Evidence Bundles, compare claims, route missing evidence, and stop at the human gate. | It is not the same as the deterministic public replay path. |
 | Full Forensic AI Review | Larger real operations corpora can be reviewed through chunk fan-out, provider disagreement handling, and canonical graph merge. | It is served publicly as a precomputed artifact for immediate judge inspection. |
 
 ## Measured Public Replay Results
@@ -26,8 +25,8 @@ These measurements were taken on the committed public-safe amazon-notify fixture
 | Public Replay - scoped initial review | 11.24s | 6,506 | 68 | 3/3 deterministic local | 0 primary / 1 validation | `265efc80247662d799b57b6a641509541b2e019ff3822825f2517687ab9954e8` |
 | More Data Rescore | 1.12s | Existing parent + child bundle | n/a | n/a | `validation_target -> primary_candidate`, score 0.84 | preserved demo snapshot |
 | Public Replay - full fixture review | 11.61s | 6,506 | 106 | 3/3 deterministic local | 0 primary / 1 validation | `3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d` |
-| Fast GCP Review - live Cloud Run | status persisted; provider latency 29.854s | 2,000 | 570 | 1/1 real Vertex model | 0 primary / 1 validation | `5ae4f02d8390ecff4007c641c95fbfaa38af6356e4b53ff8267876a63e61781f` public review ID |
-| Fast Cross-check Lite - live Cloud Run | status persisted; provider latency sum 416.490s | 2,000 | 570 | 2/2 real Vertex models | 0 primary / 5 validation | `9c09eaf87d152911e39a3d52bd982c8d68e397f6cf05505c3261804f5e070f27` public review ID |
+| Fast GCP Review - live Cloud Run | 13.758s wall; status persisted | 2,000 | 570 | 1/1 real Vertex model | 0 primary / 1 validation | `2641cb5fe5850d006864dec4aad3b3d2539e9efcef3753b43d5624f8b6e5136b` public review ID |
+| Fast Cross-check Lite - live Cloud Run | 231.935s wall; status persisted | 200 | 89 | 2/2 real Vertex models | 0 primary / 3 validation | `6eac99d73635678165f54d1c5b82e96e86d0709ad5fcb243129e33f58400a9e5` public review ID |
 
 ## Interpretation
 
@@ -41,18 +40,6 @@ fixture can regenerate reviewer-visible artifacts quickly and reproducibly. The
 strongest speed number is the More Data Rescore path: it demonstrates that once
 evidence is attached, promotion-state recomputation can happen in about one
 second while the human gate remains explicit.
-
-Fast GCP Review is the short public live path. It uses a fixed sanitized
-amazon-notify sample, runs from Cloud Run, calls Vertex Gemini Flash Lite, and
-returns a normal review URL plus wall-clock timing. It is intentionally separate
-from the larger full-forensic runs so judges can verify live GCP execution
-without waiting for 45k-50k row chunk fan-out.
-
-Fast Cross-check Lite uses the same fixed input and calls Gemini Flash Lite plus
-Gemma 4 through the same `run_multi_ai` path. The two provider calls are launched
-in parallel, and chunk calls are also parallelized where the provider settings
-allow it. The measured 255.603s server wall time shows that Gemma 4 should remain
-an optional cross-check path, not the default live demo path.
 
 The larger real API runs should be described separately as recorded full
 forensic reviews. Their value is full-corpus evidence accounting, chunked

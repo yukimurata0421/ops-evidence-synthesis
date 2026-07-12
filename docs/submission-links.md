@@ -26,8 +26,8 @@ Current reviewer-facing URLs for the hackathon submission.
 - Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
 - Primary visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
 - Fast GCP Review: https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
-- Latest Fast GCP Review result: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=5ae4f02d8390ecff4007c641c95fbfaa38af6356e4b53ff8267876a63e61781f
-- Latest Fast Cross-check Lite result: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=9c09eaf87d152911e39a3d52bd982c8d68e397f6cf05505c3261804f5e070f27
+- Latest Fast GCP Review result: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=2641cb5fe5850d006864dec4aad3b3d2539e9efcef3753b43d5624f8b6e5136b
+- Latest Fast Cross-check Lite result: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=6eac99d73635678165f54d1c5b82e96e86d0709ad5fcb243129e33f58400a9e5
 - Guarded amazon-notify detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - Guarded amazon-notify incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - Guarded amazon-notify API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
@@ -56,13 +56,14 @@ Current reviewer-facing URLs for the hackathon submission.
 
 ## Operational Readiness
 
-- Cloud Run revision after deploy: `ops-evidence-api-00256-f4q`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:951ccc98ad20040c6a3c1f91fb786a400b5986aed7b597435c5da745f34e11f7`
+- Cloud Run revision after deploy: `ops-evidence-api-00260-qj4`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:c37293fc079fd4f3fc8392923e313431131397cd6c9c7ffa9b369aaf27eeaacd`
 - Digest note: this digest is a public demo release attestation, not a private
   execution identifier.
 - Public smoke after deploy: passed
-- Fast GCP Review smoke: passed, run `fast-gcp-review-20260707-final3`, `gemini-3.1-flash-lite`, 2,000 rows, 1/1 schema-valid, provider latency 29.854s, 0 primary / 1 validation.
-- Fast Cross-check Lite smoke: passed, run `fast-cross-check-20260707-final3`, `gemini-3.1-flash-lite` + `gemma-4-26b-a4b-it-maas`, 2,000 rows, 2/2 schema-valid, provider latency sum 416.490s, 0 primary / 5 validation.
+- Fast GCP Review smoke: passed with logic `source-approved-evidence-v2`, run `fast-gcp-review-20260712-source-approved-v2-final`, `gemini-3.1-flash-lite`, 2,000 rows / 570 Evidence Items, 1/1 schema-valid, 13.758s wall time, 0 primary / 1 validation.
+- Fast Cross-check Lite smoke: passed with logic `source-approved-evidence-v2`, run `fast-cross-check-20260712-source-approved-v2-200-final`, `gemini-3.1-flash-lite` + `gemma-4-26b-a4b-it-maas`, 200 rows / 89 Evidence Items, 2/2 schema-valid, 231.935s wall time, 0 primary / 3 validation.
+- Cloud Run request timeout: 900 seconds, covering the measured bounded Cross-check path.
 - Cloud Run min instances: `1`
 - Billing budget alert: `Ops Evidence Hackathon Budget`, 3000 JPY/month, project-filtered to `ops-evidence-synthesis`
 - Budget note: alerts notify only; they do not automatically stop spend.
