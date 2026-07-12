@@ -108,7 +108,6 @@ def test_demo_video_smoke_keeps_submission_path_contract() -> None:
 
 def test_public_docs_exclude_working_drafts_and_keep_current_demo_material() -> None:
     obsolete = (
-        "docs/demo-video-script.md",
         "docs/demo-video-script-3min-ja.md",
         "docs/development-failure-log-2026-06-27-ja.md",
         "docs/final-submission-checklist-ja.md",
@@ -142,12 +141,14 @@ def test_public_docs_exclude_working_drafts_and_keep_current_demo_material() -> 
 
     video = (ROOT / "hackathon" / "02-narration-ja.md").read_text(encoding="utf-8")
     claims = (ROOT / "hackathon" / "claims-and-sources.md").read_text(encoding="utf-8")
+    compatibility_link = (ROOT / "docs" / "demo-video-script.md").read_text(encoding="utf-8")
     architecture = (ROOT / "docs" / "assets" / "architecture-devops-ai-agent.svg").read_text(encoding="utf-8")
 
     assert "# 改訂版3分台本" in video
     assert "45,000 sanitized events" in video
     assert "amazon-notifyの最初の判断" in video
     assert "source-approved-evidence-v2" in claims
+    assert "../hackathon/02-narration-ja.md" in compatibility_link
     assert "Gemini system reading" in architecture
     assert "5 real AI APIs" in architecture
     assert "Mistral chunks" not in architecture

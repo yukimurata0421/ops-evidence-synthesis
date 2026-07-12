@@ -16,6 +16,7 @@ operator history or raw incident material.
 | `docs/review-modes-runbook.md` | Mode naming, measured public replay results, and guidance that replay timing is not a live AI benchmark. | Keep |
 | `docs/evidence_bundle.md` | Sanitized Evidence Bundle contract and evidence/context boundary. | Keep |
 | `docs/current-vs-architecture-gap.md` | Public implementation status and product hardening roadmap. | Keep |
+| `docs/demo-video-script.md` | Stable compatibility link to the current demo narration. | Keep |
 | `docs/assets/architecture-devops-ai-agent.svg` | Reviewer-ready system architecture image. | Keep |
 | `docs/real-api-5-provider-run.md` | Source-aware five-provider real API run record for the amazon-notify public payload. | Keep |
 | `docs/stream-v3-real-api-runs.md` | Source-aware real API run record for Dell runtime and arena-server stream_v3 payloads. | Keep |
