@@ -150,7 +150,7 @@ Raw rows prompted: 0
 
 ナレーション：
 
-> 45,000行を全件サニタイズし、1,035のEvidence Itemを5つの実APIで解析しました。4モデルは低い送信速度から停滞を疑いましたが、同時にhealthyとstream activeもあります。視聴者影響がないため、Validation Targetに止めます。
+> 45,000行を全件サニタイズし、1,035のEvidence Itemを5つの実APIで解析しました。4モデルは低い送信速度から停滞を疑いましたが、同時にhealthyとstream activeもあります。視聴者影響の証拠がないため、Validation Targetに止めます。
 
 スコアを示しながら：
 
