@@ -1,473 +1,185 @@
-# Ops Evidence Synthesis
+# Ops Evidence Synthesis (OES)
 
 [![CI](https://github.com/yukimurata0421/ops-evidence-synthesis/actions/workflows/ci.yml/badge.svg)](https://github.com/yukimurata0421/ops-evidence-synthesis/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-3776AB)
-![Local first](https://img.shields.io/badge/raw%20logs-local--first-166d6b)
 ![Cloud Run](https://img.shields.io/badge/demo-Cloud%20Run-4285F4)
+![Local first](https://img.shields.io/badge/raw%20logs-local--first-166d6b)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)
 
-Using five AIs does not make a claim true. Ops Evidence Synthesis is a guarded
-DevOps investigation agent that turns model hypotheses into evidence-backed,
-human-reviewable decisions.
+**Evidence-grounded DevOps Incident Review Agent for SREs.**
 
-Ops Evidence Synthesis turns sanitized operational evidence into a fast,
-reviewable incident analysis page. It is built for the failure mode where AI
-incident tools sound confident before they have enough evidence.
+Five AIs can agree and still be wrong. OES does not turn model agreement into
+an incident cause. It fixes sanitized evidence, validates citations, preserves
+counter-evidence and missing evidence, and returns the final decision to a
+human reviewer.
 
-Public entry: https://ops-evidence.yukimurata0421.dev/
+> Do not ask AI to guess the cause. Ask it to collect the evidence required to
+> call something a cause.
 
-Hackathon submission:
+## Hackathon Submission
 
-- Demo video: https://www.youtube.com/watch?v=hgSiKY0z3Vs
-- ProtoPedia article: https://protopedia.net/prototype/8892
-- Live product: https://ops-evidence.yukimurata0421.dev/
+- [3-minute demo video](https://www.youtube.com/watch?v=hgSiKY0z3Vs)
+- [ProtoPedia article](https://protopedia.net/prototype/8892)
+- [Live Cloud Run product](https://ops-evidence.yukimurata0421.dev/)
+- [Submission summary](HACKATHON_SUBMISSION.md)
+- [v0.1.0 release](https://github.com/yukimurata0421/ops-evidence-synthesis/releases/tag/v0.1.0)
 
-Use these first:
+## See the Value in 60 Seconds
 
-- Source semantics: Gemini reading and human approval:
-  https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/
-- Primary review: stream_v3 Dell runtime 45k detail page:
-  https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471
-- Primary incident report:
-  https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471
-- Guarded review: amazon-notify 14-day full-corpus ledger review:
-  https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
-- More data rescore demo:
-  https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- Live Cloud Run -> Gemini 3.1 Flash-Lite review:
-  https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
+1. Open the
+   [approved Code Profile](https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/)
+   to see Gemini's system reading, human answers, normalized interpretation,
+   approval SHA, and disabled source access after approval.
+2. Open the
+   [45,000-row incident review](https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471)
+   to inspect Evidence IDs, counter-evidence, missing evidence, provider
+   positions, and the human promotion gate.
+3. Open
+   [More Data Rescore](https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore)
+   to see new evidence move a saved review from `needs_more_data` to
+   `evidence_collected` without silently accepting a cause.
 
-The data boundary and committed-vs-local artifact split are documented in
-[docs/data-boundary.md](docs/data-boundary.md).
+The
+[Fast GCP Review](https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review)
+runs Gemini 3.1 Flash-Lite from Cloud Run over a fixed 2,000-row sanitized
+sample and returns a review URL. It accepts no arbitrary log, URL, or file-path
+input.
 
-## Why This Matters
+## The Differentiator
 
-Most incident AI demos answer: "What caused the incident?"
+Most incident AI demos start with logs and end with a confident summary. OES
+adds the missing control loop:
 
-Ops Evidence Synthesis answers a safer question:
+1. **Understand the system first.** Gemini reads sanitized source artifacts and
+   drafts the system purpose, service path, log semantics, and metrics.
+2. **Make semantics human-owned.** An operator answers questions in natural
+   language, reviews the normalized JSON patch, and explicitly approves it.
+3. **Freeze the evidence boundary.** The approved profile, human answers, model
+   output, and sanitized Evidence Bundle are SHA-bound.
+4. **Investigate with guarded autonomy.** Providers analyze the same evidence,
+   citations are checked, and disagreement becomes review work.
+5. **Stop safely.** Evidence, counter-evidence, and missing evidence are shown
+   before a human promotes any cause or operation.
 
-> What evidence did each model actually use, where do they disagree, what is
-> still missing, and when is it safe for a human to promote a cause candidate?
+Agreement is a review signal, not majority-vote truth. The score is review
+priority, not incident probability.
 
-This is a guarded DevOps Review Agent. Raw logs stay local, sanitized Evidence
-Bundles are SHA-fixed, Gemini-led workflows review evidence chunks, multiple
-providers are compared, unsupported claims are not promoted, missing evidence
-becomes the next review task, and final causal judgement remains human-gated.
+## Architecture
 
-## Public Review Set
+```mermaid
+flowchart LR
+    S[Raw source stays local] --> SS[Sanitize source]
+    SS --> GP[Gemini system reading]
+    GP --> HA[Human-approved profile]
+    L[Raw logs stay local] --> SL[Sanitize logs]
+    HA --> EB[SHA-fixed Evidence Bundle]
+    SL --> EB
+    EB --> AI[Gemini plus provider cross-check]
+    AI --> CV[Citation validation and arbitration]
+    CV --> RV[Evidence-backed review]
+    RV --> HG[Human gate]
+    RV --> MR[Request more evidence]
+    MR --> EB
+```
 
-| Case | Public role | Evidence SHA256 | Notes |
-| --- | --- | --- | --- |
-| stream_v3 Dell runtime | Primary reviewer path | `ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471` | 45,000 input lines, 45,000 sanitized events, 1,035 Evidence Items, 5/5 providers, 0 auto-promoted causes. |
-| amazon-notify | Guarded review example | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` | 44,944 sanitized rows, 8,519 Evidence Items, 5/5 providers, 0 auto-promoted causes. |
-| stream_v3 arena-server monitoring | Monitoring-plane validation | `8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a` | 50,000 staged input lines, 49,942 sanitized events, 2 human-gated validation targets. |
-| amazon-notify deterministic fixture | Offline regeneration path | `3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d` | Regenerated by `make demo` from committed public-safe logs. |
-| payment-api sample | Compact smoke fixture | `a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f46208` | Regenerated by `make demo-sample`. |
+The agent trace exposes an ADK-compatible tool contract for freezing evidence,
+running providers, validating citations, computing review targets, requesting
+more evidence, and arbitrating the human gate. The public submission does not
+claim an Agent Runtime deployment.
 
-Detailed run records are intentionally kept in one place:
-[docs/real-api-5-provider-run.md](docs/real-api-5-provider-run.md) for
-amazon-notify and [docs/stream-v3-real-api-runs.md](docs/stream-v3-real-api-runs.md)
-for stream_v3.
+## Measured Evidence, Not a Toy Prompt
 
-Primary candidate is not an accepted cause. It means the target is strong
-enough for prioritized human review while final cause and operational action
-remain gated.
+| Public case | Sanitized corpus | Evidence Items | Provider result | Human-gated outcome |
+| --- | ---: | ---: | --- | --- |
+| stream_v3 runtime | 45,000 rows | 1,035 | 5/5 schema-valid outputs | 0 Primary, 10 Validation Targets |
+| amazon-notify | 44,944 rows | 8,519 | 5/5 schema-valid outputs | 0 auto-promoted causes |
+| stream_v3 monitoring plane | 49,942 of 50,000 staged rows | recorded full-corpus ledger | separate monitoring review | 2 Validation Targets |
 
-## Review Modes and Replay Path
+The main demo target, `stream_v3`, is a 24/7 YouTube Live delivery system for
+ADS-B aircraft visuals and program audio. A separate `amazon-notify` system and
+a separate monitoring-plane corpus demonstrate that the review contracts are
+not tied to one application or one JSON fixture.
 
-OES separates provider choice from review depth. The public URL uses
-precomputed artifacts so reviewers can inspect the result immediately, while
-recorded real API runs preserve the larger evidence boundary.
+Detailed evidence is in
+[stream_v3 real API runs](docs/stream-v3-real-api-runs.md) and the
+[amazon-notify five-provider run](docs/real-api-5-provider-run.md).
 
-| Mode | Purpose | Public reviewer path |
-| --- | --- | --- |
-| Public Deterministic Replay | Regenerate a committed public-safe fixture without external AI API calls. This is the reproducibility path, not a live AI benchmark. | `make demo` and the offline amazon-notify fixture. |
-| More Data Rescore | Show the improvement loop: a child evidence bundle can move a target from validation work toward a stronger primary candidate while preserving the human gate. | More Data Rescore demo. |
-| Live AI Review | Run the real provider path over sanitized Evidence Bundles, compare claims, route missing evidence, and stop at the human gate. | Gemini-led real API workflow and ADK-compatible trace. |
-| Full Forensic AI Review | Deep production-style synthesis over 45k-50k sanitized rows, chunked provider execution, citation validation, and deterministic graph merge over recorded provider outputs. | Precomputed stream_v3 and amazon-notify real API runs. |
+## Google Cloud and Agent Implementation
 
-Ops Evidence Synthesis focuses on the missing step before action:
-evidence-grounded review. The measured local replay commands and interpretation
-are recorded in [docs/review-modes-runbook.md](docs/review-modes-runbook.md).
-
-## Hackathon Judging Map
-
-| Judging concern | How this repository answers |
+| Layer | Submission implementation |
 | --- | --- |
-| AI Agent value is central | ADK-compatible tool traces, Gemini-led orchestration, provider chunk comparison, missing-evidence requests, and rescore flow. |
-| Clear problem and approach | Targets the unsafe-certainty failure mode in incident AI: confident answers before evidence is sufficient. |
-| Usable reviewer experience | Cloud Run read-only UI, no login, top-level primary review, rescore demo, API view, review graph, and Markdown report. |
-| Practical DevOps value | Full-corpus coverage ledger, raw-log local-first boundary, source-aware sanitized profile context, and human-gated incident promotion. |
-| Implementation depth | 5 provider real API runs, provider chunk ledgers, canonical review graph, pytest coverage, Cloud Build, Cloud Run, private GCS / Cloud Run Job / PostgreSQL deployment template. |
+| Live product | Cloud Run read-only UI/API and bounded Fast GCP Review |
+| Model execution | Gemini 3.1 Flash-Lite through the Gemini Enterprise Agent Platform API; Gemma and open-model cross-checks use Vertex AI Model Garden / MaaS integrations |
+| Agent contract | ADK-compatible investigation tools with a visible persisted trace |
+| Build and release | Cloud Build, Artifact Registry, digest-pinned Cloud Run revisions, and live smoke tests |
+| Evidence handoff | Private GCS artifacts for sanitized evidence and precomputed reviews |
+| Production template | Terraform for Cloud Run Job, Cloud SQL for PostgreSQL, BigQuery, Secret Manager, and monitoring |
 
-## What You Can Run Now
+The initial public review pages are precomputed so a judge sees evidence
+immediately without spending model tokens. The Fast GCP Review is the bounded
+live API proof. Recorded full-corpus provider runs preserve model hashes,
+schema status, evidence coverage, and review outputs for auditability.
 
-- The public URL serves a precomputed summary/detail review without
-  starting model work on the initial GET.
-- The Fast GCP Review page runs only a fixed sanitized amazon-notify sample,
-  calls Gemini 3.1 Flash-Lite through the Agent Platform API and Model Garden
-  from Cloud Run, records wall time, and returns a review URL. The optional
-  Cross-check Lite button runs Gemini Flash-Lite and
-  Gemma 4 over a bounded fixed prefix of the same sample. It does not accept
-  arbitrary logs, URLs, or file paths.
-- Public deployment fails closed when the write token is missing, rate-limits
-  reviewer traffic in the app and Cloudflare WAF, and supports a billing-budget
-  kill switch that disables Fast GCP Review through a GCS state file.
-- Each public review also exposes a Markdown incident report that states the
-  evidence boundary, provider status, human review questions, and promotion
-  blockers without converting provider agreement into an accepted cause.
-- `make demo` regenerates the flagship amazon-notify review cache from
-  `data/amazon_notify_flagship_logs.jsonl` using deterministic local providers.
-- `python -m uvicorn ...` serves the same read-only review UI locally.
-- `ops-evidence draft-focused-profile` asks Gemini to profile the sanitized
-  code/config and evidence context into the runtime components, logged signals,
-  orchestration loops, and read-only collectors that matter for review.
-- `make ci` verifies fixture fidelity and runs the full test suite.
-- `make smoke-public` checks that the deployed summary/detail pages and
-  read-only review APIs load within the 10 second review budget and contain the
-  expected review signals.
-- `make smoke-demo-video` verifies every public screen and saved live run used
-  by the submission video, then runs the fixed More Data Rescore transition.
+## Reproduce the Public Review Locally
 
-## What Problem This Solves
-
-In AIOps and Observability AI, the hard problem is not producing another
-summary. The hard problem is preventing unsafe certainty.
-
-Common incident-review failure modes:
-
-- Raw logs and source context are too sensitive to upload to arbitrary model
-  workflows.
-- Model output mixes evidence, interpretation, and suggested actions.
-- Dashboard screenshots hide the evidence boundary and provenance.
-- Multi-model disagreement is often collapsed into a single confident answer.
-- Slow review pages lose evaluator trust before the evidence is visible.
-- Follow-up evidence requests are not tied back to the original claims.
-
-This project addresses those gaps with a local-first evidence boundary,
-SHA-fixed Evidence Bundles, multi-provider analysis, evidence-reference
-validation, disagreement-preserving arbitration, and a read-only Cloud Run UI
-that loads a useful review immediately.
-
-The core product stance is conservative: AI may prioritize review work and
-request missing evidence, but final causal judgement and operational action stay
-human-gated.
-
-## Offline Reproduction Path
-
-This offline reproduction path requires no cloud credentials, no network model
-calls, and no private logs. It is separate from the live Fast GCP Review and
-uses deterministic local providers with a committed public-safe fixture.
+This path needs no cloud credentials, private logs, or network model call.
 
 ```bash
+git clone https://github.com/yukimurata0421/ops-evidence-synthesis.git
+cd ops-evidence-synthesis
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -U pip
 python -m pip install -e ".[test,api]"
 make demo
 make verify-precomputed
 python -m uvicorn ops_evidence_synthesis.api:app --host 127.0.0.1 --port 8080
 ```
 
-Open the generated local review page:
+Open:
 
 ```text
 http://127.0.0.1:8080/?evidence_sha256=3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d
 ```
 
-What to look for:
-
-- Provider positions are shown as `claimed` or `silent` per review target.
-- Convergence score is `claimed successful providers / all successful providers`.
-- Technical convergence does not promote an incident when impact is still open.
-- Raw logs are not uploaded; the UI serves a generated, read-only review cache.
-- More data rescore demo shows `needs_more_data -> evidence_collected` and a
-  promotion change from validation target to primary candidate.
-- Agent Trace is generated through an ADK tool contract: the deterministic
-  pipeline is wrapped as ADK-compatible tools, while human gates remain explicit.
-
-## Local GCS Review
-
-Use this path in development when starting from local logs and optional source
-code. Run one command, paste the absolute log path, optionally paste a source
-code directory, accept the default service/environment when they match, then
-enter the incident window.
-
-When a source code directory is provided, the command first sanitizes the source
-tree locally, builds rule-based source mapping candidates, asks Gemini Pro to
-draft a focused operational profile from the sanitized artifacts, and pauses on
-the human-readable code profile URL. Answer directly under the Gemini Questions
-For Human Approval section, confirm the deployment/log-scope checkboxes, select
-`Approved for log analysis`, and enter the API write token. `Normalize With
-Gemini` returns a candidate JSON patch; inspect or edit that patch before choosing
-`Approve Edited Patch`. Download the resulting approved operational profile JSON,
-then type `APPROVE` in the terminal and provide the downloaded file's absolute
-path. Log sanitization, Evidence Bundle
-construction, private cloud handoff, and the final incident review page are the
-next step after that approval. Both the code profile checkpoint and the final
-incident review are printed as HTTPS URLs, not raw JSON or `gs://` object URIs.
-You do not need to copy an Evidence SHA by hand.
-
-Gemini cannot approve its own interpretation. It only produces the candidate
-patch. The approval endpoint validates existing metric/component/log identifiers,
-freezes human answers and model provenance into a SHA-256-bound
-`approved_operational_profile.v1`, and requires all three human confirmations.
-After that profile is frozen, the downstream log-analysis job receives the
-approved profile instead of sanitized source context and rejects attempts to
-reintroduce source context.
-
-Large log directories are processed as streams. The sanitizer does not keep the
-full corpus in memory, and obvious binary/media/database artifacts such as
-`.png`, `.mp4`, and `.sqlite3` are skipped when a directory is supplied.
-
-```bash
-make review
-```
-
-The CLI asks only for values that are not already set:
-
-```text
-Absolute log file or directory (example: /absolute/path/to/logs.jsonl):
-Source code directory or directories [optional]:
-Service name [stream_v3_runtime]:
-Environment [stream_v3]:
-Incident window start (example: 2026-06-14T23:15:50Z):
-Incident window end (example: 2026-06-15T23:59:52Z):
-Code profile URL: https://ops-evidence.yukimurata0421.dev/code-profiles/...
-Code profile Markdown URL: https://ops-evidence.yukimurata0421.dev/code-profiles/.../report.md
-Gemini source profile: status=ok, model=gemini-3.1-pro-preview, fallback_used=False
-After human review, type APPROVE to start log analysis [N]:
-Absolute path to the downloaded approved_operational_profile.json:
-```
-
-By default, local outputs are written to `./analyses/${RUN_ID}/` with an
-auto-generated `RUN_ID`. Override `OUT` only when you want the export somewhere
-else; if set, `OUT` must be an absolute path.
-
-For a non-interactive run, set values in env:
-
-```bash
-export LOG_INPUT="/absolute/path/to/local/logs.jsonl"
-export SOURCE_ROOT="/absolute/path/to/source/repo"
-export SERVICE="stream_v3_runtime"
-export ENVIRONMENT="stream_v3"
-export START="2026-06-14T23:15:50Z"
-export END="2026-06-15T23:59:52Z"
-export APPROVED_PROFILE="/absolute/path/to/downloaded/approved-operational-profile.json"
-make review
-```
-
-`APPROVED_PROFILE` is required for a non-interactive source-root run. The same
-path can be passed as `--approved-profile`. `--skip-source-confirmation` remains
-an explicit opt-out for legacy/diagnostic runs and does not create an approved
-profile.
-
-The command prints a short human-readable summary:
-
-- `Review URL`: the deployed read-only review page for human review.
-- `Markdown report URL`: the same review as a readable Markdown report.
-- `Code profile URL`: the source/profile checkpoint that was approved before
-  log analysis.
-- `Local analysis directory`: local sanitized artifacts under `analyses/`.
-- `Sanitized source context` and `Source analysis`: shown when `SOURCE_ROOT`
-  was provided.
-- `Approved operational profile` and `Approved profile SHA-256`: the exact
-  human-approved context supplied to downstream log analysis.
-
-Private artifact URIs are hidden by default so the copyable output is browser
-friendly. Pass `--show-gcs-uris` through `REVIEW_ARGS` only when you need the
-private `gs://` handoff paths:
-
-```bash
-make review REVIEW_ARGS="--show-gcs-uris"
-```
-
-## Main Pipeline
-
-| Stage | What happens | Main implementation |
-| --- | --- | --- |
-| Collect | Ingest local JSONL/text logs and optional source/profile context. | `src/ops_evidence_synthesis/ingest.py`, `scripts/analyze_amazon_notify_local.py` |
-| Sanitize | Redact sensitive values and verify that raw logs stay outside model input. | `src/ops_evidence_synthesis/local_first.py`, `src/ops_evidence_synthesis/sanitizer.py` |
-| Analyze | Run deterministic or configured providers against the same Evidence Bundle. | `src/ops_evidence_synthesis/synthesis/pipeline.py`, `src/ops_evidence_synthesis/ai/` |
-| Orchestrate | Wrap the investigation loop as ADK tools and emit a tool-call trace for Agent Runtime / `AdkApp` deployments. | `src/ops_evidence_synthesis/agents/adk_investigator.py` |
-| Synthesize | Parse, validate, route, score, compare providers, and persist the Canonical Review Graph/review-target projection. | `src/ops_evidence_synthesis/synthesis/`, `src/ops_evidence_synthesis/precomputed_review.py` |
-| Report | Serve fast read-only summary/detail pages and Markdown incident reports from precomputed review JSON. | `src/ops_evidence_synthesis/api.py`, `src/ops_evidence_synthesis/routes/`, `src/ops_evidence_synthesis/web/`, `data/precomputed_review_summaries/` |
-
-High-level flow:
-
-```text
-local logs
-  -> sanitize locally
-  -> SQLite logs_sanitized / sanitized_events
-  -> full DB-row coverage ledger
-  -> Evidence Bundle with stable SHA256
-  -> chunked provider runs over every Evidence Item
-  -> provider_chunk_runs ledger (PostgreSQL recommended; JSONL audit fallback)
-  -> private GCS job artifacts for recorded provider output and public payload handoff
-  -> ADK tool-call trace
-  -> schema and evidence-reference validation
-  -> review target arbitration
-  -> persisted canonical_review_graph.v1
-  -> precomputed review JSON
-  -> read-only summary/detail UI
-```
-
-For local source-aware runs, generate sanitized source artifacts first, approve
-the profile draft, then pass only those sanitized context files to the product
-flow:
-
-```bash
-ops-evidence run-case \
-  --input data/sample_logs.jsonl \
-  --service payment-api \
-  --environment prod \
-  --start 2026-06-12T10:00:00Z \
-  --end 2026-06-12T10:20:00Z \
-  --approved-profile path/to/approved_profile.yaml \
-  --source-context path/to/source_context_bundle.json \
-  --source-analysis path/to/source_analysis_bundle.json
-```
-
-## Reviewer Reading Path
-
-Start here if you are evaluating the hackathon submission:
-
-1. [HACKATHON_SUBMISSION.md](HACKATHON_SUBMISSION.md) - short problem, demo, and judging summary.
-2. [src/ops_evidence_synthesis/precomputed_review.py](src/ops_evidence_synthesis/precomputed_review.py) - turns pipeline output into the fast UI cache.
-3. [tests/test_precomputed_review.py](tests/test_precomputed_review.py) - proves the public fixture is regenerated from code.
-4. [src/ops_evidence_synthesis/synthesis/output_ingest.py](src/ops_evidence_synthesis/synthesis/output_ingest.py) - canonical observation rollup and provider-overlap scoring.
-5. [src/ops_evidence_synthesis/api.py](src/ops_evidence_synthesis/api.py) - FastAPI app bootstrap and store/provider wiring.
-6. [src/ops_evidence_synthesis/routes/api_routes.py](src/ops_evidence_synthesis/routes/api_routes.py) - API routes for ingest, review, progress, and public read-only views.
-7. [src/ops_evidence_synthesis/web/precomputed_review.py](src/ops_evidence_synthesis/web/precomputed_review.py) and [src/ops_evidence_synthesis/web/review_page.py](src/ops_evidence_synthesis/web/review_page.py) - HTML/JSON rendering for precomputed and SQLite-backed review pages.
-8. [docs/architecture.md](docs/architecture.md) - local-first architecture and review graph.
-9. [docs/evidence_bundle.md](docs/evidence_bundle.md) - Evidence Bundle contract and evidence/context boundary.
-10. [docs/current-vs-architecture-gap.md](docs/current-vs-architecture-gap.md) - implemented state and production hardening roadmap.
-
-## Test Commands
-
-After the virtual environment from the demo section is active, run the full
-local gate:
-
-```bash
-make verify-precomputed
-make test
-```
-
-Run the combined local gate:
+Run the complete local gate and public smoke checks:
 
 ```bash
 make ci
-```
-
-`make` uses `.venv/bin/python` automatically when the repository-local virtual
-environment exists; otherwise it falls back to `python3`.
-
-Run the same manual gate used before release if you prefer the shell wrapper:
-
-```bash
-PYTHON_BIN=.venv/bin/python scripts/manual_ci.sh
-```
-
-Smoke the public Cloud Run demo:
-
-```bash
 make smoke-public
+make smoke-demo-video
 ```
-
-Deploy and immediately verify the public demo:
-
-```bash
-scripts/deploy_public_demo.sh
-```
-
-Create a clean public archive from tracked files only:
-
-```bash
-make archive-public
-```
-
-CI also runs `make verify-precomputed` and `make test` on GitHub Actions.
-
-## Assets, Samples, and Generated Outputs
-
-Committed public assets:
-
-- `data/amazon_notify_flagship_logs.jsonl` - public-safe 6,506-line flagship fixture.
-- `data/public_evidence_manifests/*.json` - compact public manifests for real API reviews, including URLs, evidence hashes, provider hashes, data-boundary flags, and token-compression statistics.
-- `data/precomputed_review_summaries/3ee1f9...df19d.json` - live demo cache regenerated by `make demo` and checked by CI.
-- `data/precomputed_review_summaries/b99da9...414ec.json` - real API full-corpus ledger review cache generated from a 44,944-row sanitized 14-day DB corpus, sanitized source context, and five schema-valid provider runs: Gemini, GPT OSS, Mistral, Qwen, and Gemma 4.
-- `data/precomputed_review_summaries/ab18d6...a471.json` - stream_v3 Dell runtime real API review cache from 45,000 input rows, 45,000 accepted sanitized events, and 1,035 Evidence Items.
-- `data/precomputed_review_summaries/8d1654...bd9a.json` - stream_v3 arena-server monitoring real API review cache from 50,000 staged rows and 49,942 accepted sanitized events.
-- `data/sample_logs.jsonl` - compact public-safe sample fixture.
-- `data/precomputed_review_summaries/a7da50...6208.json` - compact sample cache regenerated by `make demo-sample`.
-- `sample_projects/profile_discovery_sample/` - small profile-discovery fixture.
-- `schemas/` - public JSON contracts for claim results and Evidence Bundles.
-
-Generated or local-only assets:
-
-- `workspace/`, `.venv/`, `.pytest_cache/`, and `__pycache__/` are local generated outputs and are not committed.
-- Real operational logs, raw source trees, and private row-level sanitized corpora are not part of the public repository.
-- Real-provider execution may require local credentials and is intentionally separate from the public deterministic demo.
-
-## Hackathon Scope and Asset Boundary
-
-The submission path to evaluate is the live read-only UI, the deterministic
-local demo, the precomputed review generator, and the tests that prove the
-committed review cache is reproducible.
-
-Reusable foundation code is kept in the repository because it is part of the
-working product surface: local sanitization, Evidence Bundle creation, provider
-adapters, review arbitration, evidence request planning, storage adapters, and
-the FastAPI UI. Optional operator scripts under `scripts/` are not required for
-the primary reviewer path unless the README names them directly. See
-[scripts/README.md](scripts/README.md) for the script inventory.
-
-Committed logs are synthetic fixtures. `sample_logs/redaction_fixture.jsonl`
-contains intentionally fake tokens and example paths so the sanitizer and
-secret-leak checks can be tested. Generated databases, logs, caches, workspaces,
-Terraform state, and credential files are ignored by default.
-
-The live Cloud Run page is a read-only delivery surface. Heavy analysis and real
-provider runs can execute as a private Cloud Run Job from sanitized GCS inputs,
-while the public service reads precomputed review JSON from the repository or a
-private GCS prefix.
 
 ## Safety Boundary
 
-- Raw logs stay local.
-- The SQLite DB file is not sent to providers.
-- Model input is the sanitized Evidence Bundle: DB rows are first assigned to
-  Evidence Items, then provider calls cover those Evidence Items through chunks.
-- Sanitized bundle/profile/source-context artifacts can be staged in a private
-  GCS bucket for Cloud Run Job execution. Raw source trees and raw logs are not
-  part of that job contract.
-- Chunk execution state is not tied to SQLite. For parallel real-provider runs,
-  set `OES_CHUNK_RUN_STORE=postgres` and `OES_CHUNK_RUN_POSTGRES_DSN=...` so
-  `provider_id + prompt_sha256` can be used as a durable resume key.
-- PostgreSQL chunk orchestration stores current state in `provider_chunk_runs`,
-  append-only execution history in `provider_chunk_attempts`, and exposes a
-  `FOR UPDATE SKIP LOCKED` retry-claim query for future worker pools.
-- Source, profile, and human context can guide review, but runtime claims need cited evidence IDs.
-- API and UI reads prefer the persisted Canonical Review Graph when available.
-- Provider agreement is a review signal, not majority-vote truth.
-- Score is review priority, not truth probability.
-- Final causal judgement and operational action remain human-gated.
+- Raw logs, raw source trees, SQLite databases, and credentials stay local.
+- Models receive sanitized Evidence Items plus approved profile context.
+- Approval freezes human answers and model provenance into a SHA-bound
+  `approved_operational_profile.v1`.
+- Downstream log analysis rejects attempts to reintroduce source context after
+  approval.
+- Public endpoints are read-only except for bounded fixed-sample demos with
+  rate limits and billing guards.
+- Provider agreement cannot bypass user-impact, evidence, or human gates.
+- Final causal judgement and operational action remain human-owned.
 
-## Deployment Template
+See [Data boundary](docs/data-boundary.md) and the
+[Evidence Bundle contract](docs/evidence_bundle.md) for the exact artifact
+boundary.
 
-The repository includes a production-oriented Google Cloud template for teams
-that want to operate the same contracts beyond the public demo:
+## Repository Guide
 
-- Cloud Run API service
-- Cloud Run Job for private chunked review execution
-- Private GCS bucket with uniform bucket-level access and public access prevention
-- Cloud SQL for PostgreSQL provider chunk ledger
-- BigQuery schemas for evidence and synthesis artifacts
-- Terraform resources under `infra/terraform/`
-- Public smoke check for root/detail review pages and read-only review APIs
+- [Architecture](docs/architecture.md) — complete local-first and cloud flow
+- [Review modes](docs/review-modes-runbook.md) — replay, live, and forensic modes
+- [Current implementation and roadmap](docs/current-vs-architecture-gap.md) — implemented state versus production gaps
+- [Public documentation inventory](docs/public-documentation-inventory.md) — canonical reviewer-facing documents
+- [Precomputed review renderer](src/ops_evidence_synthesis/web/precomputed_review.py) — public review UI and graph projections
+- [Review arbitration](src/ops_evidence_synthesis/synthesis/review_arbitration.py) — evidence-aware target routing
+- [ADK investigator](src/ops_evidence_synthesis/agents/adk_investigator.py) — guarded tool contract and trace
+- [Tests](tests/) — fixture regeneration, safety gates, UI contracts, and API behavior
 
-See [infra/terraform/README.md](infra/terraform/README.md) and
-[cloudbuild.yaml](cloudbuild.yaml) for deployment details.
+Operator-oriented CLI, private GCS review, deployment, and infrastructure
+instructions live in `docs/`, `scripts/README.md`, and
+`infra/terraform/README.md` so this page stays focused on evaluation.
 
 ## License
 
