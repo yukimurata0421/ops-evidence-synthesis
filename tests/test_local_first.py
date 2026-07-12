@@ -14,8 +14,12 @@ from ops_evidence_synthesis.local_first import (
     infer_event_type,
     inspect_input,
     iter_input_files,
+    parse_line,
     sanitize_input,
     verify_sanitized_output,
+    normalize_parsed_line,
+    InputLine,
+    RedactionCounter,
 )
 
 
@@ -33,6 +37,98 @@ def test_event_type_does_not_treat_source_line_numbers_as_http_5xx() -> None:
     assert infer_event_type("checkout failed HTTP 503", "ERROR", attributes) == "http_5xx"
     assert infer_event_type("checkout failed HTTP 500 database timeout", "ERROR", attributes) == "http_5xx"
     assert infer_event_type("checkout failed", "ERROR", {"httpRequest": {"status": 503}}) == "http_5xx"
+
+
+def test_event_type_ignores_historical_nested_failures_and_negated_signals() -> None:
+    healthy_attributes = {
+        "error_type": "none",
+        "labels_json": {
+            "status": "healthy",
+            "last_close_reason": "probe_failed: TimeoutError",
+            "reason": "No sustained memory pressure or OOM event observed.",
+        },
+    }
+
+    assert infer_event_type("event service=health-observer status=healthy", "INFO", healthy_attributes) == "info"
+    assert infer_event_type("event", "ERROR", {"error_type": "timeout"}) == "timeout"
+    assert infer_event_type("event", "CRITICAL", {"error_type": "oom"}) == "oom"
+
+
+def test_generic_json_event_uses_bounded_structured_semantics() -> None:
+    row = {
+        "timestamp": "2026-06-18T09:54:00Z",
+        "service": "monitoring-plane",
+        "severity": "INFO",
+        "message_sanitized": "event",
+        "labels_json": {
+            "schema": "portable_health_observer/v2",
+            "original_service": "network_observer",
+            "sample_reason": "scheduled",
+            "ok": True,
+            "address": "192.0.2.10",
+            "raw": "must not enter the semantic signature",
+        },
+    }
+    item = InputLine(Path("input.jsonl"), 1, json.dumps(row), "2026-06-18T09:54:00Z")
+
+    event = normalize_parsed_line(parse_line(item), item, RedactionCounter())
+
+    assert event["message_sanitized"] == (
+        "event service=monitoring-plane schema=portable_health_observer:v2 "
+        "original_service=network_observer sample_reason=scheduled labels_json.ok=true"
+    )
+    assert event["message_template"] == event["message_sanitized"]
+    assert "192.0.2.10" not in event["message_sanitized"]
+    assert "must not enter" not in event["message_sanitized"]
+
+
+def test_structured_semantics_do_not_change_meaningful_messages() -> None:
+    row = {
+        "timestamp": "2026-06-18T09:54:00Z",
+        "service": "payment-api",
+        "severity": "ERROR",
+        "message": "database connection timeout",
+        "labels_json": {"schema": "payment/v1", "ok": False},
+    }
+    item = InputLine(Path("input.jsonl"), 1, json.dumps(row), "2026-06-18T09:54:00Z")
+
+    event = normalize_parsed_line(parse_line(item), item, RedactionCounter())
+
+    assert event["message_sanitized"] == "database connection timeout"
+
+
+def test_resanitize_preserves_existing_sanitized_message() -> None:
+    row = {
+        "timestamp": "2026-06-18T09:54:00Z",
+        "service": "network-observer",
+        "severity": "INFO",
+        "message_sanitized": "all persistent anchors are healthy",
+        "message_template": "all persistent anchors are healthy",
+        "labels_json": {"last_close_reason": "historical timeout"},
+    }
+    item = InputLine(Path("input.jsonl"), 1, json.dumps(row), "2026-06-18T09:54:00Z")
+
+    event = normalize_parsed_line(parse_line(item), item, RedactionCounter())
+
+    assert event["message_sanitized"] == "all persistent anchors are healthy"
+    assert event["message_template"] == "all persistent anchors are healthy"
+    assert event["event_type"] == "info"
+
+
+def test_generic_structured_event_adds_service_without_duplicating_action() -> None:
+    row = {
+        "timestamp": "2026-06-18T09:54:00Z",
+        "service": "route-observer",
+        "severity": "INFO",
+        "message_sanitized": "event action=down",
+        "labels_json": {"schema": "route_observer/v1", "action": "down"},
+    }
+    item = InputLine(Path("input.jsonl"), 1, json.dumps(row), "2026-06-18T09:54:00Z")
+
+    event = normalize_parsed_line(parse_line(item), item, RedactionCounter())
+
+    assert event["message_sanitized"] == "event action=down service=route-observer schema=route_observer:v1"
+    assert event["message_sanitized"].count("action=down") == 1
 
 
 def test_bundle_records_cross_evidence_trace_and_deployment_relationships(tmp_path: Path) -> None:

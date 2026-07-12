@@ -18,11 +18,13 @@ Current reviewer-facing URLs for the hackathon submission.
 ## Primary Demo URLs
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- Primary summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Runtime Code Profile: https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/
+- Runtime static review: https://ops-evidence.yukimurata0421.dev/reviews/a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0/
+- Primary summary: https://ops-evidence.yukimurata0421.dev/?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Primary incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Primary visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
 - Fast GCP Review: https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
 - Latest Fast GCP Review result: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=5ae4f02d8390ecff4007c641c95fbfaa38af6356e4b53ff8267876a63e61781f
 - Latest Fast Cross-check Lite result: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=9c09eaf87d152911e39a3d52bd982c8d68e397f6cf05505c3261804f5e070f27
@@ -38,23 +40,24 @@ Current reviewer-facing URLs for the hackathon submission.
 
 ## Machine-Readable Review URLs
 
-- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- JSON summary API: https://ops-evidence.yukimurata0421.dev/ui/summary?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- JSON review targets API: https://ops-evidence.yukimurata0421.dev/review-targets?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- JSON review graph API with nodes/edges: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
 
 ## Additional Real API Validation URLs
 
-- stream_v3 Dell runtime 45k detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- stream_v3 Dell runtime 45k incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- stream_v3 Dell runtime 45k API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- stream_v3 arena-server monitoring 50k detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
-- stream_v3 arena-server monitoring 50k incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
-- stream_v3 arena-server monitoring 50k API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
+- stream_v3 Dell runtime 45k detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- stream_v3 Dell runtime 45k incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- stream_v3 Dell runtime 45k API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- stream_v3 arena-server monitoring 50k detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a
+- stream_v3 arena-server monitoring 50k incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a
+- stream_v3 arena-server monitoring 50k API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a
+- stream_v3 arena-server monitoring Code Profile: https://ops-evidence.yukimurata0421.dev/code-profiles/a762211461c691c7392dd1ff5e774b63f1932b939329693be41017c843a94cc4/
 
 ## Operational Readiness
 
-- Cloud Run revision after deploy: `ops-evidence-api-00246-h98`
-- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:26647d929611ca9c3d10e66b8ed2d717e17caa6a525ee54d62cfec8183c7b1f1`
+- Cloud Run revision after deploy: `ops-evidence-api-00256-f4q`
+- Deployed image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:951ccc98ad20040c6a3c1f91fb786a400b5986aed7b597435c5da745f34e11f7`
 - Digest note: this digest is a public demo release attestation, not a private
   execution identifier.
 - Public smoke after deploy: passed

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import time
 from copy import deepcopy
 from pathlib import Path
@@ -11,9 +10,10 @@ from urllib.parse import quote
 
 _PRECOMPUTED_REVIEW_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _RESCORE_DEMO_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
-PUBLIC_PRIMARY_REVIEW_SHA256 = "345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6"
+PUBLIC_PRIMARY_REVIEW_SHA256 = "a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0"
 _PUBLIC_PRECOMPUTED_REVIEW_ALIASES = {
     "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681": PUBLIC_PRIMARY_REVIEW_SHA256,
+    "345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6": PUBLIC_PRIMARY_REVIEW_SHA256,
 }
 
 
@@ -29,66 +29,6 @@ def _count_noun(value: int, singular: str, plural: str | None = None) -> str:
     count = int(value)
     noun = singular if count == 1 else (plural or f"{singular}s")
     return f"{_human_count(count)} {noun}"
-
-
-def _review_target_count_text(primary_targets: int, validation_targets: int) -> str:
-    return (
-        f"{_count_noun(primary_targets, 'primary candidate')} and "
-        f"{_count_noun(validation_targets, 'validation target')}"
-    )
-
-
-_PUBLIC_COUNT_TOKEN_PATTERNS = (
-    (re.compile(r"\b(\d[\d,]*) primary candidate\(s\)"), "primary candidate", None),
-    (re.compile(r"\b(\d[\d,]*) validation target\(s\)"), "validation target", None),
-    (re.compile(r"\b(\d[\d,]*) review target\(s\)"), "review target", None),
-    (re.compile(r"\b(\d[\d,]*) target\(s\)"), "target", None),
-    (re.compile(r"\b(\d[\d,]*) Evidence Item association\(s\)"), "Evidence Item association", None),
-    (re.compile(r"\b(\d[\d,]*) Evidence Item\(s\)"), "Evidence Item", "Evidence Items"),
-    (re.compile(r"\b(\d[\d,]*) additional trace step\(s\)"), "additional trace step", None),
-    (re.compile(r"\b(\d[\d,]*) trace step\(s\)"), "trace step", None),
-    (re.compile(r"\b(\d[\d,]*) summary item\(s\)"), "summary item", None),
-    (re.compile(r"\b(\d[\d,]*) explicit conflict\(s\)"), "explicit conflict", None),
-    (re.compile(r"\b(\d[\d,]*) convergence group\(s\)"), "convergence group", None),
-    (re.compile(r"\b(\d[\d,]*) occurrence\(s\)"), "occurrence", None),
-    (re.compile(r"\b(\d[\d,]*) chunk\(s\)"), "chunk", None),
-    (re.compile(r"\b(\d[\d,]*) row\(s\)"), "row", None),
-)
-_PUBLIC_GENERIC_COUNT_TOKEN_PATTERN = re.compile(
-    r"\b(\d[\d,]*) ([A-Za-z][A-Za-z0-9_/-]*(?: [A-Za-z][A-Za-z0-9_/-]*){0,5})\(s\)"
-)
-_PUBLIC_NON_ONE_SINGULAR_PATTERNS = (
-    (re.compile(r"\b(\d[\d,]*) primary candidate\b(?!s)"), "primary candidate", None),
-    (re.compile(r"\b(\d[\d,]*) validation target\b(?!s)"), "validation target", None),
-    (re.compile(r"\b(\d[\d,]*) monitor-only item\b(?!s)"), "monitor-only item", None),
-)
-
-
-def _public_count_text(value: object) -> str:
-    text = "" if value is None else str(value)
-    for pattern, singular, plural in _PUBLIC_COUNT_TOKEN_PATTERNS:
-        text = pattern.sub(
-            lambda match, singular=singular, plural=plural: _count_noun(
-                int(match.group(1).replace(",", "")),
-                singular,
-                plural,
-            ),
-            text,
-        )
-    text = _PUBLIC_GENERIC_COUNT_TOKEN_PATTERN.sub(
-        lambda match: _count_noun(int(match.group(1).replace(",", "")), match.group(2)),
-        text,
-    )
-    for pattern, singular, plural in _PUBLIC_NON_ONE_SINGULAR_PATTERNS:
-        text = pattern.sub(
-            lambda match, singular=singular, plural=plural: (
-                match.group(0)
-                if int(match.group(1).replace(",", "")) == 1
-                else _count_noun(int(match.group(1).replace(",", "")), singular, plural)
-            ),
-            text,
-        )
-    return text
 
 
 def _public_repo_url() -> str:
@@ -370,70 +310,19 @@ def _public_manifest_index_path() -> Path:
     return Path(os.environ.get("OES_PUBLIC_MANIFEST_INDEX", "data/public_evidence_manifests/index.json"))
 
 
-def _public_manifest_paths() -> list[Path]:
+def _public_manifest_entries() -> list[dict[str, Any]]:
     index_path = _public_manifest_index_path()
     try:
         index = json.loads(index_path.read_text(encoding="utf-8"))
     except Exception:
         return []
-    paths: list[Path] = []
+    entries: list[dict[str, Any]] = []
     for raw_path in index.get("manifests") or []:
         manifest_path = Path(str(raw_path))
         if not manifest_path.is_absolute() and not manifest_path.exists():
             candidate = index_path.parent / manifest_path.name
             if candidate.exists():
                 manifest_path = candidate
-        paths.append(manifest_path)
-    return paths
-
-
-def _public_manifest_label_for_evidence(evidence_sha256: str) -> str:
-    evidence_id = _canonical_precomputed_review_sha(evidence_sha256)
-    if not evidence_id:
-        return ""
-    for manifest_path in _public_manifest_paths():
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        if not isinstance(manifest, dict):
-            continue
-        manifest_evidence = _canonical_precomputed_review_sha(str(manifest.get("evidence_sha256") or ""))
-        if manifest_evidence != evidence_id:
-            continue
-        positioning = manifest.get("public_positioning") if isinstance(manifest.get("public_positioning"), dict) else {}
-        label = str(positioning.get("title") or manifest.get("title") or "").strip()
-        if label:
-            return label
-    return ""
-
-
-def _public_finding_impact_text(summary: dict[str, Any] | None, fallback: str) -> str:
-    fallback_text = _public_count_text(fallback).strip()
-    if fallback_text:
-        return fallback_text
-    summary = summary if isinstance(summary, dict) else {}
-    review = summary.get("review") if isinstance(summary.get("review"), dict) else {}
-    providers = summary.get("providers") if isinstance(summary.get("providers"), dict) else {}
-    if not review:
-        return ""
-    primary_targets = int(review.get("primary_targets") or 0)
-    validation_targets = int(review.get("validation_targets") or 0)
-    provider_success = int(providers.get("success") or 0)
-    provider_total = int(providers.get("total") or 0)
-    if provider_total:
-        provider_text = f"{provider_success} / {provider_total} schema-valid providers returned usable outputs"
-    else:
-        provider_text = "Recorded provider outputs are available"
-    return (
-        f"{provider_text}. {_review_target_count_text(primary_targets, validation_targets)} "
-        "remain human-gated; incident promotion is not auto-accepted."
-    )
-
-
-def _public_manifest_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for manifest_path in _public_manifest_paths():
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except Exception:
@@ -475,8 +364,8 @@ def _public_manifest_entries() -> list[dict[str, Any]]:
             "primary_review": "Primary Review",
             "guarded_review": "Guarded Review",
             "observation_gap": "Observation Gap Validation",
-            "scale_validation": "Scale Evidence",
-        }.get(landing_role, "Scale Evidence")
+            "scale_validation": "Cross-Domain Scale Validation",
+        }.get(landing_role, "Cross-Domain Scale Validation")
         entries.append(
             {
                 "case_id": case_id,
@@ -593,43 +482,27 @@ def _review_card_html(entry: dict[str, Any], *, featured: bool = False) -> str:
     note = str(entry.get("landing_note") or "").strip()
     note_html = f"<p>{_html(note)}</p>" if note else ""
     occurrence_html = f"<small>{_html(occurrence_note)}</small>" if occurrence_note else ""
-    category = str(entry.get("category") or "Review")
-    category_class = {
-        "Primary Review": "review-card--primary",
-        "Guarded Review": "review-card--guarded",
-        "Observation Gap Validation": "review-card--observation",
-    }.get(category, "review-card--default")
-    badge = "Primary Review" if featured else category
-    status_badge = (
-        f'<span class="status-badge">{_html(f"要確認 {target_count}件")}</span>'
-        if category == "Observation Gap Validation"
-        else ""
-    )
-    title = str(entry.get("title") or "Precomputed review")
+    badge = "Flagship" if featured else str(entry.get("category") or "Review")
     return f"""
-      <article class="review-card {category_class}{' featured' if featured else ''}">
-        <a class="review-card-main" href="{_html(detail_url)}" aria-label="{_html(f'Open {title} detail review')}">
-          <div class="card-topline">
-            <span class="badge card-tag">{_html(badge)}</span>
-            {status_badge}
-            <span class="sha">{_html(evidence_sha[:12])}</span>
-            <span class="card-arrow" aria-hidden="true">↗</span>
-          </div>
-          <h3>{_html(title)}</h3>
-          <p>{_html(str(entry.get("finding") or ""))}</p>
-          {note_html}
-          <dl class="metrics">
-            <div><dt>Rows</dt><dd>{row_count}</dd></div>
-            <div><dt>Window</dt><dd>{_html(window_label)}</dd></div>
-            <div><dt>Evidence Items</dt><dd>{evidence_items}</dd>{occurrence_html}</div>
-            <div><dt>Chunks</dt><dd>{chunk_count}</dd></div>
-            <div><dt>Coverage</dt><dd>{coverage}</dd></div>
-            <div><dt>Providers</dt><dd>{schema_valid_count}/{provider_count}</dd></div>
-            <div><dt>Primary</dt><dd>{primary_count}</dd></div>
-            <div><dt>Review Targets</dt><dd>{target_count}</dd></div>
-          </dl>
-        </a>
-        <div class="actions" aria-label="{_html(f'Related links for {title}')}">
+      <article class="review-card{' featured' if featured else ''}">
+        <div class="card-topline">
+          <span class="badge">{_html(badge)}</span>
+          <span class="sha">{_html(evidence_sha[:12])}</span>
+        </div>
+        <h3><a href="{_html(detail_url)}">{_html(str(entry.get("title") or "Precomputed review"))}</a></h3>
+        <p>{_html(str(entry.get("finding") or ""))}</p>
+        {note_html}
+        <dl class="metrics">
+          <div><dt>Rows</dt><dd>{row_count}</dd></div>
+          <div><dt>Window</dt><dd>{_html(window_label)}</dd></div>
+          <div><dt>Evidence Items</dt><dd>{evidence_items}</dd>{occurrence_html}</div>
+          <div><dt>Chunks</dt><dd>{chunk_count}</dd></div>
+          <div><dt>Coverage</dt><dd>{coverage}</dd></div>
+          <div><dt>Providers</dt><dd>{schema_valid_count}/{provider_count}</dd></div>
+          <div><dt>Primary</dt><dd>{primary_count}</dd></div>
+          <div><dt>Review Targets</dt><dd>{target_count}</dd></div>
+        </dl>
+        <div class="actions">
           <a href="{_html(detail_url)}">Detail</a>
           <a href="{_html(api_url)}">API</a>
           <a href="{_html(graph_url)}">Graph</a>
@@ -639,9 +512,9 @@ def _review_card_html(entry: dict[str, Any], *, featured: bool = False) -> str:
     """
 
 
-def _scale_proof_html(entries: list[dict[str, Any]]) -> str:
+def _cross_domain_summary_card_html(entries: list[dict[str, Any]]) -> str:
     if not entries:
-        return ""
+        return "<p>No cross-domain review set is available.</p>"
     rows = sum(int(row.get("row_count") or 0) for row in entries)
     chunks = sum(int(row.get("chunk_count") or 0) for row in entries)
     primary_targets = sum(int(row.get("primary_targets") or 0) for row in entries)
@@ -658,14 +531,23 @@ def _scale_proof_html(entries: list[dict[str, Any]]) -> str:
         }
     )
     provider_label = ", ".join(provider_sets) if provider_sets else "recorded"
+    detail_links = "\n".join(
+        (
+            f"<a href=\"/ui/full-review-page?evidence_sha256={_html(_url_quote(str(row.get('evidence_sha') or '')))}\">"
+            f"{_html(str(row.get('category') or 'Review'))}</a>"
+        )
+        for row in entries
+        if row.get("evidence_sha")
+    )
     return f"""
-      <aside class="scale-proof" aria-label="Scale proof summary">
-        <div class="scale-proof-copy">
-          <span class="badge">Scale proof</span>
-          <strong>{len(entries)} recorded domains, one evidence-gated review contract.</strong>
-          <p>The cards below are the actual review artifacts. This is a scale summary of those three recorded runs, not a separate fourth run.</p>
+      <article class="review-card featured">
+        <div class="card-topline">
+          <span class="badge">Cross-Domain Scale Validation</span>
+          <span class="sha">{_html(str(len(entries)))} public corpora</span>
         </div>
-        <dl class="scale-proof-grid">
+        <h3>Scale validation is the curated review set above, not a fourth hidden run.</h3>
+        <p>The landing page groups the recorded real API runs by reviewer task: primary runtime review, guarded review, and observation-gap validation. This card summarizes that cross-domain evidence set so the scale proof is visible without duplicating a separate run.</p>
+        <dl class="metrics">
           <div><dt>Corpora</dt><dd>{len(entries)}</dd></div>
           <div><dt>Services</dt><dd>{_html(', '.join(services))}</dd></div>
           <div><dt>Rows</dt><dd>{_human_count(rows)}</dd></div>
@@ -675,7 +557,8 @@ def _scale_proof_html(entries: list[dict[str, Any]]) -> str:
           <div><dt>Primary</dt><dd>{primary_targets}</dd></div>
           <div><dt>Review Targets</dt><dd>{target_count}</dd></div>
         </dl>
-      </aside>
+        <div class="actions">{detail_links}</div>
+      </article>
     """
 
 
@@ -704,17 +587,23 @@ def _public_precomputed_landing_page() -> str:
     primary_entries = [row for row in manifest_entries if row.get("category") == "Primary Review"]
     guarded_entries = [row for row in manifest_entries if row.get("category") == "Guarded Review"]
     observation_entries = [row for row in manifest_entries if row.get("category") == "Observation Gap Validation"]
-    review_set_entries = primary_entries + guarded_entries + observation_entries
+    scale_entries = [
+        row
+        for row in manifest_entries
+        if row.get("category") not in {"Primary Review", "Guarded Review", "Observation Gap Validation"}
+    ]
     primary_cards = "\n".join(_review_card_html(row, featured=True) for row in primary_entries)
     guarded_cards = "\n".join(_review_card_html(row) for row in guarded_entries)
     observation_cards = "\n".join(_review_card_html(row) for row in observation_entries)
-    scale_proof = _scale_proof_html(review_set_entries)
+    scale_cards = "\n".join(_review_card_html(row) for row in scale_entries)
     if not primary_cards:
         primary_cards = "<p>No primary review is available.</p>"
     if not guarded_cards:
         guarded_cards = "<p>No guarded review is available.</p>"
     if not observation_cards:
         observation_cards = "<p>No observation gap review is available.</p>"
+    if not scale_cards:
+        scale_cards = _cross_domain_summary_card_html(manifest_entries)
     rescore_demo_ids = _public_rescore_demo_ids()
     archive_section = (
         "<details class='archive'><summary>Archived recorded runs</summary>"
@@ -773,7 +662,6 @@ def _public_precomputed_landing_page() -> str:
     total_public_rows = sum(int(row.get("row_count") or 0) for row in manifest_entries)
     total_public_corpora = len(manifest_entries)
     primary_rows = _human_count(int(primary_entry.get("row_count") or 0)) if primary_entry else "45,000"
-    primary_candidate_count = int(primary_entry.get("primary_targets") or 0)
     primary_review_targets = int(primary_entry.get("primary_targets") or 0) + int(primary_entry.get("validation_targets") or 0)
     return f"""
     <!doctype html>
@@ -1007,79 +895,19 @@ def _public_precomputed_landing_page() -> str:
           .section-note {{ max-width: 660px; color: var(--ink-3); font-size: 13px; line-height: 1.55; text-align: right; }}
           .review-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 18px; }}
           .review-card {{
-            display: block;
-            position: relative;
-            overflow: hidden;
+            display: grid;
+            gap: 12px;
+            padding: 22px;
             border: 1px solid #e7e0d1;
             border-radius: 14px;
             background: var(--surface);
-            box-shadow: 0 1px 2px rgba(40, 34, 20, .04);
-            transition: transform .2s ease-out, box-shadow .2s ease-out, border-color .2s ease-out;
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
           }}
-          .review-card:hover, .review-card:focus-within {{
-            border-color: #6d8cc9;
-            transform: translateY(-3px);
-            box-shadow: 0 14px 32px -22px rgba(50,42,28,.5);
-          }}
-          .review-card--primary {{ border-color: #d3dcee; }}
-          .review-card--guarded {{ border-color: #e4d7bd; }}
-          .review-card--guarded::before {{
-            content: "";
-            position: absolute;
-            inset: 0 auto 0 0;
-            width: 3px;
-            background: #c99335;
-          }}
-          .review-card--guarded .card-tag {{
-            border-color: #e1c47d;
-            background: #fff4d7;
-            color: #9a681b;
-          }}
-          .review-card--observation {{ border-color: #d7dfeb; }}
+          .review-card:hover {{ border-color: var(--border-strong); transform: translateY(-2px); box-shadow: 0 18px 40px -26px rgba(60,50,30,.4); }}
           .review-card.featured {{ grid-column: 1 / -1; }}
-          .review-card-main {{
-            display: grid;
-            gap: 12px;
-            padding: 22px 52px 14px 22px;
-            color: inherit;
-            text-decoration: none;
-          }}
-          .review-card-main:focus-visible {{
-            outline: 2px solid #5c7fc4;
-            outline-offset: -4px;
-            border-radius: 13px;
-          }}
           .review-card h3 {{ margin: 0; color: var(--ink); font-size: 17px; line-height: 1.35; letter-spacing: 0; }}
           .review-card p {{ font-size: 13px; }}
-          .scale-proof {{
-            display: grid;
-            grid-template-columns: minmax(260px, .92fr) minmax(0, 1.4fr);
-            gap: 18px;
-            margin: 0 0 34px;
-            padding: 20px;
-            border: 1px solid #d8cfbd;
-            border-radius: 14px;
-            background: #efe9db;
-          }}
-          .scale-proof-copy {{ display: grid; align-content: start; gap: 10px; }}
-          .scale-proof-copy strong {{ color: var(--ink); font-size: 17px; line-height: 1.35; }}
-          .scale-proof-copy p {{ color: var(--ink-3); font-size: 13px; }}
-          .scale-proof-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; }}
-          .scale-proof-grid div {{ min-width: 0; border-top: 1px solid #d2c8b7; padding-top: 10px; }}
-          .card-topline {{ display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-right: 8px; }}
-          .card-arrow {{
-            position: absolute;
-            top: 18px;
-            right: 18px;
-            color: var(--blue);
-            opacity: .46;
-            font: 900 18px/1 var(--sans);
-            transition: transform .2s ease-out, opacity .2s ease-out;
-          }}
-          .review-card:hover .card-arrow, .review-card:focus-within .card-arrow {{
-            opacity: 1;
-            transform: translate(2px, -2px);
-          }}
+          .card-topline {{ display: flex; justify-content: space-between; gap: 12px; align-items: center; }}
           .badge {{
             display: inline-flex;
             border: 1px solid #cdd8ec;
@@ -1090,22 +918,12 @@ def _public_precomputed_landing_page() -> str:
             font-size: 11px;
             font-weight: 800;
           }}
-          .status-badge {{
-            display: inline-flex;
-            border: 1px solid #cfd9e8;
-            border-radius: 999px;
-            padding: 6px 9px;
-            background: #f4f7fb;
-            color: #475b7a;
-            font-size: 11px;
-            font-weight: 850;
-          }}
           .sha, small {{ color: var(--muted); font-family: var(--mono); font-size: 11.5px; }}
           .metrics {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 4px 0 0; }}
           .metrics div {{ border-top: 1px solid var(--border); padding-top: 10px; min-width: 0; }}
           dt {{ color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }}
           dd {{ margin: 3px 0 0; font-weight: 820; overflow-wrap: anywhere; }}
-          .actions {{ display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px 22px; }}
+          .actions {{ display: flex; flex-wrap: wrap; gap: 8px; }}
           .actions a, .loop-link {{
             display: inline-grid;
             gap: 3px;
@@ -1145,13 +963,10 @@ def _public_precomputed_landing_page() -> str:
             .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
             .section-head {{ align-items: flex-start; flex-direction: column; }}
             .section-note {{ text-align: left; }}
-            .scale-proof {{ grid-template-columns: 1fr; }}
-            .scale-proof-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
           }}
           @media (max-width: 520px) {{
             h1 {{ font-size: 48px; }}
             .hero-stats, .pipeline, .mode-grid, .criteria-grid, .loop-grid {{ grid-template-columns: 1fr; }}
-            .scale-proof-grid {{ grid-template-columns: 1fr; }}
             .hero-cta {{ display: grid; }}
             .browser-bar {{ flex-wrap: wrap; }}
             .provider-bars div {{ grid-template-columns: 64px minmax(0, 1fr); }}
@@ -1183,7 +998,7 @@ def _public_precomputed_landing_page() -> str:
             <p class="hero-lead">Do not trust the summary. Trace it. Every AI verdict breaks into cited Evidence IDs, provider stances, missing evidence, and a human gate.</p>
             <p class="hero-sub">This public entry serves read-only precomputed reviews, sanitized logs, sanitized source context, and approved system profiles. Raw logs stay local; sanitized bundles reach Google Cloud for review. Provider convergence creates review targets, not accepted incident causes.</p>
             <div class="hero-cta">
-              <a class="button primary" href="{_html(primary_detail_url)}">Open flagship review -&gt;</a>
+              <a class="button primary" href="{_html(primary_detail_url)}">Open primary review -&gt;</a>
               <a class="button" href="/ui/fast-gcp-review">Run Fast GCP Review</a>
               <a class="button" href="{_html(primary_report_url)}">Read incident report</a>
               <a class="button" href="{_html(rescore_demo_url)}">Watch rescore loop</a>
@@ -1192,7 +1007,7 @@ def _public_precomputed_landing_page() -> str:
             <div class="hero-stats" aria-label="Public evidence summary">
               <div><b>{_html(primary_rows)}</b><span>rows analyzed</span></div>
               <div><b>{_html(gate_signal_label)}</b><span>providers - provider signal, not a verdict</span></div>
-              <div><b>{primary_candidate_count}</b><span>primary candidates in flagship review</span></div>
+              <div><b>{int(primary_entry.get("primary_targets") or 3)}</b><span>primary candidates</span></div>
               <div><b>0</b><span aria-label="0 AUTO-PROMOTED CAUSES">AUTO-PROMOTED CAUSES</span></div>
             </div>
           </section>
@@ -1208,17 +1023,17 @@ def _public_precomputed_landing_page() -> str:
                 <div>
                   <div class="queue-label">Review queue - {primary_review_targets}</div>
                   <div class="queue">
-                    <div class="queue-row active"><div><b>transport_sender</b><code>0.86</code></div><span>validation - 5/5</span></div>
-                    <div class="queue-row"><div><b>generic_runtime</b><code>0.86</code></div><span>validation - 4/5</span></div>
-                    <div class="queue-row"><div><b>job_configuration</b><code>0.80</code></div><span>validation - 3/5</span></div>
-                    <div class="queue-row"><div><b>resource_pressure</b><code>0.80</code></div><span>validation - 3/5</span></div>
+                    <div class="queue-row active"><div><b>chromium_capture</b><code>0.88</code></div><span>primary - 5/5</span></div>
+                    <div class="queue-row"><div><b>observability_contract</b><code>0.84</code></div><span>primary - 4/5</span></div>
+                    <div class="queue-row"><div><b>audio_energy</b><code>0.84</code></div><span>primary - 4/5</span></div>
+                    <div class="queue-row"><div><b>transport_sender</b><code>0.87</code></div><span>validation - 5/5</span></div>
                     <small>+ {max(0, primary_review_targets - 4)} targets</small>
                   </div>
                 </div>
                 <div>
                   <div class="mock-panel">
-                    <div class="mock-title"><span class="mock-pill">VALIDATION TARGET</span><b>transport_sender</b><span class="mock-score">0.86</span></div>
-                    <p class="mock-copy">Transport sender has provider convergence, but no impact outcome is accepted. The target stays in validation until user-impact evidence is attached.</p>
+                    <div class="mock-title"><span class="mock-pill">PRIMARY CANDIDATE</span><b>chromium_capture</b><span class="mock-score">0.88</span></div>
+                    <p class="mock-copy">Chromium capture process failed to start, leading to missing video frames. Capture freshness feeds the YouTube ingest pipeline.</p>
                   </div>
                   <div class="mock-panel soft" style="margin-top:12px">
                     <div class="mock-label">provider convergence - 5 claimed / 0 silent</div>
@@ -1244,7 +1059,7 @@ def _public_precomputed_landing_page() -> str:
                   <div class="human-gate">
                     <div class="human-top"><span class="hg">HG</span><b>Human-gated</b><span class="human-state">NOT PROMOTED</span></div>
                     <p style="margin-top:9px;font-size:12.5px">Convergence is support, not a verdict.</p>
-                    <p style="margin-top:9px;color:var(--green);font:800 11px/1.3 var(--mono)">next -&gt; attach user-impact evidence?</p>
+                    <p style="margin-top:9px;color:var(--green);font:800 11px/1.3 var(--mono)">next -&gt; is capture_freshness_count zero?</p>
                   </div>
                 </div>
               </div>
@@ -1285,7 +1100,6 @@ def _public_precomputed_landing_page() -> str:
               </div>
               <p class="section-note">{_human_count(total_public_corpora)} public corpora - {_human_count(total_public_rows)} rows. Every sanitized DB row is assigned to the coverage ledger before provider chunking.</p>
             </div>
-            {scale_proof}
             <h2>Primary Review</h2>
             <div class="review-grid">{primary_cards}</div>
           </section>
@@ -1296,6 +1110,10 @@ def _public_precomputed_landing_page() -> str:
           <section class="wrap">
             <h2>Observation Gap Validation</h2>
             <div class="review-grid">{observation_cards}</div>
+          </section>
+          <section class="wrap">
+            <h2>Cross-Domain Scale Validation</h2>
+            <div class="review-grid">{scale_cards}</div>
           </section>
           <div class="band" id="judging-map">
             <section class="wrap">
@@ -1422,7 +1240,7 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
         "review_targets": targets,
         "display_summary": {
             "title": str(finding.get("title") or ""),
-            "impact": _public_finding_impact_text(summary, str(finding.get("impact") or "")),
+            "impact": str(finding.get("impact") or ""),
             "provider_detection_overlap": str(graph_summary.get("provider_detection_overlap") or ""),
             "technical_baseline_agreement": str(graph_summary.get("technical_baseline") or ""),
             "incident_baseline_agreement": str(graph_summary.get("incident_baseline") or ""),
@@ -1474,7 +1292,7 @@ def _precomputed_graph_nodes_edges(
             "id": "finding",
             "type": "finding",
             "label": str(finding.get("title") or "Persisted finding"),
-            "detail": _public_finding_impact_text(summary, str(finding.get("impact") or "")),
+            "detail": str(finding.get("impact") or ""),
         },
         {
             "id": "baseline:technical",
@@ -1599,9 +1417,7 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
     case_label = _detail_case_label(payload, review)
     provider_mode = _detail_provider_mode_label(payload)
     finding_title = str(finding.get("title") or "Evidence review")
-    finding_impact = _public_finding_impact_text(
-        summary, str(finding.get("impact") or "The API result is available for review.")
-    )
+    finding_impact = str(finding.get("impact") or "The API result is available for review.")
     hero_title, hero_impact = _detail_hero_copy(
         payload=payload,
         review=review,
@@ -1771,7 +1587,6 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
       color: var(--bg);
       font: 800 11px/1 var(--mono);
       flex: none;
-      text-decoration: none;
     }}
     .breadcrumb {{
       display: flex;
@@ -1781,13 +1596,6 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
       max-width: 100%;
       color: var(--ink-3);
       font-size: 13px;
-    }}
-    .breadcrumb a {{
-      color: inherit;
-      text-decoration: none;
-    }}
-    .breadcrumb a:hover, .breadcrumb a:focus-visible {{
-      color: var(--ink);
     }}
     .breadcrumb strong {{ display: inline; color: var(--ink); font-weight: 800; }}
     .status-chip, .evidence-chip {{
@@ -2050,12 +1858,8 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
   <div class="page">
     <header class="topbar">
       <div class="brand-row">
-        <a class="mark" href="/" aria-label="Ops Evidence home">OE</a>
-        <div class="breadcrumb">
-          <span>/</span><a href="/#review-set">Reviews</a>
-          <span>/</span><a href="/ui/full-review-page?evidence_sha256={_html(evidence)}"><strong>{_html(case_label)}</strong></a>
-          <span>/</span><strong>API</strong>
-        </div>
+        <div class="mark">OE</div>
+        <div class="breadcrumb"><span>/</span><span>API</span><span>/</span><strong>{_html(case_label)}</strong></div>
       </div>
       <div class="status-row">
         <span class="evidence-chip">evidence {_html(_short_sha(evidence_sha256))}</span>
@@ -2155,353 +1959,6 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
     graph_summary = payload.get("review_graph_summary") if isinstance(payload.get("review_graph_summary"), dict) else {}
     context = response.get("analysis_context") if isinstance(response.get("analysis_context"), dict) else {}
     nodes = [row for row in graph_model.get("nodes") or [] if isinstance(row, dict)]
-    targets = [row for row in payload.get("targets") or [] if isinstance(row, dict)]
-    provider_statuses = [row for row in payload.get("provider_statuses") or [] if isinstance(row, dict)]
-    provider_ids = [str(row.get("provider_id") or "") for row in provider_statuses if str(row.get("provider_id") or "")]
-    if not provider_ids:
-        provider_ids = [
-            str(node.get("label") or "")
-            for node in nodes
-            if str(node.get("type") or "") == "provider" and str(node.get("label") or "")
-        ]
-    target_models = [_review_graph_target_model(target, index=index, provider_ids=provider_ids) for index, target in enumerate(targets, start=1)]
-    selected_key = _review_graph_initial_key(target_models)
-    target_count = len(target_models)
-    provider_total = int(providers.get("total") or len(provider_ids) or 0)
-    provider_success = int(providers.get("success") or len(provider_ids) or 0)
-    unique_refs = sorted(
-        {
-            str(ref)
-            for target in targets
-            for ref in (target.get("evidence_refs") if isinstance(target.get("evidence_refs"), list) else [])
-            if str(ref).strip()
-        }
-    )
-    graph_sha = str(summary.get("canonical_graph_sha256") or "")
-    service_label = _review_graph_service_label(payload)
-    incident_gate_signal = _incident_gate_signal_text(
-        graph_summary.get("incident_gate_signal") or graph_summary.get("incident_baseline")
-    )
-    row_count = int(summary.get("log_count") or context.get("sanitized_log_count") or 0)
-    graph_stats = [
-        (_human_count(int(graph_model.get("node_count") or len(nodes))), "graph nodes", ""),
-        (_human_count(target_count), "review targets", ""),
-        (_human_count(int(graph_summary.get("convergence_count") or 0)), "convergence groups", "blue"),
-        (_human_count(len(unique_refs)), "cited evidence refs", ""),
-        (_human_count(int(graph_summary.get("conflict_count") or 0)), "explicit conflicts", "green"),
-        (f"{provider_success}/{provider_total}" if provider_total else _human_count(len(provider_ids)), "providers on graph", ""),
-    ]
-    stats_html = "".join(
-        f"""
-        <article class="stat-cell {_html(css)}">
-          <strong>{_html(value)}</strong>
-          <span>{_html(label)}</span>
-        </article>
-        """
-        for value, label, css in graph_stats
-    )
-    graph_html = _review_graph_standalone_graph_html(
-        target_models,
-        provider_ids=provider_ids,
-        selected_key=selected_key,
-    )
-    outcome_html = _review_graph_standalone_outcome_html(target_models, review)
-    ledger_html = _review_graph_standalone_ledger_html(
-        graph_model,
-        summary=summary,
-        context=context,
-        row_count=row_count,
-        unique_ref_count=len(unique_refs),
-    )
-    action_links = _public_action_links_html(evidence_sha256)
-    title = str(
-        graph_summary.get("summary")
-        or finding.get("impact")
-        or "The canonical graph keeps provider positions, cited Evidence Items, and human review gates connected."
-    )
-    title = _public_count_text(title)
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ops Evidence Review Graph</title>
-  <style>
-    :root {{
-      color-scheme: light;
-      --bg: #f4f2ec;
-      --bg-2: #faf8f2;
-      --surface: #fffdf8;
-      --paper: #ffffff;
-      --ink: #1c1a15;
-      --ink-2: #4a463d;
-      --ink-3: #7a746a;
-      --muted: #8a857a;
-      --border: #e5dfd1;
-      --border-2: #e7e0d1;
-      --blue: #3f63a8;
-      --blue-soft: #eef2f9;
-      --blue-border: #cdd8ec;
-      --green: #2f8a5b;
-      --green-soft: #eef7f1;
-      --green-border: #bfe0cd;
-      --gold: #a7845a;
-      --tan: #f1ede3;
-      --tan-border: #e4ddce;
-      --shadow: 0 22px 55px -36px rgba(60, 50, 30, .42);
-      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      --sans: "IBM Plex Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --display: "Space Grotesk", var(--sans);
-      --serif: "Newsreader", Georgia, "Times New Roman", serif;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0;
-      background: var(--bg);
-      color: var(--ink);
-      font-family: var(--sans);
-      letter-spacing: 0;
-      -webkit-font-smoothing: antialiased;
-    }}
-    a {{ color: inherit; text-decoration: none; }}
-    p {{ margin: 0; }}
-    code {{ font-family: var(--mono); }}
-    .page {{ width: 100%; overflow-x: hidden; }}
-    .wrap {{ max-width: 1220px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }}
-    .nav {{
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      border-bottom: 1px solid var(--border);
-      background: rgba(250, 248, 242, .9);
-      backdrop-filter: blur(8px);
-    }}
-    .nav-inner {{
-      min-height: 58px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      padding-top: 14px;
-      padding-bottom: 14px;
-    }}
-    .crumbs, .nav-actions {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }}
-    .brand {{ display: inline-flex; align-items: center; gap: 9px; color: var(--ink); font-family: var(--display); font-weight: 700; font-size: 14.5px; }}
-    .brand-mark {{ width: 26px; height: 26px; border-radius: 7px; background: var(--ink); color: var(--bg); display: grid; place-items: center; font: 700 11px/1 var(--mono); }}
-    .crumbs span, .crumbs a, .nav-actions a {{ color: var(--muted); font-size: 13.5px; }}
-    .crumb-sep {{ color: #c9c1b2; }}
-    .nav-actions {{ gap: 20px; color: #6a655b; font-size: 13px; }}
-    .nav-actions a:hover, .crumbs a:hover {{ color: var(--ink); }}
-    .sha-chip {{ color: var(--muted); font: 500 11.5px/1 var(--mono); }}
-    .live-chip {{ display: inline-flex; align-items: center; gap: 7px; color: var(--green); border: 1px solid var(--green-border); background: var(--green-soft); padding: 5px 11px; border-radius: 20px; font: 600 11.5px/1 var(--mono); }}
-    .live-chip i {{ width: 7px; height: 7px; border-radius: 50%; background: var(--green); }}
-    .hero {{ padding-top: 52px; padding-bottom: 34px; }}
-    .hero-kickers {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }}
-    .kicker {{ color: var(--gold); font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }}
-    .soft-chip {{ color: var(--muted); background: #efe9db; border: 1px solid #e0d8c7; padding: 3px 9px; border-radius: 20px; font: 500 11px/1 var(--mono); }}
-    h1 {{ margin: 0 0 18px; max-width: 900px; color: var(--ink); font-family: var(--serif); font-size: 44px; line-height: 1.06; font-weight: 500; letter-spacing: 0; overflow-wrap: anywhere; }}
-    .hero-copy {{ max-width: 790px; margin-bottom: 30px; color: var(--ink-2); font-size: 16.5px; line-height: 1.6; }}
-    .stat-strip {{ display: flex; gap: 0; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--border); }}
-    .stat-cell {{ flex: 1; min-width: 120px; background: var(--bg-2); padding: 16px 18px; }}
-    .stat-cell strong {{ display: block; color: var(--ink); font-family: var(--display); font-size: 22px; line-height: 1; font-weight: 700; overflow-wrap: anywhere; }}
-    .stat-cell span {{ display: block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.35; }}
-    .stat-cell.blue strong {{ color: var(--blue); }}
-    .stat-cell.green {{ background: var(--green-soft); }}
-    .stat-cell.green strong, .stat-cell.green span {{ color: var(--green); }}
-    .graph-band {{ background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }}
-    .graph-section {{ padding-top: 40px; padding-bottom: 40px; }}
-    .graph-head {{ display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }}
-    .legend {{ display: flex; gap: 14px; color: var(--ink-3); font-size: 11.5px; align-items: center; flex-wrap: wrap; }}
-    .legend span {{ display: inline-flex; align-items: center; gap: 6px; }}
-    .legend-line {{ width: 16px; height: 3px; border-radius: 2px; background: var(--blue); display: inline-block; }}
-    .legend-dash {{ width: 16px; height: 0; border-top: 2px dashed #b3a894; display: inline-block; }}
-    .legend-dot {{ width: 10px; height: 10px; border-radius: 50%; background: var(--green); display: inline-block; }}
-    .graph-intro {{ max-width: 790px; margin: 0 0 20px; color: var(--ink-3); font-size: 14px; line-height: 1.6; }}
-    .graph-layout {{ display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }}
-    .graph-canvas-card, .reading-card {{ background: var(--paper); border: 1px solid var(--border-2); border-radius: 14px; box-shadow: var(--shadow); }}
-    .graph-canvas-card {{ flex: 1 1 600px; min-width: 0; padding: 16px 18px; position: relative; }}
-    .canvas-labels {{ display: flex; justify-content: space-between; color: #a49b89; font: 500 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0 4px 8px; }}
-    .graph-canvas-scroll {{ overflow-x: auto; }}
-    .graph-panel[hidden], .reading-panel[hidden] {{ display: none; }}
-    .graph-canvas {{ position: relative; width: 600px; margin: 0 auto; }}
-    .graph-lines {{ position: absolute; left: 0; top: 0; width: 600px; overflow: visible; z-index: 0; pointer-events: none; }}
-    .bg-edge {{ stroke: var(--blue); stroke-width: 1.3; opacity: .11; }}
-    .selected-edge.claimed {{ stroke: var(--blue); stroke-width: 2.2; opacity: .95; }}
-    .selected-edge.silent {{ stroke: #b3a894; stroke-width: 1.4; stroke-dasharray: 4 4; opacity: .6; }}
-    .selected-edge.provider-error {{ stroke: #c45555; stroke-width: 1.6; stroke-dasharray: 4 4; opacity: .75; }}
-    .provider-node {{ position: absolute; left: 0; width: 180px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; z-index: 2; }}
-    .provider-pill {{ font-family: var(--mono); font-size: 12px; padding: 6px 11px; border-radius: 8px; white-space: nowrap; color: #9a9484; background: var(--tan); border: 1px solid var(--tan-border); }}
-    .provider-dot {{ flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; background: #cfc7b6; }}
-    .provider-node.claimed .provider-pill {{ color: #2b3a52; background: var(--blue-soft); border-color: var(--blue-border); }}
-    .provider-node.claimed .provider-dot {{ background: var(--blue); }}
-    .provider-node.provider-error .provider-pill {{ color: #994747; background: #fff2f2; border-color: #efc9c9; }}
-    .provider-node.provider-error .provider-dot {{ background: #c45555; }}
-    .target-node {{ position: absolute; left: 350px; width: 240px; height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 9px; cursor: pointer; background: var(--surface); border: 1px solid var(--border-2); border-left: 3px solid var(--blue); z-index: 2; text-align: left; }}
-    .target-node:hover {{ transform: translateX(2px); }}
-    .target-node.active {{ background: #fff; border-color: var(--blue); box-shadow: 0 8px 20px -12px rgba(60,50,30,.4); z-index: 3; }}
-    .target-node.primary {{ border-left-color: var(--green); }}
-    .target-node.single-source {{ border-left-color: #b3a894; }}
-    .target-name {{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 500 12px/1 var(--mono); }}
-    .target-node.active .target-name {{ color: var(--ink); }}
-    .target-meta {{ margin-left: auto; color: #a49b89; white-space: nowrap; font: 500 11px/1 var(--mono); }}
-    .target-node.active.primary .target-meta {{ color: var(--green); }}
-    .target-node.active.validation .target-meta {{ color: var(--blue); }}
-    .target-node.active.single-source .target-meta {{ color: #a49b89; }}
-    .reading-card {{ flex: 1 1 380px; min-width: 340px; overflow: hidden; }}
-    .reading-top {{ padding: 20px 22px; border-bottom: 1px solid #efe8d9; }}
-    .reading-titleline {{ display: flex; align-items: center; gap: 9px; margin-bottom: 10px; flex-wrap: wrap; }}
-    .badge {{ color: var(--blue); background: var(--blue-soft); padding: 3px 9px; border-radius: 5px; font: 600 10.5px/1 var(--mono); letter-spacing: .08em; }}
-    .badge.primary {{ color: var(--green); background: #e4f4eb; border: 1px solid var(--green-border); }}
-    .badge.single-source {{ color: #8a7b62; background: var(--tan); border: 1px solid var(--tan-border); }}
-    .reading-meta {{ color: #a49b89; font: 500 11.5px/1 var(--mono); }}
-    .reading-score {{ margin-left: auto; color: var(--ink); font-family: var(--display); font-size: 22px; font-weight: 700; }}
-    .reading-top h3 {{ margin: 0 0 4px; color: var(--ink); font-family: var(--display); font-size: 21px; line-height: 1.2; font-weight: 600; overflow-wrap: anywhere; }}
-    .reading-note {{ color: var(--muted); font-size: 12px; line-height: 1.45; }}
-    .reading-block {{ padding: 16px 22px; border-bottom: 1px solid #efe8d9; background: #fdfbf6; }}
-    .reading-block.white {{ background: #fff; padding-top: 18px; padding-bottom: 18px; }}
-    .reading-label {{ margin-bottom: 8px; color: #a49b89; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }}
-    .provider-chips, .evidence-chips {{ display: flex; gap: 7px; flex-wrap: wrap; }}
-    .provider-chip {{ display: inline-flex; gap: 5px; align-items: center; color: #9a9484; background: var(--tan); border: 1px solid var(--tan-border); padding: 5px 10px; border-radius: 7px; font-size: 12px; }}
-    .provider-chip.claimed {{ color: #2b3a52; background: var(--blue-soft); border-color: var(--blue-border); }}
-    .provider-chip.arbiter {{ color: #fff; background: var(--blue); border-color: var(--blue); }}
-    .provider-chip.provider-error {{ color: #994747; background: #fff2f2; border-color: #efc9c9; }}
-    .provider-chip span {{ opacity: .72; font-size: 10.5px; }}
-    .suspected {{ margin-bottom: 16px; color: #3a352c; font-size: 13.5px; line-height: 1.5; }}
-    .evidence-chip {{ color: var(--ink-2); background: var(--bg-2); border: 1px solid var(--border-2); padding: 4px 9px; border-radius: 6px; font: 500 11.5px/1 var(--mono); }}
-    .evidence-chip.empty {{ color: #9a9484; background: #fdfbf6; border-style: dashed; }}
-    .gate-block {{ padding: 18px 22px; background: linear-gradient(180deg, var(--green-soft), #fff); }}
-    .gate-head {{ display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }}
-    .gate-icon {{ width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--green-border); background: #fff; display: grid; place-items: center; color: var(--green); font: 600 11px/1 var(--mono); }}
-    .gate-title {{ color: var(--ink); font-family: var(--display); font-size: 13.5px; font-weight: 600; }}
-    .gate-tag {{ margin-left: auto; color: var(--green); background: #e4f4eb; padding: 3px 8px; border-radius: 5px; font: 600 10px/1 var(--mono); }}
-    .next-check {{ display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #cfe6da; border-radius: 9px; padding: 11px 13px; }}
-    .next-check b {{ color: var(--green); flex-shrink: 0; font: 600 11px/1 var(--mono); }}
-    .next-check span {{ color: #3a352c; font-size: 13px; line-height: 1.4; }}
-    .outcome {{ padding-top: 44px; padding-bottom: 8px; }}
-    .outcome-grid {{ display: flex; gap: 14px; flex-wrap: wrap; }}
-    .outcome-card {{ flex: 1; min-width: 190px; background: var(--surface); border: 1px solid var(--border-2); border-radius: 12px; padding: 18px; }}
-    .outcome-card.blue {{ background: var(--blue-soft); border-color: var(--blue-border); }}
-    .outcome-card.green {{ background: var(--green-soft); border-color: var(--green-border); }}
-    .outcome-card.dark {{ background: var(--ink); border-color: var(--ink); }}
-    .outcome-card strong {{ display: block; color: var(--ink); font-family: var(--display); font-size: 26px; line-height: 1; font-weight: 700; overflow-wrap: anywhere; }}
-    .outcome-card.blue strong {{ color: var(--blue); }}
-    .outcome-card.green strong {{ color: var(--green); }}
-    .outcome-card.dark strong {{ color: var(--bg); }}
-    .outcome-card span {{ display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }}
-    .outcome-card.green span {{ color: #5f7a6b; }}
-    .outcome-card.dark span {{ color: #a89f8d; }}
-    .ledger {{ padding-top: 36px; padding-bottom: 52px; }}
-    .ledger-head {{ display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }}
-    .ledger-head h2 {{ margin: 0; color: var(--ink); font-family: var(--serif); font-size: 26px; font-weight: 500; line-height: 1.2; letter-spacing: 0; }}
-    .ledger-head span {{ color: var(--muted); font: 500 12px/1.35 var(--mono); }}
-    .ledger-types, .ledger-math {{ display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }}
-    .ledger-pill {{ color: var(--ink-2); background: var(--surface); border: 1px solid var(--border-2); padding: 6px 12px; border-radius: 8px; font: 500 12px/1 var(--mono); }}
-    .ledger-pill.blue {{ color: #2b3a52; background: var(--blue-soft); border-color: var(--blue-border); }}
-    .ledger-pill.silent {{ color: var(--muted); background: var(--tan); border-color: var(--tan-border); }}
-    .ledger-pill span {{ color: #a49b89; }}
-    .ledger-pill b {{ color: var(--green); font-weight: 600; }}
-    .ledger-math .ledger-pill {{ line-height: 1.35; }}
-    .context-strip {{ display: flex; gap: 0; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--border); }}
-    .context-cell {{ flex: 1; min-width: 120px; background: var(--bg-2); padding: 15px 18px; }}
-    .context-cell.green {{ background: var(--green-soft); }}
-    .context-cell strong {{ display: block; color: var(--ink); font-family: var(--display); font-size: 20px; line-height: 1; font-weight: 700; overflow-wrap: anywhere; }}
-    .context-cell.green strong {{ color: var(--green); }}
-    .context-cell span {{ display: block; color: var(--muted); margin-top: 3px; font-size: 11px; line-height: 1.35; }}
-    .context-cell.green span {{ color: #5f7a6b; }}
-    .projection-note {{ margin: 12px 0 0; color: var(--ink-3); font-size: 12.5px; line-height: 1.5; }}
-    .footer {{ background: var(--ink); }}
-    .footer-inner {{ display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; align-items: center; padding-top: 36px; padding-bottom: 36px; }}
-    .footer .brand-mark {{ background: var(--bg); color: var(--ink); }}
-    .footer .brand {{ color: var(--bg); }}
-    .footer-actions {{ display: flex; gap: 12px; font-size: 13px; color: #c9c2b3; flex-wrap: wrap; }}
-    .footer-actions a, .footer-actions .button {{ color: #c9c2b3; border: 1px solid rgba(244,242,236,.18); border-radius: 8px; padding: 7px 10px; background: transparent; font-size: 12px; font-weight: 700; }}
-    .footer-actions a:hover {{ color: #fff; }}
-    .footer-sha {{ color: var(--ink-3); font: 500 11px/1 var(--mono); }}
-    @media (max-width: 900px) {{
-      .wrap {{ padding-left: 20px; padding-right: 20px; }}
-      .nav-inner {{ align-items: flex-start; flex-direction: column; }}
-      h1 {{ font-size: 34px; }}
-      .graph-canvas-card {{ flex-basis: 100%; }}
-      .reading-card {{ min-width: 0; flex-basis: 100%; }}
-      .graph-layout {{ gap: 16px; }}
-    }}
-    @media (max-width: 560px) {{
-      .hero {{ padding-top: 38px; }}
-      .stat-cell, .context-cell {{ min-width: 50%; }}
-      .outcome-card {{ min-width: 100%; }}
-    }}
-  </style>
-</head>
-<body>
-  <div class="page">
-    <header class="nav">
-      <div class="wrap nav-inner">
-        <nav class="crumbs" aria-label="Breadcrumb">
-          <a class="brand" href="/"><span class="brand-mark">OE</span><span>Ops Evidence</span></a>
-          <span class="crumb-sep">/</span><a href="/#review-set">Reviews</a>
-          <span class="crumb-sep">/</span><a href="/ui/full-review-page?evidence_sha256={_html(evidence_sha256)}">{_html(service_label)}</a>
-          <span class="crumb-sep">/</span><span>Canonical Review Graph</span>
-        </nav>
-        <div class="nav-actions">
-          <span class="sha-chip">graph_sha {_html(_short_sha(graph_sha) if graph_sha else "precomputed")}</span>
-          <a href="{_html(_public_repo_url())}">GitHub</a>
-          <span class="live-chip"><i></i>Persisted result</span>
-        </div>
-      </div>
-    </header>
-
-    <main>
-      <section class="wrap hero">
-        <div class="hero-kickers">
-          <span class="kicker">canonical_review_graph.v1</span>
-          <span class="soft-chip">nodes &amp; edges - not a verdict</span>
-          <span class="soft-chip">Incident gate signal: {_html(incident_gate_signal)}</span>
-        </div>
-        <h1>Every review target keeps its providers and evidence attached.</h1>
-        <p class="hero-copy">{_html(title)} The graph routes and scores review work; it never promotes a cause. Selecting a target lights up its own provider stance ledger.</p>
-        <div class="stat-strip" aria-label="Graph statistics">{stats_html}</div>
-      </section>
-
-      {graph_html}
-      {outcome_html}
-      {ledger_html}
-    </main>
-
-    <footer class="footer">
-      <div class="wrap footer-inner">
-        <a class="brand" href="/"><span class="brand-mark">OE</span><span>Ops Evidence Synthesis</span></a>
-        <div class="footer-actions">{action_links}</div>
-        <span class="footer-sha">graph_sha {_html(_short_sha(graph_sha) if graph_sha else "precomputed")}</span>
-      </div>
-    </footer>
-  </div>
-  <script>
-    (() => {{
-      const panels = [...document.querySelectorAll("[data-graph-panel]")];
-      const readings = [...document.querySelectorAll("[data-reading-panel]")];
-      const jumps = [...document.querySelectorAll("[data-target-jump]")];
-      const selectTarget = (key) => {{
-        panels.forEach((panel) => {{ panel.hidden = panel.dataset.graphPanel !== key; }});
-        readings.forEach((panel) => {{ panel.hidden = panel.dataset.readingPanel !== key; }});
-      }};
-      jumps.forEach((jump) => jump.addEventListener("click", () => selectTarget(jump.dataset.targetJump || "")));
-      selectTarget("{_js_string(selected_key)}");
-    }})();
-  </script>
-</body>
-</html>"""
-
-
-def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[str, Any]) -> str:
-    response = _precomputed_review_graph_response(payload, evidence_sha256=evidence_sha256)
-    graph_model = response.get("graph") if isinstance(response.get("graph"), dict) else {}
-    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
-    finding = summary.get("finding") if isinstance(summary.get("finding"), dict) else {}
-    review = summary.get("review") if isinstance(summary.get("review"), dict) else {}
-    providers = summary.get("providers") if isinstance(summary.get("providers"), dict) else {}
-    graph_summary = payload.get("review_graph_summary") if isinstance(payload.get("review_graph_summary"), dict) else {}
-    context = response.get("analysis_context") if isinstance(response.get("analysis_context"), dict) else {}
-    nodes = [row for row in graph_model.get("nodes") or [] if isinstance(row, dict)]
     edges = [row for row in graph_model.get("edges") or [] if isinstance(row, dict)]
     targets = [row for row in payload.get("targets") or [] if isinstance(row, dict)]
     provider_statuses = [row for row in payload.get("provider_statuses") or [] if isinstance(row, dict)]
@@ -2564,7 +2021,7 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
         )
         projection_interpretation_html = projection_interpretation_html + determinism_html
     graph_stats = [
-        (_human_count(int(graph_model.get("node_count") or len(nodes))), "ledger nodes"),
+        (_human_count(int(graph_model.get("node_count") or len(nodes))), "graph nodes"),
         (_human_count(target_count), "review targets"),
         (_human_count(int(graph_summary.get("convergence_count") or 0)), "convergence groups"),
         (_human_count(len(unique_refs)), "cited evidence refs"),
@@ -2601,8 +2058,6 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
         _review_graph_canvas_html(model, provider_ids=provider_ids, selected_key=selected_key) for model in target_models
     )
     selected_html = "\n".join(_review_graph_selected_summary_html(model, selected_key=selected_key) for model in target_models)
-    provider_matrix_html = _review_graph_provider_matrix_html(target_models, provider_ids=provider_ids)
-    ledger_breakdown_html = _review_graph_ledger_breakdown_html(graph_model)
     edge_rows = "\n".join(
         f"<li><code>{_html(str(edge.get('source') or ''))}</code> <span>-&gt;</span> <code>{_html(str(edge.get('target') or ''))}</code><b>{_html(str(edge.get('relation') or ''))}</b></li>"
         for edge in edges
@@ -2688,8 +2143,6 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
       flex: none;
     }}
     .crumb {{ color: var(--ink-3); font-size: 13px; overflow-wrap: anywhere; }}
-    .crumb a {{ color: inherit; text-decoration: none; }}
-    .crumb a:hover, .crumb a:focus-visible {{ color: var(--ink); }}
     .crumb b {{ color: var(--ink); }}
     .chips {{ display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }}
     .chip {{
@@ -2722,77 +2175,6 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
     .stat-cell {{ min-width: 0; padding: 18px 16px; background: var(--surface); }}
     .stat-cell strong {{ display: block; font-size: 20px; line-height: 1; overflow-wrap: anywhere; }}
     .stat-cell span, .metric-cell span, .gate-stat span {{ display: block; color: var(--ink-3); font-size: 11px; line-height: 1.35; margin-top: 6px; }}
-    .ledger-summary {{
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 22px;
-    }}
-    .ledger-summary article {{
-      min-width: 0;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface);
-      padding: 16px;
-    }}
-    .ledger-summary span {{ display: block; color: var(--ink-3); font: 800 10.5px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; }}
-    .ledger-summary strong {{ display: block; margin-top: 8px; color: var(--ink); font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }}
-    .ledger-summary p {{ margin-top: 8px; color: var(--ink-2); font-size: 12.5px; line-height: 1.48; }}
-    .provider-matrix-section {{
-      margin-bottom: 24px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface);
-      padding: 22px;
-      box-shadow: var(--shadow);
-    }}
-    .provider-matrix-head {{
-      display: flex;
-      justify-content: space-between;
-      align-items: end;
-      gap: 20px;
-      flex-wrap: wrap;
-    }}
-    .provider-matrix-head p {{ max-width: 760px; margin-top: 8px; font-size: 13px; }}
-    .provider-key {{ display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }}
-    .provider-key span {{
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--surface-2);
-      padding: 5px 8px;
-      color: var(--ink-2);
-      font: 800 10px/1 var(--mono);
-    }}
-    .provider-matrix {{ display: grid; gap: 8px; margin-top: 16px; }}
-    .matrix-row {{
-      display: grid;
-      grid-template-columns: minmax(230px, .7fr) minmax(360px, 1.3fr);
-      gap: 12px;
-      align-items: center;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface-2);
-      padding: 12px;
-    }}
-    .matrix-target strong {{ display: block; color: var(--ink); font: 800 12.5px/1.25 var(--mono); overflow-wrap: anywhere; }}
-    .matrix-target span {{ display: block; margin-top: 5px; color: var(--ink-3); font-size: 11px; line-height: 1.35; }}
-    .matrix-providers {{ display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }}
-    .matrix-provider {{
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--surface);
-      color: var(--ink-2);
-      padding: 6px 8px;
-      font: 800 10.5px/1 var(--mono);
-    }}
-    .matrix-provider::before {{ content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--silent); }}
-    .matrix-provider.claimed {{ border-color: rgba(18,131,107,.45); background: var(--claimed-soft); color: #0b5c4b; }}
-    .matrix-provider.claimed::before {{ background: var(--claimed); }}
-    .matrix-provider.provider-error {{ border-color: #efc9c9; background: #fff2f2; color: #994747; }}
-    .matrix-provider.provider-error::before {{ background: #c45555; }}
     .explorer {{ display: grid; grid-template-columns: minmax(360px, .72fr) minmax(700px, 1.28fr); gap: 20px; align-items: start; }}
     .filters {{ display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }}
     .filters button {{
@@ -2968,10 +2350,7 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
       .shell {{ width: min(calc(100% - 32px), 1720px); }}
       .topbar {{ align-items: flex-start; flex-direction: column; padding: 16px 0; }}
       .stat-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-      .ledger-summary {{ grid-template-columns: 1fr; }}
       .context-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-      .matrix-row {{ grid-template-columns: 1fr; }}
-      .matrix-providers {{ justify-content: flex-start; }}
       h1 {{ font-size: 42px; }}
     }}
     @media (max-width: 560px) {{
@@ -2984,16 +2363,10 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
 <body>
   <main class="shell">
     <nav class="topbar" aria-label="Primary">
-      <div class="brand">
-        <a class="brand-mark" href="/" aria-label="Ops Evidence home">OE</a>
-        <span class="crumb">
-          <a href="/#review-set">Reviews</a>
-          /
-          <a href="/ui/full-review-page?evidence_sha256={_html(evidence_sha256)}">{_html(service_label)}</a>
-          /
-          <b>Canonical Review Graph</b>
-        </span>
-      </div>
+      <a class="brand" href="/">
+        <span class="brand-mark">OE</span>
+        <span class="crumb">Reviews / {_html(service_label)} / <b>Canonical Review Graph</b></span>
+      </a>
       <div class="chips">
         <span class="chip">canonical_review_graph.v1</span>
         <span class="chip">evidence {_html(evidence_sha256[:12])}</span>
@@ -3002,19 +2375,13 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
 
     <section class="hero">
       <div class="kicker">Review Graph - Nodes and edges - not a verdict</div>
-      <h1>Every target keeps a provider stance ledger.</h1>
-      <p>{_html(_public_count_text(graph_summary.get("summary") or finding.get("impact") or "The canonical graph keeps provider positions, cited Evidence Items, and human review gates connected."))} The canvas focuses on one target at a time; the matrix below keeps all provider positions visible.</p>
+      <h1>Every review target keeps its providers and evidence attached.</h1>
+      <p>{_html(str(graph_summary.get("summary") or finding.get("impact") or "The canonical graph keeps provider positions, cited Evidence Items, and human review gates connected."))}</p>
     </section>
 
     <section class="stat-grid" aria-label="Graph statistics">
       {stats_html}
     </section>
-
-    <section class="ledger-summary" aria-label="Node and edge count breakdown">
-      {ledger_breakdown_html}
-    </section>
-
-    {provider_matrix_html}
 
     <section class="explorer">
       <div>
@@ -3096,10 +2463,13 @@ def _render_precomputed_graph_page_legacy(evidence_sha256: str, payload: dict[st
 
 
 def _review_graph_service_label(payload: dict[str, Any]) -> str:
-    evidence_sha = str(payload.get("evidence_sha256") or "").strip()
-    public_label = _public_manifest_label_for_evidence(evidence_sha)
-    if public_label:
-        return public_label
+    evidence_sha = _canonical_precomputed_review_sha(str(payload.get("evidence_sha256") or ""))
+    for entry in _public_manifest_entries():
+        manifest_sha = _canonical_precomputed_review_sha(str(entry.get("evidence_sha") or ""))
+        if manifest_sha == evidence_sha:
+            public_label = str(entry.get("title") or "").strip()
+            if public_label:
+                return public_label
     generation = payload.get("generation") if isinstance(payload.get("generation"), dict) else {}
     service = str(generation.get("service") or "").strip()
     if service:
@@ -3216,427 +2586,6 @@ def _review_graph_provider_short_name(provider_id: str) -> str:
     if "glm" in provider:
         return "GLM"
     return provider_id[:18] if provider_id else "provider"
-
-
-def _review_graph_standalone_class(model: dict[str, Any]) -> str:
-    if model["category"] == "primary":
-        return "primary"
-    if int(model["claimed"]) <= 1:
-        return "single-source"
-    return "validation"
-
-
-def _review_graph_standalone_badge(model: dict[str, Any]) -> str:
-    graph_class = _review_graph_standalone_class(model)
-    if graph_class == "primary":
-        return "PRIMARY CANDIDATE"
-    if graph_class == "single-source":
-        return "SINGLE-SOURCE"
-    return "VALIDATION TARGET"
-
-
-def _review_graph_provider_state_class(stance: object) -> str:
-    text = str(stance or "silent").casefold()
-    if "error" in text:
-        return "provider-error"
-    if text == "claimed":
-        return "claimed"
-    return "silent"
-
-
-def _review_graph_canvas_geometry(target_count: int, provider_count: int) -> dict[str, Any]:
-    canvas_h = max(660, 12 + max(1, target_count) * 54)
-    provider_top = 74
-    provider_bottom = max(provider_top, canvas_h - 74)
-    provider_gap = (provider_bottom - provider_top) / max(1, provider_count - 1)
-    target_gap = 54
-    return {
-        "width": 600,
-        "height": canvas_h,
-        "provider_x": 186,
-        "target_x": 350,
-        "provider_y": [provider_top + index * provider_gap for index in range(max(1, provider_count))],
-        "target_top": [6 + index * target_gap for index in range(max(1, target_count))],
-    }
-
-
-def _review_graph_standalone_graph_html(
-    target_models: list[dict[str, Any]],
-    *,
-    provider_ids: list[str],
-    selected_key: str,
-) -> str:
-    if not target_models:
-        return ""
-    panels = "\n".join(
-        _review_graph_standalone_canvas_panel_html(
-            model,
-            target_models=target_models,
-            provider_ids=provider_ids,
-            selected_key=selected_key,
-        )
-        for model in target_models
-    )
-    readings = "\n".join(
-        _review_graph_standalone_reading_html(model, provider_ids=provider_ids, selected_key=selected_key)
-        for model in target_models
-    )
-    return f"""
-      <section class="graph-band">
-        <div class="wrap graph-section">
-          <div class="graph-head">
-            <div class="kicker">Provider -&gt; target graph - click a target</div>
-            <div class="legend" aria-label="Graph legend">
-              <span><i class="legend-line"></i>claimed</span>
-              <span><i class="legend-dash"></i>silent</span>
-              <span><i class="legend-dot"></i>primary</span>
-            </div>
-          </div>
-          <p class="graph-intro">Every claimed position stays drawn as a faint thread; selecting a target lights up its own providers. Silent positions are kept as validation signal and are not dropped from the graph.</p>
-          <div class="graph-layout">
-            <div class="graph-canvas-card">
-              <div class="canvas-labels"><span>Providers</span><span>Review targets - {len(target_models)}</span></div>
-              <div class="graph-canvas-scroll">{panels}</div>
-            </div>
-            <aside class="reading-card">{readings}</aside>
-          </div>
-        </div>
-      </section>
-    """
-
-
-def _review_graph_standalone_canvas_panel_html(
-    model: dict[str, Any],
-    *,
-    target_models: list[dict[str, Any]],
-    provider_ids: list[str],
-    selected_key: str,
-) -> str:
-    key = str(model["key"])
-    hidden = "" if key == selected_key else " hidden"
-    provider_count = max(1, len(provider_ids))
-    geometry = _review_graph_canvas_geometry(len(target_models), provider_count)
-    provider_y = geometry["provider_y"]
-    target_top = geometry["target_top"]
-    provider_x = float(geometry["provider_x"])
-    target_x = float(geometry["target_x"])
-    canvas_h = int(geometry["height"])
-    selected_index = next((index for index, row in enumerate(target_models) if str(row["key"]) == key), 0)
-    selected_target_cy = target_top[selected_index] + 17
-
-    background_edges: list[str] = []
-    for target_index, target in enumerate(target_models):
-        if str(target["key"]) == key:
-            continue
-        target_cy = target_top[target_index] + 17
-        for provider_index, row in enumerate(target["provider_rows"]):
-            if str(row.get("stance") or "").casefold() != "claimed":
-                continue
-            y = provider_y[min(provider_index, len(provider_y) - 1)]
-            background_edges.append(
-                f'<line x1="{provider_x:.1f}" y1="{y:.1f}" x2="{target_x:.1f}" y2="{target_cy:.1f}" class="bg-edge"></line>'
-            )
-    selected_edges = []
-    for provider_index, row in enumerate(model["provider_rows"]):
-        y = provider_y[min(provider_index, len(provider_y) - 1)]
-        state_class = _review_graph_provider_state_class(row.get("stance"))
-        edge_class = "selected-edge claimed" if state_class == "claimed" else f"selected-edge {state_class}"
-        selected_edges.append(
-            f'<line x1="{provider_x:.1f}" y1="{y:.1f}" x2="{target_x:.1f}" y2="{selected_target_cy:.1f}" class="{_html(edge_class)}"></line>'
-        )
-    provider_nodes = []
-    for provider_index, row in enumerate(model["provider_rows"]):
-        y = provider_y[min(provider_index, len(provider_y) - 1)]
-        state_class = _review_graph_provider_state_class(row.get("stance"))
-        provider_nodes.append(
-            f"""
-            <div class="provider-node {_html(state_class)}" style="top:{y - 15:.1f}px" title="{_html(str(row.get("provider_id") or ""))}">
-              <span class="provider-pill">{_html(str(row.get("short") or ""))}</span>
-              <span class="provider-dot"></span>
-            </div>
-            """
-        )
-    target_nodes = []
-    for target_index, target in enumerate(target_models):
-        target_key = str(target["key"])
-        active = " active" if target_key == key else ""
-        graph_class = _review_graph_standalone_class(target)
-        top = target_top[target_index]
-        total_positions = int(target["claimed"]) + int(target["silent"])
-        target_nodes.append(
-            f"""
-            <button type="button" class="target-node {graph_class}{active}" style="top:{top:.1f}px" data-target-jump="{_html(target_key)}" aria-pressed="{_html('true' if active else 'false')}">
-              <span class="target-name">{_html(target_key)}</span>
-              <span class="target-meta">{int(target["claimed"])}/{max(1, total_positions)}</span>
-            </button>
-            """
-        )
-    return f"""
-      <section class="graph-panel" data-graph-panel="{_html(key)}"{hidden}>
-        <div class="graph-canvas" style="height:{canvas_h}px">
-          <svg class="graph-lines" viewBox="0 0 600 {canvas_h}" style="height:{canvas_h}px" aria-hidden="true">
-            {"".join(background_edges)}
-            {"".join(selected_edges)}
-          </svg>
-          {"".join(provider_nodes)}
-          {"".join(target_nodes)}
-        </div>
-      </section>
-    """
-
-
-def _review_graph_standalone_reading_html(
-    model: dict[str, Any],
-    *,
-    provider_ids: list[str],
-    selected_key: str,
-) -> str:
-    key = str(model["key"])
-    hidden = "" if key == selected_key else " hidden"
-    graph_class = _review_graph_standalone_class(model)
-    badge = _review_graph_standalone_badge(model)
-    total_positions = int(model["claimed"]) + int(model["silent"])
-    provider_chips = []
-    for index, row in enumerate(model["provider_rows"]):
-        state_class = _review_graph_provider_state_class(row.get("stance"))
-        role = "arbiter" if index == 0 and state_class == "claimed" else state_class.replace("-", " ")
-        chip_class = "arbiter" if role == "arbiter" else state_class
-        provider_chips.append(
-            f"""
-            <span class="provider-chip {_html(chip_class)}">
-              {_html(str(row.get("short") or ""))} <span>{_html(role)}</span>
-            </span>
-            """
-        )
-    refs = [str(item) for item in model["display_refs"]]
-    if refs:
-        evidence_chips = "".join(f'<span class="evidence-chip">{_html(ref)}</span>' for ref in refs)
-    else:
-        evidence_chips = '<span class="evidence-chip empty">single-source - refs in API view</span>'
-    score = f"{float(model['score']):.2f}"
-    reading = (
-        f"{int(model['claimed'])} of {max(1, total_positions)} providers claimed a position; "
-        f"cites {int(model['evidence_ref_total']) if int(model['evidence_ref_total']) else 'no'} evidence refs."
-    )
-    gate_tag = "INCIDENT OPEN" if graph_class == "primary" else "NOT PROMOTED"
-    return f"""
-      <article class="reading-panel" data-reading-panel="{_html(key)}"{hidden}>
-        <div class="reading-top">
-          <div class="reading-titleline">
-            <span class="badge {_html(graph_class)}">{_html(badge)}</span>
-            <span class="reading-meta">subsystem {_html(key)}</span>
-            <span class="reading-score">{_html(score)}</span>
-          </div>
-          <h3>{_html(key)}</h3>
-          <div class="reading-note">{_html(reading)}</div>
-        </div>
-        <div class="reading-block">
-          <div class="reading-label">Provider positions - {int(model["claimed"])} claimed / {int(model["silent"])} silent</div>
-          <div class="provider-chips">{"".join(provider_chips)}</div>
-        </div>
-        <div class="reading-block white">
-          <div class="reading-label">Suspected issue</div>
-          <div class="suspected">{_html(str(model["suspected"]))}</div>
-          <div class="reading-label">Cited evidence</div>
-          <div class="evidence-chips">{evidence_chips}</div>
-        </div>
-        <div class="gate-block">
-          <div class="gate-head">
-            <span class="gate-icon">HG</span>
-            <div class="gate-title">Promotion stays human-gated</div>
-            <span class="gate-tag">{_html(gate_tag)}</span>
-          </div>
-          <div class="next-check"><b>NEXT -&gt;</b><span>{_html(str(model["next_question"]))}</span></div>
-        </div>
-      </article>
-    """
-
-
-def _review_graph_standalone_outcome_html(target_models: list[dict[str, Any]], review: dict[str, Any]) -> str:
-    primary_models = [model for model in target_models if model["category"] == "primary"]
-    primary_count = int(review.get("primary_targets") or len(primary_models))
-    validation_count = int(review.get("validation_targets") or max(0, len(target_models) - primary_count))
-    primary_label = ", ".join(str(model["key"]) for model in primary_models[:2]) or "none"
-    return f"""
-      <section class="wrap outcome" aria-label="Review outcome summary">
-        <div class="outcome-grid">
-          <article class="outcome-card blue"><strong>{_html(_human_count(primary_count))}</strong><span>primary candidate{'' if primary_count == 1 else 's'} - {_html(primary_label)}</span></article>
-          <article class="outcome-card"><strong>{_html(_human_count(validation_count))}</strong><span>validation targets</span></article>
-          <article class="outcome-card green"><strong>0</strong><span>auto-promoted causes</span></article>
-          <article class="outcome-card dark"><strong>human</strong><span>final judgement owner</span></article>
-        </div>
-      </section>
-    """
-
-
-def _review_graph_ledger_counts(graph_model: dict[str, Any]) -> dict[str, int]:
-    nodes = [row for row in graph_model.get("nodes") or [] if isinstance(row, dict)]
-    edges = [row for row in graph_model.get("edges") or [] if isinstance(row, dict)]
-    target_nodes = sum(1 for node in nodes if str(node.get("type") or "") == "review_target")
-    provider_nodes = sum(1 for node in nodes if str(node.get("type") or "") == "provider")
-    structural_nodes = max(0, len(nodes) - target_nodes - provider_nodes)
-    provider_edges = sum(1 for edge in edges if str(edge.get("source") or "").startswith("provider:"))
-    finding_edges = sum(1 for edge in edges if str(edge.get("relation") or "") == "has_review_target")
-    gate_edges = sum(1 for edge in edges if str(edge.get("target") or "").startswith("baseline:"))
-    evidence_edges = sum(1 for edge in edges if str(edge.get("relation") or "") == "produces")
-    return {
-        "total_nodes": int(graph_model.get("node_count") or len(nodes)),
-        "total_edges": int(graph_model.get("edge_count") or len(edges)),
-        "target_nodes": target_nodes,
-        "provider_nodes": provider_nodes,
-        "structural_nodes": structural_nodes,
-        "provider_edges": provider_edges,
-        "finding_edges": finding_edges,
-        "gate_edges": gate_edges,
-        "evidence_edges": evidence_edges,
-    }
-
-
-def _review_graph_standalone_ledger_html(
-    graph_model: dict[str, Any],
-    *,
-    summary: dict[str, Any],
-    context: dict[str, Any],
-    row_count: int,
-    unique_ref_count: int,
-) -> str:
-    counts = _review_graph_ledger_counts(graph_model)
-    provider_items = _context_count(context.get("provider_full_corpus_analyzed_evidence_items"))
-    projection_items = _context_count(context.get("model_projection_evidence_items"))
-    chunk_count = _context_count(context.get("provider_full_corpus_chunk_count"))
-    projected_occurrences = _context_count(context.get("model_projection_occurrence_count"))
-    coverage_source = context.get("provider_full_corpus_coverage_ratio")
-    if coverage_source is None:
-        coverage_source = context.get("model_projection_occurrence_coverage_ratio")
-    coverage = _coverage_text(coverage_source)
-    raw_policy = str(summary.get("raw_log_policy") or "unknown")
-    projection_interpretation = str(context.get("model_projection_interpretation") or "").strip()
-    projection_note_html = f'<p class="projection-note">{_html(projection_interpretation)}</p>' if projection_interpretation else ""
-    node_math = (
-        f"{counts['total_nodes']} nodes = {counts['target_nodes']} target nodes + "
-        f"{counts['provider_nodes']} provider nodes + {counts['structural_nodes']} structural nodes"
-    )
-    edge_math = (
-        f"{counts['total_edges']} edges = {counts['provider_edges']} provider positions + "
-        f"{counts['finding_edges']} finding links + {counts['gate_edges']} gate links + {counts['evidence_edges']} evidence link"
-    )
-    evidence_item_value = _human_count(provider_items or projection_items or unique_ref_count)
-    if provider_items:
-        evidence_item_label = f"evidence items - {_human_count(chunk_count)} chunks" if chunk_count else "evidence items"
-    elif projection_items:
-        evidence_item_label = "single-prompt projection items"
-    else:
-        evidence_item_label = "cited evidence refs"
-    return f"""
-      <section class="wrap ledger" aria-label="Nodes and edges ledger">
-        <div class="kicker">Nodes &amp; edges ledger</div>
-        <div class="ledger-head">
-          <h2>{_html(_human_count(counts["total_nodes"]))} nodes - {_html(_human_count(counts["total_edges"]))} edges, all typed and hashed.</h2>
-          <span>deterministic sort and de-dup over recorded outputs</span>
-        </div>
-        <div class="ledger-math">
-          <span class="ledger-pill">Node math: <span>{_html(node_math)}</span></span>
-          <span class="ledger-pill">Edge math: <span>{_html(edge_math)}</span></span>
-        </div>
-        <div class="ledger-types">
-          <span class="ledger-pill">evidence -&gt; finding <span>produces</span></span>
-          <span class="ledger-pill">finding -&gt; target <span>has_review_target</span></span>
-          <span class="ledger-pill blue">provider -&gt; target <span>claimed</span></span>
-          <span class="ledger-pill silent">provider -&gt; target <span>silent</span></span>
-          <span class="ledger-pill">target -&gt; baseline:technical <b>established</b></span>
-          <span class="ledger-pill">target -&gt; baseline:incident <span>open</span></span>
-        </div>
-        <div class="context-strip">
-          <article class="context-cell"><strong>{_html(_human_count(row_count))}</strong><span>DB ingested logs - {coverage} coverage</span></article>
-          <article class="context-cell"><strong>{_html(evidence_item_value)}</strong><span>{_html(evidence_item_label)}</span></article>
-          <article class="context-cell"><strong>{_html(_human_count(projected_occurrences))}</strong><span>projected occurrences</span></article>
-          <article class="context-cell green"><strong>{_html(raw_policy.replace("_", " "))}</strong><span>raw logs stay local</span></article>
-        </div>
-        {projection_note_html}
-      </section>
-    """
-
-
-def _review_graph_ledger_breakdown_html(graph_model: dict[str, Any]) -> str:
-    counts = _review_graph_ledger_counts(graph_model)
-    items = [
-        (
-            "Node math",
-            f"{counts['total_nodes']} nodes = {counts['target_nodes']} target nodes + {counts['provider_nodes']} provider nodes + {counts['structural_nodes']} structural nodes",
-            "Structural nodes are the evidence bundle, persisted finding, technical support signal, and incident gate signal.",
-        ),
-        (
-            "Edge math",
-            f"{counts['total_edges']} edges = {counts['provider_edges']} provider positions + {counts['finding_edges']} finding links + {counts['gate_edges']} gate links + {counts['evidence_edges']} evidence link",
-            "Provider-position edges include claimed, silent, and other recorded stances so disagreement is preserved.",
-        ),
-    ]
-    return "".join(
-        f"""
-        <article>
-          <span>{_html(label)}</span>
-          <strong>{_html(value)}</strong>
-          <p>{_html(detail)}</p>
-        </article>
-        """
-        for label, value, detail in items
-    )
-
-
-def _review_graph_provider_matrix_html(target_models: list[dict[str, Any]], *, provider_ids: list[str]) -> str:
-    if not target_models:
-        return ""
-    target_heading = (
-        f"All {len(target_models)} targets keep their provider positions."
-        if len(target_models) != 1
-        else "The target keeps its provider position."
-    )
-    provider_key = "".join(
-        f"<span>{_html(_review_graph_provider_short_name(provider_id))}</span>"
-        for provider_id in provider_ids
-    )
-    rows = []
-    for model in target_models:
-        provider_pills = []
-        for row in model["provider_rows"]:
-            stance = str(row["stance"] or "silent").casefold()
-            css_state = "provider-error" if "error" in stance else stance
-            provider_pills.append(
-                f"""
-                <span class="matrix-provider {_html(css_state)}" title="{_html(str(row["provider_id"]))}: {_html(str(row["stance"]))}">
-                  {_html(str(row["short"]))}
-                </span>
-                """
-            )
-        label = "primary candidate" if model["category"] == "primary" else "validation target"
-        meta = (
-            f"{label} - {int(model['claimed'])} claimed / {int(model['silent'])} silent - "
-            f"{int(model['evidence_ref_total'])} evidence refs"
-        )
-        rows.append(
-            f"""
-            <article class="matrix-row">
-              <div class="matrix-target">
-                <strong>{_html(str(model["key"]))}</strong>
-                <span>{_html(meta)}</span>
-              </div>
-              <div class="matrix-providers">{"".join(provider_pills)}</div>
-            </article>
-            """
-        )
-    return f"""
-    <section class="provider-matrix-section" aria-label="Provider stance matrix">
-      <div class="provider-matrix-head">
-        <div>
-          <div class="kicker">Provider stance matrix</div>
-          <h2>{_html(target_heading)}</h2>
-          <p>Each row shows the provider stance ledger for a target before the focused graph view opens one target in detail.</p>
-        </div>
-        <div class="provider-key" aria-label="Providers in this graph">{provider_key}</div>
-      </div>
-      <div class="provider-matrix">{"".join(rows)}</div>
-    </section>
-    """
 
 
 def _review_graph_tag_class(model: dict[str, Any]) -> str:
@@ -3781,9 +2730,7 @@ def _render_precomputed_markdown_report(evidence_sha256: str, payload: dict[str,
     targets = [row for row in payload.get("targets") or [] if isinstance(row, dict)]
 
     title = _markdown_text(finding.get("title") or "Evidence review")
-    impact = _markdown_text(
-        _public_finding_impact_text(summary, str(finding.get("impact") or "Review targets are available for human validation."))
-    )
+    impact = _markdown_text(finding.get("impact") or "Review targets are available for human validation.")
     service = _markdown_text(context.get("service") or "")
     environment = _markdown_text(context.get("environment") or "")
     window_start = _markdown_text(context.get("window_start") or "")
@@ -3798,7 +2745,7 @@ def _render_precomputed_markdown_report(evidence_sha256: str, payload: dict[str,
         "",
         (
             "> This report is review material, not an accepted incident cause. "
-            "Provider convergence creates review targets; final causal judgement "
+            "Provider convergence creates validation targets; final causal judgement "
             "and operational action remain human-gated. Provider agreement is not "
             "majority-vote truth."
         ),
@@ -3994,14 +2941,12 @@ def _target_markdown_section(target: dict[str, Any], *, index: int) -> list[str]
         or ""
     ).strip()
     why_not_promoted = str(target.get("why_not_promoted") or explanation.get("why_not_promoted") or "").strip()
-    boundary_note = _target_review_boundary_note(target)
     for label, value in (
-        (_target_issue_label(target), suspected_issue),
+        ("Suspected issue", suspected_issue),
         ("Operational mechanism", mechanism),
         ("Why it matters", why_it_matters),
         ("Why not promoted", why_not_promoted),
         ("Next validation question", next_question),
-        ("Review boundary", boundary_note),
     ):
         if value:
             lines.append(f"- {label}: {_markdown_text(value)}")
@@ -4026,7 +2971,7 @@ def _target_markdown_section(target: dict[str, Any], *, index: int) -> list[str]
     if caveats:
         lines.append("- Caveats: " + "; ".join(_markdown_text(item) for item in caveats[:4]) + ".")
     lines.append("")
-    return [_public_count_text(line) for line in lines]
+    return lines
 
 
 def _provider_status_markdown_table(provider_statuses: list[dict[str, Any]]) -> list[str]:
@@ -4080,7 +3025,7 @@ def _markdown_bullets(points: list[str]) -> list[str]:
 
 
 def _markdown_text(value: object) -> str:
-    text = _public_count_text(value).replace("\r\n", "\n").replace("\r", "\n")
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
     return "\n  ".join(part.strip() for part in text.split("\n") if part.strip())
 
 
@@ -4145,7 +3090,7 @@ def _detail_hero_copy(
     impact = (
         f"{finding_title}. Across {row_count} monitoring rows, "
         f"{provider_success} / {provider_total} schema-valid providers raised "
-        f"{_review_target_count_text(primary_targets, validation_targets)}. "
+        f"{primary_targets} primary candidate(s) and {validation_targets} validation target(s). "
         "The UI keeps those signals human-gated because missing liveness and weak observation are review work, "
         "not accepted incident causes."
     )
@@ -4712,7 +3657,6 @@ def _detail_review_workbench(targets: list[dict[str, Any]], target_cards: str) -
         _workspace_queue_item_html(target, index=index + 1)
         for index, target in enumerate(targets)
     )
-    issue_triage = _detail_issue_triage_html(targets)
     first_detail = _workspace_target_detail_html(targets[0], index=1)
     templates = "".join(
         f'<template data-target-template="{_html(_target_anchor_id(target, index=index + 1))}">'
@@ -4726,7 +3670,6 @@ def _detail_review_workbench(targets: list[dict[str, Any]], target_cards: str) -
         <h2>Every target carries its own evidence and gate.</h2>
         <p>Filter the priority queue, then open a target. Silent providers, counter-signals, and the blocking reason travel with the card - the next evidence question is always explicit.</p>
       </div>
-      {issue_triage}
       <div class="filter-row">{filters}</div>
       <div class="review-workspace" data-review-workspace>
         <aside class="workspace-queue" aria-label="Review target priority queue">
@@ -4875,9 +3818,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
         devops_loop_panel,
     )
     finding_title = str(finding.get("title") or "No persisted finding yet")
-    finding_impact = _public_finding_impact_text(
-        summary, str(finding.get("impact") or "Run analysis to create a persisted review result.")
-    )
+    finding_impact = str(finding.get("impact") or "Run analysis to create a persisted review result.")
     hero_title, hero_impact = _detail_hero_copy(
         payload=payload,
         review=review,
@@ -4953,18 +3894,10 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       font-weight: 700;
       font-size: 13px;
       flex: none;
-      text-decoration: none;
     }}
     .breadcrumb {{
       color: var(--ink-3);
       font-size: 13px;
-    }}
-    .breadcrumb a {{
-      color: inherit;
-      text-decoration: none;
-    }}
-    .breadcrumb a:hover, .breadcrumb a:focus-visible {{
-      color: var(--ink);
     }}
     .breadcrumb strong {{ color: var(--ink); font-weight: 700; }}
     .status-chip, .evidence-chip, .filter-chip, .pill {{
@@ -5190,72 +4123,6 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
     .queue-title-row b {{
       font-size: 16px;
       flex: none;
-      text-align: right;
-    }}
-    .queue-title-row b span {{
-      display: block;
-      color: var(--ink-3);
-      font-size: 10px;
-      font-weight: 800;
-      line-height: 1.1;
-      text-transform: uppercase;
-    }}
-    .queue-note, .workspace-boundary-note {{
-      color: var(--ink-3);
-      font-size: 12px;
-      line-height: 1.35;
-    }}
-    .issue-triage {{
-      display: grid;
-      gap: 14px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: rgba(255,255,255,.58);
-      box-shadow: var(--shadow);
-      padding: 18px;
-      min-width: 0;
-    }}
-    .issue-triage-head {{
-      display: grid;
-      gap: 6px;
-      max-width: 820px;
-    }}
-    .issue-triage-head strong {{
-      font-size: 22px;
-      line-height: 1.2;
-    }}
-    .issue-triage-grid {{
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-    }}
-    .issue-triage-card {{
-      display: grid;
-      gap: 10px;
-      min-width: 0;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface);
-      padding: 14px;
-    }}
-    .issue-triage-card.issue {{
-      border-color: rgba(178,106,0,.34);
-      box-shadow: inset 3px 0 0 var(--amber);
-    }}
-    .issue-triage-card.no-issue {{
-      border-color: rgba(18,131,107,.28);
-      box-shadow: inset 3px 0 0 var(--claimed);
-    }}
-    .issue-triage-card strong {{
-      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 15px;
-      overflow-wrap: anywhere;
-    }}
-    .issue-triage-card span, .issue-triage-card small {{
-      color: var(--ink-3);
-      font-size: 12px;
-      font-weight: 800;
-      line-height: 1.35;
     }}
     .queue-meta-row {{
       color: var(--ink-2);
@@ -5286,12 +4153,6 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       display: grid;
       gap: 24px;
       min-width: 0;
-    }}
-    .workspace-boundary-note {{
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface-2);
-      padding: 10px 12px;
     }}
     .workspace-detail h3 {{
       margin: 12px 0 0;
@@ -5749,7 +4610,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
         margin-right: 0;
       }}
       .review-arbitration-grid {{ grid-template-columns: minmax(0, 1fr); }}
-      .review-workspace, .workspace-three, .workspace-evidence-row, .issue-triage-grid {{
+      .review-workspace, .workspace-three, .workspace-evidence-row {{
         grid-template-columns: minmax(0, 1fr);
       }}
       .workspace-queue {{ max-height: 520px; }}
@@ -5761,7 +4622,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       .topbar {{ display: grid; align-items: start; }}
       h1 {{ font-size: 30px; }}
       h2 {{ font-size: 22px; }}
-      .stat-grid, .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row, .target-preview-grid, .target-explanation, .metric-matrix, .workspace-provider-grid, .workspace-chip-list, .issue-triage-grid {{
+      .stat-grid, .metrics, .target-grid, .target-head, .trace-grid, .provider-grid, .graph-summary-grid, .position-row, .target-preview-grid, .target-explanation, .metric-matrix, .workspace-provider-grid, .workspace-chip-list {{
         grid-template-columns: minmax(0, 1fr);
       }}
       .workspace-detail {{ padding: 18px; }}
@@ -5827,7 +4688,6 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       background: var(--ink);
       color: var(--bg);
       font: 800 11px/1 var(--mono);
-      text-decoration: none;
     }}
     .breadcrumb {{
       display: flex;
@@ -5835,13 +4695,6 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       align-items: center;
       color: var(--ink-3);
       font-size: 13px;
-    }}
-    .breadcrumb a {{
-      color: inherit;
-      text-decoration: none;
-    }}
-    .breadcrumb a:hover, .breadcrumb a:focus-visible {{
-      color: var(--ink);
     }}
     .breadcrumb strong {{
       display: inline;
@@ -5991,13 +4844,13 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       color: var(--ink-3);
       font-size: 14px;
     }}
-    .panel, .distribution-card, .detail-drawer, .supplemental-details, .workspace-queue, .workspace-detail, .metric-matrix, .issue-triage {{
+    .panel, .distribution-card, .detail-drawer, .supplemental-details, .workspace-queue, .workspace-detail, .metric-matrix {{
       border-color: var(--border);
       border-radius: 12px;
       background: rgba(255, 253, 248, .76);
       box-shadow: var(--shadow);
     }}
-    .panel.secondary, .metric, .trace-step, .provider-row, .graph-cell, .target-preview, .workspace-provider-card, .workspace-chip, .target, .target-nav-card, .workspace-queue-item, .issue-triage-card {{
+    .panel.secondary, .metric, .trace-step, .provider-row, .graph-cell, .target-preview, .workspace-provider-card, .workspace-chip, .target, .target-nav-card, .workspace-queue-item {{
       border-color: var(--border);
       background: var(--surface);
     }}
@@ -6166,11 +5019,8 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
   <div class="page">
     <header class="topbar">
       <div class="brand-row">
-        <a class="mark" href="/" aria-label="Ops Evidence home">OE</a>
-        <div class="breadcrumb">
-          <span>/</span><a href="/#review-set">Reviews</a>
-          <span>/</span><strong>{_html(case_label)}</strong>
-        </div>
+        <div class="mark">OE</div>
+        <div class="breadcrumb"><span>/</span><span>Reviews</span><span>/</span><strong>{_html(case_label)}</strong></div>
       </div>
       <div class="status-row">
         <span class="evidence-chip">evidence {_html(_short_sha(evidence_sha256))}</span>
@@ -6228,7 +5078,7 @@ def _precomputed_agent_trace_panel(payload: dict[str, Any]) -> str:
     visible_steps = steps[:6]
     overflow = max(0, len(steps) - len(visible_steps))
     overflow_note = (
-        f"<p class=\"section-note\">{_count_noun(overflow, 'additional trace step')} are retained in the API view.</p>"
+        f"<p class=\"section-note\">{overflow} additional trace step(s) are retained in the API view.</p>"
         if overflow
         else ""
     )
@@ -6836,18 +5686,15 @@ def _target_explanation_html(target: dict[str, Any]) -> str:
     evidence_items = "".join(f"<li>{_html(item)}</li>" for item in evidence_summary[:8])
     counter_items = "".join(f"<li>{_html(item)}</li>" for item in counter_summary[:6])
     counter_block = f"<label>Counter / weak signals</label><ul>{counter_items}</ul>" if counter_items else ""
-    issue_label = _target_issue_label(target)
-    boundary_note = _target_review_boundary_note(target)
     return f"""
       <div class="target-explanation">
-        <label>{_html(issue_label)}</label><p>{_html(suspected_issue)}</p>
+        <label>Suspected issue</label><p>{_html(suspected_issue)}</p>
         <label>Operational mechanism</label><p>{_html(operational_mechanism)}</p>
         <label>Why it matters</label><p>{_html(why_it_matters)}</p>
         <label>Evidence summary</label><ul>{evidence_items}</ul>
         {counter_block}
         <label>Why not promoted</label><p>{_html(why_not_promoted)}</p>
         <label>Next validation question</label><p>{_html(next_question)}</p>
-        <label>Review boundary</label><p>{_html(boundary_note)}</p>
       </div>
     """
 
@@ -7067,9 +5914,7 @@ def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | No
     full_url = f"/ui/full-review-page?evidence_sha256={_url_quote(evidence_sha256)}"
     action_links = _public_action_links_html(evidence_sha256)
     finding_title = str(finding.get("title") or "No persisted finding yet")
-    finding_impact = _public_finding_impact_text(
-        summary, str(finding.get("impact") or "Run analysis to create a persisted review result.")
-    )
+    finding_impact = str(finding.get("impact") or "Run analysis to create a persisted review result.")
     provider_text = (
         f"{int(providers.get('success') or 0)} / {int(providers.get('total') or 0)}"
         if providers
@@ -7350,645 +6195,6 @@ def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | No
 
 
 def _render_rescore_demo_page(demo_id: str) -> str:
-    payload = _rescore_demo_payload(demo_id)
-    if not payload:
-        return ""
-    before = payload.get("before") if isinstance(payload.get("before"), dict) else {}
-    loop = payload.get("more_data_loop") if isinstance(payload.get("more_data_loop"), dict) else {}
-    after = payload.get("after") if isinstance(payload.get("after"), dict) else {}
-    control = payload.get("control_plane") if isinstance(payload.get("control_plane"), dict) else {}
-    verification = payload.get("verification") if isinstance(payload.get("verification"), dict) else {}
-    rows = loop.get("collected_rows") if isinstance(loop.get("collected_rows"), list) else []
-    row_html = "".join(_rescore_evidence_row_html(row) for row in rows if isinstance(row, dict))
-    if not row_html:
-        row_html = "<article class='evidence-row'><p>No child rows recorded.</p></article>"
-    providers = control.get("cross_check_providers") if isinstance(control.get("cross_check_providers"), list) else []
-    primary_provider = str(control.get("primary_provider") or "gemini-enterprise-agent-platform")
-    provider_cards_html = _rescore_control_provider_cards_html(primary_provider, providers)
-    before_reasons = ", ".join(str(item) for item in before.get("blocked_reasons") or []) or "none"
-    after_reasons = ", ".join(str(item) for item in after.get("blocked_reasons") or []) or "none"
-    before_provider_positions = _rescore_provider_positions_html(before.get("provider_positions"))
-    after_provider_positions = _rescore_provider_positions_html(after.get("provider_positions"))
-    before_stance = _rescore_provider_stance_label(before.get("provider_positions"))
-    after_stance = _rescore_provider_stance_label(after.get("provider_positions"))
-    source_evidence_sha = str(payload.get("source_evidence_sha256") or "")
-    action_links = _public_action_links_html(source_evidence_sha) if source_evidence_sha else ""
-    source_trace_html = _rescore_source_trace_html(payload)
-    source_review_url = str(payload.get("source_review_url") or "#")
-    before_score = float(before.get("promotion_score") or 0)
-    after_score = float(after.get("promotion_score") or 0)
-    before_width = max(0, min(100, before_score * 100))
-    after_width = max(0, min(100, after_score * 100))
-    status_transition = str(loop.get("status_transition") or "needs_more_data -> evidence_collected")
-    child_evidence_sha = str(loop.get("child_evidence_sha256") or "")
-    added_refs = int(loop.get("added_evidence_ref_count") or 0)
-    added_logs = int(loop.get("added_log_count") or 0)
-    local_test = str(verification.get("local_test") or "")
-    raw_policy = str(verification.get("raw_log_policy") or "not_uploaded")
-    public_mode = str(verification.get("public_mode") or "read_only_precomputed")
-    before_title = str(before.get("title") or "Restart loop requires validation")
-    after_title = str(after.get("title") or "Notifier restart loop has user-visible delivery impact")
-    ledger_html = "\n".join(
-        _rescore_ledger_row_html(field, old, new)
-        for field, old, new in [
-            ("state", str(before.get("state") or ""), str(after.get("state") or "")),
-            ("promotion_score", f"{before_score:.2f}", f"{after_score:.2f}"),
-            ("blocked_reasons", before_reasons, after_reasons),
-            ("providers_claimed", before_stance, after_stance),
-            ("evidence_refs", "baseline set", f"+{added_refs} child refs"),
-        ]
-    )
-    style = """
-    :root {
-      color-scheme: light;
-      --bg: #f4f2ec;
-      --bg-2: #faf8f2;
-      --surface: #fffdf8;
-      --paper: #ffffff;
-      --ink: #1c1a15;
-      --ink-2: #4a463d;
-      --ink-3: #7a746a;
-      --muted: #8a857a;
-      --border: #e5dfd1;
-      --border-2: #e7e0d1;
-      --blue: #3f63a8;
-      --blue-soft: #eef2f9;
-      --blue-border: #cdd8ec;
-      --green: #2f8a5b;
-      --green-soft: #eef7f1;
-      --green-border: #bfe0cd;
-      --gold: #a7845a;
-      --gold-soft: #f2ead9;
-      --warn: #b06a34;
-      --warn-soft: #fbeee0;
-      --dark: #1c1a15;
-      --shadow: 0 24px 55px -34px rgba(60, 50, 30, .42);
-      --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      --sans: "IBM Plex Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --display: "Space Grotesk", var(--sans);
-      --serif: "Newsreader", Georgia, "Times New Roman", serif;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--ink);
-      font-family: var(--sans);
-      letter-spacing: 0;
-      -webkit-font-smoothing: antialiased;
-    }
-    a { color: inherit; text-decoration: none; }
-    p { margin: 0; color: var(--ink-3); line-height: 1.6; }
-    code { font-family: var(--mono); overflow-wrap: anywhere; }
-    .page { width: 100%; overflow-x: hidden; }
-    .wrap { max-width: 1220px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
-    .nav {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      border-bottom: 1px solid var(--border);
-      background: rgba(250, 248, 242, .9);
-      backdrop-filter: blur(8px);
-    }
-    .nav-inner {
-      min-height: 58px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      padding-top: 14px;
-      padding-bottom: 14px;
-    }
-    .crumbs, .nav-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
-    .brand { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); font-family: var(--display); font-weight: 700; font-size: 14.5px; }
-    .brand-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--ink); color: var(--bg); display: grid; place-items: center; font: 700 11px/1 var(--mono); }
-    .crumbs span, .crumbs a, .nav-actions a { color: var(--muted); font-size: 13.5px; }
-    .crumb-sep { color: #c9c1b2; }
-    .nav-actions { justify-content: flex-end; gap: 16px; }
-    .nav-actions a:hover, .crumbs a:hover { color: var(--ink); }
-    .live-chip, .soft-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      border-radius: 20px;
-      font: 600 11.5px/1 var(--mono);
-      white-space: nowrap;
-    }
-    .live-chip { color: var(--green); border: 1px solid var(--green-border); background: var(--green-soft); padding: 5px 11px; }
-    .live-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
-    .soft-chip { color: var(--muted); background: #efe9db; border: 1px solid #e0d8c7; padding: 4px 10px; }
-    .hero { padding-top: 52px; padding-bottom: 34px; }
-    .hero-kickers { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
-    .kicker { color: var(--gold); font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
-    h1 { margin: 0 0 18px; max-width: 900px; color: var(--ink); font-family: var(--serif); font-size: clamp(42px, 4.4vw, 64px); line-height: 1.03; font-weight: 500; letter-spacing: 0; overflow-wrap: anywhere; }
-    h2 { margin: 0; color: var(--ink); font-family: var(--serif); font-size: 32px; line-height: 1.1; font-weight: 500; letter-spacing: 0; overflow-wrap: anywhere; }
-    h3 { margin: 0; color: var(--ink); font-family: var(--display); font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: 0; overflow-wrap: anywhere; }
-    .hero-copy { max-width: 830px; color: var(--ink-2); font-size: 16.5px; line-height: 1.6; }
-    .source-link { display: inline-flex; max-width: 100%; margin-top: 20px; color: var(--blue); font: 700 12px/1.4 var(--mono); overflow-wrap: anywhere; }
-    .delta-strip {
-      display: grid;
-      grid-template-columns: .75fr .75fr 1.15fr 1.35fr;
-      gap: 0;
-      margin-top: 34px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      background: var(--border);
-    }
-    .delta-cell { min-width: 0; background: var(--bg-2); padding: 16px 18px; }
-    .delta-cell span { display: block; margin-bottom: 5px; color: var(--muted); font: 600 11px/1.3 var(--mono); text-transform: uppercase; }
-    .delta-cell strong { display: block; color: var(--ink); font-family: var(--display); font-size: 21px; line-height: 1.1; overflow-wrap: anywhere; }
-    .delta-cell:nth-child(4) strong { font-family: var(--mono); font-size: 15px; line-height: 1.25; }
-    .delta-cell em { display: block; margin-top: 4px; color: var(--green); font-style: normal; font-size: 12px; }
-    .theater { margin-top: 18px; padding: 42px 0; background: #efe9db; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .section-head {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 20px;
-      flex-wrap: wrap;
-      margin-bottom: 20px;
-    }
-    .section-head p { max-width: 720px; margin-top: 8px; color: var(--ink-3); font-size: 14.5px; }
-    .controls { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-    .segments {
-      display: flex;
-      gap: 4px;
-      padding: 4px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface);
-    }
-    button, .button {
-      border: 1px solid var(--border-2);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--ink-2);
-      padding: 8px 12px;
-      font: 700 12.5px/1 var(--display);
-      cursor: pointer;
-    }
-    button:hover, .button:hover { border-color: #d4c8b4; color: var(--ink); }
-    button:disabled { cursor: not-allowed; opacity: .55; }
-    .segments button { border: 0; background: transparent; color: var(--muted); }
-    .segments button.active { background: #efe9db; color: var(--ink); }
-    .actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-    .button.primary, button.primary { border-color: var(--ink); background: var(--ink); color: var(--bg); }
-    .stage {
-      display: grid;
-      grid-template-columns: minmax(320px, .84fr) minmax(560px, 1.16fr);
-      gap: 22px;
-      align-items: stretch;
-    }
-    .bundle-card, .target-card, .ledger-card, .provider-card, .source-trace {
-      border: 1px solid var(--border-2);
-      border-radius: 14px;
-      background: var(--paper);
-      box-shadow: var(--shadow);
-      min-width: 0;
-    }
-    .bundle-card {
-      display: flex;
-      flex-direction: column;
-      padding: 24px;
-      background: var(--surface);
-      transition: border-color .2s ease, box-shadow .2s ease;
-    }
-    .bundle-card.active { border-color: var(--green-border); box-shadow: 0 24px 55px -34px rgba(47, 138, 91, .5); }
-    .bundle-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .mono { color: var(--muted); font: 500 11.5px/1.5 var(--mono); overflow-wrap: anywhere; }
-    .phase-chip { flex: none; border: 1px solid #e6dcc6; border-radius: 6px; background: var(--gold-soft); color: var(--gold); padding: 4px 9px; font: 600 10.5px/1 var(--mono); }
-    .bundle-card.active .phase-chip { color: var(--green); border-color: var(--green-border); background: var(--green-soft); }
-    .bundle-card h3 { margin-top: 18px; font-size: 19px; }
-    .bundle-card p { margin-top: 8px; color: var(--ink-3); font-size: 13.5px; }
-    .evidence-list { display: grid; gap: 10px; margin-top: 20px; }
-    .evidence-row { border: 1px solid #ece5d6; border-radius: 9px; background: #faf7f0; padding: 12px 14px; }
-    .bundle-card.active .evidence-row { border-color: var(--green-border); background: #f5faf6; }
-    .evidence-row div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .evidence-row time { color: var(--muted); font: 500 11px/1.3 var(--mono); }
-    .evidence-row span { color: var(--blue); border: 1px solid var(--blue-border); border-radius: 6px; background: var(--blue-soft); padding: 3px 8px; font: 600 10.5px/1 var(--mono); }
-    .evidence-row p { margin-top: 8px; color: var(--ink-2); font-size: 12.5px; }
-    .feed-line { margin-top: auto; padding-top: 18px; display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12.5px; }
-    .feed-line b { color: var(--green); font: 600 16px/1 var(--mono); }
-    .target-card { overflow: hidden; background: var(--paper); }
-    .phase-view[hidden] { display: none; }
-    .target-accent { height: 4px; width: 100%; background: var(--blue); }
-    .phase-view[data-phase-view="after"] .target-accent { background: var(--green); }
-    .target-main { padding: 22px 24px; border-bottom: 1px solid #efe8d9; }
-    .target-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
-    .target-meta { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 12px; }
-    .state-chip { display: inline-flex; border: 1px solid var(--blue-border); border-radius: 5px; background: var(--blue-soft); color: var(--blue); padding: 4px 9px; font: 600 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
-    .state-chip.primary { border-color: var(--green-border); background: #e4f4eb; color: var(--green); }
-    .unit { color: #a49b89; font: 500 11.5px/1 var(--mono); }
-    .score { margin-left: auto; color: var(--blue); font-family: var(--display); font-size: 32px; font-weight: 700; line-height: 1; }
-    .phase-view[data-phase-view="after"] .score { color: var(--green); }
-    .scorebar { height: 8px; width: 100%; border-radius: 5px; overflow: hidden; background: #efe8d9; }
-    .scorebar i { display: block; height: 100%; border-radius: 5px; background: var(--blue); transition: width .25s ease; }
-    .scorebar i.promoted { background: var(--green); }
-    .score-note { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; color: #a49b89; font: 500 10.5px/1.35 var(--mono); }
-    .block-row, .provider-block { padding: 18px 24px; border-bottom: 1px solid #efe8d9; }
-    .block-row { background: #fdfbf6; }
-    .row-label { margin-bottom: 10px; color: #a49b89; font: 600 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
-    .reason-badge { display: inline-flex; max-width: 100%; border: 1px solid #f0dcc2; border-radius: 8px; background: var(--warn-soft); color: var(--warn); padding: 6px 12px; font: 500 12px/1.35 var(--mono); overflow-wrap: anywhere; }
-    .reason-badge.clear { border-color: var(--green-border); background: var(--green-soft); color: var(--green); }
-    .provider-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; color: #a49b89; font: 600 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
-    .provider-head span { color: var(--muted); letter-spacing: 0; text-transform: none; }
-    .positions { display: flex; flex-direction: column; gap: 8px; }
-    .position { display: flex; align-items: center; gap: 11px; min-width: 0; border: 1px solid #ece5d6; border-radius: 9px; background: #faf7f0; padding: 9px 12px; }
-    .position.claimed { border-color: var(--blue-border); background: var(--blue-soft); }
-    .position .marker { width: 9px; height: 9px; border-radius: 50%; flex: none; background: #cfc7b6; }
-    .position.claimed .marker { background: var(--blue); transform: scale(1.15); }
-    .phase-view[data-phase-view="after"] .position.claimed .marker { background: var(--green); }
-    .position b { min-width: 0; color: var(--ink-2); font: 600 12.5px/1.25 var(--mono); overflow-wrap: anywhere; }
-    .position small { margin-left: auto; color: #a49b89; font: 600 11px/1 var(--mono); }
-    .position.claimed small { color: var(--blue); }
-    .phase-view[data-phase-view="after"] .position.claimed small { color: var(--green); }
-    .gate-box { padding: 18px 24px; background: linear-gradient(180deg,#f6f1e8,#fff); }
-    .gate-box.promoted { background: linear-gradient(180deg,#eef7f1,#fff); }
-    .gate-line { display: flex; align-items: center; gap: 11px; min-width: 0; }
-    .gate-icon { width: 36px; height: 36px; flex: none; border: 1px solid #e6dcc6; border-radius: 9px; background: #fff; display: grid; place-items: center; color: var(--gold); font: 600 12px/1 var(--mono); }
-    .gate-box.promoted .gate-icon { border-color: var(--green-border); color: var(--green); }
-    .gate-line strong { display: block; font-family: var(--display); font-size: 14px; color: var(--ink); }
-    .gate-line p { margin-top: 2px; color: var(--muted); font-size: 11.5px; }
-    .gate-tag { margin-left: auto; border-radius: 6px; background: var(--gold-soft); color: var(--gold); padding: 4px 9px; font: 600 10px/1 var(--mono); }
-    .gate-box.promoted .gate-tag { background: #e4f4eb; color: var(--green); }
-    .run-result { margin-top: 18px; margin-bottom: 18px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--surface); padding: 14px 16px; color: var(--ink-3); font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere; }
-    .run-result b { color: var(--ink); }
-    .run-result code { color: var(--green); font-weight: 700; }
-    .run-result[hidden] { display: none; }
-    .ledger-section, .control-section, .trace-section, .verification-section { padding-top: 44px; padding-bottom: 8px; }
-    .ledger-card { margin-top: 16px; overflow: hidden; box-shadow: none; }
-    .ledger-head, .ledger-row { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
-    .ledger-head { background: #efe9db; }
-    .ledger-head div { color: var(--muted); font: 600 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
-    .ledger-head div, .ledger-row div { padding: 13px 18px; border-bottom: 1px solid #efe8d9; min-width: 0; }
-    .ledger-row:nth-child(odd) { background: #fdfbf6; }
-    .ledger-row:last-child div { border-bottom: 0; }
-    .ledger-row b { color: var(--ink-3); font: 500 12.5px/1.4 var(--mono); }
-    .ledger-row code { color: var(--muted); font-size: 13.5px; }
-    .ledger-row .after { background: #f5faf6; }
-    .ledger-row .after code { color: var(--green); font-weight: 700; }
-    .provider-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
-    .provider-card { padding: 16px; box-shadow: none; background: var(--surface); }
-    .provider-card.baseline { border-color: var(--blue-border); background: var(--blue-soft); }
-    .provider-card h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; font-size: 13.5px; }
-    .provider-card span { border: 1px solid #e6dcc6; border-radius: 5px; background: var(--gold-soft); color: var(--ink-3); padding: 3px 7px; font-size: 10px; font-weight: 600; }
-    .provider-card.baseline span { border-color: var(--blue-border); background: #e3ebf7; color: var(--blue); }
-    .provider-card code { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; }
-    .source-trace { padding: 22px; box-shadow: none; }
-    .source-trace h2 { margin-top: 8px; font-family: var(--serif); font-size: 28px; font-weight: 500; }
-    .source-trace p { margin-top: 8px; font-size: 14px; }
-    .trace-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
-    .trace-cell { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-2); padding: 14px; min-width: 0; }
-    .trace-cell label { display: block; margin-bottom: 7px; color: var(--muted); font: 600 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
-    .trace-cell strong { display: block; color: var(--ink); font-size: 13.5px; overflow-wrap: anywhere; }
-    .trace-cell p { margin-top: 5px; font-size: 12.5px; }
-    .verification-card {
-      display: flex;
-      align-items: center;
-      gap: 26px;
-      flex-wrap: wrap;
-      border-radius: 14px;
-      background: var(--dark);
-      padding: 26px 28px;
-    }
-    .verification-card .kicker { color: #a89f8d; }
-    .verification-card code { color: var(--bg); font-size: 13px; line-height: 1.6; }
-    .verify-stat { min-width: 150px; display: flex; flex-direction: column; gap: 4px; }
-    .verify-stat strong { color: var(--bg); font-family: var(--display); font-size: 16px; }
-    .verify-stat span { color: #a89f8d; font-size: 12px; }
-    .verify-stat.green strong { color: #7fd0a0; }
-    .footer { margin-top: 44px; background: var(--dark); }
-    .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 36px; padding-bottom: 36px; }
-    .footer .brand { color: var(--bg); }
-    .footer .brand-mark { background: var(--bg); color: var(--dark); }
-    .footer .actions { justify-content: flex-end; }
-    .footer .button { border-color: rgba(244,242,236,.2); background: transparent; color: #c9c2b3; }
-    .footer .button:hover { color: var(--bg); border-color: rgba(244,242,236,.4); }
-    .foot-id { color: var(--ink-3); font: 500 11px/1.4 var(--mono); }
-    @media (max-width: 1040px) {
-      .stage { grid-template-columns: 1fr; }
-      .provider-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .delta-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 760px) {
-      .wrap { padding-left: 20px; padding-right: 20px; }
-      .nav-inner, .section-head { align-items: flex-start; flex-direction: column; }
-      .controls { align-items: stretch; width: 100%; }
-      .segments, .actions { width: 100%; }
-      .segments button, .actions button { flex: 1; }
-      .target-head, .gate-line { align-items: flex-start; flex-direction: column; }
-      .score, .gate-tag { margin-left: 0; }
-      .ledger-card { overflow-x: auto; }
-      .ledger-head, .ledger-row { min-width: 720px; }
-      .provider-grid, .trace-grid, .delta-strip { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 520px) {
-      h1 { font-size: 40px; }
-      h2 { font-size: 28px; }
-      .theater { padding-top: 34px; padding-bottom: 34px; }
-    }
-    """
-    script = f"""
-    (() => {{
-      const demoId = {json.dumps(str(payload.get("demo_id") or demo_id))};
-      const buttons = [...document.querySelectorAll("[data-phase-button]")];
-      const views = [...document.querySelectorAll("[data-phase-view]")];
-      const bundle = document.querySelector("[data-bundle-card]");
-      const chip = document.querySelector("[data-phase-chip]");
-      const playButton = document.querySelector("[data-play-rescore]");
-      const runButton = document.querySelector("[data-run-rescore]");
-      const liveButton = document.querySelector("[data-run-live-rescore]");
-      const runResult = document.querySelector("[data-run-rescore-result]");
-      let ownerAccess = false;
-      const esc = (value) => {{
-        const node = document.createElement("span");
-        node.textContent = String(value ?? "");
-        return node.innerHTML;
-      }};
-      const createRunId = () => {{
-        if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {{
-          return `fixed-rescore-${{globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 12)}}`;
-        }}
-        return `fixed-rescore-${{Date.now().toString(36)}}${{Math.random().toString(16).slice(2, 10)}}`;
-      }};
-      const createLiveRunId = () => createRunId().replace("fixed-rescore", "live-rescore");
-      const setPhase = (phase) => {{
-        buttons.forEach((button) => button.classList.toggle("active", button.dataset.phaseButton === phase));
-        views.forEach((view) => {{ view.hidden = view.dataset.phaseView !== phase; }});
-        if (bundle) bundle.classList.toggle("active", phase === "after");
-        if (chip) chip.textContent = phase === "after" ? "evidence_collected" : "needs_more_data";
-      }};
-      buttons.forEach((button) => button.addEventListener("click", () => setPhase(button.dataset.phaseButton || "before")));
-      if (playButton) {{
-        playButton.addEventListener("click", () => {{
-          playButton.disabled = true;
-          setPhase("before");
-          window.setTimeout(() => {{
-            setPhase("after");
-            playButton.disabled = false;
-          }}, 650);
-        }});
-      }}
-      const showOwnerControls = () => {{
-        ownerAccess = true;
-        if (liveButton) liveButton.hidden = false;
-      }};
-      const activateOwnerSessionFromHash = async () => {{
-        const hash = String(window.location.hash || "").replace(/^#/, "");
-        if (!hash) return;
-        const params = new URLSearchParams(hash);
-        const token = params.get("owner_token") || params.get("owner-token");
-        if (!token) return;
-        window.history.replaceState(null, "", window.location.pathname + window.location.search);
-        try {{
-          const response = await fetch("/public/fast-gcp-review/owner-session", {{
-            method: "POST",
-            headers: {{ "content-type": "application/json", "accept": "application/json" }},
-            body: JSON.stringify({{ owner_token: token }})
-          }});
-          const payload = await response.json();
-          if (response.ok && payload.owner_access) showOwnerControls();
-        }} catch (error) {{}}
-      }};
-      const refreshOwnerSession = async () => {{
-        try {{
-          const response = await fetch("/public/fast-gcp-review/owner-session", {{
-            headers: {{ "accept": "application/json" }}
-          }});
-          const payload = await response.json();
-          if (response.ok && payload.owner_access) showOwnerControls();
-        }} catch (error) {{}}
-      }};
-      const runRescore = async (liveModel) => {{
-        if (!runResult) return;
-        if (liveModel && !ownerAccess) {{
-          runResult.hidden = false;
-          runResult.textContent = "Owner access is required for live model rescore.";
-          return;
-        }}
-        if (runButton) runButton.disabled = true;
-        if (liveButton) liveButton.disabled = true;
-        if (playButton) playButton.disabled = true;
-        runResult.hidden = false;
-        runResult.textContent = liveModel ? "Running live model rescore from sanitized child evidence..." : "Running fixed rescore from sanitized child evidence...";
-        try {{
-          const response = await fetch("/public/rescore-demo/run", {{
-            method: "POST",
-            headers: {{ "content-type": "application/json", "accept": "application/json" }},
-            body: JSON.stringify({{ demo_id: demoId, run_id: liveModel ? createLiveRunId() : createRunId(), live_model: liveModel }})
-          }});
-          const result = await response.json();
-          if (!response.ok) {{
-            const detail = result.detail && typeof result.detail === "object" ? result.detail.message : result.detail;
-            throw new Error(detail || JSON.stringify(result));
-          }}
-          setPhase("after");
-          const providers = result.providers || {{}};
-          const providerLine = liveModel ? `<br><b>Providers</b> ${{esc(providers.success ?? 0)}}/${{esc(providers.total ?? 0)}} schema-valid` : "";
-          runResult.innerHTML = `<b>${{liveModel ? "Live model rescore" : "Fixed rescore"}} completed.</b> ${{esc(result.timing.wall_seconds)}}s, model API called: <code>${{esc(result.model_api_called)}}</code>${{providerLine}}<br><b>Transition</b> ${{esc(result.transition.status)}}<br><b>Before</b> primary ${{esc(result.before.primary_count)}} / validation ${{esc(result.before.validation_count)}}<br><b>After</b> primary ${{esc(result.after.primary_count)}} / validation ${{esc(result.after.validation_count)}}<br><b>Child bundle</b> <code>${{esc(result.child.evidence_sha256)}}</code>`;
-        }} catch (error) {{
-          runResult.textContent = (liveModel ? "Live model rescore failed: " : "Fixed rescore failed: ") + error.message;
-        }} finally {{
-          if (runButton) runButton.disabled = false;
-          if (liveButton) liveButton.disabled = false;
-          if (playButton) playButton.disabled = false;
-        }}
-      }};
-      if (runButton) runButton.addEventListener("click", () => runRescore(false));
-      if (liveButton) liveButton.addEventListener("click", () => runRescore(true));
-      activateOwnerSessionFromHash().then(refreshOwnerSession);
-      setPhase("before");
-    }})();
-    """
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>More data rescore demo</title>
-  <style>{style}</style>
-</head>
-<body>
-  <div class="page">
-    <nav class="nav" aria-label="Primary">
-      <div class="wrap nav-inner">
-        <div class="crumbs">
-          <a class="brand" href="/"><span class="brand-mark">OE</span><span>Ops Evidence</span></a>
-          <span class="crumb-sep">/</span>
-          <a href="/#review-set">Reviews</a>
-          <span class="crumb-sep">/</span>
-          <a href="{_html(source_review_url)}">notifier restart loop</a>
-          <span class="crumb-sep">/</span>
-          <span>Rescore Loop</span>
-        </div>
-        <div class="nav-actions">
-          <span class="live-chip"><i></i>{_html(public_mode)}</span>
-          <a href="{_html(_public_repo_url())}">GitHub</a>
-          <span class="soft-chip">{_html(raw_policy)}</span>
-        </div>
-      </div>
-    </nav>
-
-    <header class="wrap hero">
-      <div class="hero-kickers">
-        <div class="kicker">Read-only DevOps loop</div>
-        <span class="soft-chip">{_html(str(payload.get("demo_id") or demo_id))}</span>
-      </div>
-      <h1>More data changed the promotion decision.</h1>
-      <p class="hero-copy">A child Evidence Bundle adds user-impact proof to the same target graph. The persisted demo shows <code>{_html(status_transition)}</code> and a human-gated promotion from <code>{_html(str(before.get("state") or ""))}</code> to <code>{_html(str(after.get("state") or ""))}</code> without exposing raw logs.</p>
-      <a class="source-link" href="{_html(source_review_url)}">Source review - {_html(_short_sha(source_evidence_sha))}</a>
-      <div class="delta-strip" aria-label="Before and after rescore summary">
-        <article class="delta-cell"><span>Before score</span><strong>{before_score:.2f}</strong><em>{_html(str(before.get("state") or ""))}</em></article>
-        <article class="delta-cell"><span>After score</span><strong>{after_score:.2f}</strong><em>{_html(str(after.get("state") or ""))}</em></article>
-        <article class="delta-cell"><span>Provider stance</span><strong>{_html(before_stance)}</strong><em>{_html(after_stance)}</em></article>
-        <article class="delta-cell"><span>Blocking reason</span><strong>{_html(before_reasons)}</strong><em>{_html(after_reasons)}</em></article>
-      </div>
-    </header>
-
-    <section class="theater">
-      <div class="wrap">
-        <div class="section-head">
-          <div>
-            <div class="kicker">Rescore theater</div>
-            <h2>{_html(status_transition)}</h2>
-            <p>The target below promotes on its own evidence after the child bundle lands. Review priority is not truth probability; it is a queueing signal for human-gated operations work. This public action does not call model APIs.</p>
-          </div>
-          <div class="controls">
-            <div class="segments" role="tablist" aria-label="Rescore phase">
-              <button type="button" class="active" data-phase-button="before">Before</button>
-              <button type="button" data-phase-button="after">After</button>
-            </div>
-            <div class="actions">
-              <button type="button" data-play-rescore>Play Rescore animation</button>
-              <button class="primary" type="button" data-run-rescore>Run Fixed Rescore</button>
-              <button type="button" data-run-live-rescore hidden>Run Live Model Rescore</button>
-            </div>
-          </div>
-        </div>
-        <div class="run-result" data-run-rescore-result hidden></div>
-        <div class="stage">
-          <aside class="bundle-card" data-bundle-card>
-            <div class="bundle-top">
-              <span class="mono">{_html(child_evidence_sha or "public-demo-child-user-impact")}</span>
-              <span class="phase-chip" data-phase-chip>needs_more_data</span>
-            </div>
-            <h3>Child Evidence Bundle</h3>
-            <p>Adds <b>{added_refs} evidence refs</b> and <b>{added_logs} log rows</b> tying the restart loop to user-visible notification impact.</p>
-            <div class="evidence-list">{row_html}</div>
-            <div class="feed-line"><b>-&gt;</b><span>Feeds the same target evidence graph and triggers a re-score.</span></div>
-            <div class="feed-line"><code>{_html(status_transition)}</code></div>
-          </aside>
-
-          <article class="target-card">
-            <div class="phase-view" data-phase-view="before">
-              <div class="target-accent"></div>
-              <div class="target-main">
-                <div class="target-head">
-                  <div>
-                    <div class="target-meta"><span class="state-chip">{_html(str(before.get("state") or ""))}</span><span class="unit">subsystem notifier</span></div>
-                    <h3>{_html(before_title)}</h3>
-                  </div>
-                  <div class="score">{before_score:.2f}</div>
-                </div>
-                <div class="scorebar"><i style="width: {before_width:.1f}%"></i></div>
-                <div class="score-note"><span>promotion score</span><span>priority != truth probability</span></div>
-              </div>
-              <div class="block-row">
-                <div class="row-label">Blocking reasons</div>
-                <span class="reason-badge">{_html(before_reasons)}</span>
-              </div>
-              <div class="provider-block">
-                <div class="provider-head">Provider positions <span>{_html(before_stance)}</span></div>
-                <div class="positions">{before_provider_positions}</div>
-              </div>
-              <div class="gate-box">
-                <div class="gate-line">
-                  <span class="gate-icon">HG</span>
-                  <div><strong>Promotion blocked - needs more data</strong><p>Missing user-impact evidence blocks promotion.</p></div>
-                  <span class="gate-tag">BLOCKED</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="phase-view" data-phase-view="after" hidden>
-              <div class="target-accent"></div>
-              <div class="target-main">
-                <div class="target-head">
-                  <div>
-                    <div class="target-meta"><span class="state-chip primary">{_html(str(after.get("state") or ""))}</span><span class="unit">subsystem notifier</span></div>
-                    <h3>{_html(after_title)}</h3>
-                  </div>
-                  <div class="score">{after_score:.2f}</div>
-                </div>
-                <div class="scorebar"><i class="promoted" style="width: {after_width:.1f}%"></i></div>
-                <div class="score-note"><span>promotion score</span><span>priority != truth probability</span></div>
-              </div>
-              <div class="block-row">
-                <div class="row-label">Blocking reasons</div>
-                <span class="reason-badge clear">{_html(after_reasons)}</span>
-              </div>
-              <div class="provider-block">
-                <div class="provider-head">Provider positions <span>{_html(after_stance)}</span></div>
-                <div class="positions">{after_provider_positions}</div>
-              </div>
-              <div class="gate-box promoted">
-                <div class="gate-line">
-                  <span class="gate-icon">HG</span>
-                  <div><strong>Primary promotion gate closed</strong><p>Impact evidence is attached; human sign-off still owns action.</p></div>
-                  <span class="gate-tag">UNBLOCKED</span>
-                </div>
-              </div>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="wrap ledger-section">
-      <div class="kicker">State transition - before -> after</div>
-      <div class="ledger-card">
-        <div class="ledger-head"><div>Field</div><div>Before child evidence</div><div>After re-score</div></div>
-        {ledger_html}
-      </div>
-    </section>
-
-    <section class="wrap control-section">
-      <div class="kicker">Gemini-led control plane</div>
-      <h2>Gemini is the baseline. The rest cross-check it.</h2>
-      <p class="hero-copy">{_html(str(control.get("policy") or ""))} Their silence is preserved as validation signal, never dropped.</p>
-      <div class="provider-grid">{provider_cards_html}</div>
-    </section>
-
-    <section class="wrap trace-section">
-      {source_trace_html}
-    </section>
-
-    <section class="wrap verification-section">
-      <div class="verification-card">
-        <div style="flex:2; min-width:280px;">
-          <div class="kicker">Verification</div>
-          <code>{_html(local_test)}</code>
-        </div>
-        <div class="verify-stat"><strong>{_html(public_mode)}</strong><span>public mode - no model runs from the URL</span></div>
-        <div class="verify-stat green"><strong>{_html(raw_policy)}</strong><span>raw logs stay local</span></div>
-      </div>
-    </section>
-
-    <footer class="footer">
-      <div class="wrap footer-inner">
-        <a class="brand" href="/"><span class="brand-mark">OE</span><span>Ops Evidence Synthesis</span></a>
-        <div class="actions">{action_links}</div>
-        <span class="foot-id">{_html(str(payload.get("demo_id") or demo_id))}</span>
-      </div>
-    </footer>
-  </div>
-  <script>{script}</script>
-</body>
-</html>"""
-
-
-def _render_rescore_demo_page_legacy(demo_id: str) -> str:
     payload = _rescore_demo_payload(demo_id)
     if not payload:
         return ""
@@ -8618,32 +6824,6 @@ def _render_rescore_demo_page_legacy(demo_id: str) -> str:
 </html>"""
 
 
-def _rescore_control_provider_cards_html(primary_provider: str, providers: list[object]) -> str:
-    provider_ids: list[tuple[str, str]] = []
-    seen: set[str] = set()
-    primary = str(primary_provider or "").strip()
-    if primary:
-        provider_ids.append((primary, "baseline"))
-        seen.add(primary)
-    for item in providers:
-        provider_id = str(item or "").strip()
-        if not provider_id or provider_id in seen:
-            continue
-        provider_ids.append((provider_id, "cross-check"))
-        seen.add(provider_id)
-    if not provider_ids:
-        provider_ids.append(("gemini-enterprise-agent-platform", "baseline"))
-    return "\n".join(
-        f"""
-        <article class="provider-card {'baseline' if role == 'baseline' else ''}">
-          <h3>{_html(_rescore_provider_short_name(provider_id))}<span>{_html(role)}</span></h3>
-          <code>{_html(provider_id)}</code>
-        </article>
-        """
-        for provider_id, role in provider_ids
-    )
-
-
 def _rescore_source_trace_html(payload: dict[str, Any]) -> str:
     trace = payload.get("source_trace") if isinstance(payload.get("source_trace"), dict) else {}
     if not trace:
@@ -8745,7 +6925,7 @@ def _rescore_provider_positions_html(positions: object) -> str:
 def _html(value: object) -> str:
     import html
 
-    return html.escape(_public_count_text(value), quote=True)
+    return html.escape(str(value), quote=True)
 
 
 fast_detail_target_card = _fast_detail_target_card

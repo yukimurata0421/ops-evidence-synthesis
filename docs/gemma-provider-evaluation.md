@@ -62,20 +62,20 @@ Combined graph:
 
 ## stream_v3 Refresh Trial
 
-The same replacement was applied to the two public stream_v3 review paths. A
-later source-aware reinterpretation pass reused the focused code profiles,
-called the current five-provider set again, and recomputed the Canonical Review
-Graph over recorded Gemini 3.1 Pro, GPT OSS, Mistral, Qwen, and Gemma 4 outputs.
+The same replacement was applied to the two public stream_v3 review paths, then
+Gemini was refreshed with Gemini 3.1 Pro. In both cases Gemma 4 used the same
+chunk-planning path as Gemini, then the Canonical Review Graph was recomputed
+over recorded Gemini 3.1 Pro, GPT OSS, Mistral, Qwen, and Gemma 4 outputs.
 
-| Corpus | Evidence SHA256 | Rows | Chunks | Reinterpretation wall time | Provider status |
-| --- | --- | ---: | ---: | ---: | --- |
-| Dell runtime | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | 45,000 | 33 | 207.108s after cached resume | 5/5 schema-valid |
-| arena-server monitoring | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | 50,000 | 18 | 497.909s + 239s GPT OSS retry | 5/5 schema-valid after GPT OSS 120B rerun |
+| Corpus | Evidence SHA256 | Rows | Chunks | Gemma 4 wall time | Gemini 3.1 Pro wall time |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Dell runtime | `a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0` | 27,926 | 19 | 650.87s provider latency | 560.07s provider latency |
+| arena-server monitoring | `8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a` | 49,942 | 4 | 119.22s provider latency | 109.38s provider latency |
 
-Current public graphs:
+Final public graphs:
 
-- Dell runtime Canonical graph SHA256: `7b8bbf364706cda1b558476b5a08c882356449710612989dbf86ca8a68cb9266`
-- arena-server monitoring Canonical graph SHA256: `b78f802e6fcac1e3562aefdf7ff595a71a7898aa0c9af14366ea50a9239ea6ae`
+- Dell runtime Canonical graph SHA256: `e1c832b8396f32860ce7c2bd5328a6fdde785ffdd9d507a0db764cb2b4788d81`
+- arena-server monitoring Canonical graph SHA256: `b5133772b23bdf85b7a33aafa0a425ea0395fe3ed4922e96c794a500cf8a1e86`
 
 ## Fast Cross-Check Lite Measurement
 
@@ -105,7 +105,5 @@ Gemma 4 is a viable GLM replacement candidate for the public hackathon story
 because it keeps the cross-check model set on Google Cloud and avoids adding
 another China-based provider. Treat this as a provider-set refresh rather than
 a blanket speed improvement: stream_v3 finished quickly, while amazon-notify
-was slower at 44,944 rows and the 2,000-row public cross-check took 255.603s.
-Large reviews should keep chunking and ledger accounting enabled, and the live
-judge-facing fast path should keep Gemini Flash Lite as the default while
-exposing Gemma 4 as an optional cross-check.
+was slower at 44,944 rows. Large reviews should keep chunking and ledger
+accounting enabled.

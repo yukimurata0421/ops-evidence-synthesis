@@ -10,12 +10,11 @@ human-reviewable targets.
 ## Demo
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Primary incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
 - Guarded amazon-notify detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- Fast GCP Review: https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
 - Full submission URL pack: [docs/submission-links.md](docs/submission-links.md)
 - Checklist and remaining manual actions: [docs/submission-checklist.md](docs/submission-checklist.md)
 
@@ -23,9 +22,9 @@ human-reviewable targets.
 
 | Case | Role in evaluation | Evidence SHA256 | Run notes |
 | --- | --- | --- | --- |
-| stream_v3 Dell runtime | Primary path: 5/5 providers, 0 primary candidates, 11 validation targets | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
-| amazon-notify | Guarded-review example: 5/5 providers, 1 primary candidate, 0 auto-promoted causes | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` | [amazon-notify run](docs/real-api-5-provider-run.md) |
-| stream_v3 arena-server monitoring | Observation-gap validation case: 5/5 providers, 1 primary candidate, 11 validation targets | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
+| stream_v3 Dell runtime | Primary source-approved path with 7 human-gated validation targets and 0 auto-promoted causes | `a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
+| amazon-notify | Guarded-review example: 5/5 providers, 0 auto-promoted causes | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` | [amazon-notify run](docs/real-api-5-provider-run.md) |
+| stream_v3 arena-server monitoring | Separate monitoring-plane validation case | `8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
 
 All public real-provider reviews use sanitized source/profile context and
 chunked full-corpus Evidence Items. Raw rows and raw source stay local; public
@@ -40,29 +39,23 @@ human-gated.
 ## 30-Second Reviewer Path
 
 1. Open the public entry and confirm that concrete recorded reviews appear immediately.
-2. Open Fast GCP Review to run a fixed sanitized amazon-notify sample from
-   Cloud Run through Vertex Gemini Flash Lite and receive a measured result URL.
-3. Check the Review Graph section: provider convergence is visible, but
+2. Check the Review Graph section: provider convergence is visible, but
    incident and user-impact promotion remains separately gated.
-4. Open the Detail URL and inspect provider positions, Evidence Item links, and
+3. Open the Detail URL and inspect provider positions, Evidence Item links, and
    promotion gates.
-5. Open the Markdown incident report to see the same review as human-readable
+4. Open the Markdown incident report to see the same review as human-readable
    decision material, including human questions and promotion blockers.
-6. Open the API view to inspect the five-provider chunked run based on
+5. Open the API view to inspect the five-provider chunked run based on
    sanitized logs and code context.
-7. Open the More data rescore demo to see `needs_more_data -> evidence_collected`
+6. Open the More data rescore demo to see `needs_more_data -> evidence_collected`
    and validation target -> primary candidate.
-8. Run `make demo && make verify-precomputed` to regenerate the same flagship
+7. Run `make demo && make verify-precomputed` to regenerate the same flagship
    cache from committed public-safe logs.
 
 ## Key Points
 
 - The working product is a guarded review loop, not a free-form chat summary.
 - Initial UI is precomputed and read-only.
-- Fast GCP Review is the public live-GCP action: fixed sanitized sample only,
-  Cloud Run runtime, Vertex Gemini Flash Lite, measured wall time, and a result
-  URL. The same page also exposes an optional Gemini Flash Lite + Gemma 4
-  cross-check run. It does not accept arbitrary logs or URLs.
 - Provider positions and provider status are visible per review target.
 - Markdown reports make the evidence boundary, review questions, provider
   status, and human-gated promotion blockers readable without asking reviewers
@@ -73,9 +66,9 @@ human-gated.
 - Convergence score is defined as claimed successful providers divided by all
   successful providers.
 - The public primary path shows stream_v3 runtime targets with 5/5 providers
-  but 0 primary candidates; amazon-notify and arena-server monitoring show that
-  a primary candidate can still remain human-gated and never auto-accept an
-  incident cause or operational action.
+  and human-gated primary candidates; amazon-notify shows the restrained case
+  where 5/5 provider support can create primary candidates, but still does not
+  auto-accept an incident cause or operational action.
 - The More data rescore demo shows the AI improvement cycle without public write
   access or live model execution.
 - The Agent Trace is backed by an ADK-compatible tool contract; the same tools

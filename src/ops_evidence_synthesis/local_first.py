@@ -17,7 +17,7 @@ from ops_evidence_synthesis.profiles.registry import normalize_profile_id
 from ops_evidence_synthesis.timeutils import format_timestamp, parse_timestamp, utc_now
 
 
-SANITIZER_VERSION = "sanitize.v1.1"
+SANITIZER_VERSION = "sanitize.v1.2"
 CANONICALIZATION_VERSION = "canonical_json.v1"
 RAW_LOG_POLICY = "not_uploaded"
 LARGE_SEEK_THRESHOLD_BYTES = 50 * 1024 * 1024
@@ -115,7 +115,17 @@ COMPONENT_KEYS = (
 )
 ENVIRONMENT_KEYS = ("environment", "env", "namespace", "mode", "kubernetes.namespace_name")
 HOST_KEYS = ("host", "hostname", "_HOSTNAME", "node", "kubernetes.host")
-MESSAGE_KEYS = ("message", "msg", "text", "event", "log", "MESSAGE", "@message")
+MESSAGE_KEYS = (
+    "message",
+    "msg",
+    "text",
+    "event",
+    "log",
+    "MESSAGE",
+    "@message",
+    "message_sanitized",
+    "message_template",
+)
 TRACE_KEYS = ("trace_id", "trace", "logging.googleapis.com/trace")
 SPAN_KEYS = ("span_id", "span")
 DEPLOY_KEYS = ("deploy_id", "revision", "release", "version")
@@ -365,6 +375,52 @@ REDACTION_SCAN_TOKENS = (
     "account_id",
 )
 REDACTION_SCAN_RE = re.compile("|".join(re.escape(token) for token in REDACTION_SCAN_TOKENS), re.IGNORECASE)
+
+GENERIC_EVENT_MESSAGE_RE = re.compile(
+    r"^(?:event|log|message|record|entry)(?:\s+[a-z0-9_.-]+=[^\s]+)*$",
+    re.IGNORECASE,
+)
+SEMANTIC_ATTRIBUTE_KEYS = (
+    "schema",
+    "original_service",
+    "action",
+    "event_class",
+    "state",
+    "status",
+    "result",
+    "outcome",
+    "sample_reason",
+    "reason",
+    "failure_reason",
+    "error_type",
+    "exception_type",
+    "error",
+    "phase",
+    "health",
+    "healthy",
+    "ok",
+    "connected",
+    "changed",
+    "triggered",
+)
+SEMANTIC_EMPTY_VALUES = {"", "unknown", "none", "null", "n/a", "na"}
+EVENT_CLASSIFICATION_ATTRIBUTE_KEYS = {
+    "action",
+    "error",
+    "error_type",
+    "event_class",
+    "event_type",
+    "exception",
+    "exception_type",
+    "failure",
+    "failure_reason",
+    "outcome",
+    "reason",
+    "result",
+    "sample_reason",
+    "state",
+    "status",
+}
 
 
 @dataclass(frozen=True)
@@ -1265,6 +1321,11 @@ def format_verification_result(result: dict[str, Any]) -> str:
 def normalize_parsed_line(parsed: ParsedLine, item: InputLine, report: RedactionCounter) -> dict[str, Any]:
     message_sanitized = redact_text(parsed.message, report)
     attributes = redact_mapping(parsed.attributes, report)
+    message_sanitized = _enrich_generic_event_message(
+        message_sanitized,
+        attributes=attributes,
+        service=redact_text(parsed.service or item.source_path.stem or "unknown", report),
+    )
     source_path = redact_text(str(item.source_path), report)
     attributes["source_path"] = source_path
     attributes["source_line"] = item.line_number
@@ -1296,6 +1357,91 @@ def normalize_parsed_line(parsed: ParsedLine, item: InputLine, report: Redaction
         payload.pop("timestamp")
     payload["event_id"] = "EV-" + sha256_json(payload)[:16]
     return payload
+
+
+def _enrich_generic_event_message(
+    message: str,
+    *,
+    attributes: dict[str, Any],
+    service: str,
+) -> str:
+    """Add bounded, sanitized structure when an upstream event has no useful message.
+
+    Some collectors intentionally emit a generic ``event`` message and place the
+    operational meaning in structured fields. Keeping a small allow-listed
+    semantic signature prevents unrelated services and states from collapsing
+    into one Evidence Item without exposing arbitrary attribute values.
+    """
+
+    base = _compact_ws(message)
+    if not GENERIC_EVENT_MESSAGE_RE.fullmatch(base):
+        return base
+
+    tokens: list[str] = []
+    existing_keys = {
+        match.group(1).casefold()
+        for match in re.finditer(r"(?:^|\s)([a-z0-9_.-]+)=", base, re.IGNORECASE)
+    }
+    service_value = _semantic_token_value(service)
+    if (
+        "service" not in existing_keys
+        and service_value
+        and service_value.casefold() not in SEMANTIC_EMPTY_VALUES
+    ):
+        tokens.append(f"service={service_value}")
+
+    flattened = _flatten_semantic_scalars(attributes)
+    seen_keys: set[str] = set()
+    for wanted_key in SEMANTIC_ATTRIBUTE_KEYS:
+        for path, key, value in flattened:
+            if key != wanted_key or key in seen_keys:
+                continue
+            if key in existing_keys:
+                seen_keys.add(key)
+                break
+            token_value = _semantic_token_value(value)
+            if not token_value or token_value.casefold() in SEMANTIC_EMPTY_VALUES:
+                continue
+            label = key
+            if key in {"ok", "connected", "changed", "triggered"} and len(path) >= 2:
+                label = f"{path[-2]}.{key}"
+            tokens.append(f"{label}={token_value}")
+            seen_keys.add(key)
+            break
+        if len(tokens) >= 8:
+            break
+
+    if not tokens:
+        return base or "event"
+    return _compact_ws(" ".join([base or "event", *tokens]))[:500]
+
+
+def _flatten_semantic_scalars(
+    value: dict[str, Any],
+    *,
+    path: tuple[str, ...] = (),
+    depth: int = 0,
+) -> list[tuple[tuple[str, ...], str, Any]]:
+    if depth > 4:
+        return []
+    rows: list[tuple[tuple[str, ...], str, Any]] = []
+    for raw_key, child in value.items():
+        key = str(raw_key).strip().casefold().replace("-", "_")
+        child_path = (*path, key)
+        if isinstance(child, dict):
+            rows.extend(_flatten_semantic_scalars(child, path=child_path, depth=depth + 1))
+        elif isinstance(child, (str, bool, int, float)) and not isinstance(child, list):
+            rows.append((child_path, key, child))
+    return rows
+
+
+def _semantic_token_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    text = _compact_ws(str(value)).replace("/", ":")
+    return text[:120]
 
 
 def parse_line(item: InputLine) -> ParsedLine:
@@ -1342,7 +1488,13 @@ def detect_format(line: str) -> str:
 
 def infer_event_type(message: str, severity_text: str, attributes: dict[str, Any] | None = None) -> str:
     message_text = message.casefold()
-    text = " ".join([message, canonical_json(attributes or {})]).casefold()
+    attribute_text = " ".join(
+        _semantic_token_value(value)
+        for _path, key, value in _flatten_semantic_scalars(attributes or {})
+        if key in EVENT_CLASSIFICATION_ATTRIBUTE_KEYS
+        and _semantic_token_value(value).casefold() not in SEMANTIC_EMPTY_VALUES
+    )
+    text = " ".join([message, attribute_text]).casefold()
     if "no such file or directory" in text:
         if any(term in text for term in ("can't open file", "execstart", "executable", "command", ".service", ".py", ".sh")):
             return "missing_command"
@@ -1365,7 +1517,7 @@ def infer_event_type(message: str, severity_text: str, attributes: dict[str, Any
         or _attributes_contain_http_5xx(attributes or {})
     ):
         return "http_5xx"
-    if "timed out" in text or "timeout" in text or "deadline exceeded" in text:
+    if _contains_non_negated_signal(text, ("timed out", "timeout", "deadline exceeded")):
         return "timeout"
     if "temporary failure in name resolution" in text or "dns" in text and any(term in text for term in ("failure", "failed", "nxdomain")):
         return "dns_failure"
@@ -1375,7 +1527,7 @@ def infer_event_type(message: str, severity_text: str, attributes: dict[str, Any
         return "config_error"
     if any(term in text for term in ("connection refused", "unreachable", "no route to host", "upstream unavailable")):
         return "dependency_unreachable"
-    if "out of memory" in text or "oom" in text or "memory cgroup out of memory" in text:
+    if _contains_non_negated_signal(text, ("memory cgroup out of memory", "out of memory", "oom")):
         return "oom"
     if any(term in text for term in ("state mismatch", "status mismatch", "expected state", "actual state", "contradicts", "healthy but")):
         return "state_mismatch"
@@ -1412,6 +1564,20 @@ def infer_event_type(message: str, severity_text: str, attributes: dict[str, Any
     if severity in {"info", "notice", "debug"}:
         return "info"
     return "unknown"
+
+
+def _contains_non_negated_signal(text: str, terms: tuple[str, ...]) -> bool:
+    for term in terms:
+        for match in re.finditer(rf"\b{re.escape(term)}\b", text):
+            prefix = text[max(0, match.start() - 100) : match.start()]
+            suffix = text[match.end() : match.end() + 80]
+            sentence_prefix = re.split(r"[.;!?]", prefix)[-1]
+            if re.search(r"\b(?:no|without)\b[^.;!?]{0,90}$", sentence_prefix):
+                continue
+            if re.match(r"[^.;!?]{0,50}\b(?:not observed|not present|absent)\b", suffix):
+                continue
+            return True
+    return False
 
 
 def _attributes_contain_http_5xx(attributes: dict[str, Any]) -> bool:

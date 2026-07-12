@@ -1,0 +1,1589 @@
+{
+  "agent_trace": [
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:freeze_evidence_bundle",
+      "output": {
+        "artifact": "evidence_bundle",
+        "evidence_sha256": "8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a",
+        "log_count": 49942,
+        "raw_log_policy": "not_uploaded",
+        "status": "completed",
+        "summary": "Evidence Bundle 8d165418fca8 fixed 49,942 sanitized rows; raw_log_policy=not_uploaded."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "freeze_evidence_bundle",
+      "summary": "Evidence Bundle 8d165418fca8 fixed 49,942 sanitized rows; raw_log_policy=not_uploaded.",
+      "title": "Freeze Evidence Bundle",
+      "tool": "freeze_evidence_bundle",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:attach_sanitized_source_context",
+      "output": {
+        "artifact": "source_context",
+        "context_is_not_incident_evidence": true,
+        "source_analysis_attached": false,
+        "source_analysis_sha256": "",
+        "source_context_attached": true,
+        "source_context_sha256": "",
+        "status": "completed",
+        "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "attach_sanitized_source_context",
+      "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
+      "title": "Attach Sanitized Source Context",
+      "tool": "attach_sanitized_source_context",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:run_cross_check_providers",
+      "output": {
+        "artifact": "model_runs",
+        "gemini_reference_present": true,
+        "provider_count": 5,
+        "provider_ids": [
+          "gemini-enterprise-agent-platform",
+          "gemma-agent-platform",
+          "mistral-agent-platform",
+          "openai-gpt-oss-on-vertex",
+          "qwen-agent-platform"
+        ],
+        "schema_valid_provider_count": 5,
+        "status": "completed",
+        "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "run_cross_check_providers",
+      "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
+      "title": "Run Cross-Check Providers",
+      "tool": "run_cross_check_providers",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:chunk_and_merge_full_corpus",
+      "output": {
+        "analyzed_evidence_items": 25,
+        "artifact": "chunked_provider_merge",
+        "chunk_count": 4,
+        "chunk_manifest_count": 4,
+        "coverage_ratio": 1.0,
+        "determinism_scope": {
+          "fixture_regeneration": "deterministic_local_provider_ci",
+          "merge": "deterministic_sort_dedup_over_recorded_chunk_outputs",
+          "provider_outputs": "recorded_and_hashed"
+        },
+        "failed_chunk_count": 0,
+        "full_evidence_items": 25,
+        "status": "completed",
+        "summary": "Provider prompts covered 25/25 Evidence Item(s) through up to 4 chunk(s); recorded chunk outputs are sorted and deduplicated before canonical merge.",
+        "unassigned_evidence_items": 0
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "chunk_and_merge_full_corpus",
+      "summary": "Provider prompts covered 25/25 Evidence Item(s) through up to 4 chunk(s); recorded chunk outputs are sorted and deduplicated before canonical merge.",
+      "title": "Chunk And Merge Full Corpus",
+      "tool": "chunk_and_merge_full_corpus",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:validate_citations",
+      "output": {
+        "artifact": "citation_validation",
+        "chunk_tracked_evidence_ref_total_count": 18,
+        "cited_evidence_ref_count": 17,
+        "directly_cited_evidence_ref_count": 17,
+        "missing_evidence_count": 39,
+        "status": "completed",
+        "summary": "2 review target(s) directly show 17 unique cited Evidence Item(s); chunk manifests track 18 target evidence association(s); 39 missing-evidence item(s) remain.",
+        "target_count": 2,
+        "uncited_target_ids": []
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "validate_citations",
+      "summary": "2 review target(s) directly show 17 unique cited Evidence Item(s); chunk manifests track 18 target evidence association(s); 39 missing-evidence item(s) remain.",
+      "title": "Validate Citations",
+      "tool": "validate_citations",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:compute_review_targets",
+      "output": {
+        "artifact": "canonical_review_graph",
+        "convergence_count": 2,
+        "primary_count": 0,
+        "status": "completed",
+        "summary": "Canonical Review Graph projected 2 target(s), 0 primary candidate(s), and 2 convergence group(s).",
+        "targets_total": 2,
+        "validation_count": 2
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "compute_review_targets",
+      "summary": "Canonical Review Graph projected 2 target(s), 0 primary candidate(s), and 2 convergence group(s).",
+      "title": "Compute Review Targets",
+      "tool": "compute_review_targets",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:arbitrate_review_gate",
+      "output": {
+        "artifact": "review_arbitration",
+        "blocked_reasons": [
+          "single_metric_only; user_impact_unverified",
+          "user_impact_unverified"
+        ],
+        "incident_baseline": "established",
+        "requires_human_review": true,
+        "status": "human_gate",
+        "summary": "Final incident causality remains human-gated; the agent stops with review targets."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "arbitrate_review_gate",
+      "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
+      "title": "Arbitrate Human Gate",
+      "tool": "arbitrate_review_gate",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:request_more_evidence",
+      "output": {
+        "artifact": "evidence_request_plan",
+        "missing_evidence_count": 39,
+        "request_types": [
+          "external_dependency_status_query",
+          "user_impact_signal_query"
+        ],
+        "status": "completed",
+        "summary": "Generated read-only follow-up plan with 2 request type(s) and 39 missing-evidence item(s), grouped for top-N human review."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "request_more_evidence",
+      "summary": "Generated read-only follow-up plan with 2 request type(s) and 39 missing-evidence item(s), grouped for top-N human review.",
+      "title": "Request More Evidence",
+      "tool": "request_more_evidence",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:draft_system_profile",
+      "output": {
+        "approved": true,
+        "artifact": "profile_draft",
+        "collector_mapping_count": 4,
+        "component_count": 5,
+        "confidence_action": "approved_human_reviewed",
+        "confidence_summary": {
+          "collector_mapping_confidence": 0.8,
+          "component_mapping_confidence": 0.86,
+          "metric_semantics_confidence": 0.8,
+          "overall_confidence": 0.82
+        },
+        "confirmed_user_outcomes": [
+          "a continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio"
+        ],
+        "explicit_profile": true,
+        "generation_mode": "approved_profile_context",
+        "human_questions": [],
+        "llm_status": "persisted",
+        "metric_semantics_count": 6,
+        "profile_id": "stream_v3_monitoring_source_approved_20260711",
+        "profile_status": "approved_context_human_gated_outcomes",
+        "profile_to_review_links": [],
+        "provisional_user_outcomes": [],
+        "required_human_decisions": [],
+        "status": "human_gate",
+        "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "draft_system_profile",
+      "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
+      "title": "Draft System Profile",
+      "tool": "draft_system_profile",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:deliver_read_only_review",
+      "output": {
+        "artifact": "precomputed_review_summary",
+        "evidence_sha256": "8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a",
+        "provider_mode": "real_api_private_gcs_cloud_run_job_postgres_ledger",
+        "public_url": "",
+        "status": "completed",
+        "summary": "Read-only review payload for 8d165418fca8 is served from precomputed JSON; page load does not invoke live model work."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "deliver_read_only_review",
+      "summary": "Read-only review payload for 8d165418fca8 is served from precomputed JSON; page load does not invoke live model work.",
+      "title": "Deliver Read-Only Review",
+      "tool": "deliver_read_only_review",
+      "trace_sha256": "20d186857666bd6733b11e6800a0b0a16c2d9a3f95952302f11a984220ea89a5",
+      "trace_source": "adk_tool_contract"
+    }
+  ],
+  "analysis_context": {
+    "analysis_conclusion": [
+      "Gemini, GPT OSS, Mistral, Qwen, and Gemma 4 all returned status=ok and schema_valid=true.",
+      "The public graph exposes 0 primary candidate, 2 validation target(s), and 3 monitor-only item(s) after the analysis-window boundary is applied.",
+      "0 primary candidate and 2 validation target(s) remain for human review."
+    ],
+    "analysis_window_hours": 24.915278,
+    "db_corpus_coverage": {
+      "coverage_class_counts": {},
+      "coverage_ratio": 1.0,
+      "covered_row_count": 49942,
+      "direct_prompt_row_count": 0,
+      "low_frequency_pattern_count": 8,
+      "pattern_count": 25,
+      "prompt_boundary_policy": "",
+      "raw_rows_sent_to_providers": false,
+      "row_assignments_in_public_payload": false,
+      "row_assignments_sha256": "",
+      "schema_version": "db_corpus_coverage.v1",
+      "singleton_pattern_count": 7,
+      "source_table": "local_sanitized_events",
+      "strategy": "local_first_grouped_occurrence_accounting",
+      "total_row_count": 49942,
+      "uncovered_row_count": 0
+    },
+    "db_corpus_coverage_class_counts": {},
+    "db_corpus_coverage_ratio": 1.0,
+    "db_corpus_covered_row_count": 49942,
+    "db_corpus_direct_prompt_row_count": 0,
+    "db_corpus_pattern_count": 25,
+    "db_corpus_raw_rows_sent_to_providers": false,
+    "db_corpus_row_assignments_sha256": "",
+    "db_corpus_row_count": 49942,
+    "db_corpus_singleton_pattern_count": 7,
+    "db_ingested_log_count": 49942,
+    "determinism_scope": {
+      "chunk_merge": "deterministic_sort_dedup_over_recorded_chunk_outputs",
+      "local_fixture": "byte_equal_regeneration_for_deterministic_local_provider_ci",
+      "provider_outputs": "recorded_and_hashed_not_recreated_byte_for_byte"
+    },
+    "environment": "arena_server",
+    "evidence_item_accounting": {
+      "db_pattern_groups": 25,
+      "derived_metric_or_operational_items": 0,
+      "explanation": "Evidence Item count can exceed DB pattern groups because deterministic metric, state, or operational boundary items are added after row-level grouping.",
+      "schema_version": "evidence_item_accounting.v1",
+      "total_evidence_items": 25
+    },
+    "evidence_item_count": 25,
+    "log_observations": [
+      "The run used 49,942/49,942 sanitized stream_v3_monitoring event rows from 2026-06-18T09:54:00Z to 2026-06-19T10:48:55Z as the coverage corpus; direct raw-row prompt count was 0.",
+      "The local-first Evidence Bundle retained 25 grouped evidence items, including 7 singleton pattern(s), 8 low-frequency pattern(s), and 3 pre-AI route signal(s).",
+      "Evidence accounting: 25 DB pattern group(s) plus 0 deterministic metric/state/operational item(s) produced 25 Evidence Item(s).",
+      "The single-prompt projection used 25 selected evidence items covering 49,942 occurrences (100.0% of the sanitized corpus); provider synthesis covered 25/25 grouped Evidence Items via chunked calls.",
+      "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_monitoring bundle keeps 49,942 rows and 25 grouped Evidence Items, while the bounded projection tracks 25 high-signal Evidence Items representing 49,942 repeated occurrences. Multi-provider synthesis then covered 25/25 grouped Evidence Items through chunked provider calls across up to 4 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency.",
+      "Real provider outputs are recorded and hashed; deterministic reproduction applies to the canonical merge over sorted recorded chunk outputs and to local fixture regeneration.",
+      "Repeated RUN_ONCE/RUN_RESULT, systemd watchdog, token refresh, Pub/Sub idle, and status snapshot patterns were represented by evidence IDs rather than raw log bodies."
+    ],
+    "min_analysis_window_hours": 24,
+    "model_projection_evidence_items": 25,
+    "model_projection_interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_monitoring bundle keeps 49,942 rows and 25 grouped Evidence Items, while the bounded projection tracks 25 high-signal Evidence Items representing 49,942 repeated occurrences. Multi-provider synthesis then covered 25/25 grouped Evidence Items through chunked provider calls across up to 4 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency.",
+    "model_projection_occurrence_count": 49942,
+    "model_projection_occurrence_coverage_ratio": 1.0,
+    "model_projection_policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts.",
+    "pipeline_run_id": "stream-v3-monitoring-50k-real-api-20260711-v3",
+    "profile_id": "stream_v3_monitoring_source_approved_20260711",
+    "provider_count": 5,
+    "provider_full_corpus_analyzed_evidence_items": 25,
+    "provider_full_corpus_chunk_count": 4,
+    "provider_full_corpus_chunk_manifest_count": 4,
+    "provider_full_corpus_chunk_manifest_sha256s": [
+      "2441b66cbf47b7cda4d92f700a92ab6ff05a9083c46f979d3c29f93b56b45a13",
+      "ac573d6124e678dbf08901804b634451cf161ffb99abbf5d49ace7821a36afeb",
+      "de4add4b8f5438e26ca62ee4df59e5f9d60bc4ae46f8e2294bdd9b02c5a169b6"
+    ],
+    "provider_full_corpus_coverage": {
+      "all_provider_chunk_manifests_present": true,
+      "all_schema_valid_providers_covered_full_corpus": true,
+      "analyzed_evidence_item_count": 25,
+      "chunk_manifest_sha256s": [
+        "2441b66cbf47b7cda4d92f700a92ab6ff05a9083c46f979d3c29f93b56b45a13",
+        "ac573d6124e678dbf08901804b634451cf161ffb99abbf5d49ace7821a36afeb",
+        "de4add4b8f5438e26ca62ee4df59e5f9d60bc4ae46f8e2294bdd9b02c5a169b6"
+      ],
+      "coverage_ratio": 1.0,
+      "full_evidence_item_count": 25,
+      "max_chunk_count": 4,
+      "max_chunk_manifest_entry_count": 4,
+      "mode": "full_evidence_item_chunking",
+      "provider_count": 5,
+      "reported_provider_count": 5,
+      "schema_valid_provider_count": 5,
+      "schema_version": "provider_full_corpus_coverage.v1",
+      "unassigned_evidence_item_count": 0
+    },
+    "provider_full_corpus_coverage_ratio": 1.0,
+    "provider_full_corpus_evidence_items": 25,
+    "provider_full_corpus_unassigned_evidence_items": 0,
+    "raw_log_policy": "not_uploaded",
+    "raw_source_policy": "not_uploaded",
+    "real_api_revision": "",
+    "sanitized_log_count": 49942,
+    "schema_valid_provider_count": 5,
+    "schema_version": "real_api_source_context_summary.v2",
+    "service": "stream_v3_monitoring",
+    "source_analysis_sha256": "",
+    "source_context_sha256": "",
+    "source_observations": [
+      "Source context was not supplied after approval; analysis used the frozen approved profile and sanitized Evidence Item IDs only.",
+      "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs from the sanitized corpus."
+    ],
+    "token_usage": {
+      "input_tokens": 235481,
+      "output_tokens": 31682
+    },
+    "window_end": "2026-06-19T10:48:55Z",
+    "window_start": "2026-06-18T09:54:00Z"
+  },
+  "devops_loop": {
+    "items": [
+      {
+        "detail": "Gemini, GPT OSS, Mistral, Qwen, and Gemma 4 were executed through Vertex-backed endpoints; provider diversity is recorded by model path, not by automatic truth voting.",
+        "label": "Real provider run",
+        "value": "5 providers"
+      },
+      {
+        "detail": "Raw logs and raw source stayed local; only sanitized bundles and context reached the API.",
+        "label": "Source-first boundary",
+        "value": "raw not uploaded"
+      },
+      {
+        "detail": "49,942 occurrences were represented by selected evidence IDs and counts.",
+        "label": "Token compression",
+        "value": "25 items"
+      },
+      {
+        "detail": "Provider convergence creates review targets, not automatic causal truth.",
+        "label": "Human gate",
+        "value": "incident open"
+      }
+    ],
+    "summary": "The public URL is backed by a recorded e2e API run, provider hashes, schema validation, and read-only precomputed serving.",
+    "title": "AI workflow is operated as production software"
+  },
+  "evidence_sha256": "8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a",
+  "generation": {
+    "api_revision": "",
+    "generator": "ops_evidence_synthesis.precomputed_review",
+    "min_analysis_window_hours": 24,
+    "payload_sha256": "62709cf1f070393cd8b51bb85beebb2d6e59f5e573971597afa8a27c9bbe58e9",
+    "pipeline_run_id": "stream-v3-monitoring-50k-real-api-20260711-v3",
+    "provider_mode": "real_api_private_gcs_cloud_run_job_postgres_ledger",
+    "raw_log_policy": "not_uploaded",
+    "real_api_evidence_sha256": "8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a",
+    "schema_version": "precomputed_review_generation.v1",
+    "score_definition": "claimed successful providers / all successful providers",
+    "source_note": "generated from sanitized logs and a human-approved operational profile; source access disabled after profile approval"
+  },
+  "profile_context": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 5,
+    "confidence_action": "approved_human_reviewed",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.8,
+      "component_mapping_confidence": 0.86,
+      "metric_semantics_confidence": 0.8,
+      "overall_confidence": 0.82
+    },
+    "confidence_thresholds": {
+      "candidate_only_human_gate": 0.6,
+      "use_for_subsystem_routing": 0.75
+    },
+    "confirmed_user_outcomes": [
+      "a continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio"
+    ],
+    "context_is_not_incident_evidence": true,
+    "draft_schema_version": "",
+    "explicit_profile": true,
+    "generation_mode": "approved_profile_context",
+    "human_questions": [],
+    "llm_status": "persisted",
+    "metric_semantics_count": 6,
+    "profile_id": "stream_v3_monitoring_source_approved_20260711",
+    "profile_review_policy": {
+      "confirmed_outcomes_required_for_promotion": true,
+      "context_is_not_incident_evidence": true,
+      "low_confidence_fields_require_human_review": true,
+      "provisional_outcomes_create_missing_evidence": true,
+      "runtime_support_must_cite_evidence_id": true
+    },
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [],
+    "provisional_user_outcomes": [],
+    "purpose": "Monitoring plane including arena-server exporter, control loop, Prometheus collection, probes, watchdog, and remote recovery coordination.",
+    "required_human_decisions": [],
+    "schema_version": "profile_context_summary.v2",
+    "source_analysis_sha256": "",
+    "source_context_sha256": "",
+    "source_discovery_sha256": "4868c38f4662b7c017d99c9b49a3eca7a6a2bad5c5fdf948153fa9260e6d8d23",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains routing and questions, but runtime claims still require Evidence Item IDs and human-approved user outcomes.",
+    "system_type": "containerized_service"
+  },
+  "profile_draft_generation": {
+    "approved": true,
+    "collector_mapping_count": 4,
+    "component_count": 5,
+    "confidence_action": "approved_human_reviewed",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.8,
+      "component_mapping_confidence": 0.86,
+      "metric_semantics_confidence": 0.8,
+      "overall_confidence": 0.82
+    },
+    "confirmed_user_outcomes": [
+      "a continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio"
+    ],
+    "explicit_profile": true,
+    "generation_mode": "approved_profile_context",
+    "human_questions": [],
+    "llm_status": "persisted",
+    "metric_semantics_count": 6,
+    "profile_id": "stream_v3_monitoring_source_approved_20260711",
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [],
+    "provisional_user_outcomes": [],
+    "required_human_decisions": [],
+    "schema_version": "profile_draft_generation_summary.v1"
+  },
+  "provider_statuses": [
+    {
+      "chunk_failure_count": 0,
+      "chunk_status_counts": {
+        "ok": 4
+      },
+      "display_name": "Vertex Gemini",
+      "failure_reason": "",
+      "input_tokens": 60927,
+      "latency_ms": 109375,
+      "model_name": "gemini-3.1-pro-preview",
+      "output_tokens": 3567,
+      "parsed_json_sha256": "79ec3bb21a385f4bd632610c4bda735e3711d4d96662bc5016b2b7fe0acc6392",
+      "partial_chunk_result": {
+        "failure_count": 0,
+        "min_success_ratio": 0.8,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 4,
+        "success_ratio": 1.0,
+        "total_chunk_count": 4,
+        "usable": true
+      },
+      "provider_id": "gemini-enterprise-agent-platform",
+      "raw_output_sha256": "deb81e73c66d82fa50baa288f69a72bf8810cd8d157320210b5c234b9e7a88ef",
+      "retry": {
+        "attempts": 4,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 8,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "chunk_failure_count": 0,
+      "chunk_status_counts": {
+        "ok": 4
+      },
+      "display_name": "Gemma on Gemini Enterprise Agent Platform",
+      "failure_reason": "",
+      "input_tokens": 56943,
+      "latency_ms": 119216,
+      "model_name": "gemma-4-26b-a4b-it-maas",
+      "output_tokens": 5782,
+      "parsed_json_sha256": "17317adabd0677de4c7b74be467b49ba0d2fcd803745a5edb4dfcd94996e511c",
+      "partial_chunk_result": {
+        "failure_count": 0,
+        "min_success_ratio": 0.8,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 4,
+        "success_ratio": 1.0,
+        "total_chunk_count": 4,
+        "usable": true
+      },
+      "provider_id": "gemma-agent-platform",
+      "raw_output_sha256": "5e9f94899e44b4dc3c1b5ed4046740ec7a776b1697a0275d71c3f77c5a9c58ce",
+      "retry": {
+        "attempts": 4,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 8,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "chunk_failure_count": 0,
+      "chunk_status_counts": {},
+      "display_name": "Mistral on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 21975,
+      "latency_ms": 15285,
+      "model_name": "mistral-small-2503",
+      "output_tokens": 1800,
+      "parsed_json_sha256": "1dd69de79784a3fc36bcbd941bd7570240ff21b1dd57986fca1b08ff1110745f",
+      "partial_chunk_result": {},
+      "provider_id": "mistral-agent-platform",
+      "raw_output_sha256": "34235c62b60c95ca2e5b5222e014134907ef038ef8d6c42d1a37826c35d8ae82",
+      "retry": {
+        "attempts": 1,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 2,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "chunk_failure_count": 0,
+      "chunk_status_counts": {
+        "ok": 4
+      },
+      "display_name": "gpt-oss on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 47195,
+      "latency_ms": 49143,
+      "model_name": "gpt-oss-20b-maas",
+      "output_tokens": 14541,
+      "parsed_json_sha256": "73677ae1a24abcfa22615fe5008768024dfbc3c2b55450aa3fe28a507c30ccab",
+      "partial_chunk_result": {
+        "failure_count": 0,
+        "min_success_ratio": 0.8,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 4,
+        "success_ratio": 1.0,
+        "total_chunk_count": 4,
+        "usable": true
+      },
+      "provider_id": "openai-gpt-oss-on-vertex",
+      "raw_output_sha256": "a6783dcbf6a31ddaa89f32b24a1cf6bab112ca5396eecf3a0fc68bc0daf58599",
+      "retry": {
+        "attempts": 4,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 8,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "chunk_failure_count": 0,
+      "chunk_status_counts": {
+        "ok": 4
+      },
+      "display_name": "Qwen on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 48441,
+      "latency_ms": 48193,
+      "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
+      "output_tokens": 5992,
+      "parsed_json_sha256": "8a8b3b6088d297945ad31fa6f6be34e0172c02d9672cb42a4955f4df7d7f5c82",
+      "partial_chunk_result": {
+        "failure_count": 0,
+        "min_success_ratio": 0.8,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 4,
+        "success_ratio": 1.0,
+        "total_chunk_count": 4,
+        "usable": true
+      },
+      "provider_id": "qwen-agent-platform",
+      "raw_output_sha256": "6ad5f6ba370b35f8bf073a624807426ea8403026a9ba0ca1ce0767e87dad112b",
+      "retry": {
+        "attempts": 4,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 8,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    }
+  ],
+  "review_graph_summary": {
+    "auto_archived_count": 2,
+    "conflict_count": 0,
+    "convergence_count": 2,
+    "hidden_multi_provider_archived_count": 0,
+    "incident_baseline": "established",
+    "incident_baseline_established_count": 0,
+    "incident_gate_scope": "graph_level_signal_not_target_promotion",
+    "incident_gate_signal": "signal_present",
+    "note": "Provider convergence is technical support only; causal and impact judgement remains human-gated. Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; it is not additive with target verdict counts.",
+    "partial_overlap_count": 1,
+    "primary_promoted_count": 0,
+    "provider_detection_overlap": "5/5",
+    "review_unit_convergence": "strong",
+    "rule_or_context_count": 0,
+    "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
+    "single_source_count": 0,
+    "summary": "The e2e API analyzed a 49,942-row sanitized log corpus with 5 schema-valid real provider outputs; 2 review units had at least two provider positions while impact remains human-gated.",
+    "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
+    "targets_total": 2,
+    "technical_baseline": "established"
+  },
+  "schema_version": "precomputed_review_summary.v1",
+  "summary": {
+    "baselines": {
+      "incident": true,
+      "technical": true
+    },
+    "canonical_graph_sha256": "b5133772b23bdf85b7a33aafa0a425ea0395fe3ed4922e96c794a500cf8a1e86",
+    "canonical_graph_status": "recomputed_for_public_payload",
+    "finding": {
+      "impact": "Gemini, GPT OSS, Mistral, Qwen, and Gemma 4 all returned schema-valid outputs. 0 primary candidate and 2 validation target(s) remain human-gated; incident promotion is not auto-accepted.",
+      "title": "Five real providers analyzed the 49,942-row stream_v3_monitoring corpus"
+    },
+    "input_fingerprint_sha256": "ad9fd983765f62a14c5ed09260c6ca3d1549e76a724ecd966429e2e499277cd1",
+    "log_count": 49942,
+    "message": "",
+    "providers": {
+      "pipeline_status": "succeeded",
+      "success": 5,
+      "total": 5
+    },
+    "raw_log_policy": "not_uploaded",
+    "review": {
+      "auto_archived": 2,
+      "monitor_only": 3,
+      "primary_targets": 0,
+      "validation_targets": 2
+    },
+    "schema_version": "ui_summary.v1",
+    "status": "ok",
+    "updated_at": "2026-07-12T00:10:02Z"
+  },
+  "targets": [
+    {
+      "agreement": {
+        "convergence_score": 1.0,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "5/5 schema-valid providers projected this review unit from the 49,942-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "transport_sender",
+      "caveats": [],
+      "claim": "5/5 schema-valid providers projected transport_sender with 17 chunk-tracked Evidence Item association(s); this is technical review support, not majority-vote truth.",
+      "class": "validation_target",
+      "classification": {
+        "adjustment": "",
+        "evidence_family_count": 1,
+        "evidence_ref_count": 17,
+        "final_class": "validation_target",
+        "original_class": "validation_target",
+        "policy": "Provider convergence can create high-priority validation work, but primary candidacy requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets.",
+        "provider_support": "5/5",
+        "reason": "",
+        "schema_version": "public_target_classification.v1",
+        "source_candidate_count": 20
+      },
+      "counter_evidence_summary": [
+        "No evidence of actual stream failure or RTMPS disconnection is present in this chunk.",
+        "No evidence of media plane disruption (FFmpeg, RTMPS, or YouTube ingest) is cited in this chunk.",
+        "No runtime or YouTube ingest evidence confirms transport or user impact.",
+        "Not cited in this chunk.",
+        "PATTERN-022 shows rtmps_tcpdump_ring packet metadata was OK, suggesting some local network ring buffer health.",
+        "PATTERN-003 shows 'all_anchors_ok' for much of the window, suggesting these failures were transient or localized.",
+        "PATTERN-003 shows periods where all anchors were OK.",
+        "PATTERN-007 and PATTERN-009 show WAN route up events, indicating recovery.",
+        "No evidence of successful reconnections or resolution of anchor failures.",
+        "No YouTube ingest or stream activity metrics are present in this chunk to confirm or deny impact.",
+        "No evidence of successful network reconnections or resolution of connectivity issues.",
+        "No direct evidence of FFmpeg socket disconnection or RTMPS throughput drop is cited in this chunk.",
+        "4 additional counter or weak-signal summary item(s) are omitted from this public detail view; the full count remains in evidence_ref_total_count and the chunk manifest."
+      ],
+      "evidence_ref_display_count": 17,
+      "evidence_ref_overflow_count": 0,
+      "evidence_ref_total_count": 17,
+      "evidence_refs": [
+        "PATTERN-024",
+        "PATTERN-025",
+        "PATTERN-023",
+        "PATTERN-020",
+        "PATTERN-021",
+        "PATTERN-004",
+        "PATTERN-007",
+        "PATTERN-015",
+        "PATTERN-013",
+        "PATTERN-014",
+        "PATTERN-005",
+        "PATTERN-012",
+        "PATTERN-016",
+        "PATTERN-017",
+        "PATTERN-009",
+        "PATTERN-019",
+        "PATTERN-018"
+      ],
+      "evidence_relationship_supported": false,
+      "evidence_summary": [
+        "PATTERN-024 and PATTERN-025 show urlopen error timed out for stream_v3_wan_address_observer.",
+        "PATTERN-024: timeout event from stream_v3_monitoring to wan_address_observer",
+        "PATTERN-025: timeout event from stream_v3_monitoring to wan_address_observer",
+        "PATTERN-024: A timeout occurred in the wan_address_observer with addresses.ok=true and labels_json.changed=false.",
+        "PATTERN-025: A timeout occurred in the wan_address_observer with addresses.ok=true and labels_json.changed=true.",
+        "PATTERN-024: Shows a `urlopen` error timeout for the `wan_address_observer` service.",
+        "PATTERN-025: Shows a `urlopen` error timeout for the `wan_address_observer` service, noting a change in `labels_json`.",
+        "PATTERN-023: WAN address observer shows address change with labels_json.changed=true",
+        "PATTERN-023: Shows the wan_address_observer reporting a change in addresses (labels_json.changed=true) in the context of persistent anchor failures (cloudflare_v4, google_v4, cloudflare_v6).",
+        "PATTERN-020 and PATTERN-021 show persistent TCP anchor reconnect failures for IPv4 and IPv6, triggering rtmps_burst_trigger.",
+        "PATTERN-023 shows WAN address observer detecting persistent anchor failures with address changes.",
+        "PATTERN-004: 2892 occurrences of default route down events",
+        "PATTERN-007: 1673 occurrences of default route up events",
+        "PATTERN-015: 9 occurrences of baseline_or_partial_anchor_failure",
+        "The current chunk only shows monitoring timeouts (PATTERN-024, PATTERN-025) and lacks media plane metrics.",
+        "PATTERN-013 shows failed reconnection attempts for Cloudflare_v4, Google_v4, and Cloudflare_v6.",
+        "22 additional supporting evidence summary item(s) are omitted from this public detail view; the full count remains in evidence_ref_total_count and the chunk manifest."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "RTMPS socket metrics",
+        "FFmpeg process status",
+        "YouTube ingest health",
+        "DNS resolution logs or network trace data during the timeout window.",
+        "Metrics or logs from the network_observer component for correlation.",
+        "runtime_ffmpeg_present",
+        "network_ffmpeg_socket_connected",
+        "YouTube ingest health metrics",
+        "FFmpeg process liveness",
+        "rtmps_ffmpeg transport metrics (Mbps, unacked, lastsnd)",
+        "youtube_watchdog_stats (ingest_connected, stream_active)",
+        "fast_recovery_events (network_down, tcp_stall)",
+        "Direct correlation between anchor failure and YouTube ingest status.",
+        "rtmps_ffmpeg metrics",
+        "k8s_runtime_status",
+        "FFmpeg RTMPS socket state",
+        "Evidence of successful reconnections or resolution of anchor failures.",
+        "youtube_watchdog_stats.json",
+        "logs/youtube_watchdog.jsonl",
+        "youtube_watchdog_stats.json metrics for ingest_connected and stream_active",
+        "fast_recovery_events.jsonl",
+        "YouTube watchdog logs or metrics during the timeout window.",
+        "RTMPS transport metrics or socket connectivity logs.",
+        "youtube_watchdog_stats data",
+        "stream_watchdog_state data",
+        "ffmpeg_restart_incident_clusters",
+        "youtube_ingest_connected",
+        "capture_freshness_count",
+        "audio_energy_count",
+        "Evidence of successful network reconnections or resolution of connectivity issues.",
+        "Evidence of successful reconnections or resolution of WAN address observer failures.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Did the stream_engine FFmpeg process or RTMPS socket experience connectivity drops at the same time?",
+      "operational_mechanism": "The stream_v3_wan_address_observer script uses urlopen to check external addresses, which timed out, potentially due to network routing issues or external service unavailability.",
+      "original_class": "validation_target",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "5/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 5,
+      "provider_positions": [
+        {
+          "model_run_hash": "deb81e73c66d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "5e9f94899e44",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemma-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "34235c62b60c",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "a6783dcbf6a3",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "6ad5f6ba370b",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "28775d36ab002848c71146cb",
+        "rollup_provider_ratio": 0.25,
+        "source_candidate_count": 20,
+        "source_chunk_ids": []
+      },
+      "raw_review_priority_score": 0.8704,
+      "recommended_request_type": "external_dependency_status_query",
+      "review_priority_score": 0.8072,
+      "review_reason": {
+        "factors": [
+          "5/5 schema-valid providers independently projected the normalized review unit `transport_sender`.",
+          "17 chunk-tracked Evidence Item association(s) tie the unit back to the 49,942-row sanitized corpus.",
+          "20 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.250).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `transport_sender` worth human validation.",
+        "operator_question": "Run `external_dependency_status_query` to decide whether `transport_sender` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-97313de27c5f9d7556e9",
+      "score_breakdown": {
+        "actionability_signal": 0.85,
+        "claimed_provider_count": 5,
+        "class_bonus": 0.0,
+        "deterministic_tie_break": 0.0011,
+        "evidence_diversity_signal": 0.3333,
+        "evidence_volume_signal": 0.6577,
+        "formula": "0.15*prior + 0.85*(weighted provider support, Gemini signal, evidence, source breadth, actionability, class bonus, penalties) + deterministic tie-break",
+        "gemini_claimed": true,
+        "gemini_signal": 1.0,
+        "gemini_weight": 1.65,
+        "penalties": {
+          "blocker_penalty": 0.025,
+          "caveat_penalty": 0.0,
+          "gemini_silent_penalty": 0.0,
+          "generic_unit_penalty": 0.0,
+          "healthy_status_penalty": 0.0,
+          "missing_evidence_penalty": 0.07,
+          "total_penalty": 0.095
+        },
+        "prior_score": 0.8704,
+        "schema_version": "review_priority_score.v2",
+        "score_note": "Priority is review urgency, not truth probability.",
+        "source_candidate_signal": 1.0,
+        "total_provider_count": 5,
+        "weighted_provider_support": 1.0
+      },
+      "source_chunks": [],
+      "state": "validation",
+      "status": "pending",
+      "subsystem": "network_transport",
+      "suspected_issue": "Network timeout when the WAN address observer attempts to fetch the external IP or address state.",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "No evidence of actual stream failure or RTMPS disconnection is present in this chunk.",
+          "No evidence of media plane disruption (FFmpeg, RTMPS, or YouTube ingest) is cited in this chunk.",
+          "No runtime or YouTube ingest evidence confirms transport or user impact.",
+          "Not cited in this chunk.",
+          "PATTERN-022 shows rtmps_tcpdump_ring packet metadata was OK, suggesting some local network ring buffer health.",
+          "PATTERN-003 shows 'all_anchors_ok' for much of the window, suggesting these failures were transient or localized.",
+          "PATTERN-003 shows periods where all anchors were OK.",
+          "PATTERN-007 and PATTERN-009 show WAN route up events, indicating recovery.",
+          "No evidence of successful reconnections or resolution of anchor failures.",
+          "No YouTube ingest or stream activity metrics are present in this chunk to confirm or deny impact.",
+          "No evidence of successful network reconnections or resolution of connectivity issues.",
+          "No direct evidence of FFmpeg socket disconnection or RTMPS throughput drop is cited in this chunk.",
+          "4 additional counter or weak-signal summary item(s) are omitted from this public detail view; the full count remains in evidence_ref_total_count and the chunk manifest."
+        ],
+        "evidence_summary": [
+          "PATTERN-024 and PATTERN-025 show urlopen error timed out for stream_v3_wan_address_observer.",
+          "PATTERN-024: timeout event from stream_v3_monitoring to wan_address_observer",
+          "PATTERN-025: timeout event from stream_v3_monitoring to wan_address_observer",
+          "PATTERN-024: A timeout occurred in the wan_address_observer with addresses.ok=true and labels_json.changed=false.",
+          "PATTERN-025: A timeout occurred in the wan_address_observer with addresses.ok=true and labels_json.changed=true.",
+          "PATTERN-024: Shows a `urlopen` error timeout for the `wan_address_observer` service.",
+          "PATTERN-025: Shows a `urlopen` error timeout for the `wan_address_observer` service, noting a change in `labels_json`.",
+          "PATTERN-023: WAN address observer shows address change with labels_json.changed=true",
+          "PATTERN-023: Shows the wan_address_observer reporting a change in addresses (labels_json.changed=true) in the context of persistent anchor failures (cloudflare_v4, google_v4, cloudflare_v6).",
+          "PATTERN-020 and PATTERN-021 show persistent TCP anchor reconnect failures for IPv4 and IPv6, triggering rtmps_burst_trigger.",
+          "PATTERN-023 shows WAN address observer detecting persistent anchor failures with address changes.",
+          "PATTERN-004: 2892 occurrences of default route down events",
+          "PATTERN-007: 1673 occurrences of default route up events",
+          "PATTERN-015: 9 occurrences of baseline_or_partial_anchor_failure",
+          "The current chunk only shows monitoring timeouts (PATTERN-024, PATTERN-025) and lacks media plane metrics.",
+          "PATTERN-013 shows failed reconnection attempts for Cloudflare_v4, Google_v4, and Cloudflare_v6.",
+          "22 additional supporting evidence summary item(s) are omitted from this public detail view; the full count remains in evidence_ref_total_count and the chunk manifest."
+        ],
+        "next_validation_question": "Did the stream_engine FFmpeg process or RTMPS socket experience connectivity drops at the same time?",
+        "operational_mechanism": "The stream_v3_wan_address_observer script uses urlopen to check external addresses, which timed out, potentially due to network routing issues or external service unavailability.",
+        "provider_explanations": [
+          {
+            "claim_text": "The WAN address observer experienced urlopen timeouts during the jst_0800_0820_burst sample.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-024",
+              "PATTERN-025"
+            ],
+            "next_validation_question": "Did the stream_engine FFmpeg process or RTMPS socket experience connectivity drops at the same time?",
+            "operational_mechanism": "The stream_v3_wan_address_observer script uses urlopen to check external addresses, which timed out, potentially due to network routing issues or external service unavailability.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Network timeout when the WAN address observer attempts to fetch the external IP or address state.",
+            "why_it_matters": "If the WAN address observer fails, dynamic DNS or external connectivity monitoring may degrade, though direct impact on the YouTube stream is unverified without further evidence.",
+            "why_not_promoted": "This is an observer timeout, not a confirmed media plane or stream failure."
+          },
+          {
+            "claim_text": "Timeouts observed when stream_v3_monitoring attempted to query wan_address_observer, indicating a network transport issue.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-024",
+              "PATTERN-025"
+            ],
+            "next_validation_question": "Did the timeout correlate with any downstream stream failures or increased latency?",
+            "operational_mechanism": "stream_v3_monitoring service attempted to fetch WAN address via HTTP and timed out",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Network connectivity to wan_address_observer service",
+            "why_it_matters": "Could indicate upstream network instability that may affect stream health",
+            "why_not_promoted": "Not yet confirmed impact on stream; only timeout observed"
+          },
+          {
+            "claim_text": "The wan_address_observer timeout may indicate a transient network issue or DNS resolution failure affecting the monitoring service.",
+            "claim_type": "validation_target",
+            "evidence_refs": [
+              "PATTERN-024",
+              "PATTERN-025"
+            ],
+            "next_validation_question": "Are there DNS resolution or network connectivity issues coinciding with the wan_address_observer timeouts?",
+            "operational_mechanism": "The wan_address_observer periodically resolves and validates WAN addresses; a timeout here could originate from local network stack issues or upstream DNS failures.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Timeouts in wan_address_observer could suggest issues in network connectivity or DNS resolution from the arena server.",
+            "why_it_matters": "If the observer cannot resolve addresses, it may affect routing decisions or health assessments of external dependencies.",
+            "why_not_promoted": "No corroborating evidence of DNS or network layer failures was provided in the bundle."
+          },
+          {
+            "claim_text": "The `stream_v3_wan_address_observer` experienced transient connection timeouts.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-024",
+              "PATTERN-025"
+            ],
+            "next_validation_question": "Do these timeouts correlate with any increases in `connection_reset_count` or `rtmps_ssl_tls_count` in the network transport subsystem?",
+            "operational_mechanism": "The `wan_address_observer` service attempts to perform a `urlopen` to verify external connectivity/addressing; these attempts timed out during the observed window.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Transient network connectivity or DNS resolution failure during WAN address observation.",
+            "why_it_matters": "If the observer cannot verify WAN connectivity, it may trigger false positive recovery actions or fail to detect actual network outages.",
+            "why_not_promoted": "The timeouts appear isolated to the monitoring observer and do not correlate with any observed degradation in the streaming pipeline or user outcomes."
+          },
+          {
+            "claim_text": "WAN address observer logs show address changes but do not prove user impact or runtime failure.",
+            "claim_type": "caveat",
+            "evidence_refs": [
+              "PATTERN-023"
+            ],
+            "next_validation_question": "Is there runtime or exporter evidence of transport disruption during WAN address changes?",
+            "operational_mechanism": "stream_v3_wan_address_observer logs indicate address changes, which may trigger TCP anchor reconnects.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "WAN address changes may trigger transient reconnects but are not failure evidence without runtime corroboration.",
+            "why_it_matters": "Address changes may affect RTMPS transport if reconnects fail or are slow.",
+            "why_not_promoted": "Address changes are not failure evidence without runtime corroboration."
+          },
+          {
+            "claim_text": "A change in the WAN address was observed following persistent anchor failures.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-023"
+            ],
+            "next_validation_question": "Was the WAN address change a consequence of the connectivity failures or an independent event?",
+            "operational_mechanism": "The wan_address_observer detected a change in addresses (labels_json.changed=true) specifically sampled during a persistent anchor failure event.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "WAN IP reassignment or routing change following network instability.",
+            "why_it_matters": "A change in WAN IP can cause existing TCP connections to reset and may require RTMPS re-authentication or handshake renegotiation.",
+            "why_not_promoted": "It is unclear if the address change was a routine DHCP lease renewal or a forced change due to the connectivity failures."
+          },
+          {
+            "claim_text": "Network transport experienced persistent TCP anchor failures and WAN address changes, triggering RTMPS bursts.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-020",
+              "PATTERN-021",
+              "PATTERN-023"
+            ],
+            "next_validation_question": "Did the RTMPS burst trigger successfully recover the stream, or did YouTube ingest drop?",
+            "operational_mechanism": "The persistent TCP anchor observer failed to reconnect to external anchors (Cloudflare/Google), indicating potential WAN connectivity drops, which triggered the RTMPS burst recovery mechanism.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Persistent TCP anchor failures and WAN address changes triggering RTMPS bursts.",
+            "why_it_matters": "Loss of WAN connectivity or TCP anchor failures can disrupt the RTMPS stream to YouTube, leading to stream buffering or disconnection.",
+            "why_not_promoted": "We lack direct evidence of YouTube ingest disconnection or FFmpeg process failure; we only see the monitoring plane detecting network anchor failures."
+          },
+          {
+            "claim_text": "Network interface instability is observed through repeated default route up/down events.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-004",
+              "PATTERN-007"
+            ],
+            "next_validation_question": "Are there corresponding ffmpeg socket disconnects or RTMPS send stalls during these route flapping events?",
+            "operational_mechanism": "The netlink_wan_event_observer component monitors WAN interface changes; frequent 'action=up' and 'action=down' logs for default_route suggest interface flapping.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Repeated default route changes may indicate network instability or flapping.",
+            "why_it_matters": "Network interface instability can lead to RTMPS connection drops and stream interruptions.",
+            "why_not_promoted": "No direct evidence links the route flapping to actual stream transport or YouTube ingest failure."
+          },
+          {
+            "claim_text": "TCP anchor observer reports baseline or partial anchor failures.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-015"
+            ],
+            "next_validation_question": "Do anchor failures correlate with RTMPS send stalls or YouTube watchdog failures?",
+            "operational_mechanism": "The persistent_tcp_anchor_observer component monitors long-lived TCP connections to critical endpoints; 'reason=baseline_or_partial_anchor_failure' indicates degraded connectivity.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Partial or baseline TCP anchor failures may indicate intermittent connectivity issues to streaming endpoints.",
+            "why_it_matters": "Anchor failures can lead to RTMPS stream instability or full disconnection if reconnects fail.",
+            "why_not_promoted": "No evidence of full anchor failure or stream interruption is present."
+          },
+          {
+            "claim_text": "Verify if WAN address observer timeouts impacted the streaming media plane.",
+            "claim_type": "validation_target",
+            "evidence_refs": [
+              "PATTERN-024",
+              "PATTERN-025"
+            ],
+            "next_validation_question": "Are there any corresponding errors in `fast_recovery_events` or `youtube_watchdog_stats` during the same time window?",
+            "operational_mechanism": "The `wan_address_observer` is part of the monitoring plane; if it fails, we must check if the `rtmps_ffmpeg` or `youtube_health` subsystems also reported errors.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Potential correlation between monitoring plane timeouts and media plane instability.",
+            "why_it_matters": "To rule out a total network outage that affects both monitoring and actual stream transport.",
+            "why_not_promoted": "This is a validation target to determine if the timeouts are isolated or systemic."
+          },
+          {
+            "claim_text": "Failed attempts to reconnect to RTMPS anchors (Cloudflare/Google) occurred during specific windows.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-013",
+              "PATTERN-014",
+              "PATTERN-015"
+            ],
+            "next_validation_question": "Was the stream active (ingest_connected=1) during the periods identified in PATTERN-013 and PATTERN-014?",
+            "operational_mechanism": "The rtmps_tcp_burst_observer and persistent_tcp_anchor_observer monitor the ability to reach specific RTMPS endpoints.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "RTMPS reconnection failure due to network or endpoint unavailability.",
+            "why_it_matters": "Failure to reconnect to anchors prevents the stream from recovering after a network hiccup, leading to prolonged outages.",
+            "why_not_promoted": "It is unclear if these failures resulted in a total stream loss or were handled by existing active connections."
+          },
+          {
+            "claim_text": "Verify if the 'no_running_pod_found' error correlates with an actual RTMPS transport failure or FFmpeg process exit.",
+            "claim_type": "validation_target",
+            "evidence_refs": [],
+            "next_validation_question": "Did ffmpeg_count or network_ffmpeg_socket_connected drop at the same time as PATTERN-018?",
+            "operational_mechanism": "Comparing the timestamp of the observer error (PATTERN-018) against rtmps_ffmpeg metrics (ffmpeg_count, stream_transport_count) and k8s pod readiness.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Correlation between monitoring error and media plane availability.",
+            "why_it_matters": "Distinguishes between a 'blind' monitoring system and a 'broken' streaming system.",
+            "why_not_promoted": "This is a validation target to determine the root cause."
+          },
+          {
+            "claim_text": "Network transport instability observed via WAN event observer and persistent TCP anchor failures.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-004",
+              "PATTERN-005",
+              "PATTERN-012",
+              "PATTERN-013",
+              "PATTERN-014",
+              "PATTERN-016",
+              "PATTERN-017"
+            ],
+            "next_validation_question": "Did the FFmpeg process restart or did the RTMPS socket disconnect during the WAN down events?",
+            "operational_mechanism": "The netlink_wan_event_observer and persistent_tcp_anchor_observer detected route down events and failed reconnects to external anchors like Cloudflare and Google.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "WAN link flapping and persistent TCP anchor failures",
+            "why_it_matters": "If the WAN link is unstable, the RTMPS stream to YouTube will drop, causing viewer impact.",
+            "why_not_promoted": "We lack evidence showing if the FFmpeg RTMPS socket actually disconnected or if YouTube ingest failed during these network flaps."
+          },
+          {
+            "claim_text": "The system experienced persistent anchor failures during the incident window.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-013",
+              "PATTERN-014",
+              "PATTERN-015"
+            ],
+            "next_validation_question": "Are there any logs or metrics indicating successful reconnections or resolution of anchor failures?",
+            "operational_mechanism": "The RTMPS TCP burst observer failed to reconnect after failures, triggering multiple alerts.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "Persistent anchor failures in the RTMPS TCP burst observer.",
+            "why_it_matters": "Persistent anchor failures can lead to disruptions in the RTMPS send path, affecting the reliability of the YouTube live stream.",
+            "why_not_promoted": "The evidence does not provide a clear root cause or resolution for the anchor failures."
+          },
+          {
+            "claim_text": "Need to verify if YouTube stream was impacted by the network transport instability.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "Are there youtube_watchdog_stats or fast_recovery_events showing stream failure?",
+            "operational_mechanism": "Network transport interruptions may have severed the RTMPS connection to YouTube ingest servers.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Unknown YouTube stream continuity during network flaps",
+            "why_it_matters": "Confirmed user outcomes require a continuously available public YouTube live stream.",
+            "why_not_promoted": "No YouTube health or FFmpeg evidence is present in the current bundle."
+          },
+          {
+            "claim_text": "Need to verify if the stream actually dropped during the network anchor failures.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "What was the state of youtube_ingest_connected and stream_active during the anchor failures?",
+            "operational_mechanism": "The monitoring plane detected network issues, but the actual k3s runtime media path (FFmpeg to YouTube) might have buffered or dropped.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Unknown impact of WAN anchor failures on actual YouTube stream health.",
+            "why_it_matters": "Determines if the critical user outcome (continuous YouTube live stream) was actually violated.",
+            "why_not_promoted": "Missing runtime media path evidence."
+          },
+          {
+            "claim_text": "Validation is needed to determine if the WAN address observer timeout correlated with any YouTube ingest or stream health degradation.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "What was the state of youtube_watchdog_stats and stream_engine_ffmpeg_restart_count during the timeout?",
+            "operational_mechanism": "A host-level network drop would affect both the observer's urlopen and the FFmpeg RTMPS TCP socket.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Potential silent failure of the media plane if the network timeout affected all outbound traffic.",
+            "why_it_matters": "A continuously available public YouTube live stream is a critical user outcome.",
+            "why_not_promoted": "Missing media plane evidence."
+          },
+          {
+            "claim_text": "Determine whether the wan_address_observer timeouts correlate with YouTube ingest or stream transport issues.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "Do YouTube watchdog or RTMPS transport metrics show anomalies during the wan_address_observer timeout window?",
+            "operational_mechanism": "If the monitoring service cannot validate addresses, it may incorrectly flag dependencies or fail to route traffic.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Potential cascading failure from monitoring timeouts to stream transport or YouTube health.",
+            "why_it_matters": "Address resolution issues could lead to degraded or failed stream delivery.",
+            "why_not_promoted": "No evidence of transport or YouTube ingest degradation was included in the bundle."
+          },
+          {
+            "claim_text": "Verify if WAN instability caused a disruption in the YouTube live stream continuity.",
+            "claim_type": "validation_target",
+            "evidence_refs": [],
+            "next_validation_question": "Did youtube_watchdog_stats report ingest_connected=0 during the WAN 'down' events?",
+            "operational_mechanism": "Cross-referencing netlink 'down' events with YouTube watchdog 'ingest_connected' and 'stream_active' signals.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "External dependency (YouTube) ingest interruption caused by local network flapping.",
+            "why_it_matters": "Determines if the observed network instability had a real-world impact on the user-facing service.",
+            "why_not_promoted": "This is a validation target to bridge the gap between network events and user impact."
+          },
+          {
+            "claim_text": "Insufficient evidence to determine if a runtime failure occurred during the incident window.",
+            "claim_type": "insufficient_evidence",
+            "evidence_refs": [],
+            "next_validation_question": "Are there any metrics indicating FFmpeg restarts or network socket disconnections during the incident window?",
+            "operational_mechanism": "Missing metrics for FFmpeg restarts, socket connectivity, and YouTube ingest status",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Unknown runtime or network failure state",
+            "why_it_matters": "Without these signals, the reliability of the live stream cannot be confirmed",
+            "why_not_promoted": "No concrete failure signals were captured in the log patterns"
+          },
+          {
+            "claim_text": "The system experienced network connectivity issues during the incident window.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-012",
+              "PATTERN-016"
+            ],
+            "next_validation_question": "Are there any logs or metrics indicating successful network reconnections or resolution of connectivity issues?",
+            "operational_mechanism": "The network observer detected multiple connectivity issues, leading to potential disruptions in the RTMPS send path.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "Network connectivity issues affecting the RTMPS send path.",
+            "why_it_matters": "Network connectivity issues can affect the reliability of the YouTube live stream and the overall system performance.",
+            "why_not_promoted": "The evidence does not provide a clear root cause or resolution for the network connectivity issues."
+          },
+          {
+            "claim_text": "Intermittent WAN connectivity instability is present, characterized by default route and IPv6 prefix changes.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-004",
+              "PATTERN-005",
+              "PATTERN-007",
+              "PATTERN-009",
+              "PATTERN-012"
+            ],
+            "next_validation_question": "Do the WAN 'down' events correlate in time with RTMPS 'notsent' spikes or FFmpeg socket disconnects?",
+            "operational_mechanism": "The netlink_wan_event_observer detects changes in the default route and IP prefixes via netlink events.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "WAN interface flapping or routing table instability.",
+            "why_it_matters": "Unstable WAN connectivity can cause RTMPS socket timeouts, packet loss, or complete stream disconnection.",
+            "why_not_promoted": "The connectivity events are not explicitly linked to a failure in the media plane or a confirmed stream outage in the provided evidence."
+          },
+          {
+            "claim_text": "The system experienced issues with the WAN address observer during the incident window.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-017",
+              "PATTERN-023"
+            ],
+            "next_validation_question": "Are there any logs or metrics indicating successful reconnections or resolution of WAN address observer failures?",
+            "operational_mechanism": "The WAN address observer failed to reconnect after failures, triggering multiple alerts.",
+            "provider_id": "mistral-agent-platform",
+            "suspected_issue": "WAN address observer failures affecting network connectivity.",
+            "why_it_matters": "WAN address observer failures can lead to disruptions in network connectivity, affecting the reliability of the YouTube live stream.",
+            "why_not_promoted": "The evidence does not provide a clear root cause or resolution for the WAN address observer failures."
+          },
+          {
+            "claim_text": "Persistent anchor failure events suggest reconnect attempts failed.",
+            "claim_type": "caveat",
+            "evidence_refs": [
+              "PATTERN-013",
+              "PATTERN-014"
+            ],
+            "next_validation_question": "Did these reconnect failures lead to YouTube watchdog reporting stream_inactive or ingest_disconnected?",
+            "operational_mechanism": "The rtmps_tcp_burst_observer component logs reconnect failures; specific providers are named in the logs.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Reconnect attempts after anchor failures may have failed for specific providers (e.g., Cloudflare, Google).",
+            "why_it_matters": "Failed reconnects can lead to stream outages if no alternative paths are available.",
+            "why_not_promoted": "No evidence of actual stream outage or watchdog failure is present."
+          },
+          {
+            "claim_text": "Persistent TCP anchor observer logs suggest possible network instability but lack runtime corroboration.",
+            "claim_type": "validation_target",
+            "evidence_refs": [
+              "PATTERN-020",
+              "PATTERN-021"
+            ],
+            "next_validation_question": "Is there runtime or exporter evidence of ffmpeg socket disconnect or YouTube ingest failure during these TCP events?",
+            "operational_mechanism": "stream_v3_persistent_tcp_anchor_observer logs show repeated reconnect failures, which may affect RTMPS transport if not recovered.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Repeated TCP anchor reconnect failures may indicate network or RTMPS transport issues.",
+            "why_it_matters": "Persistent TCP failures could lead to RTMPS send stalls or stream disconnects if not recovered by runtime.",
+            "why_not_promoted": "No runtime or user-impact evidence confirms transport degradation."
+          },
+          {
+            "claim_text": "Persistent TCP anchor failures occurred across multiple endpoints including Cloudflare (v4/v6) and Google (v4), triggering RTMPS burst recovery.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-020",
+              "PATTERN-021"
+            ],
+            "next_validation_question": "Did the rtmps_burst_trigger successfully restore stable TCP connectivity without causing a stream drop?",
+            "operational_mechanism": "The persistent_tcp_anchor_observer detected reconnection failures to specific service endpoints, which subsequently triggered the rtmps_burst_trigger.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Intermittent WAN connectivity or DNS/routing failures affecting RTMPS anchor stability.",
+            "why_it_matters": "Failure to maintain stable TCP anchors can lead to stream ingest interruptions or increased latency in the RTMPS send path.",
+            "why_not_promoted": "The evidence confirms the detection of the failure and the trigger of recovery, but does not confirm if the recovery was successful or if the stream was interrupted."
+          },
+          {
+            "claim_text": "The presence of netlink WAN event observations suggests active monitoring of the default route, but does not inherently indicate a failure.",
+            "claim_type": "caveat",
+            "evidence_refs": [
+              "PATTERN-019"
+            ],
+            "next_validation_question": "",
+            "operational_mechanism": "The netlink_wan_event_observer is performing continuous monitoring of the default route.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Distinguishing between routine monitoring and actual routing changes.",
+            "why_it_matters": "Routine monitoring logs can be mistaken for incident evidence if not properly contextualized.",
+            "why_not_promoted": "This is a baseline operational signal."
+          },
+          {
+            "claim_text": "The RTMPS TCP burst observer failed to find a running pod during a persistent anchor failure, indicating a possible runtime disconnect or deployment issue.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-018"
+            ],
+            "next_validation_question": "Is the stream-v3-runtime pod scheduled and in a Running state during this time window?",
+            "operational_mechanism": "The stream_v3_monitoring service uses an RTMPS TCP burst observer to validate connectivity; if no pod is found, it suggests the observer cannot locate the expected runtime component.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "No running pod found during RTMPS TCP burst observation, potentially due to a deployment or scheduling failure in the k3s environment.",
+            "why_it_matters": "This could lead to a loss of stream continuity if the monitoring system cannot detect or recover the stream engine, risking user impact to the YouTube live feed.",
+            "why_not_promoted": "The root cause is not confirmed; it's unclear whether this is a transient scheduling issue or a deeper deployment regression."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Network timeout when the WAN address observer attempts to fetch the external IP or address state.",
+        "why_it_matters": "If the WAN address observer fails, dynamic DNS or external connectivity monitoring may degrade, though direct impact on the YouTube stream is unverified without further evidence.",
+        "why_not_promoted": "This is an observer timeout, not a confirmed media plane or stream failure."
+      },
+      "target_id": "cog-97313de27c5f9d7556e9",
+      "title": "Review target requires validation: transport_sender",
+      "why_it_matters": "If the WAN address observer fails, dynamic DNS or external connectivity monitoring may degrade, though direct impact on the YouTube stream is unverified without further evidence.",
+      "why_not_promoted": "This is an observer timeout, not a confirmed media plane or stream failure."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.6,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "3/5 schema-valid providers projected this review unit from the 49,942-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "runtime_recovery",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "classification": {
+        "adjustment": "",
+        "evidence_family_count": 1,
+        "evidence_ref_count": 1,
+        "final_class": "validation_target",
+        "original_class": "validation_target",
+        "policy": "Provider convergence can create high-priority validation work, but primary candidacy requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets.",
+        "provider_support": "3/5",
+        "reason": "",
+        "schema_version": "public_target_classification.v1",
+        "source_candidate_count": 4
+      },
+      "counter_evidence_summary": [
+        "No direct k8s runtime status logs or metrics are present in this chunk to confirm the pod's actual state."
+      ],
+      "evidence_ref_display_count": 1,
+      "evidence_ref_overflow_count": 0,
+      "evidence_ref_total_count": 1,
+      "evidence_refs": [
+        "PATTERN-018"
+      ],
+      "evidence_relationship_supported": false,
+      "evidence_summary": [
+        "PATTERN-018 indicates no running pod found",
+        "PATTERN-018 shows 2 occurrences of 'no_running_pod_found' from the rtmps_tcp_burst_observer after a Cloudflare IPv6 reconnect failure."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "ffmpeg_restart_count",
+        "stream_latency_metrics",
+        "k8s_runtime_status",
+        "k8s_runtime_status: Pod readiness and container state for stream-v3-runtime during 2026-06-18T13:00:41Z to 2026-06-18T13:00:46Z",
+        "k8s_runtime_status showing pod readiness and restart counts",
+        "stream_watchdog_state showing overall stream health",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Is the stream-v3 runtime pod actually running and ready?",
+      "operational_mechanism": "Monitoring service observed no running pod via rtmps_tcp_burst_observer",
+      "original_class": "validation_target",
+      "promotion": {
+        "blocked_reason": "single_metric_only; user_impact_unverified",
+        "explanation": "3/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 3,
+      "provider_positions": [
+        {
+          "model_run_hash": "deb81e73c66d",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "5e9f94899e44",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemma-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "34235c62b60c",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "a6783dcbf6a3",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "6ad5f6ba370b",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "2b9240d0a6db969f8665353e",
+        "rollup_provider_ratio": 0.75,
+        "source_candidate_count": 4,
+        "source_chunk_ids": []
+      },
+      "raw_review_priority_score": 0.6519,
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.6376,
+      "review_reason": {
+        "factors": [
+          "3/5 schema-valid providers independently projected the normalized review unit `runtime_recovery`.",
+          "1 chunk-tracked Evidence Item association(s) tie the unit back to the 49,942-row sanitized corpus.",
+          "4 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.750).",
+          "Promotion is still blocked by `single_metric_only; user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `runtime_recovery` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `runtime_recovery` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-6aafddbbcae17218e0ef",
+      "score_breakdown": {
+        "actionability_signal": 0.85,
+        "claimed_provider_count": 3,
+        "class_bonus": 0.0,
+        "deterministic_tie_break": 0.0011,
+        "evidence_diversity_signal": 0.3333,
+        "evidence_volume_signal": 0.1577,
+        "formula": "0.15*prior + 0.85*(weighted provider support, Gemini signal, evidence, source breadth, actionability, class bonus, penalties) + deterministic tie-break",
+        "gemini_claimed": true,
+        "gemini_signal": 1.0,
+        "gemini_weight": 1.65,
+        "penalties": {
+          "blocker_penalty": 0.025,
+          "caveat_penalty": 0.0,
+          "gemini_silent_penalty": 0.0,
+          "generic_unit_penalty": 0.0,
+          "healthy_status_penalty": 0.0,
+          "missing_evidence_penalty": 0.07,
+          "total_penalty": 0.095
+        },
+        "prior_score": 0.7,
+        "schema_version": "review_priority_score.v2",
+        "score_note": "Priority is review urgency, not truth probability.",
+        "source_candidate_signal": 0.6712,
+        "total_provider_count": 5,
+        "weighted_provider_support": 0.646
+      },
+      "source_chunks": [],
+      "state": "validation",
+      "status": "pending",
+      "subsystem": "runtime_recovery",
+      "suspected_issue": "Runtime pod not running or not ready",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "No direct k8s runtime status logs or metrics are present in this chunk to confirm the pod's actual state."
+        ],
+        "evidence_summary": [
+          "PATTERN-018 indicates no running pod found",
+          "PATTERN-018 shows 2 occurrences of 'no_running_pod_found' from the rtmps_tcp_burst_observer after a Cloudflare IPv6 reconnect failure."
+        ],
+        "next_validation_question": "Is the stream-v3 runtime pod actually running and ready?",
+        "operational_mechanism": "Monitoring service observed no running pod via rtmps_tcp_burst_observer",
+        "provider_explanations": [
+          {
+            "claim_text": "Runtime pod for stream-v3 is missing or not ready during the incident window.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-018"
+            ],
+            "next_validation_question": "Is the stream-v3 runtime pod actually running and ready?",
+            "operational_mechanism": "Monitoring service observed no running pod via rtmps_tcp_burst_observer",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Runtime pod not running or not ready",
+            "why_it_matters": "Stream may be unavailable to users",
+            "why_not_promoted": "No direct evidence of pod status; monitoring service may misreport"
+          },
+          {
+            "claim_text": "Need stream latency and ffmpeg restart metrics during timeout period to assess impact.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "What were the ffmpeg restart counts and stream latency during the timeout events?",
+            "operational_mechanism": "Unknown",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Potential impact on stream",
+            "why_it_matters": "To confirm if network timeout caused stream degradation",
+            "why_not_promoted": "No evidence of impact"
+          },
+          {
+            "claim_text": "Direct Kubernetes runtime status is needed to confirm if the stream-v3 pod is actually missing or if the observer is misconfigured.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "Are there any running pods for the stream-v3 deployment?",
+            "operational_mechanism": "The k8s API provides the definitive state of the deployment and pods.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Unknown actual pod state.",
+            "why_it_matters": "Required to differentiate between a monitoring plane desync and a true media plane outage.",
+            "why_not_promoted": "Missing primary k8s evidence."
+          },
+          {
+            "claim_text": "Need k8s runtime status to confirm pod readiness during the incident window.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "What is the status of the stream-v3 runtime pod during the incident window?",
+            "operational_mechanism": "Query k8s API for pod readiness",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Runtime pod status unknown",
+            "why_it_matters": "Confirm if runtime pod is missing",
+            "why_not_promoted": "No evidence of pod status"
+          },
+          {
+            "claim_text": "Verify whether the k3s runtime shows the stream-v3-runtime pod as Running and ready during the failure window.",
+            "claim_type": "validation_target",
+            "evidence_refs": [],
+            "next_validation_question": "What does kubectl report about stream-v3-runtime pod readiness during the failure window?",
+            "operational_mechanism": "The k3s API reports pod readiness and container state, which should align with the monitoring observer's expectation of a running pod.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Potential mismatch between monitoring observation and actual k3s pod state.",
+            "why_it_matters": "If the pod is running but not discovered, it indicates an instrumentation or discovery bug; if not running, it's a runtime availability issue.",
+            "why_not_promoted": "No k3s runtime evidence was provided in this bundle to confirm or deny pod readiness."
+          },
+          {
+            "claim_text": "The RTMPS TCP burst observer in the monitoring service is reporting a 'no_running_pod_found' error following a persistent anchor failure related to Cloudflare IPv6 reconnects.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-018"
+            ],
+            "next_validation_question": "What is the current deployment and pod status for stream-v3 in Kubernetes?",
+            "operational_mechanism": "The rtmps_tcp_burst_observer attempts to sample TCP metrics from the active FFmpeg pod. If the pod is down or restarting due to the persistent_anchor_failure, the observer fails with no_running_pod_found.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "The monitoring plane cannot locate the active stream-v3 runtime pod, likely due to a pod crash, eviction, or deployment failure triggered by a network reconnect issue.",
+            "why_it_matters": "If the runtime pod is actually missing, the YouTube live stream is offline, violating the critical user outcome of a continuously available stream.",
+            "why_not_promoted": "We only have the monitoring observer's error; we lack direct Kubernetes API evidence to confirm if the pod is permanently down or just temporarily restarting."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Runtime pod not running or not ready",
+        "why_it_matters": "Stream may be unavailable to users",
+        "why_not_promoted": "No direct evidence of pod status; monitoring service may misreport"
+      },
+      "target_id": "cog-6aafddbbcae17218e0ef",
+      "title": "Review target requires validation: runtime_recovery",
+      "why_it_matters": "Stream may be unavailable to users",
+      "why_not_promoted": "No direct evidence of pod status; monitoring service may misreport"
+    }
+  ],
+  "updated_at": "2026-07-12T00:10:02Z"
+}

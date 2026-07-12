@@ -1,191 +1,121 @@
-# stream_v3 Real API Source-Aware Runs
+# stream_v3 Real API Source-Approved Runs
 
-This document records the current public stream_v3 real-provider analyses for
-two separate evidence sets:
+This document records the accepted public runs for two separate evidence sets:
 
-- Dell runtime evidence
-- arena-server monitoring-plane evidence
+- stream_v3 runtime: 45,000 staged input lines
+- arena-server monitoring plane: 50,000 staged input lines
 
-Both runs used sanitized stream_v3 source context and double-sanitized log
-corpora. Raw logs and raw source stayed local. The public URLs serve fixed
-precomputed payloads and do not run providers on page load.
-
-The current run is a source-aware reinterpretation pass: the pipeline returns to
-sanitized code/profile context, then reinterprets each sanitized log corpus with
-real provider APIs. Dell runtime and arena-server monitoring use different
-approved focused profiles and different source context hashes.
+Raw logs and raw source stayed local. Code was sanitized first, Gemini 3.1 Pro
+produced a focused profile, human answers were normalized by Gemini, and the
+reviewed interpretation was SHA-fixed. Log analysis then used only the approved
+profile and sanitized Evidence Items; source access was disabled after approval.
 
 ## Public URLs
 
-### Dell runtime
-
-- Full review page: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- JSON review graph: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-
-### arena-server monitoring
-
-- Full review page: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
-- Human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
-- Visual review graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
-- JSON review graph: https://ops-evidence.yukimurata0421.dev/review/graph?evidence_sha256=6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3
+| Surface | Runtime | Monitoring |
+| --- | --- | --- |
+| Code Profile | https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/ | https://ops-evidence.yukimurata0421.dev/code-profiles/a762211461c691c7392dd1ff5e774b63f1932b939329693be41017c843a94cc4/ |
+| Static review | https://ops-evidence.yukimurata0421.dev/reviews/a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0/ | https://ops-evidence.yukimurata0421.dev/reviews/8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a/ |
+| Full review | https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0 | https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a |
+| API view | https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0 | https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a |
+| Review graph | https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0 | https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a |
 
 ## Fixed Artifacts
 
-| Artifact | Dell runtime | arena-server monitoring |
+| Artifact | Runtime | Monitoring |
 | --- | --- | --- |
-| Evidence SHA256 | `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6` | `6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3` |
-| API revision | `real-api-stream-v3-dell-45k-5p-reinterpret-20260703T003058Z` | `real-api-stream-v3-arena-50k-5p-gptoss120b-rerun-20260703T105322Z` |
-| Canonical graph SHA256 | `7b8bbf364706cda1b558476b5a08c882356449710612989dbf86ca8a68cb9266` | `b78f802e6fcac1e3562aefdf7ff595a71a7898aa0c9af14366ea50a9239ea6ae` |
-| Input fingerprint SHA256 | `372a6d7c8ef29935ff040b53e45342854491fe5f4c37941dadef0faf7e965f4c` | `7900a9b7d9f01e78393b582612654e0262d826a9517dad55141212a43c694b24` |
-| Source context SHA256 | `3b124da80b8ba7176004f06223742a6a1779225f3008ed3251b03dfbe2db12d2` | `a312fd5e4df8c2085f259581fa811cfee54978e14ad32b788708fb36e346fbd4` |
-| Source analysis SHA256 | `6832aa7e5926dbc0ecb4f9d9e4d16e97cac27630853a2bb9e627c52f4c34b0cb` | `6af86a8571062130eedb5e62de03b07b0fdf2d10fc4d6eddb5b05c3b1079c65c` |
-| Public payload | `data/precomputed_review_summaries/345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6.json` | `data/precomputed_review_summaries/6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3.json` |
-| Payload SHA256 | `3052f72169715f416f168e72fe970c7be6f2bc209fbcd201cd9b8660673fc7f3` | `f9aaa01e391e104397a66fde5c5364c2edddd16d684ce956f3688cb91e49ab1c` |
+| Evidence SHA256 | `a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0` | `8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a` |
+| Pipeline run | `stream-v3-runtime-45k-real-api-20260711-v3` | `stream-v3-monitoring-50k-real-api-20260711-v3` |
+| Canonical graph SHA256 | `e1c832b8396f32860ce7c2bd5328a6fdde785ffdd9d507a0db764cb2b4788d81` | `b5133772b23bdf85b7a33aafa0a425ea0395fe3ed4922e96c794a500cf8a1e86` |
+| Input fingerprint SHA256 | `a4624dfff97e30f87812fcfb56bb14491679c0e087ffea502f91644215576a14` | `ad9fd983765f62a14c5ed09260c6ca3d1549e76a724ecd966429e2e499277cd1` |
+| Approved profile SHA256 | `77ceaa551a41d4a9e24fa3533de0bfe7df1f17a56702d6ed13e1e6b5342ce709` | `17fd209acd501ff5ebfd28dafcd83e6ebb23e7695ac19a13dd661a6ca1de428e` |
+| Public payload | `data/precomputed_review_summaries/a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0.json` | `data/precomputed_review_summaries/8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a.json` |
+| Payload SHA256 | `c74043dc306d76cb5182356138edf8e22a6220ec86399bea97857405e96974bd` | `62709cf1f070393cd8b51bb85beebb2d6e59f5e573971597afa8a27c9bbe58e9` |
 
-## Analysis Windows
+The API revision field is intentionally empty for these local-orchestrated,
+GCS-published runs; the pipeline run ID, evidence SHA, model output hashes, and
+canonical graph SHA are the run attestations.
 
-The local source files used for staging contained more than the accepted public
-window. The accepted public windows satisfy both constraints: roughly 40,000 to
-50,000 rows and at least 24 hours of evidence. The row-level files remain local
-only.
+## Windows and Coverage
 
-| Corpus | Accepted public rows | Accepted public range | Window hours |
-| --- | ---: | --- | ---: |
-| Dell runtime | 45,000 | 2026-06-14T23:15:50Z to 2026-06-15T23:59:52Z | 24.733889 |
-| arena-server monitoring | 50,000 | 2026-06-18T09:54:00Z to 2026-06-19T10:48:55Z | 24.915278 |
-
-## Data Boundary
-
-The source-aware path was:
-
-1. Stage sanitized BigQuery exports locally.
-2. Double-sanitize each selected row through the public sanitizer, including
-   nested label values.
-3. Verify the selected sanitized JSONL with `scan_sanitized_text`.
-4. Build a SHA-fixed Evidence Bundle and DB coverage ledger.
-5. Attach sanitized source context and sanitized source analysis as
-   interpretation context, not incident evidence.
-6. Send only sanitized Evidence Items, approved profile context, and source
-   context to real provider APIs.
-7. Merge recorded provider chunk outputs into the Canonical Review Graph.
-8. Generate read-only public payloads under `data/precomputed_review_summaries/`.
-
-Source context is not incident evidence. Runtime and monitoring claims still
-have to cite Evidence Item IDs from the sanitized corpus.
-
-## Full-Corpus Coverage
-
-The single-prompt projection is an inspection slice. The real-provider run uses
-chunked full-corpus review so that lower-frequency Evidence Items do not
-disappear behind occurrence-weighted selection.
-
-| Layer | Dell runtime | arena-server monitoring |
+| Metric | Runtime | Monitoring |
 | --- | ---: | ---: |
-| Sanitized DB rows in accepted window | 45,000 | 50,000 |
-| Covered DB rows in ledger | 45,000 | 50,000 |
-| Grouped Evidence Items retained | 1,012 | 21 |
-| Evidence Items in single-prompt projection | 140 | 21 |
-| Occurrences represented by selected items | 107,160 | 63,056 |
-| Single-prompt occurrence coverage | 99.2% | 100.0% |
-| Provider chunk count | 33 | 18 |
-| Evidence Items covered by provider chunks | 1,012 | 21 |
+| Staged input lines | 45,000 | 50,000 |
+| Sanitized event rows accepted | 27,926 | 49,942 |
+| Rejected lines | 0 | 0 |
+| Window start | `2026-06-14T23:15:50Z` | `2026-06-18T09:54:00Z` |
+| Window end | `2026-06-15T23:59:52Z` | `2026-06-19T10:48:55Z` |
+| Window hours | 24.733889 | 24.915278 |
+| Grouped Evidence Items | 909 | 25 |
+| Single-prompt Evidence Items | 140 | 25 |
+| Single-prompt occurrences | 27,157 | 49,942 |
+| Single-prompt occurrence coverage | 97.2463% | 100.0% |
+| Maximum chunks per provider | 19 | 4 |
+| Evidence Items covered by provider chunks | 909 | 25 |
 | Provider Evidence Item coverage | 100.0% | 100.0% |
 | Unassigned Evidence Items | 0 | 0 |
 | Raw rows sent directly to providers | 0 | 0 |
 
-The merge is deterministic over recorded provider outputs: provider responses
-are hashed, then chunk claims are sorted and deduplicated before canonical
-review graph generation.
-
-## Public Classification Policy
-
-Provider agreement is not enough to create a public primary candidate. If a
-provider-converged target has thin cited runtime evidence, unresolved core
-missing evidence, or no user-impact confirmation, the public payload keeps it as
-a validation target. The review priority score can still be high; it is review
-urgency, not truth probability.
+The runtime input contained records outside the sanitizer's selected event
+surface, so staged input lines and accepted sanitized event rows are reported
+separately. Coverage is computed over the accepted sanitized event corpus. Each
+row is represented by a grouped Evidence Item occurrence; row bodies are not
+sent directly to providers.
 
 ## Profile Gate
 
-Both stream_v3 profiles are generated from sanitized source/profile discovery
-context and are not incident evidence. The current focused profiles are strong
-enough for subsystem routing, but user outcomes and incident promotion remain
-human-gated:
+| Metric | Runtime | Monitoring |
+| --- | --- | --- |
+| Profile ID | `stream_v3_runtime_source_approved_20260711` | `stream_v3_monitoring_source_approved_20260711` |
+| Status | `approved_context_human_gated_outcomes` | `approved_context_human_gated_outcomes` |
+| Confidence action | `approved_human_reviewed` | `approved_human_reviewed` |
+| Overall confidence | 0.733 | 0.82 |
+| Confirmed outcome | Continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio. | a continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio |
+| Source access after approval | disabled | disabled |
 
-| Corpus | Profile status | Confidence action | Overall confidence | Confirmed outcomes | Provisional outcomes |
-| --- | --- | --- | ---: | --- | --- |
-| Dell runtime | `approved_context_human_gated_outcomes` | `use_for_subsystem_routing_human_gated` | 0.828 | none | Continuous YouTube streaming, ADSB data processing |
-| arena-server monitoring | `approved_context_human_gated_outcomes` | `use_for_subsystem_routing_human_gated` | 0.826 | none | Maintain YouTube stream uptime, Monitor ADSB stream health |
-
-The focused profiles do not accept critical user outcomes as facts. They create
-human-gated questions about user impact, metric semantics, and diagnostic noise.
-In the public payload, those questions are linked to review units whose promotion
-is blocked by missing impact or operational outcome evidence.
+System-specific semantics live in the approved operational profile JSON, not in
+the generic engine. The core flow remains: sanitized source discovery, human
+answers, Gemini normalization, human re-review, SHA approval, then log analysis.
 
 ## Provider Results
 
-The current provider set is Gemini 3.1 Pro, GPT OSS, Mistral, Qwen, and Gemma 4.
-Provider failures are not converted to silent positions. The first arena-server
-monitoring GPT OSS 20B attempt returned empty content for four chunks and was
-recorded as a provider failure. The public payload was then refreshed with a
-GPT OSS 120B rerun that completed all 18 chunks schema-valid.
+All five providers finished with `status=ok` and `schema_valid=true`.
 
-### Dell runtime
+### Runtime
 
-| Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens | Chunk status |
-| --- | --- | --- | --- | ---: | ---: | ---: | --- |
-| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 3,835,306 | 1,606,707 | 24,487 | ok=32 |
-| `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 878,425 | 1,574,835 | 41,527 | ok=32 |
-| `mistral-agent-platform` | `mistral-small-2503` | ok | valid | 124,824 | 601,032 | 11,393 | ok=7, schema_invalid=1 |
-| `openai-gpt-oss-on-vertex` | `gpt-oss-20b-maas` | ok | valid | 557,410 | 1,185,529 | 88,070 | ok=32, provider_error=1 |
-| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 451,496 | 1,289,925 | 44,581 | ok=32 |
+| Provider | Model | Chunks | Failed chunks | Latency ms | Input tokens | Output tokens |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Gemini | `gemini-3.1-pro-preview` | 19 | 0 | 560,068 | 602,924 | 15,694 |
+| Gemma | `gemma-4-26b-a4b-it-maas` | 19 | 0 | 650,870 | 574,466 | 24,732 |
+| Mistral | `mistral-small-2503` | 3 | 0 | 28,976 | 195,080 | 2,007 |
+| GPT OSS | `gpt-oss-20b-maas` | 19 | 3 | 250,154 | 333,983 | 34,519 |
+| Qwen | `qwen/qwen3-coder-480b-a35b-instruct-maas` | 19 | 0 | 256,519 | 514,221 | 29,829 |
 
-### arena-server monitoring
+GPT OSS retained 16/19 successful chunks, above the recorded 80% usability
+threshold. Missing chunks remain explicit in the provider ledger; the provider
+is not presented as byte-complete.
 
-| Provider | Model | Status | Schema | Latency ms | Input tokens | Output tokens | Chunk status |
-| --- | --- | --- | --- | ---: | ---: | ---: | --- |
-| `gemini-enterprise-agent-platform` | `gemini-3.1-pro-preview` | ok | valid | 1,693,220 | 771,031 | 9,809 | ok=16, timeout=2 |
-| `gemma-agent-platform` | `gemma-4-26b-a4b-it-maas` | ok | valid | 503,930 | 849,344 | 20,429 | ok=18 |
-| `mistral-agent-platform` | `mistral-small-2503` | ok | valid | 20,786 | 50,852 | 1,985 | not chunked |
-| `openai-gpt-oss-on-vertex` | `gpt-oss-120b-maas` | ok | valid | 808,823 | 661,546 | 52,335 | ok=18 |
-| `qwen-agent-platform` | `qwen/qwen3-coder-480b-a35b-instruct-maas` | ok | valid | 210,207 | 670,814 | 21,821 | ok=18 |
+### Monitoring
 
-The public payload preserves provider hashes so a stale deployment can be
-detected by comparing the rendered provider hashes with this document.
-
-## Measured Reinterpretation Timing
-
-The timing below measures the source-aware reinterpretation path over existing
-sanitized Evidence Bundles and focused profiles. Provider latency is the sum of
-chunk latencies recorded in provider outputs; wall time is the command elapsed
-time for the reinterpretation run that produced the public payload.
-
-| Step | Dell runtime | arena-server monitoring |
-| --- | ---: | ---: |
-| Real API reinterpretation wall time | 207.108s | 497.909s |
-| Total provider latency sum | 5,847,461 ms | 3,236,966 ms |
-| Gemini 3.1 Pro provider latency sum | 3,835,306 ms | 1,693,220 ms |
-| GPT OSS retry wall time | n/a | 239s |
-| Schema-valid providers | 5/5 | 5/5 |
-| Public review targets | 11 | 12 |
-
-Dell's measured wall time is the successful resume after cached chunks from an
-earlier full attempt; the first attempt was stopped after roughly 28 minutes
-while provider rate-limit recovery was still active. The arena-server payload
-keeps the first GPT OSS 20B failure as an operational note, but the public review
-now uses the successful GPT OSS 120B rerun.
+| Provider | Model | Chunks | Failed chunks | Latency ms | Input tokens | Output tokens |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Gemini | `gemini-3.1-pro-preview` | 4 | 0 | 109,375 | 60,927 | 3,567 |
+| Gemma | `gemma-4-26b-a4b-it-maas` | 4 | 0 | 119,216 | 56,943 | 5,782 |
+| Mistral | `mistral-small-2503` | 1 | 0 | 15,285 | 21,975 | 1,800 |
+| GPT OSS | `gpt-oss-20b-maas` | 4 | 0 | 49,143 | 47,195 | 14,541 |
+| Qwen | `qwen/qwen3-coder-480b-a35b-instruct-maas` | 4 | 0 | 48,193 | 48,441 | 5,992 |
 
 ## Review Outcome
 
-| Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived | Incident promotion gate |
-| --- | ---: | ---: | ---: | ---: | --- |
-| Dell runtime | 0 | 11 | 2 | 4 | Open; all targets remain human-gated |
-| arena-server monitoring | 1 | 11 | 2 | 2 | Open; all targets remain human-gated |
+| Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived |
+| --- | ---: | ---: | ---: | ---: |
+| Runtime | 0 | 7 | 6 | 1 |
+| Monitoring | 0 | 2 | 3 | 2 |
 
-Both runs intentionally stop at human review. Provider convergence can create
-review targets and technical support, but it does not automatically authorize a
-final causal judgement or operational action. The public UI separates a
-graph-level incident gate signal from each target's promotion state so "signal
-present" is not read as an accepted incident cause.
+The monitoring result distinguishes two real timeout observations from the
+historical `last_close_reason` values embedded in healthy records. Normal or
+absence-only projections are retained for audit as monitor-only/archived items,
+not displayed as unresolved incident targets.
+
+Scores are review priority, not truth probability. Provider convergence creates
+technical review support; causal and user-impact promotion remains human-gated.

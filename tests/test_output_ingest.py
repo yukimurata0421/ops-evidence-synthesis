@@ -9,7 +9,22 @@ from ops_evidence_synthesis.ai.base import ModelResponse
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.synthesis.output_ingest import merge_candidate_observations, parse_model_output
 from ops_evidence_synthesis.synthesis.pipeline import run_model_stage
+from ops_evidence_synthesis.synthesis.output_ingest import _canonical_subject, _canonical_target_type
 from ops_evidence_synthesis.synthesis.review_arbitration import resolve_canonical_review_graph_snapshot
+
+
+def test_non_database_resource_pool_is_not_classified_as_database_pool() -> None:
+    text = "auto dj primary track pool exhaustion; falling back to any unplayed audio track"
+
+    assert _canonical_target_type({}, text) != "database_connection_pool_exhaustion"
+    assert _canonical_subject({}, text) != "database_connection_pool"
+
+
+def test_database_connection_pool_exhaustion_remains_database_specific() -> None:
+    text = "postgres database connection pool exhausted while checking out a connection"
+
+    assert _canonical_target_type({}, text) == "database_connection_pool_exhaustion"
+    assert _canonical_subject({}, text) == "database_connection_pool"
 
 
 def _claim_result() -> dict[str, Any]:

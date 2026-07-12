@@ -384,7 +384,8 @@ def build_payload(
                 (
                     f"The run used {db_corpus_coverage.get('covered_row_count', log_count):,}/"
                     f"{db_corpus_coverage.get('total_row_count', log_count):,} sanitized "
-                    f"{source.get('service', 'service')} DB rows from {time_window.get('start')} "
+                    f"{source.get('service', 'service')} {_coverage_corpus_label(db_corpus_coverage)} "
+                    f"from {time_window.get('start')} "
                     f"to {time_window.get('end')} as the coverage corpus; direct raw-row prompt count was "
                     f"{db_corpus_coverage.get('direct_prompt_row_count', 0):,}."
                 ),
@@ -417,11 +418,11 @@ def build_payload(
                     ]
                 ),
             ],
-            "source_observations": [
-                f"Sanitized source context was attached with source_context_sha256={source_context_sha}.",
-                f"Source analysis was attached with analysis_sha256={source_analysis_sha}.",
-                "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs from the sanitized corpus.",
-            ],
+            "source_observations": _source_observations(
+                source_context_sha=source_context_sha,
+                source_analysis_sha=source_analysis_sha,
+                approved_profile=approved_profile,
+            ),
             "analysis_conclusion": [
                 _provider_conclusion(
                     provider_statuses,
@@ -2255,17 +2256,26 @@ def _bundle_db_corpus_coverage(bundle: dict[str, Any], *, fallback_rows: int) ->
             "row_assignments_sha256": str(coverage.get("row_assignments_sha256") or ""),
             "row_assignments_in_public_payload": False,
         }
+    log_patterns = [
+        item
+        for item in bundle.get("evidence_items") or []
+        if isinstance(item, dict) and str(item.get("type") or "") == "log_pattern"
+    ]
+    accounted_rows = min(
+        int(fallback_rows),
+        sum(max(0, _int(item.get("count"))) for item in log_patterns),
+    )
     return {
         "schema_version": "db_corpus_coverage.v1",
-        "source_table": "unknown",
-        "strategy": "legacy_payload_without_row_coverage_ledger",
+        "source_table": "local_sanitized_events",
+        "strategy": "local_first_grouped_occurrence_accounting",
         "total_row_count": int(fallback_rows),
-        "covered_row_count": 0,
-        "uncovered_row_count": int(fallback_rows),
-        "coverage_ratio": 0.0 if fallback_rows else 1.0,
-        "pattern_count": 0,
-        "singleton_pattern_count": 0,
-        "low_frequency_pattern_count": 0,
+        "covered_row_count": accounted_rows,
+        "uncovered_row_count": max(0, int(fallback_rows) - accounted_rows),
+        "coverage_ratio": accounted_rows / fallback_rows if fallback_rows else 1.0,
+        "pattern_count": len(log_patterns),
+        "singleton_pattern_count": sum(1 for item in log_patterns if _int(item.get("count")) == 1),
+        "low_frequency_pattern_count": sum(1 for item in log_patterns if 1 <= _int(item.get("count")) <= 5),
         "coverage_class_counts": {},
         "direct_prompt_row_count": 0,
         "raw_rows_sent_to_providers": False,
@@ -2273,6 +2283,43 @@ def _bundle_db_corpus_coverage(bundle: dict[str, Any], *, fallback_rows: int) ->
         "row_assignments_sha256": "",
         "row_assignments_in_public_payload": False,
     }
+
+
+def _coverage_corpus_label(coverage: dict[str, Any]) -> str:
+    if str(coverage.get("source_table") or "") == "local_sanitized_events":
+        return "event rows"
+    return "DB rows"
+
+
+def _source_observations(
+    *,
+    source_context_sha: str,
+    source_analysis_sha: str,
+    approved_profile: dict[str, Any],
+) -> list[str]:
+    observations: list[str] = []
+    if source_context_sha:
+        observations.append(
+            f"Sanitized source context was attached with source_context_sha256={source_context_sha}."
+        )
+    if source_analysis_sha:
+        observations.append(f"Source analysis was attached with analysis_sha256={source_analysis_sha}.")
+    review_policy = (
+        approved_profile.get("review_policy")
+        if isinstance(approved_profile.get("review_policy"), dict)
+        else {}
+    )
+    if not source_context_sha and not source_analysis_sha:
+        if review_policy.get("source_access_after_approval") == "disabled":
+            observations.append(
+                "Source context was not supplied after approval; analysis used the frozen approved profile and sanitized Evidence Item IDs only."
+            )
+        else:
+            observations.append("No source context or source analysis was attached to this run.")
+    observations.append(
+        "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs from the sanitized corpus."
+    )
+    return observations
 
 
 def _projection_coverage_interpretation(
@@ -2587,6 +2634,7 @@ def _profile_context(
     context["provisional_user_outcomes"] = _normalize_provisional_user_outcomes(
         context.get("provisional_user_outcomes") or []
     )
+    context.setdefault("profile_to_review_links", [])
     return context
 
 

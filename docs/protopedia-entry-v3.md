@@ -32,11 +32,11 @@ validates cited claims, and projects the result into a Canonical Review Graph.
 
 The primary public reviewer path uses Gemini, GPT OSS, Mistral, Qwen, and Gemma 4
 real API outputs over provider-specific chunks. The entry page shows the
-stream_v3 runtime run first because it has active human-gated primary
-candidates, while the amazon-notify run demonstrates guarded suppression and
-the More Data improvement loop. Provider support is review work, not truth.
-Unresolved impact and operational-outcome questions remain validation targets.
-Score is review priority, not truth probability.
+stream_v3 runtime run first because it demonstrates source profiling, approved
+human semantics, and seven human-gated validation targets without auto-promoting
+an incident cause. The amazon-notify run demonstrates the More Data improvement
+loop. Provider support is review work, not truth. Score is review priority, not
+truth probability.
 
 The public Cloud Run surface is read-only and precomputed. Reviewers can inspect
 the exact fixed artifacts without uploading raw logs, using credentials, or
@@ -63,21 +63,23 @@ human-gated.
 The main review page shows a five-provider source-aware run over the stream_v3
 runtime payload:
 
-- Evidence SHA256: `345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6`
-- Sanitized log count: 45,000
+- Evidence SHA256: `a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0`
+- Staged input lines: 45,000
+- Sanitized event count: 27,926
+- Grouped Evidence Items: 909
 - Raw log policy: `not_uploaded`
 - Providers: Gemini, GPT OSS, Mistral, Qwen, and Gemma 4
-- Maximum chunked provider calls: 33
-- Output state: 5/5 schema-valid provider outputs with 0 primary candidates and 11 validation targets
+- Maximum chunks per provider: 19
+- Output state: 5/5 schema-valid provider outputs, 0 primary candidates, and 7 human-gated validation targets
 
 Live URL:
-https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+https://ops-evidence.yukimurata0421.dev/?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
 
 Detail URL:
-https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
 
 Markdown incident report:
-https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
 
 ## Run
 
@@ -110,9 +112,9 @@ decision only after the evidence boundary is satisfied.
 The public product path is deployed to Cloud Run behind a custom domain:
 
 - Public entry: https://ops-evidence.yukimurata0421.dev/
-- API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Visual graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- Markdown incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+- API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Visual graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Markdown incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
 
 The release path runs:
 
@@ -137,9 +139,11 @@ raw logs stay local
 -> sanitize and verify
 -> sanitized code context
 -> source-aware system profile draft
--> human-approved profile context
+-> human answers
+-> Gemini-normalized candidate interpretation
+-> human re-review and SHA approval
 -> SHA-fixed Evidence Bundle
--> Mistral full-corpus chunks
+-> five-provider full-corpus chunks
 -> recorded provider output
 -> schema and evidence-reference validation
 -> Canonical Review Graph

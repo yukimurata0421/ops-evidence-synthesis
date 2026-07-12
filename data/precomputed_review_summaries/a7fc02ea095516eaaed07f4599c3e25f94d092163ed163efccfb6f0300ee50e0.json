@@ -1,0 +1,3068 @@
+{
+  "agent_trace": [
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:freeze_evidence_bundle",
+      "output": {
+        "artifact": "evidence_bundle",
+        "evidence_sha256": "a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0",
+        "log_count": 27926,
+        "raw_log_policy": "not_uploaded",
+        "status": "completed",
+        "summary": "Evidence Bundle a7fc02ea0955 fixed 27,926 sanitized rows; raw_log_policy=not_uploaded."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "freeze_evidence_bundle",
+      "summary": "Evidence Bundle a7fc02ea0955 fixed 27,926 sanitized rows; raw_log_policy=not_uploaded.",
+      "title": "Freeze Evidence Bundle",
+      "tool": "freeze_evidence_bundle",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:attach_sanitized_source_context",
+      "output": {
+        "artifact": "source_context",
+        "context_is_not_incident_evidence": true,
+        "source_analysis_attached": false,
+        "source_analysis_sha256": "",
+        "source_context_attached": true,
+        "source_context_sha256": "",
+        "status": "completed",
+        "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "attach_sanitized_source_context",
+      "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
+      "title": "Attach Sanitized Source Context",
+      "tool": "attach_sanitized_source_context",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:run_cross_check_providers",
+      "output": {
+        "artifact": "model_runs",
+        "gemini_reference_present": true,
+        "provider_count": 5,
+        "provider_ids": [
+          "gemini-enterprise-agent-platform",
+          "gemma-agent-platform",
+          "mistral-agent-platform",
+          "openai-gpt-oss-on-vertex",
+          "qwen-agent-platform"
+        ],
+        "schema_valid_provider_count": 5,
+        "status": "completed",
+        "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "run_cross_check_providers",
+      "summary": "5/5 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
+      "title": "Run Cross-Check Providers",
+      "tool": "run_cross_check_providers",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:chunk_and_merge_full_corpus",
+      "output": {
+        "analyzed_evidence_items": 909,
+        "artifact": "chunked_provider_merge",
+        "chunk_count": 19,
+        "chunk_manifest_count": 19,
+        "coverage_ratio": 1.0,
+        "determinism_scope": {
+          "fixture_regeneration": "deterministic_local_provider_ci",
+          "merge": "deterministic_sort_dedup_over_recorded_chunk_outputs",
+          "provider_outputs": "recorded_and_hashed"
+        },
+        "failed_chunk_count": 3,
+        "full_evidence_items": 909,
+        "status": "completed",
+        "summary": "Provider prompts covered 909/909 Evidence Item(s) through up to 19 chunk(s); recorded chunk outputs are sorted and deduplicated before canonical merge.",
+        "unassigned_evidence_items": 0
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "chunk_and_merge_full_corpus",
+      "summary": "Provider prompts covered 909/909 Evidence Item(s) through up to 19 chunk(s); recorded chunk outputs are sorted and deduplicated before canonical merge.",
+      "title": "Chunk And Merge Full Corpus",
+      "tool": "chunk_and_merge_full_corpus",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:validate_citations",
+      "output": {
+        "artifact": "citation_validation",
+        "chunk_tracked_evidence_ref_total_count": 261,
+        "cited_evidence_ref_count": 190,
+        "directly_cited_evidence_ref_count": 190,
+        "missing_evidence_count": 59,
+        "status": "completed",
+        "summary": "7 review target(s) directly show 190 unique cited Evidence Item(s); chunk manifests track 261 target evidence association(s); 59 missing-evidence item(s) remain.",
+        "target_count": 7,
+        "uncited_target_ids": []
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "validate_citations",
+      "summary": "7 review target(s) directly show 190 unique cited Evidence Item(s); chunk manifests track 261 target evidence association(s); 59 missing-evidence item(s) remain.",
+      "title": "Validate Citations",
+      "tool": "validate_citations",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:compute_review_targets",
+      "output": {
+        "artifact": "canonical_review_graph",
+        "convergence_count": 6,
+        "primary_count": 0,
+        "status": "completed",
+        "summary": "Canonical Review Graph projected 7 target(s), 0 primary candidate(s), and 6 convergence group(s).",
+        "targets_total": 7,
+        "validation_count": 7
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "compute_review_targets",
+      "summary": "Canonical Review Graph projected 7 target(s), 0 primary candidate(s), and 6 convergence group(s).",
+      "title": "Compute Review Targets",
+      "tool": "compute_review_targets",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:arbitrate_review_gate",
+      "output": {
+        "artifact": "review_arbitration",
+        "blocked_reasons": [
+          "single_metric_only; user_impact_unverified",
+          "user_impact_unverified"
+        ],
+        "incident_baseline": "established",
+        "requires_human_review": true,
+        "status": "human_gate",
+        "summary": "Final incident causality remains human-gated; the agent stops with review targets."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "arbitrate_review_gate",
+      "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
+      "title": "Arbitrate Human Gate",
+      "tool": "arbitrate_review_gate",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:request_more_evidence",
+      "output": {
+        "artifact": "evidence_request_plan",
+        "missing_evidence_count": 59,
+        "request_types": [
+          "external_dependency_status_query",
+          "user_impact_signal_query"
+        ],
+        "status": "completed",
+        "summary": "Generated read-only follow-up plan with 2 request type(s) and 59 missing-evidence item(s), grouped for top-N human review."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "request_more_evidence",
+      "summary": "Generated read-only follow-up plan with 2 request type(s) and 59 missing-evidence item(s), grouped for top-N human review.",
+      "title": "Request More Evidence",
+      "tool": "request_more_evidence",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:draft_system_profile",
+      "output": {
+        "approved": true,
+        "artifact": "profile_draft",
+        "collector_mapping_count": 3,
+        "component_count": 6,
+        "confidence_action": "approved_human_reviewed",
+        "confidence_summary": {
+          "collector_mapping_confidence": 0.7,
+          "component_mapping_confidence": 0.8,
+          "metric_semantics_confidence": 0.7,
+          "overall_confidence": 0.733
+        },
+        "confirmed_user_outcomes": [
+          "Continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio."
+        ],
+        "explicit_profile": true,
+        "generation_mode": "approved_profile_context",
+        "human_questions": [],
+        "llm_status": "persisted",
+        "metric_semantics_count": 4,
+        "profile_id": "stream_v3_runtime_source_approved_20260711",
+        "profile_status": "approved_context_human_gated_outcomes",
+        "profile_to_review_links": [],
+        "provisional_user_outcomes": [],
+        "required_human_decisions": [],
+        "status": "human_gate",
+        "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "human_gate",
+      "step": "draft_system_profile",
+      "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
+      "title": "Draft System Profile",
+      "tool": "draft_system_profile",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    },
+    {
+      "adk_agent_name": "ops_evidence_investigator",
+      "adk_event_type": "function_call_and_response",
+      "artifact": "adk:tool:deliver_read_only_review",
+      "output": {
+        "artifact": "precomputed_review_summary",
+        "evidence_sha256": "a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0",
+        "provider_mode": "real_api_private_gcs_cloud_run_job_postgres_ledger",
+        "public_url": "",
+        "status": "completed",
+        "summary": "Read-only review payload for a7fc02ea0955 is served from precomputed JSON; page load does not invoke live model work."
+      },
+      "schema_version": "adk_tool_trace.v1",
+      "status": "completed",
+      "step": "deliver_read_only_review",
+      "summary": "Read-only review payload for a7fc02ea0955 is served from precomputed JSON; page load does not invoke live model work.",
+      "title": "Deliver Read-Only Review",
+      "tool": "deliver_read_only_review",
+      "trace_sha256": "f925572d506b58446ed3730f43f55a237b559f651bb8f9d4c026942ddd178c74",
+      "trace_source": "adk_tool_contract"
+    }
+  ],
+  "analysis_context": {
+    "analysis_conclusion": [
+      "Gemini, GPT OSS, Mistral, Qwen, and Gemma 4 all returned status=ok and schema_valid=true.",
+      "The public graph exposes 0 primary candidate, 7 validation target(s), and 6 monitor-only item(s) after the analysis-window boundary is applied.",
+      "0 primary candidate and 7 validation target(s) remain for human review."
+    ],
+    "analysis_window_hours": 24.733889,
+    "db_corpus_coverage": {
+      "coverage_class_counts": {},
+      "coverage_ratio": 1.0,
+      "covered_row_count": 27926,
+      "direct_prompt_row_count": 0,
+      "low_frequency_pattern_count": 892,
+      "pattern_count": 909,
+      "prompt_boundary_policy": "",
+      "raw_rows_sent_to_providers": false,
+      "row_assignments_in_public_payload": false,
+      "row_assignments_sha256": "",
+      "schema_version": "db_corpus_coverage.v1",
+      "singleton_pattern_count": 860,
+      "source_table": "local_sanitized_events",
+      "strategy": "local_first_grouped_occurrence_accounting",
+      "total_row_count": 27926,
+      "uncovered_row_count": 0
+    },
+    "db_corpus_coverage_class_counts": {},
+    "db_corpus_coverage_ratio": 1.0,
+    "db_corpus_covered_row_count": 27926,
+    "db_corpus_direct_prompt_row_count": 0,
+    "db_corpus_pattern_count": 909,
+    "db_corpus_raw_rows_sent_to_providers": false,
+    "db_corpus_row_assignments_sha256": "",
+    "db_corpus_row_count": 27926,
+    "db_corpus_singleton_pattern_count": 860,
+    "db_ingested_log_count": 27926,
+    "determinism_scope": {
+      "chunk_merge": "deterministic_sort_dedup_over_recorded_chunk_outputs",
+      "local_fixture": "byte_equal_regeneration_for_deterministic_local_provider_ci",
+      "provider_outputs": "recorded_and_hashed_not_recreated_byte_for_byte"
+    },
+    "environment": "stream_v3",
+    "evidence_item_accounting": {
+      "db_pattern_groups": 909,
+      "derived_metric_or_operational_items": 0,
+      "explanation": "Evidence Item count can exceed DB pattern groups because deterministic metric, state, or operational boundary items are added after row-level grouping.",
+      "schema_version": "evidence_item_accounting.v1",
+      "total_evidence_items": 909
+    },
+    "evidence_item_count": 909,
+    "log_observations": [
+      "The run used 27,926/27,926 sanitized stream_v3_runtime event rows from 2026-06-14T23:15:50Z to 2026-06-15T23:59:52Z as the coverage corpus; direct raw-row prompt count was 0.",
+      "The local-first Evidence Bundle retained 909 grouped evidence items, including 860 singleton pattern(s), 892 low-frequency pattern(s), and 5 pre-AI route signal(s).",
+      "Evidence accounting: 909 DB pattern group(s) plus 0 deterministic metric/state/operational item(s) produced 909 Evidence Item(s).",
+      "The single-prompt projection used 140 selected evidence items covering 27,157 occurrences (97.2% of the sanitized corpus); provider synthesis covered 909/909 grouped Evidence Items via chunked calls.",
+      "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_runtime bundle keeps 27,926 rows and 909 grouped Evidence Items, while the bounded projection tracks 140 high-signal Evidence Items representing 27,157 repeated occurrences. Multi-provider synthesis then covered 909/909 grouped Evidence Items through chunked provider calls across up to 19 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency.",
+      "Real provider outputs are recorded and hashed; deterministic reproduction applies to the canonical merge over sorted recorded chunk outputs and to local fixture regeneration.",
+      "Repeated RUN_ONCE/RUN_RESULT, systemd watchdog, token refresh, Pub/Sub idle, and status snapshot patterns were represented by evidence IDs rather than raw log bodies."
+    ],
+    "min_analysis_window_hours": 24,
+    "model_projection_evidence_items": 140,
+    "model_projection_interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_runtime bundle keeps 27,926 rows and 909 grouped Evidence Items, while the bounded projection tracks 140 high-signal Evidence Items representing 27,157 repeated occurrences. Multi-provider synthesis then covered 909/909 grouped Evidence Items through chunked provider calls across up to 19 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency.",
+    "model_projection_occurrence_count": 27157,
+    "model_projection_occurrence_coverage_ratio": 0.972463,
+    "model_projection_policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts.",
+    "pipeline_run_id": "stream-v3-runtime-45k-real-api-20260711-v3",
+    "profile_id": "stream_v3_runtime_source_approved_20260711",
+    "provider_count": 5,
+    "provider_full_corpus_analyzed_evidence_items": 909,
+    "provider_full_corpus_chunk_count": 19,
+    "provider_full_corpus_chunk_manifest_count": 19,
+    "provider_full_corpus_chunk_manifest_sha256s": [
+      "34e14d90ac577788a50750b196a58e0d8f0c21cfca3e9ec163501ce3f7288df5",
+      "a7406c19e11e3c9738f4d0ba61e0e7e72f7f338a60ddc066d3247ecc614b0928",
+      "e9e62972a9a30d58383345230dbdb26086f3defc4b072fe55ce620c62482426b"
+    ],
+    "provider_full_corpus_coverage": {
+      "all_provider_chunk_manifests_present": true,
+      "all_schema_valid_providers_covered_full_corpus": true,
+      "analyzed_evidence_item_count": 909,
+      "chunk_manifest_sha256s": [
+        "34e14d90ac577788a50750b196a58e0d8f0c21cfca3e9ec163501ce3f7288df5",
+        "a7406c19e11e3c9738f4d0ba61e0e7e72f7f338a60ddc066d3247ecc614b0928",
+        "e9e62972a9a30d58383345230dbdb26086f3defc4b072fe55ce620c62482426b"
+      ],
+      "coverage_ratio": 1.0,
+      "full_evidence_item_count": 909,
+      "max_chunk_count": 19,
+      "max_chunk_manifest_entry_count": 19,
+      "mode": "full_evidence_item_chunking",
+      "provider_count": 5,
+      "reported_provider_count": 5,
+      "schema_valid_provider_count": 5,
+      "schema_version": "provider_full_corpus_coverage.v1",
+      "unassigned_evidence_item_count": 0
+    },
+    "provider_full_corpus_coverage_ratio": 1.0,
+    "provider_full_corpus_evidence_items": 909,
+    "provider_full_corpus_unassigned_evidence_items": 0,
+    "raw_log_policy": "not_uploaded",
+    "raw_source_policy": "not_uploaded",
+    "real_api_revision": "",
+    "sanitized_log_count": 27926,
+    "schema_valid_provider_count": 5,
+    "schema_version": "real_api_source_context_summary.v2",
+    "service": "stream_v3_runtime",
+    "source_analysis_sha256": "",
+    "source_context_sha256": "",
+    "source_observations": [
+      "Source context was not supplied after approval; analysis used the frozen approved profile and sanitized Evidence Item IDs only.",
+      "Source context is interpretation context only; runtime support still has to cite Evidence Item IDs from the sanitized corpus."
+    ],
+    "token_usage": {
+      "input_tokens": 2220674,
+      "output_tokens": 106781
+    },
+    "window_end": "2026-06-15T23:59:52Z",
+    "window_start": "2026-06-14T23:15:50Z"
+  },
+  "devops_loop": {
+    "items": [
+      {
+        "detail": "Gemini, GPT OSS, Mistral, Qwen, and Gemma 4 were executed through Vertex-backed endpoints; provider diversity is recorded by model path, not by automatic truth voting.",
+        "label": "Real provider run",
+        "value": "5 providers"
+      },
+      {
+        "detail": "Raw logs and raw source stayed local; only sanitized bundles and context reached the API.",
+        "label": "Source-first boundary",
+        "value": "raw not uploaded"
+      },
+      {
+        "detail": "27,157 occurrences were represented by selected evidence IDs and counts.",
+        "label": "Token compression",
+        "value": "140 items"
+      },
+      {
+        "detail": "Provider convergence creates review targets, not automatic causal truth.",
+        "label": "Human gate",
+        "value": "incident open"
+      }
+    ],
+    "summary": "The public URL is backed by a recorded e2e API run, provider hashes, schema validation, and read-only precomputed serving.",
+    "title": "AI workflow is operated as production software"
+  },
+  "evidence_sha256": "a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0",
+  "generation": {
+    "api_revision": "",
+    "generator": "ops_evidence_synthesis.precomputed_review",
+    "min_analysis_window_hours": 24,
+    "payload_sha256": "c74043dc306d76cb5182356138edf8e22a6220ec86399bea97857405e96974bd",
+    "pipeline_run_id": "stream-v3-runtime-45k-real-api-20260711-v3",
+    "provider_mode": "real_api_private_gcs_cloud_run_job_postgres_ledger",
+    "raw_log_policy": "not_uploaded",
+    "real_api_evidence_sha256": "a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0",
+    "schema_version": "precomputed_review_generation.v1",
+    "score_definition": "claimed successful providers / all successful providers",
+    "source_note": "generated from sanitized logs and a human-approved operational profile; source access disabled after profile approval"
+  },
+  "profile_context": {
+    "approved": true,
+    "collector_mapping_count": 3,
+    "component_count": 6,
+    "confidence_action": "approved_human_reviewed",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.8,
+      "metric_semantics_confidence": 0.7,
+      "overall_confidence": 0.733
+    },
+    "confidence_thresholds": {
+      "candidate_only_human_gate": 0.6,
+      "use_for_subsystem_routing": 0.75
+    },
+    "confirmed_user_outcomes": [
+      "Continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio."
+    ],
+    "context_is_not_incident_evidence": true,
+    "draft_schema_version": "",
+    "explicit_profile": true,
+    "generation_mode": "approved_profile_context",
+    "human_questions": [],
+    "llm_status": "persisted",
+    "metric_semantics_count": 4,
+    "profile_id": "stream_v3_runtime_source_approved_20260711",
+    "profile_review_policy": {
+      "confirmed_outcomes_required_for_promotion": true,
+      "context_is_not_incident_evidence": true,
+      "low_confidence_fields_require_human_review": true,
+      "provisional_outcomes_create_missing_evidence": true,
+      "runtime_support_must_cite_evidence_id": true
+    },
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [],
+    "provisional_user_outcomes": [],
+    "purpose": "Continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio.",
+    "required_human_decisions": [],
+    "schema_version": "profile_context_summary.v2",
+    "source_analysis_sha256": "",
+    "source_context_sha256": "",
+    "source_discovery_sha256": "08067a4229e875c89be713e609c180372de966a0105eb7ea4fbbcc6ed8ac9708",
+    "summary": "Profile context was generated or approved from sanitized discovery; it constrains routing and questions, but runtime claims still require Evidence Item IDs and human-approved user outcomes.",
+    "system_type": "streaming_service"
+  },
+  "profile_draft_generation": {
+    "approved": true,
+    "collector_mapping_count": 3,
+    "component_count": 6,
+    "confidence_action": "approved_human_reviewed",
+    "confidence_summary": {
+      "collector_mapping_confidence": 0.7,
+      "component_mapping_confidence": 0.8,
+      "metric_semantics_confidence": 0.7,
+      "overall_confidence": 0.733
+    },
+    "confirmed_user_outcomes": [
+      "Continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio."
+    ],
+    "explicit_profile": true,
+    "generation_mode": "approved_profile_context",
+    "human_questions": [],
+    "llm_status": "persisted",
+    "metric_semantics_count": 4,
+    "profile_id": "stream_v3_runtime_source_approved_20260711",
+    "profile_status": "approved_context_human_gated_outcomes",
+    "profile_to_review_links": [],
+    "provisional_user_outcomes": [],
+    "required_human_decisions": [],
+    "schema_version": "profile_draft_generation_summary.v1"
+  },
+  "provider_statuses": [
+    {
+      "chunk_failure_count": 0,
+      "chunk_status_counts": {
+        "ok": 19
+      },
+      "display_name": "Vertex Gemini",
+      "failure_reason": "",
+      "input_tokens": 602924,
+      "latency_ms": 560068,
+      "model_name": "gemini-3.1-pro-preview",
+      "output_tokens": 15694,
+      "parsed_json_sha256": "8ae905cc299babf010d25e512df8263625f0f96d1182d30668737bfee4fbeb41",
+      "partial_chunk_result": {
+        "failure_count": 0,
+        "min_success_ratio": 0.8,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 19,
+        "success_ratio": 1.0,
+        "total_chunk_count": 19,
+        "usable": true
+      },
+      "provider_id": "gemini-enterprise-agent-platform",
+      "raw_output_sha256": "45c648f73d7f9f118dc953ac98da1d4aa6500ae9547be3fb1e9ae07405664dec",
+      "retry": {
+        "attempts": 19,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 36,
+        "retried": true,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "chunk_failure_count": 0,
+      "chunk_status_counts": {
+        "ok": 19
+      },
+      "display_name": "Gemma on Gemini Enterprise Agent Platform",
+      "failure_reason": "",
+      "input_tokens": 574466,
+      "latency_ms": 650870,
+      "model_name": "gemma-4-26b-a4b-it-maas",
+      "output_tokens": 24732,
+      "parsed_json_sha256": "3c421fa4f13af7757330269571a2286e2cb26491db6321b530c86ad9f0878875",
+      "partial_chunk_result": {
+        "failure_count": 0,
+        "min_success_ratio": 0.8,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 19,
+        "success_ratio": 1.0,
+        "total_chunk_count": 19,
+        "usable": true
+      },
+      "provider_id": "gemma-agent-platform",
+      "raw_output_sha256": "2e6ed19b8e623ffc3a15b54246cdff5d58d18d50e690f5ffd0f92bb442a85f20",
+      "retry": {
+        "attempts": 19,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 38,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "chunk_failure_count": 0,
+      "chunk_status_counts": {
+        "ok": 3
+      },
+      "display_name": "Mistral on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 195080,
+      "latency_ms": 28976,
+      "model_name": "mistral-small-2503",
+      "output_tokens": 2007,
+      "parsed_json_sha256": "8433ed198a99ce1707080565f50a7c936e8306e622712d710fe81e688c300fd0",
+      "partial_chunk_result": {
+        "failure_count": 0,
+        "min_success_ratio": 0.8,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 3,
+        "success_ratio": 1.0,
+        "total_chunk_count": 3,
+        "usable": true
+      },
+      "provider_id": "mistral-agent-platform",
+      "raw_output_sha256": "34601864ada38824cd49a3c4292c8576d5bf1cc7a54b421f2a0f011900619a64",
+      "retry": {
+        "attempts": 3,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 6,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "chunk_failure_count": 3,
+      "chunk_status_counts": {
+        "ok": 16,
+        "provider_error": 2,
+        "rate_limited": 1
+      },
+      "display_name": "gpt-oss on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 333983,
+      "latency_ms": 250154,
+      "model_name": "gpt-oss-20b-maas",
+      "output_tokens": 34519,
+      "parsed_json_sha256": "eb18df2365ceca411a3a1fe37aa06ce4670a2b910884e841206aaa0588260f81",
+      "partial_chunk_result": {
+        "failure_count": 3,
+        "min_success_ratio": 0.8,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 16,
+        "success_ratio": 0.842105,
+        "total_chunk_count": 19,
+        "usable": true
+      },
+      "provider_id": "openai-gpt-oss-on-vertex",
+      "raw_output_sha256": "4a7a4ded7f421c4794cbc547a35db732da1dd4907fc8954603535df9a9706ba6",
+      "retry": {
+        "attempts": 24,
+        "exception_type": "RuntimeError",
+        "failure_reason": "",
+        "max_attempts": 38,
+        "retried": true,
+        "retryable": true
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    },
+    {
+      "chunk_failure_count": 0,
+      "chunk_status_counts": {
+        "ok": 19
+      },
+      "display_name": "Qwen on Vertex MaaS",
+      "failure_reason": "",
+      "input_tokens": 514221,
+      "latency_ms": 256519,
+      "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
+      "output_tokens": 29829,
+      "parsed_json_sha256": "9b0b12220de2dddf934c3828c10f38c32f6826e3fe2dcfcdf57592816a37045a",
+      "partial_chunk_result": {
+        "failure_count": 0,
+        "min_success_ratio": 0.8,
+        "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
+        "success_chunk_count": 19,
+        "success_ratio": 1.0,
+        "total_chunk_count": 19,
+        "usable": true
+      },
+      "provider_id": "qwen-agent-platform",
+      "raw_output_sha256": "9f03219b6916135b9fe22e7fe7f26db877cb34e9b2000caad215cab0481762b4",
+      "retry": {
+        "attempts": 19,
+        "exception_type": "",
+        "failure_reason": "",
+        "max_attempts": 38,
+        "retried": false,
+        "retryable": false
+      },
+      "schema_errors": [],
+      "schema_valid": true,
+      "status": "ok"
+    }
+  ],
+  "review_graph_summary": {
+    "auto_archived_count": 1,
+    "conflict_count": 0,
+    "convergence_count": 6,
+    "hidden_multi_provider_archived_count": 0,
+    "incident_baseline": "established",
+    "incident_baseline_established_count": 0,
+    "incident_gate_scope": "graph_level_signal_not_target_promotion",
+    "incident_gate_signal": "signal_present",
+    "note": "Provider convergence is technical support only; causal and impact judgement remains human-gated. Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; it is not additive with target verdict counts.",
+    "partial_overlap_count": 6,
+    "primary_promoted_count": 0,
+    "provider_detection_overlap": "5/5",
+    "review_unit_convergence": "strong",
+    "rule_or_context_count": 0,
+    "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
+    "single_source_count": 1,
+    "summary": "The e2e API analyzed a 27,926-row sanitized log corpus with 5 schema-valid real provider outputs; 6 review units had at least two provider positions while impact remains human-gated.",
+    "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target.",
+    "targets_total": 7,
+    "technical_baseline": "established"
+  },
+  "schema_version": "precomputed_review_summary.v1",
+  "summary": {
+    "baselines": {
+      "incident": true,
+      "technical": true
+    },
+    "canonical_graph_sha256": "e1c832b8396f32860ce7c2bd5328a6fdde785ffdd9d507a0db764cb2b4788d81",
+    "canonical_graph_status": "recomputed_for_public_payload",
+    "finding": {
+      "impact": "Gemini, GPT OSS, Mistral, Qwen, and Gemma 4 all returned schema-valid outputs. 0 primary candidate and 7 validation target(s) remain human-gated; incident promotion is not auto-accepted.",
+      "title": "Five real providers analyzed the 27,926-row stream_v3_runtime corpus"
+    },
+    "input_fingerprint_sha256": "a4624dfff97e30f87812fcfb56bb14491679c0e087ffea502f91644215576a14",
+    "log_count": 27926,
+    "message": "",
+    "providers": {
+      "pipeline_status": "succeeded",
+      "success": 5,
+      "total": 5
+    },
+    "raw_log_policy": "not_uploaded",
+    "review": {
+      "auto_archived": 1,
+      "monitor_only": 6,
+      "primary_targets": 0,
+      "validation_targets": 7
+    },
+    "schema_version": "ui_summary.v1",
+    "status": "ok",
+    "updated_at": "2026-07-12T00:10:02Z"
+  },
+  "targets": [
+    {
+      "agreement": {
+        "convergence_score": 0.8,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "4/5 schema-valid providers projected this review unit from the 27,926-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "runtime_recovery",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 2 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "classification": {
+        "adjustment": "",
+        "evidence_family_count": 1,
+        "evidence_ref_count": 19,
+        "final_class": "validation_target",
+        "original_class": "validation_target",
+        "policy": "Provider convergence can create high-priority validation work, but primary candidacy requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets.",
+        "provider_support": "4/5",
+        "reason": "",
+        "schema_version": "public_target_classification.v1",
+        "source_candidate_count": 14
+      },
+      "counter_evidence_summary": [
+        "No systemd or recovery orchestrator logs were cited in this chunk.",
+        "No evidence is present in this chunk to confirm if the recovery was successful or if it resulted in a restart loop.",
+        "No evidence of actual stream failure or ffmpeg crash is present in this chunk.",
+        "No evidence that the recovery actions are succeeding.",
+        "No systemd substate logs cited in evidence bundle.",
+        "No explicit systemd restart logs, watchdog anomaly counts, or stream_engine_ffmpeg_restart_count metrics are present in this chunk to confirm a crash loop.",
+        "The specific action taken by the orchestrator (restart vs. reconfiguration) is not explicitly detailed in the log patterns."
+      ],
+      "evidence_ref_display_count": 19,
+      "evidence_ref_overflow_count": 0,
+      "evidence_ref_total_count": 19,
+      "evidence_refs": [
+        "PATTERN-895",
+        "PATTERN-896",
+        "PATTERN-049",
+        "PATTERN-897",
+        "PATTERN-902",
+        "PATTERN-900",
+        "PATTERN-901",
+        "PATTERN-908",
+        "PATTERN-909",
+        "PATTERN-903",
+        "PATTERN-635",
+        "PATTERN-636",
+        "PATTERN-637",
+        "PATTERN-046",
+        "PATTERN-886",
+        "PATTERN-887",
+        "PATTERN-892",
+        "PATTERN-037",
+        "PATTERN-494"
+      ],
+      "evidence_relationship_supported": false,
+      "evidence_summary": [
+        "PATTERN-895: cited by provider output; inspect the Evidence Item to confirm what it shows.",
+        "PATTERN-896: cited by provider output; inspect the Evidence Item to confirm what it shows.",
+        "PATTERN-049: Shows configuration of V3_FAST_RECOVERY_INTERVAL_SEC=10.",
+        "PATTERN-897: Indicates a notification regarding fast recovery auto-recovery.",
+        "PATTERN-902: Shows the recovery action plan state file being accessed.",
+        "PATTERN-897 logs fast_recovery_auto_recovered_notified, confirming watchdog involvement.",
+        "PATTERN-049 shows the fast recovery interval being set or logged.",
+        "PATTERN-897 indicates an auto-recovery notification was sent.",
+        "PATTERN-900 and PATTERN-901 show operational adequacy warnings were raised.",
+        "PATTERN-902 shows the generation of a recovery_action_plan.json.",
+        "PATTERN-908 and PATTERN-909 show the fast-recovery-loop component is active and running.",
+        "PATTERN-049 shows V3_FAST_RECOVERY_INTERVAL_SEC=10, indicating a 10-second recovery loop.",
+        "PATTERN-903 logs ffmpeg exiting with code 1 and restarting in 5s, confirming process instability.",
+        "PATTERN-049: V3_FAST_RECOVERY_INTERVAL_SEC=10",
+        "PATTERN-897: fast_recovery_auto_recovered_notified flag set",
+        "PATTERN-635: Watchdog event at 2026-06-15T06:32:34Z",
+        "8 additional supporting evidence summary item(s) are omitted from this public detail view; the full count remains in evidence_ref_total_count and the chunk manifest."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "PATTERN-895",
+        "PATTERN-896",
+        "Status of the stream after the recovery action (e.g., active_stream_count or capture_freshness)",
+        "ffmpeg process state logs",
+        "YouTube ingest health metrics",
+        "Contents of .state/arena-monitor/recovery_action_plan.json.",
+        "systemd logs for adsb-streamnew-youtube-stream.service",
+        "stream_engine_ffmpeg_restart_count metric",
+        "systemd stream service substate logs",
+        "watchdog_timeline_anomaly_count metrics",
+        "No runtime_restart_count or service_health_failure_count signals are cited.",
+        "No systemd unit state transition logs are present.",
+        "stream_state",
+        "youtube_ingest_status",
+        "systemd logs showing stream service substate transitions",
+        "systemd service state logs",
+        "stream_engine_ffmpeg_restart_count metrics",
+        "Specific orchestrator decision logs (e.g., 'action=restart' or 'action=reconfigure') for the exact failure timestamp.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Did adsb-streamnew-youtube-stream.service enter a restart loop or dead state after the error?",
+      "operational_mechanism": "The recovery orchestrator (adsb-streamnew-recovery-orchestrator.service) may have responded to ffmpeg failure.",
+      "original_class": "validation_target",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 4,
+      "provider_positions": [
+        {
+          "model_run_hash": "45c648f73d7f",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "2e6ed19b8e62",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemma-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "34601864ada3",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "4a7a4ded7f42",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "9f03219b6916",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "6dcc60d62a06c5a0eef077e8",
+        "rollup_provider_ratio": 0.2857,
+        "source_candidate_count": 14,
+        "source_chunk_ids": []
+      },
+      "raw_review_priority_score": 0.7516,
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.7443,
+      "review_reason": {
+        "factors": [
+          "4/5 schema-valid providers independently projected the normalized review unit `runtime_recovery`.",
+          "19 chunk-tracked Evidence Item association(s) tie the unit back to the 27,926-row sanitized corpus.",
+          "14 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.286).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `runtime_recovery` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `runtime_recovery` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-72d39b58a7bfaa17a107",
+      "score_breakdown": {
+        "actionability_signal": 0.85,
+        "claimed_provider_count": 4,
+        "class_bonus": 0.0,
+        "deterministic_tie_break": 0.001,
+        "evidence_diversity_signal": 0.3333,
+        "evidence_volume_signal": 0.6817,
+        "formula": "0.15*prior + 0.85*(weighted provider support, Gemini signal, evidence, source breadth, actionability, class bonus, penalties) + deterministic tie-break",
+        "gemini_claimed": true,
+        "gemini_signal": 1.0,
+        "gemini_weight": 1.65,
+        "penalties": {
+          "blocker_penalty": 0.025,
+          "caveat_penalty": 0.0,
+          "gemini_silent_penalty": 0.0,
+          "generic_unit_penalty": 0.0,
+          "healthy_status_penalty": 0.0,
+          "missing_evidence_penalty": 0.07,
+          "total_penalty": 0.095
+        },
+        "prior_score": 0.7516,
+        "schema_version": "review_priority_score.v2",
+        "score_note": "Priority is review urgency, not truth probability.",
+        "source_candidate_signal": 1.0,
+        "total_provider_count": 5,
+        "weighted_provider_support": 0.823
+      },
+      "source_chunks": [],
+      "state": "validation",
+      "status": "pending",
+      "subsystem": "runtime_recovery",
+      "suspected_issue": "Potential systemd restart or watchdog intervention masked by missing logs.",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "No systemd or recovery orchestrator logs were cited in this chunk.",
+          "No evidence is present in this chunk to confirm if the recovery was successful or if it resulted in a restart loop.",
+          "No evidence of actual stream failure or ffmpeg crash is present in this chunk.",
+          "No evidence that the recovery actions are succeeding.",
+          "No systemd substate logs cited in evidence bundle.",
+          "No explicit systemd restart logs, watchdog anomaly counts, or stream_engine_ffmpeg_restart_count metrics are present in this chunk to confirm a crash loop.",
+          "The specific action taken by the orchestrator (restart vs. reconfiguration) is not explicitly detailed in the log patterns."
+        ],
+        "evidence_summary": [
+          "PATTERN-895: cited by provider output; inspect the Evidence Item to confirm what it shows.",
+          "PATTERN-896: cited by provider output; inspect the Evidence Item to confirm what it shows.",
+          "PATTERN-049: Shows configuration of V3_FAST_RECOVERY_INTERVAL_SEC=10.",
+          "PATTERN-897: Indicates a notification regarding fast recovery auto-recovery.",
+          "PATTERN-902: Shows the recovery action plan state file being accessed.",
+          "PATTERN-897 logs fast_recovery_auto_recovered_notified, confirming watchdog involvement.",
+          "PATTERN-049 shows the fast recovery interval being set or logged.",
+          "PATTERN-897 indicates an auto-recovery notification was sent.",
+          "PATTERN-900 and PATTERN-901 show operational adequacy warnings were raised.",
+          "PATTERN-902 shows the generation of a recovery_action_plan.json.",
+          "PATTERN-908 and PATTERN-909 show the fast-recovery-loop component is active and running.",
+          "PATTERN-049 shows V3_FAST_RECOVERY_INTERVAL_SEC=10, indicating a 10-second recovery loop.",
+          "PATTERN-903 logs ffmpeg exiting with code 1 and restarting in 5s, confirming process instability.",
+          "PATTERN-049: V3_FAST_RECOVERY_INTERVAL_SEC=10",
+          "PATTERN-897: fast_recovery_auto_recovered_notified flag set",
+          "PATTERN-635: Watchdog event at 2026-06-15T06:32:34Z",
+          "8 additional supporting evidence summary item(s) are omitted from this public detail view; the full count remains in evidence_ref_total_count and the chunk manifest."
+        ],
+        "next_validation_question": "Did adsb-streamnew-youtube-stream.service enter a restart loop or dead state after the error?",
+        "operational_mechanism": "The recovery orchestrator (adsb-streamnew-recovery-orchestrator.service) may have responded to ffmpeg failure.",
+        "provider_explanations": [
+          {
+            "claim_text": "Recovery orchestration behavior during the error window is unknown.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [
+              "PATTERN-895",
+              "PATTERN-896"
+            ],
+            "next_validation_question": "Did adsb-streamnew-youtube-stream.service enter a restart loop or dead state after the error?",
+            "operational_mechanism": "The recovery orchestrator (adsb-streamnew-recovery-orchestrator.service) may have responded to ffmpeg failure.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Potential systemd restart or watchdog intervention masked by missing logs.",
+            "why_it_matters": "Recovery loops or masking behavior can delay or obscure root cause diagnosis.",
+            "why_not_promoted": "No evidence of recovery actions or stream service state transitions."
+          },
+          {
+            "claim_text": "The system's fast recovery mechanism was activated following the stream engine failure.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-049",
+              "PATTERN-897",
+              "PATTERN-902"
+            ],
+            "next_validation_question": "Did the fast recovery loop successfully restore the ffmpeg process to a running state without further exits?",
+            "operational_mechanism": "The recovery orchestrator/fast-recovery-loop detected the process exit and initiated a restart based on the configured V3_FAST_RECOVERY_INTERVAL_SEC.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Automated recovery orchestration triggered by process exit.",
+            "why_it_matters": "While recovery is intended to maintain uptime, frequent or failed recovery loops can lead to prolonged stream instability.",
+            "why_not_promoted": "It is unclear if the recovery successfully restored the stream to a healthy state or if it is part of a recurring failure cycle."
+          },
+          {
+            "claim_text": "The watchdog detected and responded to runtime anomalies with auto-recovery actions.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-897"
+            ],
+            "next_validation_question": "What specific timeline anomalies or process states triggered the watchdog recovery?",
+            "operational_mechanism": "The watchdog component logged fast_recovery_auto_recovered_notified, indicating it triggered or acknowledged a recovery action (PATTERN-897).",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Watchdog-initiated recovery due to observed timeline anomalies or process instability.",
+            "why_it_matters": "Watchdog-initiated recovery masks underlying issues and may indicate systemic instability or observer misconfiguration.",
+            "why_not_promoted": "Watchdog action confirms instability response but not the root cause of the instability."
+          },
+          {
+            "claim_text": "The stream service triggered a fast recovery loop and flagged operational adequacy warnings.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-049",
+              "PATTERN-897",
+              "PATTERN-900",
+              "PATTERN-901"
+            ],
+            "next_validation_question": "Did the fast recovery successfully restore the stream, and what triggered the recovery orchestrator?",
+            "operational_mechanism": "The recovery orchestrator monitors stream health and triggers a fast recovery interval when operational adequacy drops, notifying the system of auto-recovery.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "The recovery orchestrator detected an anomaly and initiated a fast recovery cycle while raising adequacy warnings.",
+            "why_it_matters": "Frequent or unhandled fast recovery loops can disrupt the continuous YouTube live stream and degrade viewer experience.",
+            "why_not_promoted": "The evidence shows recovery actions but lacks the root cause trigger or confirmation of user impact."
+          },
+          {
+            "claim_text": "The system is actively engaging a fast-recovery-loop and generating recovery action plans.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-902",
+              "PATTERN-908",
+              "PATTERN-909"
+            ],
+            "next_validation_question": "What specific actions are being proposed in the recovery_action_plan.json?",
+            "operational_mechanism": "The arena-monitor detects the stream failure and writes a recovery_action_plan.json, while the fast-recovery-loop pod attempts to restore the service.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Automated recovery orchestrator is stuck in a loop trying to mitigate the stream-engine failure.",
+            "why_it_matters": "Indicates that the failure is persistent and automated recovery mechanisms are failing to resolve the underlying issue.",
+            "why_not_promoted": "The exact contents of the recovery action plan and the specific triggers for the fast-recovery-loop are not visible in this chunk."
+          },
+          {
+            "claim_text": "Need evidence of ffmpeg process state and YouTube ingest health to determine the impact of the connection resets.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "Are there logs indicating the recovery orchestrator detected the failure and restarted ffmpeg?",
+            "operational_mechanism": "The recovery orchestrator should detect the ffmpeg failure and restart the media runner.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Potential failure of the recovery orchestrator to handle transient network resets.",
+            "why_it_matters": "Without recovery, a single connection reset results in a permanent stream outage.",
+            "why_not_promoted": "Missing runtime evidence of recovery actions."
+          },
+          {
+            "claim_text": "The runtime entered a fast recovery loop with repeated ffmpeg process restarts.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-049",
+              "PATTERN-903"
+            ],
+            "next_validation_question": "Was the ffmpeg exit code 1 due to a missing file, permission error, or encoder failure?",
+            "operational_mechanism": "The adsb-streamnew-recovery-orchestrator.service triggered fast recovery intervals (every 10s) in response to ffmpeg exits, as shown in PATTERN-049 and PATTERN-903.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Repeated ffmpeg process exits and restarts under fast-recovery orchestration.",
+            "why_it_matters": "Repeated restarts may indicate configuration issues, resource exhaustion, or transient failures that could degrade stream continuity if not stabilized.",
+            "why_not_promoted": "No user impact or YouTube ingest failure confirmed; runtime instability alone does not confirm root cause."
+          },
+          {
+            "claim_text": "Fast recovery loop was triggered following the ffmpeg crash.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-049",
+              "PATTERN-897"
+            ],
+            "next_validation_question": "Did the recovery loop prevent detection of the ffmpeg crash?",
+            "operational_mechanism": "Fast recovery interval set to 10s; recovery loop notified auto_recovered_notified flag after ffmpeg exit",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Recovery loop may mask underlying ffmpeg issue",
+            "why_it_matters": "Repeated recovery loops can hide persistent problems and lead to resource exhaustion",
+            "why_not_promoted": "Recovery loop behavior is expected; impact on stream quality not proven"
+          },
+          {
+            "claim_text": "Need to verify if the recovery orchestrator successfully restarted the stream.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "Are there systemd restart logs or watchdog anomaly counts immediately following the connection reset?",
+            "operational_mechanism": "The recovery orchestrator or systemd should detect the ffmpeg failure and restart the service.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Unknown recovery state following RTMPS connection reset.",
+            "why_it_matters": "Determines if the connection reset was a transient blip or caused a sustained outage.",
+            "why_not_promoted": "Missing logs from systemd or recovery orchestrator in the current evidence chunk."
+          },
+          {
+            "claim_text": "Need to confirm if stream was interrupted.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "Did the stream state change to dead during the incident window?",
+            "operational_mechanism": "Check systemd stream service substate and YouTube watchdog logs",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Missing stream state and YouTube ingest status",
+            "why_it_matters": "Without confirming stream interruption, cannot assess impact.",
+            "why_not_promoted": "No evidence of stream state change."
+          },
+          {
+            "claim_text": "Verify that stream service substate did not transition to dead without explicit recovery.",
+            "claim_type": "validation_target",
+            "evidence_refs": [],
+            "next_validation_question": "Did the stream service systemd unit enter a dead substate during the incident window?",
+            "operational_mechanism": "The recovery orchestrator (adsb-streamnew-recovery-orchestrator.service) manages service lifecycle transitions.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Potential systemd stream service substate mismatch with watchdog health.",
+            "why_it_matters": "A dead substate without recovery would contradict watchdog health and indicate a potential contract violation.",
+            "why_not_promoted": "No direct evidence of service substate transitions is present in the current evidence sample."
+          },
+          {
+            "claim_text": "Repeated watchdog events suggest potential timeline anomalies without contradicting runtime stability.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-635",
+              "PATTERN-636",
+              "PATTERN-637"
+            ],
+            "next_validation_question": "Are there correlated ffmpeg or stream service restarts during these watchdog events?",
+            "operational_mechanism": "The watchdog observer (adsb-streamnew-watchdog.service) generates periodic timeline checks that may indicate internal scheduling or processing delays.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Watchdog timeline anomalies detected without runtime instability.",
+            "why_it_matters": "Repeated anomalies could indicate resource pressure or coordination issues in the control loop, though no direct impact is observed.",
+            "why_not_promoted": "Watchdog events alone do not confirm runtime impact or user-facing issue without correlating evidence of service degradation."
+          },
+          {
+            "claim_text": "Kubernetes pod status shows fast-recovery-loop label during the incident window.",
+            "claim_type": "validation_target",
+            "evidence_refs": [
+              "PATTERN-908",
+              "PATTERN-909"
+            ],
+            "next_validation_question": "What Kubernetes-level recovery policy triggered the fast-recovery-loop label?",
+            "operational_mechanism": "PATTERN-908 and PATTERN-909 show Kubernetes pod status including fast-recovery-loop label and resource usage.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Pod was labeled as part of a fast recovery loop by the orchestrator.",
+            "why_it_matters": "Kubernetes-level labeling confirms the orchestrator recognized and responded to the runtime instability.",
+            "why_not_promoted": "Kubernetes labels confirm orchestration response but not the underlying cause of instability."
+          },
+          {
+            "claim_text": "Chromium capture and FFmpeg media runner processes executed a startup sequence during the incident window.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-046",
+              "PATTERN-886",
+              "PATTERN-887",
+              "PATTERN-892"
+            ],
+            "next_validation_question": "Are there runtime_restart_count metrics or systemd substate logs indicating an unplanned crash loop?",
+            "operational_mechanism": "The systemd service or recovery orchestrator initiated the Chromium browser and FFmpeg processes, indicating either a fresh deployment, a planned restart, or a crash recovery.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Service restart or crash recovery loop.",
+            "why_it_matters": "Unplanned or frequent restarts disrupt the continuous availability of the YouTube live stream, violating the critical user outcome.",
+            "why_not_promoted": "Need to verify if this initialization was a planned deployment or an unexpected crash loop."
+          },
+          {
+            "claim_text": "The system's recovery orchestration was triggered by the subsystem failure.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-037",
+              "PATTERN-494"
+            ],
+            "next_validation_question": "Did the recovery orchestrator successfully restore the FFmpeg process to a healthy state without a restart loop?",
+            "operational_mechanism": "The failure in the stream components (FFmpeg) likely triggered the recovery orchestrator to attempt stabilization or restart.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Automated recovery response to FFmpeg failure",
+            "why_it_matters": "Understanding if the recovery was successful or if it entered a loop is critical to determining if the stream remained available to viewers.",
+            "why_not_promoted": "The link between the specific TCP stall and the specific recovery action is inferred via temporal proximity."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Potential systemd restart or watchdog intervention masked by missing logs.",
+        "why_it_matters": "Recovery loops or masking behavior can delay or obscure root cause diagnosis.",
+        "why_not_promoted": "No evidence of recovery actions or stream service state transitions."
+      },
+      "target_id": "cog-72d39b58a7bfaa17a107",
+      "title": "Review target requires validation: runtime_recovery",
+      "why_it_matters": "Recovery loops or masking behavior can delay or obscure root cause diagnosis.",
+      "why_not_promoted": "No evidence of recovery actions or stream service state transitions."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.8,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "4/5 schema-valid providers projected this review unit from the 27,926-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "observability_contract",
+      "caveats": [],
+      "claim": "4/5 schema-valid providers projected observability_contract with 6 chunk-tracked Evidence Item association(s); this is technical review support, not majority-vote truth.",
+      "class": "validation_target",
+      "classification": {
+        "adjustment": "",
+        "evidence_family_count": 1,
+        "evidence_ref_count": 6,
+        "final_class": "validation_target",
+        "original_class": "validation_target",
+        "policy": "Provider convergence can create high-priority validation work, but primary candidacy requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets.",
+        "provider_support": "4/5",
+        "reason": "",
+        "schema_version": "public_target_classification.v1",
+        "source_candidate_count": 9
+      },
+      "counter_evidence_summary": [
+        "No evidence of actual stream failure or user impact is present in this chunk.",
+        "No evidence in this chunk indicates that this timeout resulted in a loss of metric freshness or a service crash.",
+        "This chunk lacks evidence from chromium_capture, audio_energy, or rtmps_ffmpeg subsystems.",
+        "No metric freshness or gap evidence is cited in this chunk.",
+        "PATTERN-038 shows ffmpeg tcp send sample tcp stall.",
+        "No error logs, metric drops, or watchdog failures are present in this chunk."
+      ],
+      "evidence_ref_display_count": 6,
+      "evidence_ref_overflow_count": 0,
+      "evidence_ref_total_count": 6,
+      "evidence_refs": [
+        "PATTERN-881",
+        "PATTERN-900",
+        "PATTERN-901",
+        "PATTERN-502",
+        "PATTERN-504",
+        "PATTERN-020"
+      ],
+      "evidence_relationship_supported": false,
+      "evidence_summary": [
+        "PATTERN-881 shows a timeout warning from the stream_v3_prometheus_exporter.py script execution.",
+        "PATTERN-881 shows a timeout in the Prometheus exporter script execution.",
+        "PATTERN-881: Shows a warning log for the prometheus_exporter.py script with a timeout event.",
+        "PATTERN-900: Shows operational_adequacy_severity: warn.",
+        "PATTERN-901: Shows operational_adequacy_warn: true.",
+        "PATTERN-881 indicates a timeout warning in stream_v3_prometheus_exporter.py.",
+        "The provided evidence items consist entirely of log patterns and counts, but do not include the actual metric values for stream throughput or YouTube ingest status.",
+        "Approved profile context notes: 'Source context may not match the deployed version during the incident window unless deployment evidence confirms it.'",
+        "PATTERN-504 shows YouTube service reporting healthy and ingest_connected.",
+        "PATTERN-502 shows subsystems state healthy.",
+        "PATTERN-020 shows 4 occurrences of an 'active' info log.",
+        "PATTERN-020: cited by provider output; inspect the Evidence Item to confirm what it shows."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "Metrics showing exporter up status or scrape duration.",
+        "Logs from the stream engine or YouTube monitor to confirm if the stream itself was affected.",
+        "Metric staleness evidence during the timeout window.",
+        "Health snapshot age metrics around the timeout event.",
+        "Runtime metrics showing stream disruption",
+        "Error logs indicating stream failure",
+        "ffmpeg_process_state_count metrics during the incident window.",
+        "youtube_ingest_count or youtube_health_count signals.",
+        "capture_freshness_count and audio_energy_count metrics.",
+        "runtime_restart_count or watchdog timeline anomaly data.",
+        "active_stream_count metric values",
+        "youtube_health_count metric values",
+        "capture_freshness_count metric values",
+        "chromium_capture freshness signals",
+        "audio_energy sampler logs",
+        "rtmps_ffmpeg transport/reconnect metrics",
+        "local_metrics freshness signals",
+        "metric collection success/failure rates",
+        "Detailed logs of the youtube_monitor health check execution.",
+        "Error logs from ffmpeg_stderr",
+        "YouTube watchdog health metrics",
+        "Capture freshness metrics",
+        "PATTERN-020 is the only log pattern cited; cross-chunk validation is needed to confirm absence of failure signatures like watchdog anomalies, ffmpeg restarts, or YouTube ingest failures.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Did the Prometheus exporter timeout result in a gap in critical metrics such as active_stream_count or youtube_health_count?",
+      "operational_mechanism": "The exporter script (stream_v3_prometheus_exporter.py) is invoked with a 75-second timeout and is logging a timeout warning, indicating it may be failing to collect or serve metrics within the expected window.",
+      "original_class": "validation_target",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "4/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 4,
+      "provider_positions": [
+        {
+          "model_run_hash": "45c648f73d7f",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "2e6ed19b8e62",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemma-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "34601864ada3",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "4a7a4ded7f42",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "9f03219b6916",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "2ef7b128017881deecb4ccc3",
+        "rollup_provider_ratio": 0.4444,
+        "source_candidate_count": 9,
+        "source_chunk_ids": []
+      },
+      "raw_review_priority_score": 0.8074,
+      "recommended_request_type": "external_dependency_status_query",
+      "review_priority_score": 0.7342,
+      "review_reason": {
+        "factors": [
+          "4/5 schema-valid providers independently projected the normalized review unit `observability_contract`.",
+          "6 chunk-tracked Evidence Item association(s) tie the unit back to the 27,926-row sanitized corpus.",
+          "9 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.444).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `observability_contract` worth human validation.",
+        "operator_question": "Run `external_dependency_status_query` to decide whether `observability_contract` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-d0000d750a0964e82c8d",
+      "score_breakdown": {
+        "actionability_signal": 0.85,
+        "claimed_provider_count": 4,
+        "class_bonus": 0.0,
+        "deterministic_tie_break": 0.0008,
+        "evidence_diversity_signal": 0.3333,
+        "evidence_volume_signal": 0.4428,
+        "formula": "0.15*prior + 0.85*(weighted provider support, Gemini signal, evidence, source breadth, actionability, class bonus, penalties) + deterministic tie-break",
+        "gemini_claimed": true,
+        "gemini_signal": 1.0,
+        "gemini_weight": 1.65,
+        "penalties": {
+          "blocker_penalty": 0.025,
+          "caveat_penalty": 0.0,
+          "gemini_silent_penalty": 0.0,
+          "generic_unit_penalty": 0.0,
+          "healthy_status_penalty": 0.0,
+          "missing_evidence_penalty": 0.07,
+          "total_penalty": 0.095
+        },
+        "prior_score": 0.8074,
+        "schema_version": "review_priority_score.v2",
+        "score_note": "Priority is review urgency, not truth probability.",
+        "source_candidate_signal": 0.9603,
+        "total_provider_count": 5,
+        "weighted_provider_support": 0.823
+      },
+      "source_chunks": [],
+      "state": "validation",
+      "status": "pending",
+      "subsystem": "observability_contract",
+      "suspected_issue": "Prometheus exporter script timeout",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "No evidence of actual stream failure or user impact is present in this chunk.",
+          "No evidence in this chunk indicates that this timeout resulted in a loss of metric freshness or a service crash.",
+          "This chunk lacks evidence from chromium_capture, audio_energy, or rtmps_ffmpeg subsystems.",
+          "No metric freshness or gap evidence is cited in this chunk.",
+          "PATTERN-038 shows ffmpeg tcp send sample tcp stall.",
+          "No error logs, metric drops, or watchdog failures are present in this chunk."
+        ],
+        "evidence_summary": [
+          "PATTERN-881 shows a timeout warning from the stream_v3_prometheus_exporter.py script execution.",
+          "PATTERN-881 shows a timeout in the Prometheus exporter script execution.",
+          "PATTERN-881: Shows a warning log for the prometheus_exporter.py script with a timeout event.",
+          "PATTERN-900: Shows operational_adequacy_severity: warn.",
+          "PATTERN-901: Shows operational_adequacy_warn: true.",
+          "PATTERN-881 indicates a timeout warning in stream_v3_prometheus_exporter.py.",
+          "The provided evidence items consist entirely of log patterns and counts, but do not include the actual metric values for stream throughput or YouTube ingest status.",
+          "Approved profile context notes: 'Source context may not match the deployed version during the incident window unless deployment evidence confirms it.'",
+          "PATTERN-504 shows YouTube service reporting healthy and ingest_connected.",
+          "PATTERN-502 shows subsystems state healthy.",
+          "PATTERN-020 shows 4 occurrences of an 'active' info log.",
+          "PATTERN-020: cited by provider output; inspect the Evidence Item to confirm what it shows."
+        ],
+        "next_validation_question": "Did the Prometheus exporter timeout result in a gap in critical metrics such as active_stream_count or youtube_health_count?",
+        "operational_mechanism": "The exporter script (stream_v3_prometheus_exporter.py) is invoked with a 75-second timeout and is logging a timeout warning, indicating it may be failing to collect or serve metrics within the expected window.",
+        "provider_explanations": [
+          {
+            "claim_text": "The stream_v3 Prometheus exporter script experienced a timeout warning.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-881"
+            ],
+            "next_validation_question": "Did the Prometheus exporter timeout result in a gap in critical metrics such as active_stream_count or youtube_health_count?",
+            "operational_mechanism": "The exporter script (stream_v3_prometheus_exporter.py) is invoked with a 75-second timeout and is logging a timeout warning, indicating it may be failing to collect or serve metrics within the expected window.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Prometheus exporter script timeout",
+            "why_it_matters": "If the exporter times out, observability signals such as health, freshness, and completeness will have gaps, potentially masking underlying stream failures.",
+            "why_not_promoted": "Only a single warning log pattern is present; it is unclear if this caused a persistent metric gap or if it was a transient timeout."
+          },
+          {
+            "claim_text": "The prometheus_exporter script experienced a timeout during execution.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-881"
+            ],
+            "next_validation_question": "Did the timeout in the prometheus_exporter result in a gap in the local_metrics time series?",
+            "operational_mechanism": "The python script stream_v3_prometheus_exporter.py encountered a timeout while attempting to collect or export metrics.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Prometheus exporter execution timeout",
+            "why_it_matters": "If the exporter fails, observability of the stream's health (metrics) may be delayed or missing, though the stream itself may still be running.",
+            "why_not_promoted": "The timeout appears isolated to the observability tool and does not correlate with any failure in the media pipeline or YouTube ingest."
+          },
+          {
+            "claim_text": "The operational adequacy of the system is flagged as a warning, but the specific metric causing the warning is not explicitly linked to the FFmpeg exit in this evidence chunk.",
+            "claim_type": "caveat",
+            "evidence_refs": [
+              "PATTERN-900",
+              "PATTERN-901"
+            ],
+            "next_validation_question": "Which specific metric or threshold violation triggered the operational_adequacy_warn signal?",
+            "operational_mechanism": "The system is emitting 'operational_adequacy_warn: true' signals, which may be related to the FFmpeg exit or may be independent noise.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Ambiguous operational adequacy warnings.",
+            "why_it_matters": "Ambiguous warnings can mask the true root cause or create alert fatigue.",
+            "why_not_promoted": "This is a caveat regarding the clarity of the observability signals provided."
+          },
+          {
+            "claim_text": "Streaming health and subsystem metrics are absent from the evidence bundle, preventing validation of runtime behavior.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "Are ffmpeg process state, YouTube ingest, capture freshness, and audio energy signals stable during the incident window?",
+            "operational_mechanism": "These metrics are essential for confirming whether the timeout impacted the streaming pipeline or was an isolated event.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Missing evidence of ffmpeg process state, YouTube ingest status, capture freshness, and audio energy signals.",
+            "why_it_matters": "Without these signals, it is impossible to confirm user impact or subsystem degradation.",
+            "why_not_promoted": "No runtime evidence of streaming behavior is available for analysis."
+          },
+          {
+            "claim_text": "Lack of user-impact metrics prevents confirmation of stream downtime.",
+            "claim_type": "caveat",
+            "evidence_refs": [],
+            "next_validation_question": "What were the values of active_stream_count and youtube_health_count during the network flapping events?",
+            "operational_mechanism": "The bundle does not contain specific values for 'active_stream_count' or 'youtube_health_count' that would confirm a drop to zero.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Missing observability for user-facing continuity.",
+            "why_it_matters": "Without these, we cannot distinguish between a transient network hiccup and a critical service outage.",
+            "why_not_promoted": "This is a limitation of the provided data, not a hypothesis of failure."
+          },
+          {
+            "claim_text": "Verification of media pipeline continuity (audio/video) is required to confirm user impact.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "Are there any gaps in capture_freshness_count or audio_energy_count during this window?",
+            "operational_mechanism": "While YouTube ingest is reported healthy, the internal media pipeline (Chromium capture, PulseAudio energy, and FFmpeg transport) has not been explicitly verified in this evidence chunk.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "potential silent failure of capture or transport",
+            "why_it_matters": "A stream can be 'connected' to YouTube but transmitting black frames or silence if the capture or audio subsystems fail.",
+            "why_not_promoted": "No failure has been detected; this is a proactive request for completeness."
+          },
+          {
+            "claim_text": "The source context may not match the deployed version during the incident window.",
+            "claim_type": "caveat",
+            "evidence_refs": [],
+            "next_validation_question": "Is there deployment evidence confirming the source context matches the runtime version during the incident?",
+            "operational_mechanism": "Sanitized source context is used for interpretation but cannot confirm runtime behavior unless deployment evidence anchors it to the incident window.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Potential version drift between source artifacts and runtime deployment.",
+            "why_it_matters": "Misaligned source context may lead to incorrect assumptions about runtime behavior or instrumentation.",
+            "why_not_promoted": "No deployment evidence was provided to confirm version alignment."
+          },
+          {
+            "claim_text": "YouTube health checks reported healthy status despite underlying FFmpeg TCP stalls.",
+            "claim_type": "validation_target",
+            "evidence_refs": [
+              "PATTERN-502",
+              "PATTERN-504"
+            ],
+            "next_validation_question": "Does the stream_v3_youtube_public_ok metric account for active media throughput or just API connection state?",
+            "operational_mechanism": "The youtube_monitor observer may be checking API quota or connection establishment rather than active media byte flow, masking the ffmpeg stall.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Observability contract mismatch where health checks do not reflect actual media transmission failure.",
+            "why_it_matters": "False positive health signals delay automated recovery and human response to stream outages.",
+            "why_not_promoted": "Requires verification of the exact health check implementation and whether it is designed to catch TCP stalls."
+          },
+          {
+            "claim_text": "Need metrics on ffmpeg restarts, stream health, and YouTube ingest status to assess stream availability.",
+            "claim_type": "next_data_needed",
+            "evidence_refs": [],
+            "next_validation_question": "What metrics are available for stream health?",
+            "operational_mechanism": "Metrics collection.",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Missing runtime health signals.",
+            "why_it_matters": "To confirm continuous stream availability.",
+            "why_not_promoted": ""
+          },
+          {
+            "claim_text": "No runtime evidence of YouTube stream failure, ffmpeg transport disappearance, or watchdog anomaly was found in the provided evidence bundle.",
+            "claim_type": "insufficient_evidence",
+            "evidence_refs": [
+              "PATTERN-020"
+            ],
+            "next_validation_question": "Were there any watchdog timeline anomalies, ffmpeg restarts, or YouTube ingest failures during the incident window that were not captured in this evidence sample?",
+            "operational_mechanism": "The watchdog, ffmpeg stream engine, and YouTube monitor components are responsible for detecting and reporting anomalies, but no such reports were cited in the evidence.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Absence of failure signatures in the sampled log patterns may indicate either system stability or insufficient evidence collection.",
+            "why_it_matters": "Without evidence of failure signatures, it is not possible to confirm or deny service disruption or user impact.",
+            "why_not_promoted": "No failure signatures or runtime anomalies were cited in the evidence bundle."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Prometheus exporter script timeout",
+        "why_it_matters": "If the exporter times out, observability signals such as health, freshness, and completeness will have gaps, potentially masking underlying stream failures.",
+        "why_not_promoted": "Only a single warning log pattern is present; it is unclear if this caused a persistent metric gap or if it was a transient timeout."
+      },
+      "target_id": "cog-d0000d750a0964e82c8d",
+      "title": "Review target requires validation: observability_contract",
+      "why_it_matters": "If the exporter times out, observability signals such as health, freshness, and completeness will have gaps, potentially masking underlying stream failures.",
+      "why_not_promoted": "Only a single warning log pattern is present; it is unclear if this caused a persistent metric gap or if it was a transient timeout."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.6,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "3/5 schema-valid providers projected this review unit from the 27,926-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "youtube_health",
+      "caveats": [],
+      "claim": "3/5 schema-valid providers projected youtube_health with 89 chunk-tracked Evidence Item association(s); this is technical review support, not majority-vote truth.",
+      "class": "validation_target",
+      "classification": {
+        "adjustment": "",
+        "evidence_family_count": 1,
+        "evidence_ref_count": 89,
+        "final_class": "validation_target",
+        "original_class": "validation_target",
+        "policy": "Provider convergence can create high-priority validation work, but primary candidacy requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets.",
+        "provider_support": "3/5",
+        "reason": "",
+        "schema_version": "public_target_classification.v1",
+        "source_candidate_count": 3
+      },
+      "counter_evidence_summary": [
+        "No direct evidence of YouTube watch URL accessibility or viewer continuity",
+        "No evidence of YouTube API quota guard interventions (youtube_quota_guard_count)",
+        "No evidence of watchdog timeline anomalies (watchdog_timeline_anomaly_count)",
+        "No contradictory signals (e.g., youtube_health_count > 0 or ingest_connected=False) were cited in this chunk.",
+        "No error logs, warning spikes, or metric disappearances are present in this chunk.",
+        "All 85 evidence items (PATTERN-775 through PATTERN-859) report ingest_connected=True and judgment=ok",
+        "PATTERN-775, PATTERN-776, PATTERN-777, PATTERN-778, PATTERN-779, PATTERN-780, PATTERN-781, PATTERN-782, PATTERN-783, PATTERN-784, PATTERN-785, PATTERN-786, PATTERN-787, PATTERN-788, PATTERN-789, PATTERN-790, PATTERN-791, PATTERN-792, PATTERN-793, PATTERN-794, PATTERN-795, PATTERN-796, PATTERN-797, PATTERN-798, PATTERN-799, PATTERN-800, PATTERN-801, PATTERN-802, PATTERN-803, PATTERN-804, PATTERN-805, PATTERN-806, PATTERN-807, PATTERN-808, PATTERN-809, PATTERN-810, PATTERN-811, PATTERN-812, PATTERN-813, PATTERN-814, PATTERN-815, PATTERN-816, PATTERN-817, PATTERN-818, PATTERN-819, PATTERN-820, PATTERN-821, PATTERN-822, PATTERN-823, PATTERN-824, PATTERN-825, PATTERN-826, PATTERN-827, PATTERN-828, PATTERN-829, PATTERN-830, PATTERN-831, PATTERN-832, PATTERN-833, PATTERN-834, PATTERN-835, PATTERN-836, PATTERN-837, PATTERN-838, PATTERN-839, PATTERN-840, PATTERN-841, PATTERN-842, PATTERN-843, PATTERN-844, PATTERN-845, PATTERN-846, PATTERN-847, PATTERN-848, PATTERN-849, PATTERN-850, PATTERN-851, PATTERN-852, PATTERN-853, PATTERN-854, PATTERN-855, PATTERN-856, PATTERN-857, PATTERN-858, PATTERN-859: All cited patterns show status=ok, healthy=True, and stream_active=True."
+      ],
+      "evidence_ref_display_count": 80,
+      "evidence_ref_overflow_count": 9,
+      "evidence_ref_total_count": 89,
+      "evidence_refs": [
+        "PATTERN-775",
+        "PATTERN-776",
+        "PATTERN-777",
+        "PATTERN-778",
+        "PATTERN-779",
+        "PATTERN-780",
+        "PATTERN-781",
+        "PATTERN-782",
+        "PATTERN-783",
+        "PATTERN-784",
+        "PATTERN-785",
+        "PATTERN-786",
+        "PATTERN-787",
+        "PATTERN-788",
+        "PATTERN-789",
+        "PATTERN-790",
+        "PATTERN-791",
+        "PATTERN-792",
+        "PATTERN-793",
+        "PATTERN-794",
+        "PATTERN-795",
+        "PATTERN-796",
+        "PATTERN-797",
+        "PATTERN-798",
+        "PATTERN-799",
+        "PATTERN-800",
+        "PATTERN-801",
+        "PATTERN-802",
+        "PATTERN-803",
+        "PATTERN-804",
+        "PATTERN-805",
+        "PATTERN-806",
+        "PATTERN-807",
+        "PATTERN-808",
+        "PATTERN-809",
+        "PATTERN-810",
+        "PATTERN-811",
+        "PATTERN-812",
+        "PATTERN-813",
+        "PATTERN-814",
+        "PATTERN-815",
+        "PATTERN-816",
+        "PATTERN-817",
+        "PATTERN-818",
+        "PATTERN-819",
+        "PATTERN-820",
+        "PATTERN-821",
+        "PATTERN-822",
+        "PATTERN-823",
+        "PATTERN-824",
+        "PATTERN-825",
+        "PATTERN-826",
+        "PATTERN-827",
+        "PATTERN-828",
+        "PATTERN-829",
+        "PATTERN-830",
+        "PATTERN-831",
+        "PATTERN-832",
+        "PATTERN-833",
+        "PATTERN-834",
+        "PATTERN-835",
+        "PATTERN-836",
+        "PATTERN-837",
+        "PATTERN-838",
+        "PATTERN-839",
+        "PATTERN-840",
+        "PATTERN-841",
+        "PATTERN-842",
+        "PATTERN-843",
+        "PATTERN-844",
+        "PATTERN-845",
+        "PATTERN-846",
+        "PATTERN-847",
+        "PATTERN-848",
+        "PATTERN-849",
+        "PATTERN-850",
+        "PATTERN-851",
+        "PATTERN-852",
+        "PATTERN-853",
+        "PATTERN-854"
+      ],
+      "evidence_relationship_supported": false,
+      "evidence_summary": [
+        "PATTERN-798, PATTERN-832, PATTERN-840, PATTERN-850, PATTERN-859: These patterns show api_cost_projected_units_per_day=0, which may indicate a specific reporting state but does not contradict the healthy status reported in the same log line."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "YouTube watch URL probe results",
+        "Viewer session continuity logs",
+        "YouTube API quota guard intervention logs",
+        "Watchdog timeline anomaly logs",
+        "Error logs, warning spikes, or metric gaps from other chunks.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Is there external evidence (e.g., watch URL probe results, viewer session logs) confirming actual YouTube stream availability and continuity during this period?",
+      "operational_mechanism": "YouTube monitor observer (adsb-streamnew-youtube-monitor.service) may not detect all forms of ingest failure or viewer impact",
+      "original_class": "validation_target",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "3/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 3,
+      "provider_positions": [
+        {
+          "model_run_hash": "45c648f73d7f",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "2e6ed19b8e62",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemma-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "34601864ada3",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "4a7a4ded7f42",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "9f03219b6916",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "8b829dbf38d10e86888480bf",
+        "rollup_provider_ratio": 1.0,
+        "source_candidate_count": 3,
+        "source_chunk_ids": []
+      },
+      "raw_review_priority_score": 0.7856,
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.7027,
+      "review_reason": {
+        "factors": [
+          "3/5 schema-valid providers independently projected the normalized review unit `youtube_health`.",
+          "89 chunk-tracked Evidence Item association(s) tie the unit back to the 27,926-row sanitized corpus.",
+          "3 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 1.000).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `youtube_health` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `youtube_health` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-f5e012a9ca39c9f37ed3",
+      "score_breakdown": {
+        "actionability_signal": 0.85,
+        "claimed_provider_count": 3,
+        "class_bonus": 0.0,
+        "deterministic_tie_break": 0.0008,
+        "evidence_diversity_signal": 0.3333,
+        "evidence_volume_signal": 1.0,
+        "formula": "0.15*prior + 0.85*(weighted provider support, Gemini signal, evidence, source breadth, actionability, class bonus, penalties) + deterministic tie-break",
+        "gemini_claimed": true,
+        "gemini_signal": 1.0,
+        "gemini_weight": 1.65,
+        "penalties": {
+          "blocker_penalty": 0.025,
+          "caveat_penalty": 0.0,
+          "gemini_silent_penalty": 0.0,
+          "generic_unit_penalty": 0.0,
+          "healthy_status_penalty": 0.0,
+          "missing_evidence_penalty": 0.07,
+          "total_penalty": 0.095
+        },
+        "prior_score": 0.7856,
+        "schema_version": "review_priority_score.v2",
+        "score_note": "Priority is review urgency, not truth probability.",
+        "source_candidate_signal": 0.5781,
+        "total_provider_count": 5,
+        "weighted_provider_support": 0.646
+      },
+      "source_chunks": [],
+      "state": "validation",
+      "status": "pending",
+      "subsystem": "youtube_health",
+      "suspected_issue": "Potential silent YouTube ingest failure or watch URL unavailability not detected by watchdog",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "No direct evidence of YouTube watch URL accessibility or viewer continuity",
+          "No evidence of YouTube API quota guard interventions (youtube_quota_guard_count)",
+          "No evidence of watchdog timeline anomalies (watchdog_timeline_anomaly_count)",
+          "No contradictory signals (e.g., youtube_health_count > 0 or ingest_connected=False) were cited in this chunk.",
+          "No error logs, warning spikes, or metric disappearances are present in this chunk.",
+          "All 85 evidence items (PATTERN-775 through PATTERN-859) report ingest_connected=True and judgment=ok",
+          "PATTERN-775, PATTERN-776, PATTERN-777, PATTERN-778, PATTERN-779, PATTERN-780, PATTERN-781, PATTERN-782, PATTERN-783, PATTERN-784, PATTERN-785, PATTERN-786, PATTERN-787, PATTERN-788, PATTERN-789, PATTERN-790, PATTERN-791, PATTERN-792, PATTERN-793, PATTERN-794, PATTERN-795, PATTERN-796, PATTERN-797, PATTERN-798, PATTERN-799, PATTERN-800, PATTERN-801, PATTERN-802, PATTERN-803, PATTERN-804, PATTERN-805, PATTERN-806, PATTERN-807, PATTERN-808, PATTERN-809, PATTERN-810, PATTERN-811, PATTERN-812, PATTERN-813, PATTERN-814, PATTERN-815, PATTERN-816, PATTERN-817, PATTERN-818, PATTERN-819, PATTERN-820, PATTERN-821, PATTERN-822, PATTERN-823, PATTERN-824, PATTERN-825, PATTERN-826, PATTERN-827, PATTERN-828, PATTERN-829, PATTERN-830, PATTERN-831, PATTERN-832, PATTERN-833, PATTERN-834, PATTERN-835, PATTERN-836, PATTERN-837, PATTERN-838, PATTERN-839, PATTERN-840, PATTERN-841, PATTERN-842, PATTERN-843, PATTERN-844, PATTERN-845, PATTERN-846, PATTERN-847, PATTERN-848, PATTERN-849, PATTERN-850, PATTERN-851, PATTERN-852, PATTERN-853, PATTERN-854, PATTERN-855, PATTERN-856, PATTERN-857, PATTERN-858, PATTERN-859: All cited patterns show status=ok, healthy=True, and stream_active=True."
+        ],
+        "evidence_summary": [
+          "PATTERN-798, PATTERN-832, PATTERN-840, PATTERN-850, PATTERN-859: These patterns show api_cost_projected_units_per_day=0, which may indicate a specific reporting state but does not contradict the healthy status reported in the same log line."
+        ],
+        "next_validation_question": "Is there external evidence (e.g., watch URL probe results, viewer session logs) confirming actual YouTube stream availability and continuity during this period?",
+        "operational_mechanism": "YouTube monitor observer (adsb-streamnew-youtube-monitor.service) may not detect all forms of ingest failure or viewer impact",
+        "provider_explanations": [
+          {
+            "claim_text": "Verify whether YouTube ingest remained continuously active and watchable despite the healthy watchdog signals.",
+            "claim_type": "validation_target",
+            "evidence_refs": [
+              "PATTERN-775",
+              "PATTERN-776",
+              "PATTERN-777",
+              "PATTERN-778",
+              "PATTERN-779",
+              "PATTERN-780",
+              "PATTERN-781",
+              "PATTERN-782",
+              "PATTERN-783",
+              "PATTERN-784",
+              "PATTERN-785",
+              "PATTERN-786",
+              "PATTERN-787",
+              "PATTERN-788",
+              "PATTERN-789",
+              "PATTERN-790",
+              "PATTERN-791",
+              "PATTERN-792",
+              "PATTERN-793",
+              "PATTERN-794",
+              "PATTERN-795",
+              "PATTERN-796",
+              "PATTERN-797",
+              "PATTERN-798",
+              "PATTERN-799",
+              "PATTERN-800",
+              "PATTERN-801",
+              "PATTERN-802",
+              "PATTERN-803",
+              "PATTERN-804",
+              "PATTERN-805",
+              "PATTERN-806",
+              "PATTERN-807",
+              "PATTERN-808",
+              "PATTERN-809",
+              "PATTERN-810",
+              "PATTERN-811",
+              "PATTERN-812",
+              "PATTERN-813",
+              "PATTERN-814",
+              "PATTERN-815",
+              "PATTERN-816",
+              "PATTERN-817",
+              "PATTERN-818",
+              "PATTERN-819",
+              "PATTERN-820",
+              "PATTERN-821",
+              "PATTERN-822",
+              "PATTERN-823",
+              "PATTERN-824",
+              "PATTERN-825",
+              "PATTERN-826",
+              "PATTERN-827",
+              "PATTERN-828",
+              "PATTERN-829",
+              "PATTERN-830",
+              "PATTERN-831",
+              "PATTERN-832",
+              "PATTERN-833",
+              "PATTERN-834",
+              "PATTERN-835",
+              "PATTERN-836",
+              "PATTERN-837",
+              "PATTERN-838",
+              "PATTERN-839",
+              "PATTERN-840",
+              "PATTERN-841",
+              "PATTERN-842",
+              "PATTERN-843",
+              "PATTERN-844",
+              "PATTERN-845",
+              "PATTERN-846",
+              "PATTERN-847",
+              "PATTERN-848",
+              "PATTERN-849",
+              "PATTERN-850",
+              "PATTERN-851",
+              "PATTERN-852",
+              "PATTERN-853",
+              "PATTERN-854",
+              "PATTERN-855",
+              "PATTERN-856",
+              "PATTERN-857",
+              "PATTERN-858",
+              "PATTERN-859"
+            ],
+            "next_validation_question": "Is there external evidence (e.g., watch URL probe results, viewer session logs) confirming actual YouTube stream availability and continuity during this period?",
+            "operational_mechanism": "YouTube monitor observer (adsb-streamnew-youtube-monitor.service) may not detect all forms of ingest failure or viewer impact",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Potential silent YouTube ingest failure or watch URL unavailability not detected by watchdog",
+            "why_it_matters": "Healthy watchdog signals do not guarantee user-visible stream continuity; external verification of actual YouTube watch URL availability is required",
+            "why_not_promoted": "No contradictory evidence present; validation requires external confirmation of user impact"
+          },
+          {
+            "claim_text": "YouTube ingest and stream availability remained stable and healthy during the observed window.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-775",
+              "PATTERN-776",
+              "PATTERN-777",
+              "PATTERN-778",
+              "PATTERN-779",
+              "PATTERN-780",
+              "PATTERN-781",
+              "PATTERN-782",
+              "PATTERN-783",
+              "PATTERN-784",
+              "PATTERN-785",
+              "PATTERN-786",
+              "PATTERN-787",
+              "PATTERN-788",
+              "PATTERN-789",
+              "PATTERN-790",
+              "PATTERN-791",
+              "PATTERN-792",
+              "PATTERN-793",
+              "PATTERN-794",
+              "PATTERN-795",
+              "PATTERN-796",
+              "PATTERN-797",
+              "PATTERN-798",
+              "PATTERN-799",
+              "PATTERN-800",
+              "PATTERN-801",
+              "PATTERN-802",
+              "PATTERN-803",
+              "PATTERN-804",
+              "PATTERN-805",
+              "PATTERN-806",
+              "PATTERN-807",
+              "PATTERN-808",
+              "PATTERN-809",
+              "PATTERN-810",
+              "PATTERN-811",
+              "PATTERN-812",
+              "PATTERN-813",
+              "PATTERN-814",
+              "PATTERN-815",
+              "PATTERN-816",
+              "PATTERN-817",
+              "PATTERN-818",
+              "PATTERN-819",
+              "PATTERN-820",
+              "PATTERN-821",
+              "PATTERN-822",
+              "PATTERN-823",
+              "PATTERN-824",
+              "PATTERN-825",
+              "PATTERN-826",
+              "PATTERN-827",
+              "PATTERN-828",
+              "PATTERN-829",
+              "PATTERN-830",
+              "PATTERN-831",
+              "PATTERN-832",
+              "PATTERN-833",
+              "PATTERN-834",
+              "PATTERN-835",
+              "PATTERN-836",
+              "PATTERN-837",
+              "PATTERN-838",
+              "PATTERN-839",
+              "PATTERN-840",
+              "PATTERN-841",
+              "PATTERN-842",
+              "PATTERN-843",
+              "PATTERN-844",
+              "PATTERN-845",
+              "PATTERN-846",
+              "PATTERN-847",
+              "PATTERN-848",
+              "PATTERN-849",
+              "PATTERN-850",
+              "PATTERN-851",
+              "PATTERN-852",
+              "PATTERN-853",
+              "PATTERN-854",
+              "PATTERN-855",
+              "PATTERN-856",
+              "PATTERN-857",
+              "PATTERN-858",
+              "PATTERN-859"
+            ],
+            "next_validation_question": "Are there any periods within the full window where ingest_connected was False or status was not ok?",
+            "operational_mechanism": "The youtube_watchdog log source reports continuous 'status=ok' and 'healthy=True' states for the ingest connection.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "none",
+            "why_it_matters": "Continuous availability is a critical user outcome; stable signals suggest no disruption to the public live stream.",
+            "why_not_promoted": "This is a baseline observation of normal operation, not an incident hypothesis."
+          },
+          {
+            "claim_text": "YouTube health signals remain consistently healthy, indicating no observed ingest disruption.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-737",
+              "PATTERN-738",
+              "PATTERN-739"
+            ],
+            "next_validation_question": "Is the YouTube watch URL accessible and showing fresh content during these healthy reports?",
+            "operational_mechanism": "The YouTube monitor (adsb-streamnew-youtube-monitor.service) reports healthy status periodically via evt-ytw logs.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "No YouTube ingest failure detected during the observed window.",
+            "why_it_matters": "Healthy signals suggest YouTube ingest is stable, but do not rule out silent output gaps or viewer impact without explicit watch URL validation.",
+            "why_not_promoted": "Healthy status does not confirm end-to-end stream availability or viewer experience without watch URL probing."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Potential silent YouTube ingest failure or watch URL unavailability not detected by watchdog",
+        "why_it_matters": "Healthy watchdog signals do not guarantee user-visible stream continuity; external verification of actual YouTube watch URL availability is required",
+        "why_not_promoted": "No contradictory evidence present; validation requires external confirmation of user impact"
+      },
+      "target_id": "cog-f5e012a9ca39c9f37ed3",
+      "title": "Review target requires validation: youtube_health",
+      "why_it_matters": "Healthy watchdog signals do not guarantee user-visible stream continuity; external verification of actual YouTube watch URL availability is required",
+      "why_not_promoted": "No contradictory evidence present; validation requires external confirmation of user impact"
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.6,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "3/5 schema-valid providers projected this review unit from the 27,926-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "audio_energy",
+      "caveats": [],
+      "claim": "3/5 schema-valid providers projected audio_energy with 134 chunk-tracked Evidence Item association(s); this is technical review support, not majority-vote truth.",
+      "class": "validation_target",
+      "classification": {
+        "adjustment": "",
+        "evidence_family_count": 1,
+        "evidence_ref_count": 134,
+        "final_class": "validation_target",
+        "original_class": "validation_target",
+        "policy": "Provider convergence can create high-priority validation work, but primary candidacy requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets.",
+        "provider_support": "3/5",
+        "reason": "",
+        "schema_version": "public_target_classification.v1",
+        "source_candidate_count": 4
+      },
+      "counter_evidence_summary": [
+        "The operational contract notes PulseAudio D-Bus warnings are often non-critical noise if no audio_energy gap is present.",
+        "No evidence of audio energy gaps or PulseAudio errors is cited in this chunk."
+      ],
+      "evidence_ref_display_count": 80,
+      "evidence_ref_overflow_count": 54,
+      "evidence_ref_total_count": 134,
+      "evidence_refs": [
+        "PATTERN-893",
+        "PATTERN-894",
+        "PATTERN-537",
+        "PATTERN-877",
+        "PATTERN-351",
+        "PATTERN-352",
+        "PATTERN-353",
+        "PATTERN-354",
+        "PATTERN-355",
+        "PATTERN-356",
+        "PATTERN-357",
+        "PATTERN-358",
+        "PATTERN-359",
+        "PATTERN-360",
+        "PATTERN-361",
+        "PATTERN-362",
+        "PATTERN-363",
+        "PATTERN-364",
+        "PATTERN-365",
+        "PATTERN-366",
+        "PATTERN-367",
+        "PATTERN-368",
+        "PATTERN-369",
+        "PATTERN-370",
+        "PATTERN-371",
+        "PATTERN-372",
+        "PATTERN-373",
+        "PATTERN-374",
+        "PATTERN-375",
+        "PATTERN-376",
+        "PATTERN-377",
+        "PATTERN-378",
+        "PATTERN-379",
+        "PATTERN-380",
+        "PATTERN-381",
+        "PATTERN-382",
+        "PATTERN-383",
+        "PATTERN-384",
+        "PATTERN-385",
+        "PATTERN-386",
+        "PATTERN-387",
+        "PATTERN-388",
+        "PATTERN-389",
+        "PATTERN-390",
+        "PATTERN-391",
+        "PATTERN-392",
+        "PATTERN-393",
+        "PATTERN-394",
+        "PATTERN-395",
+        "PATTERN-396",
+        "PATTERN-397",
+        "PATTERN-398",
+        "PATTERN-399",
+        "PATTERN-400",
+        "PATTERN-401",
+        "PATTERN-402",
+        "PATTERN-403",
+        "PATTERN-404",
+        "PATTERN-405",
+        "PATTERN-406",
+        "PATTERN-407",
+        "PATTERN-408",
+        "PATTERN-409",
+        "PATTERN-410",
+        "PATTERN-411",
+        "PATTERN-412",
+        "PATTERN-413",
+        "PATTERN-414",
+        "PATTERN-415",
+        "PATTERN-416",
+        "PATTERN-417",
+        "PATTERN-418",
+        "PATTERN-419",
+        "PATTERN-420",
+        "PATTERN-421",
+        "PATTERN-422",
+        "PATTERN-423",
+        "PATTERN-424",
+        "PATTERN-425",
+        "PATTERN-426"
+      ],
+      "evidence_relationship_supported": false,
+      "evidence_summary": [
+        "PATTERN-893: unknown from txt observed 1 time(s) between 2026-06-15T09:54:42Z and 2026-06-15T09:54:42Z. Sanitized pattern: <PATH>:W: [pulseaudio] main.c: Unable to contact D-Bus: org.freedesktop.DBus.Error.NotSupported: Unable to autolaunch a dbus-daemon without a $DISPLAY for X11",
+        "PATTERN-894: unknown from txt observed 1 time(s) between 2026-06-15T09:54:42Z and 2026-06-15T09:54:42Z. Sanitized pattern: <PATH>:W: [pulseaudio] server-lookup.c: Unable to contact D-Bus: org.freedesktop.DBus.Error.NotSupported: Unable to autolaunch a dbus-daemon without a $DISPLAY for X11",
+        "PATTERN-893: PulseAudio unable to contact D-Bus: 'Unable to autolaunch a dbus-daemon without a $DISPLAY for X11'.",
+        "PATTERN-894: PulseAudio server-lookup unable to contact D-Bus with the same error.",
+        "PATTERN-893: Explicit warning that PulseAudio is unable to contact D-Bus due to missing $DISPLAY.",
+        "PATTERN-537: 'evt-dj-snapshot-20260614T231243Z-83-003981-781a4466 status=playing' confirms DJ is active.",
+        "PATTERN-877: '▶ Now Playing: Halcyon - December (feat. Gian) | Trap' confirms ongoing playback.",
+        "PATTERN-351 through PATTERN-480 show multiple instances of tracks finishing with return code 0 (rc=0), indicating successful playback completion.",
+        "PATTERN-352: info from log observed 1 time(s) between 2026-06-15T06:33:08Z and 2026-06-15T06:33:08Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.2s): <PATH>, crysstales - COM BOTA ｜ Funk.mp3",
+        "PATTERN-353: info from log observed 1 time(s) between 2026-06-15T03:11:32Z and 2026-06-15T03:11:32Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.8s): <PATH> Taylor - Sugar Plumbin' ｜ Electronic Pop.mp3",
+        "PATTERN-354: info from log observed 1 time(s) between 2026-06-15T06:25:25Z and 2026-06-15T06:25:25Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.8s): <PATH>, Sayfro - On and On ｜ Tech House.mp3",
+        "PATTERN-355: info from log observed 1 time(s) between 2026-06-15T07:12:21Z and 2026-06-15T07:12:21Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.9s): <PATH> - <NUM>.mp3",
+        "PATTERN-356: info from log observed 1 time(s) between 2026-06-15T03:49:39Z and 2026-06-15T03:49:39Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.9s): <PATH> Ourt & FERGO - Love Me ｜ Future House.mp3",
+        "PATTERN-357: info from log observed 1 time(s) between 2026-06-15T06:37:42Z and 2026-06-15T06:37:42Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.9s): <PATH>, BVSSL7ON - THE REDEEMER ｜ Funk.mp3",
+        "PATTERN-358: info from log observed 1 time(s) between 2026-06-15T06:23:21Z and 2026-06-15T06:23:21Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.2s expected=<NUM>.0s): <PATH> & Andrew A - Overdose (feat. David Allen) (Tatsunoshin Remix).mp3",
+        "PATTERN-359: info from log observed 1 time(s) between 2026-06-15T07:07:23Z and 2026-06-15T07:07:23Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.2s expected=<NUM>.0s): <PATH> & Meggie York - Runaway ｜ Future Bass.mp3",
+        "67 additional supporting evidence summary item(s) are omitted from this public detail view; the full count remains in evidence_ref_total_count and the chunk manifest."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "audio_energy_count",
+        "audio_energy_count metric values",
+        "No audio_energy_count or capture_freshness_count signals are cited.",
+        "No logs from audio_boot_py or PulseAudio subsystems are present.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Is there evidence of missing audio energy signals or silent stream output during the incident window?",
+      "operational_mechanism": "PulseAudio D-Bus warnings at 09:54:42",
+      "original_class": "validation_target",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "3/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 3,
+      "provider_positions": [
+        {
+          "model_run_hash": "45c648f73d7f",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "2e6ed19b8e62",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemma-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "34601864ada3",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "4a7a4ded7f42",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "9f03219b6916",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 1.0,
+        "canonical_group_key": "aa0a9b72f0b012828b053511",
+        "rollup_provider_ratio": 0.75,
+        "source_candidate_count": 4,
+        "source_chunk_ids": []
+      },
+      "raw_review_priority_score": 0.7079,
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.5928,
+      "review_reason": {
+        "factors": [
+          "3/5 schema-valid providers independently projected the normalized review unit `audio_energy`.",
+          "134 chunk-tracked Evidence Item association(s) tie the unit back to the 27,926-row sanitized corpus.",
+          "4 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.750).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `audio_energy` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `audio_energy` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-671ef764a67284c4e37e",
+      "score_breakdown": {
+        "actionability_signal": 0.85,
+        "claimed_provider_count": 3,
+        "class_bonus": 0.0,
+        "deterministic_tie_break": 0.0007,
+        "evidence_diversity_signal": 0.3333,
+        "evidence_volume_signal": 1.0,
+        "formula": "0.15*prior + 0.85*(weighted provider support, Gemini signal, evidence, source breadth, actionability, class bonus, penalties) + deterministic tie-break",
+        "gemini_claimed": false,
+        "gemini_signal": 0.0,
+        "gemini_weight": 1.65,
+        "penalties": {
+          "blocker_penalty": 0.025,
+          "caveat_penalty": 0.0,
+          "gemini_silent_penalty": 0.035,
+          "generic_unit_penalty": 0.0,
+          "healthy_status_penalty": 0.0,
+          "missing_evidence_penalty": 0.0625,
+          "total_penalty": 0.1225
+        },
+        "prior_score": 0.72,
+        "schema_version": "review_priority_score.v2",
+        "score_note": "Priority is review urgency, not truth probability.",
+        "source_candidate_signal": 0.6712,
+        "total_provider_count": 5,
+        "weighted_provider_support": 0.531
+      },
+      "source_chunks": [],
+      "state": "validation",
+      "status": "pending",
+      "subsystem": "audio_energy",
+      "suspected_issue": "audio energy gap",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "The operational contract notes PulseAudio D-Bus warnings are often non-critical noise if no audio_energy gap is present.",
+          "No evidence of audio energy gaps or PulseAudio errors is cited in this chunk."
+        ],
+        "evidence_summary": [
+          "PATTERN-893: unknown from txt observed 1 time(s) between 2026-06-15T09:54:42Z and 2026-06-15T09:54:42Z. Sanitized pattern: <PATH>:W: [pulseaudio] main.c: Unable to contact D-Bus: org.freedesktop.DBus.Error.NotSupported: Unable to autolaunch a dbus-daemon without a $DISPLAY for X11",
+          "PATTERN-894: unknown from txt observed 1 time(s) between 2026-06-15T09:54:42Z and 2026-06-15T09:54:42Z. Sanitized pattern: <PATH>:W: [pulseaudio] server-lookup.c: Unable to contact D-Bus: org.freedesktop.DBus.Error.NotSupported: Unable to autolaunch a dbus-daemon without a $DISPLAY for X11",
+          "PATTERN-893: PulseAudio unable to contact D-Bus: 'Unable to autolaunch a dbus-daemon without a $DISPLAY for X11'.",
+          "PATTERN-894: PulseAudio server-lookup unable to contact D-Bus with the same error.",
+          "PATTERN-893: Explicit warning that PulseAudio is unable to contact D-Bus due to missing $DISPLAY.",
+          "PATTERN-537: 'evt-dj-snapshot-20260614T231243Z-83-003981-781a4466 status=playing' confirms DJ is active.",
+          "PATTERN-877: '▶ Now Playing: Halcyon - December (feat. Gian) | Trap' confirms ongoing playback.",
+          "PATTERN-351 through PATTERN-480 show multiple instances of tracks finishing with return code 0 (rc=0), indicating successful playback completion.",
+          "PATTERN-352: info from log observed 1 time(s) between 2026-06-15T06:33:08Z and 2026-06-15T06:33:08Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.2s): <PATH>, crysstales - COM BOTA ｜ Funk.mp3",
+          "PATTERN-353: info from log observed 1 time(s) between 2026-06-15T03:11:32Z and 2026-06-15T03:11:32Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.8s): <PATH> Taylor - Sugar Plumbin' ｜ Electronic Pop.mp3",
+          "PATTERN-354: info from log observed 1 time(s) between 2026-06-15T06:25:25Z and 2026-06-15T06:25:25Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.8s): <PATH>, Sayfro - On and On ｜ Tech House.mp3",
+          "PATTERN-355: info from log observed 1 time(s) between 2026-06-15T07:12:21Z and 2026-06-15T07:12:21Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.9s): <PATH> - <NUM>.mp3",
+          "PATTERN-356: info from log observed 1 time(s) between 2026-06-15T03:49:39Z and 2026-06-15T03:49:39Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.9s): <PATH> Ourt & FERGO - Love Me ｜ Future House.mp3",
+          "PATTERN-357: info from log observed 1 time(s) between 2026-06-15T06:37:42Z and 2026-06-15T06:37:42Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.1s expected=<NUM>.9s): <PATH>, BVSSL7ON - THE REDEEMER ｜ Funk.mp3",
+          "PATTERN-358: info from log observed 1 time(s) between 2026-06-15T06:23:21Z and 2026-06-15T06:23:21Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.2s expected=<NUM>.0s): <PATH> & Andrew A - Overdose (feat. David Allen) (Tatsunoshin Remix).mp3",
+          "PATTERN-359: info from log observed 1 time(s) between 2026-06-15T07:07:23Z and 2026-06-15T07:07:23Z. Sanitized pattern: Track finished (rc=<NUM> elapsed=<NUM>.2s expected=<NUM>.0s): <PATH> & Meggie York - Runaway ｜ Future Bass.mp3",
+          "67 additional supporting evidence summary item(s) are omitted from this public detail view; the full count remains in evidence_ref_total_count and the chunk manifest."
+        ],
+        "next_validation_question": "Is there evidence of missing audio energy signals or silent stream output during the incident window?",
+        "operational_mechanism": "PulseAudio D-Bus warnings at 09:54:42",
+        "provider_explanations": [
+          {
+            "claim_text": "No evidence of audio energy gap during the incident window.",
+            "claim_type": "insufficient_evidence",
+            "evidence_refs": [
+              "PATTERN-893",
+              "PATTERN-894"
+            ],
+            "next_validation_question": "",
+            "operational_mechanism": "PulseAudio D-Bus warnings at 09:54:42",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "audio energy gap",
+            "why_it_matters": "Audio energy gaps could indicate silent audio loss to viewers.",
+            "why_not_promoted": "Audio energy metrics are missing; cannot confirm presence or absence of gap."
+          },
+          {
+            "claim_text": "PulseAudio is logging D-Bus communication errors, indicating potential issues with audio subsystem initialization or environment setup.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-893",
+              "PATTERN-894"
+            ],
+            "next_validation_question": "Is there evidence of missing audio energy signals or silent stream output during the incident window?",
+            "operational_mechanism": "The audio_energy subsystem (comp_audio_energy) depends on PulseAudio for audio capture and monitoring. D-Bus errors may prevent PulseAudio from initializing correctly.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "PulseAudio is unable to contact D-Bus, which may prevent proper audio initialization or monitoring.",
+            "why_it_matters": "Audio energy monitoring is critical for verifying stream audio presence. D-Bus errors may lead to silent streams or missing audio alerts.",
+            "why_not_promoted": "D-Bus errors are noted but do not confirm audio energy gaps or user impact without correlated audio monitoring evidence."
+          },
+          {
+            "claim_text": "PulseAudio is unable to communicate with the D-Bus daemon.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-893",
+              "PATTERN-894"
+            ],
+            "next_validation_question": "Is there a corresponding drop in audio_energy_count during these D-Bus warnings?",
+            "operational_mechanism": "PulseAudio attempts to autolaunch a dbus-daemon but fails because no $DISPLAY is available for X11, as seen in the pulseaudio.log.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "PulseAudio D-Bus connectivity failure",
+            "why_it_matters": "Failure to contact D-Bus may impact audio subsystem initialization or lifecycle management, potentially leading to audio energy gaps.",
+            "why_not_promoted": "This is a known benign noise pattern unless accompanied by a loss of audio energy."
+          },
+          {
+            "claim_text": "The Auto DJ service is active and playing music as shown in PATTERN-537 and PATTERN-877.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-537",
+              "PATTERN-877"
+            ],
+            "next_validation_question": "Is the audio reaching the final stream output without loss?",
+            "operational_mechanism": "The Auto DJ service (adsb-streamnew-auto-dj.service) is running and logging track play events.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "None; this is normal behavior.",
+            "why_it_matters": "This supports that the audio subsystem is functioning and providing content.",
+            "why_not_promoted": "This is a baseline behavior, not a failure hypothesis."
+          },
+          {
+            "claim_text": "No evidence of audio or capture subsystem failure is present.",
+            "claim_type": "insufficient_evidence",
+            "evidence_refs": [],
+            "next_validation_question": "Is there evidence of audio energy or capture freshness gaps during the window?",
+            "operational_mechanism": "Audio and capture components are not represented by any logs or metrics in the bundle.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Missing audio energy or capture freshness signals that would indicate silent audio or visual loss.",
+            "why_it_matters": "Silent audio or frozen capture would directly impact user experience but cannot be verified without explicit evidence.",
+            "why_not_promoted": "No logs or metrics related to audio energy or capture freshness were cited in the evidence bundle."
+          },
+          {
+            "claim_text": "The audio playback subsystem appears to be functioning normally with continuous track transitions.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-351",
+              "PATTERN-352",
+              "PATTERN-353",
+              "PATTERN-354",
+              "PATTERN-355",
+              "PATTERN-356",
+              "PATTERN-357",
+              "PATTERN-358",
+              "PATTERN-359",
+              "PATTERN-360",
+              "PATTERN-361",
+              "PATTERN-362",
+              "PATTERN-363",
+              "PATTERN-364",
+              "PATTERN-365",
+              "PATTERN-366",
+              "PATTERN-367",
+              "PATTERN-368",
+              "PATTERN-369",
+              "PATTERN-370",
+              "PATTERN-371",
+              "PATTERN-372",
+              "PATTERN-373",
+              "PATTERN-374",
+              "PATTERN-375",
+              "PATTERN-376",
+              "PATTERN-377",
+              "PATTERN-378",
+              "PATTERN-379",
+              "PATTERN-380",
+              "PATTERN-381",
+              "PATTERN-382",
+              "PATTERN-383",
+              "PATTERN-384",
+              "PATTERN-385",
+              "PATTERN-386",
+              "PATTERN-387",
+              "PATTERN-388",
+              "PATTERN-389",
+              "PATTERN-390",
+              "PATTERN-391",
+              "PATTERN-392",
+              "PATTERN-393",
+              "PATTERN-394",
+              "PATTERN-395",
+              "PATTERN-396",
+              "PATTERN-397",
+              "PATTERN-398",
+              "PATTERN-399",
+              "PATTERN-400",
+              "PATTERN-401",
+              "PATTERN-402",
+              "PATTERN-403",
+              "PATTERN-404",
+              "PATTERN-405",
+              "PATTERN-406",
+              "PATTERN-407",
+              "PATTERN-408",
+              "PATTERN-409",
+              "PATTERN-410",
+              "PATTERN-411",
+              "PATTERN-412",
+              "PATTERN-413",
+              "PATTERN-414",
+              "PATTERN-415",
+              "PATTERN-416",
+              "PATTERN-417",
+              "PATTERN-418",
+              "PATTERN-419",
+              "PATTERN-420",
+              "PATTERN-421",
+              "PATTERN-422",
+              "PATTERN-423",
+              "PATTERN-424",
+              "PATTERN-425",
+              "PATTERN-426",
+              "PATTERN-427",
+              "PATTERN-428",
+              "PATTERN-429",
+              "PATTERN-430",
+              "PATTERN-431",
+              "PATTERN-432",
+              "PATTERN-433",
+              "PATTERN-434",
+              "PATTERN-435",
+              "PATTERN-436",
+              "PATTERN-437",
+              "PATTERN-438",
+              "PATTERN-439",
+              "PATTERN-440",
+              "PATTERN-441",
+              "PATTERN-442",
+              "PATTERN-443",
+              "PATTERN-444",
+              "PATTERN-445",
+              "PATTERN-446",
+              "PATTERN-447",
+              "PATTERN-448",
+              "PATTERN-449",
+              "PATTERN-450",
+              "PATTERN-451",
+              "PATTERN-452",
+              "PATTERN-453",
+              "PATTERN-454",
+              "PATTERN-455",
+              "PATTERN-456",
+              "PATTERN-457",
+              "PATTERN-458",
+              "PATTERN-459",
+              "PATTERN-460",
+              "PATTERN-461",
+              "PATTERN-462",
+              "PATTERN-463",
+              "PATTERN-464",
+              "PATTERN-465",
+              "PATTERN-466",
+              "PATTERN-467",
+              "PATTERN-468",
+              "PATTERN-469",
+              "PATTERN-470",
+              "PATTERN-471",
+              "PATTERN-472",
+              "PATTERN-473",
+              "PATTERN-474",
+              "PATTERN-475",
+              "PATTERN-476",
+              "PATTERN-477",
+              "PATTERN-478",
+              "PATTERN-479",
+              "PATTERN-480"
+            ],
+            "next_validation_question": "Are there any periods where track completion logs cease while the service is reported as running?",
+            "operational_mechanism": "The Auto DJ worker is successfully processing and finishing music tracks from the filesystem.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "none",
+            "why_it_matters": "Successful track completion is a prerequisite for continuous audible program audio, a confirmed user outcome.",
+            "why_not_promoted": "This is a baseline indicator of healthy operation, not an incident."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "audio energy gap",
+        "why_it_matters": "Audio energy gaps could indicate silent audio loss to viewers.",
+        "why_not_promoted": "Audio energy metrics are missing; cannot confirm presence or absence of gap."
+      },
+      "target_id": "cog-671ef764a67284c4e37e",
+      "title": "Review target requires validation: audio_energy",
+      "why_it_matters": "Audio energy gaps could indicate silent audio loss to viewers.",
+      "why_not_promoted": "Audio energy metrics are missing; cannot confirm presence or absence of gap."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.2,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "1/5 schema-valid providers projected this review unit from the 27,926-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "open",
+        "verdict": "single_source"
+      },
+      "canonical_review_unit": "background_processing",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 1 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "classification": {
+        "adjustment": "",
+        "evidence_family_count": 1,
+        "evidence_ref_count": 1,
+        "final_class": "validation_target",
+        "original_class": "validation_target",
+        "policy": "Provider convergence can create high-priority validation work, but primary candidacy requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets.",
+        "provider_support": "1/5",
+        "reason": "",
+        "schema_version": "public_target_classification.v1",
+        "source_candidate_count": 1
+      },
+      "counter_evidence_summary": [
+        "No evidence of actual audio energy gaps or stream failures is present in this chunk."
+      ],
+      "evidence_ref_display_count": 1,
+      "evidence_ref_overflow_count": 0,
+      "evidence_ref_total_count": 1,
+      "evidence_refs": [
+        "PATTERN-013"
+      ],
+      "evidence_relationship_supported": false,
+      "evidence_summary": [
+        "PATTERN-013 shows 33 occurrences of the Auto DJ falling back to any unplayed track between 03:15 and 09:43."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "audio_energy_count metrics to verify if audio output was maintained.",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Did the audio_energy_count drop to zero during the fallback period?",
+      "operational_mechanism": "The Auto DJ worker (adsb-streamnew-auto-dj.service) schedules audio tracks for the stream. It ran out of tracks categorized as 'major' in its configured directory and triggered a fallback mechanism to keep audio playing.",
+      "original_class": "validation_target",
+      "promotion": {
+        "blocked_reason": "single_metric_only; user_impact_unverified",
+        "explanation": "A single provider surfaced this target; it needs corroboration before promotion.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 1,
+      "provider_positions": [
+        {
+          "model_run_hash": "45c648f73d7f",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "2e6ed19b8e62",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemma-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "34601864ada3",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "4a7a4ded7f42",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "9f03219b6916",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "silent"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 0.575,
+        "canonical_group_key": "cdbade361a1c820e003c9ad9",
+        "rollup_provider_ratio": 0.0,
+        "source_candidate_count": 1,
+        "source_chunk_ids": []
+      },
+      "raw_review_priority_score": 0.562,
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.5514,
+      "review_reason": {
+        "factors": [
+          "1/5 schema-valid providers independently projected the normalized review unit `background_processing`.",
+          "1 chunk-tracked Evidence Item association(s) tie the unit back to the 27,926-row sanitized corpus.",
+          "1 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.000).",
+          "Promotion is still blocked by `single_metric_only; user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `background_processing` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `background_processing` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-cfbbec5af50011cdcf5c",
+      "score_breakdown": {
+        "actionability_signal": 0.85,
+        "claimed_provider_count": 1,
+        "class_bonus": 0.0,
+        "deterministic_tie_break": 0.0014,
+        "evidence_diversity_signal": 0.3333,
+        "evidence_volume_signal": 0.1577,
+        "formula": "0.15*prior + 0.85*(weighted provider support, Gemini signal, evidence, source breadth, actionability, class bonus, penalties) + deterministic tie-break",
+        "gemini_claimed": true,
+        "gemini_signal": 1.0,
+        "gemini_weight": 1.65,
+        "penalties": {
+          "blocker_penalty": 0.025,
+          "caveat_penalty": 0.0,
+          "gemini_silent_penalty": 0.0,
+          "generic_unit_penalty": 0.0,
+          "healthy_status_penalty": 0.0,
+          "missing_evidence_penalty": 0.025,
+          "total_penalty": 0.05
+        },
+        "prior_score": 0.62,
+        "schema_version": "review_priority_score.v2",
+        "score_note": "Priority is review urgency, not truth probability.",
+        "source_candidate_signal": 0.2891,
+        "total_provider_count": 5,
+        "weighted_provider_support": 0.292
+      },
+      "source_chunks": [],
+      "state": "validation",
+      "status": "pending",
+      "subsystem": "background_processing",
+      "suspected_issue": "Auto DJ primary track pool exhaustion",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "No evidence of actual audio energy gaps or stream failures is present in this chunk."
+        ],
+        "evidence_summary": [
+          "PATTERN-013 shows 33 occurrences of the Auto DJ falling back to any unplayed track between 03:15 and 09:43."
+        ],
+        "next_validation_question": "Did the audio_energy_count drop to zero during the fallback period?",
+        "operational_mechanism": "The Auto DJ worker (adsb-streamnew-auto-dj.service) schedules audio tracks for the stream. It ran out of tracks categorized as 'major' in its configured directory and triggered a fallback mechanism to keep audio playing.",
+        "provider_explanations": [
+          {
+            "claim_text": "The Auto DJ worker exhausted unplayed 'major' tracks and is falling back to any unplayed track.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-013"
+            ],
+            "next_validation_question": "Did the audio_energy_count drop to zero during the fallback period?",
+            "operational_mechanism": "The Auto DJ worker (adsb-streamnew-auto-dj.service) schedules audio tracks for the stream. It ran out of tracks categorized as 'major' in its configured directory and triggered a fallback mechanism to keep audio playing.",
+            "provider_id": "gemini-enterprise-agent-platform",
+            "suspected_issue": "Auto DJ primary track pool exhaustion",
+            "why_it_matters": "While a fallback exists, running out of primary tracks could indicate a failure in the track ingestion pipeline or misconfiguration, potentially impacting the intended audible program audio quality.",
+            "why_not_promoted": "This is an info-level log indicating a successful fallback, not a hard failure. We need to check if audio energy dropped or if the fallback tracks are acceptable."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Auto DJ primary track pool exhaustion",
+        "why_it_matters": "While a fallback exists, running out of primary tracks could indicate a failure in the track ingestion pipeline or misconfiguration, potentially impacting the intended audible program audio quality.",
+        "why_not_promoted": "This is an info-level log indicating a successful fallback, not a hard failure. We need to check if audio energy dropped or if the fallback tracks are acceptable."
+      },
+      "target_id": "cog-cfbbec5af50011cdcf5c",
+      "title": "Review target requires validation: background_processing",
+      "why_it_matters": "While a fallback exists, running out of primary tracks could indicate a failure in the track ingestion pipeline or misconfiguration, potentially impacting the intended audible program audio quality.",
+      "why_not_promoted": "This is an info-level log indicating a successful fallback, not a hard failure. We need to check if audio energy dropped or if the fallback tracks are acceptable."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.4,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "2/5 schema-valid providers projected this review unit from the 27,926-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "chromium_capture",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "classification": {
+        "adjustment": "",
+        "evidence_family_count": 1,
+        "evidence_ref_count": 9,
+        "final_class": "validation_target",
+        "original_class": "validation_target",
+        "policy": "Provider convergence can create high-priority validation work, but primary candidacy requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets.",
+        "provider_support": "2/5",
+        "reason": "",
+        "schema_version": "public_target_classification.v1",
+        "source_candidate_count": 2
+      },
+      "counter_evidence_summary": [
+        "No explicit 'capture_freshness_count' metric drop is cited in this chunk to confirm visual loss."
+      ],
+      "evidence_ref_display_count": 9,
+      "evidence_ref_overflow_count": 0,
+      "evidence_ref_total_count": 9,
+      "evidence_refs": [
+        "PATTERN-046",
+        "PATTERN-884",
+        "PATTERN-887",
+        "PATTERN-888",
+        "PATTERN-889",
+        "PATTERN-885",
+        "PATTERN-886",
+        "PATTERN-890",
+        "PATTERN-891"
+      ],
+      "evidence_relationship_supported": false,
+      "evidence_summary": [
+        "PATTERN-046: Shows Chromium renderer process logs with critical severity.",
+        "PATTERN-884: Shows chrome_crashpad_handler activity, suggesting crash reporting is active.",
+        "PATTERN-887: Shows GPU process logs with critical severity.",
+        "PATTERN-888: Shows NetworkService utility process logs with critical severity.",
+        "PATTERN-889: Shows StorageService utility process logs with critical severity.",
+        "PATTERN-046: Chromium renderer process launched with crashpad handler.",
+        "PATTERN-884: Chrome crashpad handler launched with self-monitoring.",
+        "PATTERN-885: Secondary crashpad handler launched without periodic tasks.",
+        "PATTERN-886: Chromium launched in kiosk mode for stream capture.",
+        "PATTERN-887: GPU process launched with crashpad handler.",
+        "PATTERN-888: Network utility subprocess launched with crashpad handler.",
+        "PATTERN-889: Storage utility subprocess launched with crashpad handler.",
+        "PATTERN-890: Zygote process launched with crashpad handler.",
+        "PATTERN-891: Alternative zygote process launched with crashpad handler."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Do the Chromium crash events correlate with a drop in capture_freshness_count?",
+      "operational_mechanism": "The Chromium browser process, used for visual capture, is spawning multiple sub-processes (renderer, utility, zygote, gpu-process) that are associated with critical severity logs and crashpad handler activity.",
+      "original_class": "validation_target",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "2/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 2,
+      "provider_positions": [
+        {
+          "model_run_hash": "45c648f73d7f",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "2e6ed19b8e62",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemma-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "34601864ada3",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "4a7a4ded7f42",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "9f03219b6916",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "claimed"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 0.9,
+        "canonical_group_key": "9939587962b86c73788512fc",
+        "rollup_provider_ratio": 1.0,
+        "source_candidate_count": 2,
+        "source_chunk_ids": []
+      },
+      "raw_review_priority_score": 0.5699,
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.5456,
+      "review_reason": {
+        "factors": [
+          "2/5 schema-valid providers independently projected the normalized review unit `chromium_capture`.",
+          "9 chunk-tracked Evidence Item association(s) tie the unit back to the 27,926-row sanitized corpus.",
+          "2 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 1.000).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `chromium_capture` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `chromium_capture` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-595aabe80e6a0d5c43ba",
+      "score_breakdown": {
+        "actionability_signal": 0.85,
+        "claimed_provider_count": 2,
+        "class_bonus": 0.0,
+        "deterministic_tie_break": 0.0009,
+        "evidence_diversity_signal": 0.3333,
+        "evidence_volume_signal": 0.524,
+        "formula": "0.15*prior + 0.85*(weighted provider support, Gemini signal, evidence, source breadth, actionability, class bonus, penalties) + deterministic tie-break",
+        "gemini_claimed": false,
+        "gemini_signal": 0.0,
+        "gemini_weight": 1.65,
+        "penalties": {
+          "blocker_penalty": 0.025,
+          "caveat_penalty": 0.0,
+          "gemini_silent_penalty": 0.035,
+          "generic_unit_penalty": 0.0,
+          "healthy_status_penalty": 0.0,
+          "missing_evidence_penalty": 0.0125,
+          "total_penalty": 0.0725
+        },
+        "prior_score": 0.72,
+        "schema_version": "review_priority_score.v2",
+        "score_note": "Priority is review urgency, not truth probability.",
+        "source_candidate_signal": 0.4582,
+        "total_provider_count": 5,
+        "weighted_provider_support": 0.354
+      },
+      "source_chunks": [],
+      "state": "validation",
+      "status": "pending",
+      "subsystem": "chromium_capture",
+      "suspected_issue": "Chromium process instability",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "No explicit 'capture_freshness_count' metric drop is cited in this chunk to confirm visual loss."
+        ],
+        "evidence_summary": [
+          "PATTERN-046: Shows Chromium renderer process logs with critical severity.",
+          "PATTERN-884: Shows chrome_crashpad_handler activity, suggesting crash reporting is active.",
+          "PATTERN-887: Shows GPU process logs with critical severity.",
+          "PATTERN-888: Shows NetworkService utility process logs with critical severity.",
+          "PATTERN-889: Shows StorageService utility process logs with critical severity.",
+          "PATTERN-046: Chromium renderer process launched with crashpad handler.",
+          "PATTERN-884: Chrome crashpad handler launched with self-monitoring.",
+          "PATTERN-885: Secondary crashpad handler launched without periodic tasks.",
+          "PATTERN-886: Chromium launched in kiosk mode for stream capture.",
+          "PATTERN-887: GPU process launched with crashpad handler.",
+          "PATTERN-888: Network utility subprocess launched with crashpad handler.",
+          "PATTERN-889: Storage utility subprocess launched with crashpad handler.",
+          "PATTERN-890: Zygote process launched with crashpad handler.",
+          "PATTERN-891: Alternative zygote process launched with crashpad handler."
+        ],
+        "next_validation_question": "Do the Chromium crash events correlate with a drop in capture_freshness_count?",
+        "operational_mechanism": "The Chromium browser process, used for visual capture, is spawning multiple sub-processes (renderer, utility, zygote, gpu-process) that are associated with critical severity logs and crashpad handler activity.",
+        "provider_explanations": [
+          {
+            "claim_text": "Chromium renderer and utility processes are experiencing critical lifecycle events or crashes.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-046",
+              "PATTERN-884",
+              "PATTERN-887",
+              "PATTERN-888",
+              "PATTERN-889"
+            ],
+            "next_validation_question": "Do the Chromium crash events correlate with a drop in capture_freshness_count?",
+            "operational_mechanism": "The Chromium browser process, used for visual capture, is spawning multiple sub-processes (renderer, utility, zygote, gpu-process) that are associated with critical severity logs and crashpad handler activity.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Chromium process instability",
+            "why_it_matters": "If the browser capture process is unstable, the visual freshness of the YouTube stream may be compromised.",
+            "why_not_promoted": "While process instability is evident, it is not yet linked to a failure in the stream's visual output or a restart of the parent service."
+          },
+          {
+            "claim_text": "Chromium renderer and utility processes are launching with crashpad handlers active, indicating process instability or crash monitoring is enabled.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-046",
+              "PATTERN-884",
+              "PATTERN-885",
+              "PATTERN-886",
+              "PATTERN-887",
+              "PATTERN-888",
+              "PATTERN-889",
+              "PATTERN-890",
+              "PATTERN-891"
+            ],
+            "next_validation_question": "Are there crash reports or process exit events associated with these Chromium processes during the incident window?",
+            "operational_mechanism": "The Chromium browser capture process (comp_chromium_capture) launches multiple subprocesses (renderer, gpu, utility, zygote) with crashpad handlers for crash reporting and monitoring.",
+            "provider_id": "qwen-agent-platform",
+            "suspected_issue": "Chromium processes are launching with crash monitoring enabled, which may indicate prior instability or a defensive configuration.",
+            "why_it_matters": "Active crashpad handlers may indicate that the Chromium environment is configured for crash resilience, or that prior crashes have occurred, potentially affecting capture reliability.",
+            "why_not_promoted": "Crashpad handlers are standard in Chromium deployments and do not confirm active instability or user impact without additional runtime evidence."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Chromium process instability",
+        "why_it_matters": "If the browser capture process is unstable, the visual freshness of the YouTube stream may be compromised.",
+        "why_not_promoted": "While process instability is evident, it is not yet linked to a failure in the stream's visual output or a restart of the parent service."
+      },
+      "target_id": "cog-595aabe80e6a0d5c43ba",
+      "title": "Review target requires validation: chromium_capture",
+      "why_it_matters": "If the browser capture process is unstable, the visual freshness of the YouTube stream may be compromised.",
+      "why_not_promoted": "While process instability is evident, it is not yet linked to a failure in the stream's visual output or a restart of the parent service."
+    },
+    {
+      "agreement": {
+        "convergence_score": 0.4,
+        "incident_baseline": "open",
+        "score_definition": "claimed successful providers / all successful providers",
+        "summary": "2/5 schema-valid providers projected this review unit from the 27,926-row corpus; incident promotion remains human-gated.",
+        "technical_baseline": "established",
+        "verdict": "convergence"
+      },
+      "canonical_review_unit": "generic_runtime",
+      "caveats": [],
+      "claim": "Provider claims diverged and require validation; 0 missing-evidence prompts remain.",
+      "class": "validation_target",
+      "classification": {
+        "adjustment": "",
+        "evidence_family_count": 1,
+        "evidence_ref_count": 3,
+        "final_class": "validation_target",
+        "original_class": "validation_target",
+        "policy": "Provider convergence can create high-priority validation work, but primary candidacy requires enough runtime evidence to avoid presenting evidence-thin signals as cause candidates. Normal-operation or no-finding observations stay auditable, but are not unresolved incident validation targets.",
+        "provider_support": "2/5",
+        "reason": "",
+        "schema_version": "public_target_classification.v1",
+        "source_candidate_count": 3
+      },
+      "counter_evidence_summary": [
+        "Promotion blocker: user_impact_unverified."
+      ],
+      "evidence_ref_display_count": 3,
+      "evidence_ref_overflow_count": 0,
+      "evidence_ref_total_count": 3,
+      "evidence_refs": [
+        "PATTERN-020",
+        "PATTERN-895",
+        "PATTERN-896"
+      ],
+      "evidence_relationship_supported": false,
+      "evidence_summary": [
+        "Evidence ID PATTERN-020 shows a log entry with message \"active\" recorded at 2026-06-15T09:55:53Z.",
+        "evidence_relationships shows a relationship_count of 0.",
+        "PATTERN-895: unknown from log observed 1 time(s) between 2026-06-15T09:53:57Z and 2026-06-15T09:53:57Z. Sanitized pattern: Error closing file rtmps:/<PATH>:<NUM>/live2/c0pr-599v-8t6h-m08w-c9hf: Input/output error",
+        "PATTERN-896: unknown from log observed 1 time(s) between 2026-06-15T09:53:57Z and 2026-06-15T09:53:57Z. Sanitized pattern: [tls @ 0x5d9cf11e81c0] Error in the push function."
+      ],
+      "excluded_evidence_refs": [],
+      "missing_evidence": [
+        "Shared trace IDs or process IDs for PATTERN-895 and PATTERN-896",
+        "User impact or operational outcome evidence tied to this review unit."
+      ],
+      "next_validation_question": "Which component emitted the \"active\" log entry and what was its intended state?",
+      "operational_mechanism": "source context derived from sanitized artifacts",
+      "original_class": "validation_target",
+      "promotion": {
+        "blocked_reason": "user_impact_unverified",
+        "explanation": "2/5 providers converged, so this is technical support; it remains validation work until user impact or operational outcome evidence is attached.",
+        "score_cap_applied": false,
+        "score_note": "Priority is review urgency, not truth probability.",
+        "state": "validation"
+      },
+      "provider_count": 2,
+      "provider_positions": [
+        {
+          "model_run_hash": "45c648f73d7f",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "gemini-enterprise-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "2e6ed19b8e62",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "gemma-agent-platform",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "34601864ada3",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "mistral-agent-platform",
+          "stance": "silent"
+        },
+        {
+          "model_run_hash": "4a7a4ded7f42",
+          "one_line": "Projected this canonical review unit from the real API run.",
+          "provider_id": "openai-gpt-oss-on-vertex",
+          "stance": "claimed"
+        },
+        {
+          "model_run_hash": "9f03219b6916",
+          "one_line": "Did not surface this normalized review target.",
+          "provider_id": "qwen-agent-platform",
+          "stance": "silent"
+        }
+      ],
+      "raw": {
+        "baseline_support_score": 0.875,
+        "canonical_group_key": "801ebb309ca65c35115acb11",
+        "rollup_provider_ratio": 0.6667,
+        "source_candidate_count": 3,
+        "source_chunk_ids": []
+      },
+      "raw_review_priority_score": 0.4908,
+      "recommended_request_type": "user_impact_signal_query",
+      "review_priority_score": 0.4643,
+      "review_reason": {
+        "factors": [
+          "2/5 schema-valid providers independently projected the normalized review unit `generic_runtime`.",
+          "3 chunk-tracked Evidence Item association(s) tie the unit back to the 27,926-row sanitized corpus.",
+          "3 source candidate(s) were rolled up into this canonical unit (rollup provider ratio 0.667).",
+          "Promotion is still blocked by `user_impact_unverified`; this is review work, not an accepted incident cause."
+        ],
+        "headline": "Review target created because provider convergence and cited evidence made `generic_runtime` worth human validation.",
+        "operator_question": "Run `user_impact_signal_query` to decide whether `generic_runtime` should remain a validation target or be promoted."
+      },
+      "review_target_id": "cog-af6b82d49fbe2a113fd9",
+      "score_breakdown": {
+        "actionability_signal": 0.7,
+        "claimed_provider_count": 2,
+        "class_bonus": 0.0,
+        "deterministic_tie_break": 0.0016,
+        "evidence_diversity_signal": 0.3333,
+        "evidence_volume_signal": 0.3155,
+        "formula": "0.15*prior + 0.85*(weighted provider support, Gemini signal, evidence, source breadth, actionability, class bonus, penalties) + deterministic tie-break",
+        "gemini_claimed": false,
+        "gemini_signal": 0.0,
+        "gemini_weight": 1.65,
+        "penalties": {
+          "blocker_penalty": 0.025,
+          "caveat_penalty": 0.0,
+          "gemini_silent_penalty": 0.035,
+          "generic_unit_penalty": 0.055,
+          "healthy_status_penalty": 0.0,
+          "missing_evidence_penalty": 0.025,
+          "total_penalty": 0.14
+        },
+        "prior_score": 0.72,
+        "schema_version": "review_priority_score.v2",
+        "score_note": "Priority is review urgency, not truth probability.",
+        "source_candidate_signal": 0.5781,
+        "total_provider_count": 5,
+        "weighted_provider_support": 0.354
+      },
+      "source_chunks": [],
+      "state": "validation",
+      "status": "pending",
+      "subsystem": "generic_runtime",
+      "suspected_issue": "Version mismatch",
+      "target_explanation": {
+        "counter_evidence_summary": [
+          "Promotion blocker: user_impact_unverified."
+        ],
+        "evidence_summary": [
+          "Evidence ID PATTERN-020 shows a log entry with message \"active\" recorded at 2026-06-15T09:55:53Z.",
+          "evidence_relationships shows a relationship_count of 0.",
+          "PATTERN-895: unknown from log observed 1 time(s) between 2026-06-15T09:53:57Z and 2026-06-15T09:53:57Z. Sanitized pattern: Error closing file rtmps:/<PATH>:<NUM>/live2/c0pr-599v-8t6h-m08w-c9hf: Input/output error",
+          "PATTERN-896: unknown from log observed 1 time(s) between 2026-06-15T09:53:57Z and 2026-06-15T09:53:57Z. Sanitized pattern: [tls @ 0x5d9cf11e81c0] Error in the push function."
+        ],
+        "next_validation_question": "Which component emitted the \"active\" log entry and what was its intended state?",
+        "operational_mechanism": "source context derived from sanitized artifacts",
+        "provider_explanations": [
+          {
+            "claim_text": "Source context may not match deployed version during incident window.",
+            "claim_type": "caveat",
+            "evidence_refs": [],
+            "next_validation_question": "",
+            "operational_mechanism": "source context derived from sanitized artifacts",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Version mismatch",
+            "why_it_matters": "Potential misalignment of evidence to runtime",
+            "why_not_promoted": ""
+          },
+          {
+            "claim_text": "Component reported an \"active\" status during the incident window.",
+            "claim_type": "support",
+            "evidence_refs": [
+              "PATTERN-020"
+            ],
+            "next_validation_question": "Which component emitted the \"active\" log entry and what was its intended state?",
+            "operational_mechanism": "Log emission from an active component",
+            "provider_id": "openai-gpt-oss-on-vertex",
+            "suspected_issue": "Unknown component status",
+            "why_it_matters": "Indicates that at least one component was running, which is necessary for stream continuity.",
+            "why_not_promoted": "The log does not identify which component emitted the message or whether the status is relevant to the overall stream health."
+          },
+          {
+            "claim_text": "The relationship between the TLS error and the I/O error is not explicitly established in the current evidence.",
+            "claim_type": "caveat",
+            "evidence_refs": [
+              "PATTERN-895",
+              "PATTERN-896"
+            ],
+            "next_validation_question": "Do these two log patterns share a common process ID or internal trace identifier?",
+            "operational_mechanism": "While both errors occurred at the same timestamp, no shared trace ID or explicit causal link is provided in the evidence relationships.",
+            "provider_id": "gemma-agent-platform",
+            "suspected_issue": "Lack of trace-level correlation in the provided evidence.",
+            "why_it_matters": "Without correlation, we cannot determine if one error caused the other or if they are independent symptoms of a larger network event.",
+            "why_not_promoted": "This is a structural limitation of the current evidence bundle."
+          }
+        ],
+        "schema_version": "target_explanation.v1",
+        "suspected_issue": "Version mismatch",
+        "why_it_matters": "Potential misalignment of evidence to runtime",
+        "why_not_promoted": "The log does not identify which component emitted the message or whether the status is relevant to the overall stream health."
+      },
+      "target_id": "cog-af6b82d49fbe2a113fd9",
+      "title": "Deployment correlation requires validation: generic_runtime",
+      "why_it_matters": "Potential misalignment of evidence to runtime",
+      "why_not_promoted": "The log does not identify which component emitted the message or whether the status is relevant to the overall stream health."
+    }
+  ],
+  "updated_at": "2026-07-12T00:10:02Z"
+}

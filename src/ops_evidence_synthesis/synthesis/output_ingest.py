@@ -421,7 +421,7 @@ def _canonical_target_type(candidate: dict[str, Any], text: str) -> str:
         if normalized in {"external_dependency_failure", "external_dependency_health"}:
             return "external_dependency_health"
         return normalized
-    if any(token in text for token in ("connection pool", "pool exhaust", "db_pool", "checkout-db")):
+    if _is_database_pool_text(text):
         return "database_connection_pool_exhaustion"
     if "database" in text and any(token in text for token in ("timeout", "timed out", "latency", "slow query")):
         return "database_timeout"
@@ -471,7 +471,7 @@ def _canonical_subject(candidate: dict[str, Any], text: str) -> str:
         return explicit_component
     if explicit_subsystem in trusted_explicit_units:
         return explicit_subsystem
-    if any(token in text for token in ("connection pool", "pool exhaust", "db_pool", "checkout-db")):
+    if _is_database_pool_text(text):
         return "database_connection_pool"
     if "database" in text and any(token in text for token in ("timeout", "timed out", "latency", "slow query")):
         return "database_dependency"
@@ -496,6 +496,16 @@ def _canonical_subject(candidate: dict[str, Any], text: str) -> str:
     subsystem = str(candidate.get("subsystem") or "").strip()
     component = str(candidate.get("component") or "").strip()
     return _normalize_token(component or subsystem or "general")
+
+
+def _is_database_pool_text(text: str) -> bool:
+    lowered = str(text or "").casefold()
+    if any(token in lowered for token in ("connection pool", "connection_pool", "db_pool", "checkout-db")):
+        return True
+    return "pool exhaust" in lowered and any(
+        token in lowered
+        for token in ("database", "postgres", "mysql", "sql", "db connection", "jdbc")
+    )
 
 
 def _canonical_review_unit(candidate: dict[str, Any], subject: str) -> str:

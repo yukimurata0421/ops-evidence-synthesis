@@ -22,6 +22,17 @@ _NO_ISSUE_PHRASES = (
     "service appears healthy",
     "likely healthy",
     "currently stable",
+    "may have remained healthy",
+    "may have remained stable",
+    "appears to have remained healthy",
+    "appears to have remained stable",
+    "no confirmed outage",
+    "no confirmed degradation",
+    "no degradation observed",
+    "was not observed",
+    "were not observed",
+    "negative finding",
+    "rules out",
     "normal operation",
     "successful operation",
     "logs show successful operation",
@@ -116,8 +127,6 @@ def target_reads_as_normal_observation(
     )
     issue_has_problem = _contains_problem_signal(issue_text)
     issue_has_no_finding = _contains_no_issue_signal(issue_text)
-    if issue_has_problem and not issue_has_no_finding:
-        return False
     if issue_has_no_finding:
         return True
 
@@ -127,15 +136,25 @@ def target_reads_as_normal_observation(
             explanation.get("why_not_promoted"),
             target.get("why_it_matters"),
             explanation.get("why_it_matters"),
+            target.get("operational_mechanism"),
+            explanation.get("operational_mechanism"),
+            *_string_items(target.get("evidence_summary")),
+            *_string_items(explanation.get("evidence_summary")),
             *_string_items(target.get("counter_evidence_summary")),
             *_string_items(explanation.get("counter_evidence_summary")),
             *_provider_explanation_texts(explanation),
         ]
     )
-    if _contains_no_issue_signal(no_issue_context) and not issue_has_problem:
-        return True
-
     claim_types = _provider_claim_types(explanation)
+    context_reads_as_no_finding = _contains_no_issue_signal(no_issue_context)
+    if context_reads_as_no_finding and not issue_has_problem:
+        return True
+    if (
+        context_reads_as_no_finding
+        and claim_types
+        and claim_types.issubset(_INSUFFICIENT_OR_NO_FINDING_TYPES | {"caveat"})
+    ):
+        return True
     if claim_types and claim_types.issubset(_INSUFFICIENT_OR_NO_FINDING_TYPES):
         combined = _joined_text([issue_text, no_issue_context])
         return _contains_no_issue_signal(combined) and not _contains_problem_signal(issue_text)

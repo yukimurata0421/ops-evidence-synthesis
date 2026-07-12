@@ -1,127 +1,139 @@
-# Three Minute Demo Script
+# 3分30秒デモ動画台本
 
-Target length: 2:45 to 3:00. Use the live Cloud Run URL. The only public write
-path shown is Fast GCP Review, which accepts no arbitrary input and runs a fixed
-sanitized sample.
+機能一覧ではなく、「1件の障害判断が、人間による意味付けから証拠付きの
+レビュー判断へ変わる」流れを見せる。
 
-## 0:00-0:20 Problem
+## 使用URL
 
-Show the public entry page.
+- Runtime Code Profile: https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/
+- Runtime Review: https://ops-evidence.yukimurata0421.dev/reviews/a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0/
+- Runtime Full Review: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Runtime Review Graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Monitoring Review: https://ops-evidence.yukimurata0421.dev/reviews/8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a/
+- More Data Rescore: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
 
-Narration:
-Ops Evidence Synthesis targets a specific AIOps failure mode: during incidents,
-AI often sounds confident before it has enough evidence. This system keeps raw
-logs local, freezes sanitized evidence by SHA256, and turns model disagreement
-into review targets instead of a fake single answer.
+## 0:00-0:15 完成形を先に見せる
 
-URL:
-https://ops-evidence.yukimurata0421.dev/
+Runtime Full Reviewを開き、最上位カード、Evidence ID、counter evidence、
+missing evidence、provider positionsを一瞬見せる。
 
-## 0:20-0:55 Make
+ナレーション:
 
-Open the main summary URL.
+> 5つのAIが障害を解析しています。しかし、ここにあるのは多数決の答えでは
+> ありません。どの証拠が仮説を支持し、何が反証し、何が不足しているかを
+> 人間が判断するためのレビューです。
 
-URL:
-https://ops-evidence.yukimurata0421.dev/?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+## 0:15-0:35 4段階を示す
 
-Show:
+画面または字幕:
 
-- Raw log policy: `not_uploaded`
-- 45,000-row sanitized runtime corpus
-- 33 provider-specific chunks
-- 0 primary candidates / 11 validation targets
-- Agent Trace
-- Review Graph Arbitration
+```text
+Source Profile -> Human Semantics -> Log Analysis -> Evidence-backed Decision
+```
 
-Narration:
-The investigation loop is autonomous up to the evidence boundary. Raw rows stay
-local. Every sanitized row is assigned to the coverage ledger, then five real
-providers analyze grouped Evidence Items through provider-specific chunks. Each
-provider sees the SHA-fixed sanitized bundle and source context, and every claim
-must point back to evidence.
+ナレーション:
 
-## 0:55-1:35 Evidence And Disagreement
+> 複数AIにログを読ませる前に、コードからシステムの意味を推定し、人間が
+> その意味を承認します。承認後は、サニタイズ済み証拠と固定JSONだけで解析します。
 
-Open the detail page.
+## 0:35-1:30 Code Profileを主役にする
 
-URL:
-https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
+Runtime Code Profileを開き、次の順に見せる。
 
-Show:
+1. Gemini Pro Code Profile
+2. Gemini System Reading
+3. Gemini Questions For Human Approval
+4. 人間回答
 
+ナレーション:
+
+> Gemini 3.1 Proがサニタイズ済みコードから、システム目的、コンポーネント、
+> ログとメトリクスの意味を推定します。ただしGemini自身には、その推定を
+> 確定する権限を与えていません。
+
+入力例として次を見せる。
+
+```text
+The critical outcome is a continuously available public YouTube live stream
+with fresh ADS-B visual content and audible program audio.
+
+Zero is healthy for failure counters. A controlled deployment restart can be
+expected; repeated or failed restarts are suspicious. Monitoring-only warnings
+do not prove user impact without public-output or runtime evidence.
+```
+
+## 1:30-2:05 Gemini解釈と人間の再レビュー
+
+候補パッチで、次のような構造化結果を拡大する。
+
+```json
+{
+  "metric_name": "stream_engine_ffmpeg_restart_count",
+  "healthy_direction": "zero",
+  "zero_behavior": "healthy",
+  "increase_behavior": "suspicious"
+}
+```
+
+ナレーション:
+
+> 人間が自然言語で答えた運用知識を、Geminiが機械判定可能な候補JSONへ
+> 変換します。これはまだ確定値ではありません。人間が解釈を再確認し、
+> 問題があれば回答へ戻して再解釈します。
+
+`Approve Reviewed Interpretation` 相当の承認結果を見せる。
+
+## 2:05-2:25 ハッシュ固定と境界
+
+次を表示する。
+
+- `status: approved`
+- Runtime approved profile SHA256: `77ceaa551a41d4a9e24fa3533de0bfe7df1f17a56702d6ed13e1e6b5342ce709`
+- `source_access_after_approval: disabled`
+- `context_is_not_evidence: true`
+
+ナレーション:
+
+> 承認結果は、元プロファイル、人間の回答、Gemini出力とハッシュで結び付きます。
+> 承認後のログ解析にはこのJSONだけを渡し、ソースの再参照を禁止します。
+
+## 2:25-3:10 最終Reviewの1判断だけ説明する
+
+Runtime Reviewを開く。45,000入力行から27,926件のサニタイズ済みeventを
+受け入れ、909 Evidence Itemを5つの実APIが最大19チャンクで解析したことを
+短く示す。全Evidence Item coverageは100%、raw row direct promptは0。
+
+説明するカードは1枚だけに絞る。
+
+- Suspected issue
+- Operational mechanism
+- Evidence IDs
+- Counter evidence
+- Missing evidence
 - Provider positions
-- provider support
-- Agreement and promotion gates
-- Promotion gate
-- Queue rank and tie-breaks when priority scores are equal
+- Promotion state
 
-Narration:
-The product does not turn model output into truth. Provider support
-becomes review work, but incident support and user impact still gate promotion.
-That is why the system can investigate automatically while keeping causal
-judgement human-gated.
+ナレーション:
 
-## 1:35-2:00 Run Fast GCP Review
+> この仮説を原因とは断定していません。Evidence IDが技術的な確認対象を
+> 支持する一方、反証と不足証拠が残るためValidation Targetです。スコアは
+> 真実である確率ではなく、人間が先に確認すべきレビュー優先度です。
 
-Open Fast GCP Review and click the run button.
+## 3:10-3:30 追加証拠で締める
 
-URL:
-https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
+同じReview Graphを数秒見せる。時間に余裕があれば、別の保存済み事例である
+More Data Rescoreを開く。
 
-Show:
+ナレーション:
 
-- fixed `amazon-notify` sanitized sample
-- `gemini-3.1-flash-lite`
-- wall time and provider latency
-- generated review URL
+> 最後に別の保存済み事例で、追加証拠が入るとValidation Targetから判断状態が
+> 変わることを示します。AIは原因仮説を作れます。Ops Evidence Synthesisは、
+> その仮説を人間が安全に判断できる、再現可能な証拠へ変換します。
 
-Narration:
-For live GCP verification, the public app runs a fixed sanitized sample from
-Cloud Run through Vertex Gemini Flash Lite. It does not accept arbitrary logs or
-URLs, but it proves the deployed project can execute the evidence pipeline and
-return a review URL.
+## 撮影上の注意
 
-## 2:00-2:30 Rescore Loop
-
-Open the More data rescore demo.
-
-URL:
-https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-
-Show:
-
-- control-plane trace
-- before state: `validation_target`
-- blocked reason: `user_impact_unverified`
-- transition: `needs_more_data -> evidence_collected`
-- after state: `primary_candidate`
-
-Narration:
-This is the DevOps improvement loop. The system requests the missing user-impact
-signal, attaches a child Evidence Bundle, reruns the scoring projection, and
-changes the promotion decision only after the missing evidence appears. This is
-not a one-shot answer; it is an AI workflow that can improve under evidence.
-
-## 2:30-2:50 Deliver
-
-Open the API view or review graph.
-
-URLs:
-
-- https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-- https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6
-
-Narration:
-The delivered surface is read-only, fast, and deployed on Cloud Run. Public
-reviewers can inspect the same fixed artifacts without credentials, raw logs, or
-live model calls. Locally, `make demo`, `make ci`, and `make smoke-public`
-regenerate and verify the review path.
-
-## 2:50-3:00 Close
-
-Show [submission-links.md](submission-links.md) or the README.
-
-Narration:
-The core claim is guarded autonomy: let AI investigate, compare, ask for more
-evidence, and re-score, but do not let it invent certainty or take unsafe
-operations past the human gate.
+- Code Profile時点では「ログもサニタイズ済み」と言わない。正しくは、ログ解析前にコードをサニタイズし、システムの意味を確定している。
+- ターミナルは承認済みprofile pathとReview URLを示す10秒程度に留める。
+- API待ち時間はカットする。
+- monitoringの結果へ切り替える場合は、runtimeとは別の監視面事例だと明示する。
+- provider convergenceを原因確率や多数決として説明しない。

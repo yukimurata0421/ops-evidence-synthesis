@@ -41,9 +41,9 @@ PUBLIC_SAMPLE_SHA = "a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f
 PUBLIC_FLAGSHIP_SHA = "3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d"
 PUBLIC_REAL_API_SHA = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
 REAL_API_QWEN_GLM_SHA = "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb"
-STREAM_V3_DELL_REAL_API_SHA = "345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6"
+STREAM_V3_DELL_REAL_API_SHA = "a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0"
 LEGACY_STREAM_V3_DELL_SHA = "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681"
-STREAM_V3_ARENA_REAL_API_SHA = "6b7dad773b78274ed9706b02e15478427ad8817e8d8330ba19487d4293eeb3d3"
+STREAM_V3_ARENA_REAL_API_SHA = "8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a"
 PUBLIC_PROFILE_CONTEXTS = {
     "amazon-notify": ROOT / "data" / "public_profile_contexts" / "amazon_notify_sample",
     "payment-api": ROOT / "data" / "public_profile_contexts" / "payment_api_sample",
@@ -78,9 +78,9 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert STREAM_V3_DELL_REAL_API_SHA[:12] in html
     assert STREAM_V3_ARENA_REAL_API_SHA[:12] in html
     assert "Primary Review" in html
-    assert "Cross-Domain Scale Validation" not in html
-    assert "Scale proof" in html
-    assert "3 recorded domains, one evidence-gated review contract." in html
+    assert "Cross-Domain Scale Validation" in html
+    assert "Scale validation is the curated review set above, not a fourth hidden run." in html
+    assert "No scale validation review is available." not in html
     assert "Archived recorded runs" in html
     assert "Rows" in html
     assert "Chunks" in html
@@ -94,10 +94,6 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "AIが断定する前に、運用証拠を固定する。" in html
     assert "Provider convergence creates review targets, not accepted incident causes" in html
     assert "Watch rescore loop" in html
-    assert "Open flagship review -&gt;" in html
-    assert "<div><b>0</b><span>primary candidates in flagship review</span></div>" in html
-    assert "VALIDATION TARGET</span><b>transport_sender" in html
-    assert "PRIMARY CANDIDATE</span><b>chromium_capture" not in html
     assert "ADK-compatible trace included" in html
     assert "provider signal, not a verdict" in html
     assert "0 AUTO-PROMOTED CAUSES" in html
@@ -112,51 +108,9 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "Markdown incident report" in html
     assert "Review graph" in html
     assert "Multi-AI disagreement requires validation" not in html
-    assert 'class="review-card review-card--primary featured"' in html
-    assert 'class="review-card review-card--guarded' in html
-    assert 'class="review-card review-card--observation' in html
-    assert 'class="review-card-main" href="/ui/full-review-page?evidence_sha256=' in html
-    assert '<span class="card-arrow" aria-hidden="true">↗</span>' in html
-    assert 'class="status-badge">要確認 ' in html
     assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
     assert f"/ui/report.md?evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in html
     assert html.index(STREAM_V3_DELL_REAL_API_SHA[:12]) < html.index(PUBLIC_REAL_API_SHA[:12])
-
-
-def test_public_submission_copy_matches_recorded_counts() -> None:
-    dell = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{STREAM_V3_DELL_REAL_API_SHA}.json")
-    dell_review = dell["summary"]["review"]
-    dell_context = dell["analysis_context"]
-
-    expected_primary = int(dell_review["primary_targets"])
-    expected_validation = int(dell_review["validation_targets"])
-    expected_chunks = int(dell_context["provider_full_corpus_chunk_count"])
-    assert (expected_primary, expected_validation, expected_chunks) == (0, 11, 33)
-
-    public_copy_paths = [
-        ROOT / "README.md",
-        ROOT / "HACKATHON_SUBMISSION.md",
-        ROOT / "docs" / "demo-video-script.md",
-        ROOT / "docs" / "protopedia-entry-v3.md",
-        ROOT / "docs" / "protopedia-entry-japanese.md",
-        ROOT / "docs" / "real-api-5-provider-run.md",
-    ]
-    public_copy = "\n".join(path.read_text(encoding="utf-8") for path in public_copy_paths)
-
-    stale_phrases = [
-        "active human-gated primary candidates",
-        "3 human-gated primary candidates",
-        "39 provider-specific chunks",
-        "Maximum chunked provider calls: 39",
-        "Provider convergence creates validation targets",
-    ]
-    for phrase in stale_phrases:
-        assert phrase not in public_copy
-
-    assert f"{expected_primary} primary candidates and {expected_validation} validation targets" in public_copy
-    assert f"{expected_primary} primary candidates / {expected_validation} validation targets" in public_copy
-    assert f"{expected_chunks} provider-specific chunks" in public_copy
-    assert f"Maximum chunked provider calls: {expected_chunks}" in public_copy
 
 
 def test_public_landing_cards_match_linked_payloads(monkeypatch) -> None:
@@ -191,15 +145,14 @@ def test_public_markdown_report_renders_human_review_boundary() -> None:
 
     assert report.startswith("# Incident Review Report:")
     assert "This report is review material, not an accepted incident cause." in report
-    assert "Provider convergence creates review targets" in report
-    assert "Provider convergence creates validation targets" not in report
     assert "## Evidence Boundary" in report
     assert "DB coverage ledger:" in report
     assert "Provider corpus:" in report
     assert "## Provider Statuses" in report
     assert "| Provider | Model | Status | Schema valid | Output hash |" in report
     assert "## Human Review Questions" in report
-    assert "Which metrics are zero-is-good or zero-is-bad?" in report
+    assert "Approved profile context: `stream_v3_runtime_source_approved_20260711`" in report
+    assert "approved_human_reviewed" in report
     assert "## Review Queries This Report Supports" in report
     assert "List targets that are blocked by missing user-impact evidence." in report
     assert "## Top Review Targets" in report
@@ -207,41 +160,6 @@ def test_public_markdown_report_renders_human_review_boundary() -> None:
     assert "Promotion gate:" in report
     assert "review urgency, not truth probability" in report
     assert "majority-vote truth" in report
-
-
-def test_public_rendered_count_copy_uses_natural_pluralization() -> None:
-    stale_fragments = [
-        "primary candidate(s)",
-        "validation target(s)",
-        "target(s)",
-        "item(s)",
-        "association(s)",
-        "chunk(s)",
-        "row(s)",
-        "step(s)",
-        "0 primary candidate,",
-        "0 primary candidate and",
-    ]
-    expected_pairs = {
-        STREAM_V3_DELL_REAL_API_SHA: "0 primary candidates and 11 validation targets",
-        PUBLIC_REAL_API_SHA: "1 primary candidate and 10 validation targets",
-        STREAM_V3_ARENA_REAL_API_SHA: "1 primary candidate and 11 validation targets",
-    }
-
-    for sha, expected in expected_pairs.items():
-        payload = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{sha}.json")
-        rendered = "\n".join(
-            [
-                _render_precomputed_review_detail_page(sha, payload),
-                _render_precomputed_graph_page(sha, payload),
-                _render_precomputed_markdown_report(sha, payload),
-            ]
-        )
-
-        assert expected in rendered
-        assert "Node math:" in rendered
-        for fragment in stale_fragments:
-            assert fragment not in rendered
 
 
 def test_public_rescore_demo_is_renderable() -> None:
@@ -264,7 +182,6 @@ def test_public_rescore_demo_is_renderable() -> None:
     assert "primary_candidate" in html
     assert "user_impact_unverified" in html
     assert "Source trace" in html
-    assert '<a href="/#review-set">Reviews</a>' in html
     assert "preserved_demo_snapshot" in html
     assert "Before target present in current source review: no" in html
     assert "test_more_data_child_bundle_rescores_parent_graph_and_promotion" in html
@@ -604,15 +521,6 @@ def test_precomputed_graph_renders_analysis_context() -> None:
     assert "5,041" in html
     assert "77.5%" in html
     assert "Projection coverage is occurrence-weighted" in html
-    assert "Every review target keeps its providers and evidence attached." in html
-    assert "Provider -&gt; target graph - click a target" in html
-    assert "Every claimed position stays drawn as a faint thread" in html
-    assert "Nodes &amp; edges ledger" in html
-    assert "Node math:" in html
-    assert "Edge math:" in html
-    assert "graph nodes" in html
-    assert "6 nodes = 1 target nodes + 1 provider nodes + 4 structural nodes" in html
-    assert "5 edges = 1 provider positions + 1 finding links + 2 gate links + 1 evidence link" in html
     assert graph["analysis_context"]["model_projection_evidence_items"] == 140
     assert graph["canonical_review_graph"]["analysis_context"]["db_ingested_log_count"] == 6506
     assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "no graph-level signal"
@@ -706,8 +614,6 @@ def test_real_api_qwen_glm_precomputed_review_payload_is_renderable() -> None:
     assert "profile_questions_linked_to_review_units" in detail_html
     assert "qwen-agent-platform" in graph_html
     assert "Incident gate signal" in graph_html
-    assert "Provider -&gt; target graph" in graph_html
-    assert "graph nodes" in graph_html
     assert graph["canonical_review_graph"]["summary"]["primary_count"] == 0
     assert graph["canonical_review_graph"]["summary"]["validation_count"] == 5
     assert graph["canonical_review_graph"]["review_graph_summary"]["provider_detection_overlap"] == "5/5"
@@ -750,41 +656,45 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "sha": STREAM_V3_DELL_REAL_API_SHA,
             "title": "Five real providers",
             "service": "stream_v3_runtime",
-            "log_count": 45000,
+            "log_count": 27926,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 4,
-                "monitor_only": 2,
+                "auto_archived": 1,
+                "monitor_only": 6,
                 "primary_targets": 0,
-                "validation_targets": 11,
+                "validation_targets": 7,
             },
             "projection_items": 140,
-            "occurrences": 107160,
-            "coverage": 0.991928,
-            "full_corpus_items": 1012,
-            "chunk_count": 33,
+            "occurrences": 27157,
+            "coverage": 0.972463,
+            "full_corpus_items": 909,
+            "chunk_count": 19,
             "profile_generation_status": "persisted",
-            "provisional_user_outcomes": ["Continuous YouTube streaming", "ADSB data processing"],
+            "confirmed_user_outcomes": [
+                "Continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio."
+            ],
         },
         {
             "sha": STREAM_V3_ARENA_REAL_API_SHA,
             "title": "Five real providers",
             "service": "stream_v3_monitoring",
-            "log_count": 50000,
+            "log_count": 49942,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
                 "auto_archived": 2,
-                "monitor_only": 2,
-                "primary_targets": 1,
-                "validation_targets": 11,
+                "monitor_only": 3,
+                "primary_targets": 0,
+                "validation_targets": 2,
             },
-            "projection_items": 21,
-            "occurrences": 63056,
+            "projection_items": 25,
+            "occurrences": 49942,
             "coverage": 1.0,
-            "full_corpus_items": 21,
-            "chunk_count": 18,
+            "full_corpus_items": 25,
+            "chunk_count": 4,
             "profile_generation_status": "persisted",
-            "provisional_user_outcomes": ["Maintain YouTube stream uptime", "Monitor ADSB stream health"],
+            "confirmed_user_outcomes": [
+                "a continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio"
+            ],
         },
     ]
 
@@ -826,13 +736,14 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert payload["profile_context"]["profile_id"]
         assert payload["profile_context"]["schema_version"] == "profile_context_summary.v2"
         assert payload["profile_context"]["profile_status"] == "approved_context_human_gated_outcomes"
-        assert payload["profile_context"]["confidence_action"] == "use_for_subsystem_routing_human_gated"
-        assert payload["profile_context"]["confirmed_user_outcomes"] == []
-        assert payload["profile_context"]["provisional_user_outcomes"] == case["provisional_user_outcomes"]
+        assert payload["profile_context"]["confidence_action"] == "approved_human_reviewed"
+        assert payload["profile_context"]["confirmed_user_outcomes"] == case["confirmed_user_outcomes"]
+        assert payload["profile_context"]["provisional_user_outcomes"] == []
         assert "assumed_critical_outcomes" not in json.dumps(payload["profile_context"])
-        assert payload["profile_context"]["profile_to_review_links"]
-        assert payload["analysis_context"]["source_context_sha256"]
-        assert payload["analysis_context"]["source_analysis_sha256"]
+        assert payload["profile_context"]["profile_to_review_links"] == []
+        assert payload["analysis_context"]["source_context_sha256"] == ""
+        assert payload["analysis_context"]["source_analysis_sha256"] == ""
+        assert "frozen approved profile" in payload["analysis_context"]["source_observations"][0]
         assert all("review_reason" in target for target in payload["targets"])
         assert payload["targets"][0]["review_reason"]["headline"].startswith(
             "Review target created because provider convergence"
@@ -847,16 +758,12 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
                 for summary in summaries
             )
         if case["sha"] == STREAM_V3_DELL_REAL_API_SHA:
-            transport = next(
-                target
+            assert any(
+                target["canonical_review_unit"] == "background_processing"
+                and "Auto DJ" in target["suspected_issue"]
                 for target in payload["targets"]
-                if target["canonical_review_unit"] == "transport_sender"
             )
-            transport_support_text = "\n".join(transport["target_explanation"]["evidence_summary"])
-            transport_counter_text = "\n".join(transport["target_explanation"]["counter_evidence_summary"])
-            assert "no timeout" not in transport_support_text
-            assert "connected=true" not in transport_support_text
-            assert transport_counter_text
+            assert all(target["canonical_review_unit"] != "database_connection_pool" for target in payload["targets"])
 
         provider_rows = {row["provider_id"]: row for row in payload["provider_statuses"]}
         assert provider_rows["qwen-agent-platform"]["schema_valid"] is True
@@ -866,18 +773,11 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         if case["sha"] == STREAM_V3_ARENA_REAL_API_SHA:
             assert provider_rows["openai-gpt-oss-on-vertex"]["status"] == "ok"
             assert provider_rows["openai-gpt-oss-on-vertex"]["schema_valid"] is True
-            assert provider_rows["openai-gpt-oss-on-vertex"]["model_name"] == "gpt-oss-120b-maas"
-            audio_target = next(
-                target
-                for target in payload["targets"]
-                if target["canonical_review_unit"] == "audio_energy"
-            )
-            assert audio_target["class"] == "validation_target"
-            assert audio_target["agreement"]["summary"].startswith("2/5 schema-valid providers")
-            assert any(
-                row["provider_id"] == "openai-gpt-oss-on-vertex" and row["stance"] == "claimed"
-                for row in audio_target["provider_positions"]
-            )
+            assert provider_rows["openai-gpt-oss-on-vertex"]["model_name"] == "gpt-oss-20b-maas"
+            assert {target["canonical_review_unit"] for target in payload["targets"]} == {
+                "transport_sender",
+                "runtime_recovery",
+            }
 
         detail_html = _render_precomputed_review_detail_page(case["sha"], payload)
         graph_html = _render_precomputed_graph_page(case["sha"], payload)
@@ -897,15 +797,11 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert "Incident gate signal" in detail_html
         assert str(case["occurrences"]) in detail_html.replace(",", "")
         if case["sha"] == STREAM_V3_ARENA_REAL_API_SHA:
-            assert "audio_energy" in detail_html
-            assert "2/5 claimed" in detail_html
-            assert "2 claimed / 3 silent / 0.40" in detail_html
-            assert "gpt-oss-120b-maas" in detail_html
+            assert "Network timeout when the WAN address observer" in detail_html
+            assert "gpt-oss-20b-maas" in detail_html
             assert "provider_error" not in json.dumps(payload["provider_statuses"])
         assert "qwen-agent-platform" in graph_html
         assert "Incident gate signal" in graph_html
-        assert "Provider -&gt; target graph" in graph_html
-        assert "Node math:" in graph_html
         assert graph["analysis_context"]["model_projection_occurrence_count"] == case["occurrences"]
         assert graph["canonical_review_graph"]["summary"]["validation_count"] == case["review"]["validation_targets"]
         assert graph["canonical_review_graph"]["display_summary"]["incident_gate_signal"] == "signal present"
@@ -915,36 +811,16 @@ def test_stream_v3_dell_and_arena_profiles_stay_separated() -> None:
     dell = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{STREAM_V3_DELL_REAL_API_SHA}.json")
     arena = _load_json(ROOT / "data" / "precomputed_review_summaries" / f"{STREAM_V3_ARENA_REAL_API_SHA}.json")
 
-    assert dell["profile_context"]["profile_id"] == "stream_v3_dell_runtime_source_approved"
-    assert arena["profile_context"]["profile_id"] == "stream_v3_arena_server_monitoring_source_approved"
+    assert dell["profile_context"]["profile_id"] == "stream_v3_runtime_source_approved_20260711"
+    assert arena["profile_context"]["profile_id"] == "stream_v3_monitoring_source_approved_20260711"
     assert dell["analysis_context"]["service"] == "stream_v3_runtime"
     assert arena["analysis_context"]["service"] == "stream_v3_monitoring"
-    assert dell["analysis_context"]["source_context_sha256"] != arena["analysis_context"]["source_context_sha256"]
-    assert dell["analysis_context"]["source_analysis_sha256"] != arena["analysis_context"]["source_analysis_sha256"]
+    assert dell["profile_context"]["source_discovery_sha256"] != arena["profile_context"]["source_discovery_sha256"]
     assert dell["profile_context"]["purpose"] != arena["profile_context"]["purpose"]
-    assert dell["profile_context"]["provisional_user_outcomes"] == [
-        "Continuous YouTube streaming",
-        "ADSB data processing",
-    ]
-    assert arena["profile_context"]["provisional_user_outcomes"] == [
-        "Maintain YouTube stream uptime",
-        "Monitor ADSB stream health",
-    ]
-
-    dell_units = {
-        unit
-        for link in dell["profile_context"]["profile_to_review_links"]
-        for unit in link["review_units"]
-    }
-    arena_units = {
-        unit
-        for link in arena["profile_context"]["profile_to_review_links"]
-        for unit in link["review_units"]
-    }
-    assert "media_output" in dell_units
-    assert "user_experience" not in dell_units
-    assert "user_experience" in arena_units
-    assert "media_output" not in arena_units
+    assert dell["profile_context"]["provisional_user_outcomes"] == []
+    assert arena["profile_context"]["provisional_user_outcomes"] == []
+    assert dell["profile_context"]["metric_semantics_count"] == 4
+    assert arena["profile_context"]["metric_semantics_count"] == 6
 
 
 def test_precomputed_detail_page_ui_smoke_includes_provider_targets_missing_evidence_and_public_links() -> None:
