@@ -10,6 +10,8 @@ final causal judgement and operational action remain human-gated.
 
 ## Demo
 
+- Demo video: https://www.youtube.com/watch?v=hgSiKY0z3Vs
+- ProtoPedia article: https://protopedia.net/prototype/8892
 - Public entry: https://ops-evidence.yukimurata0421.dev/
 - Runtime Code Profile: https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/
 - Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471

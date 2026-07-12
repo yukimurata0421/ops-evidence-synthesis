@@ -16,6 +16,12 @@ incident tools sound confident before they have enough evidence.
 
 Public entry: https://ops-evidence.yukimurata0421.dev/
 
+Hackathon submission:
+
+- Demo video: https://www.youtube.com/watch?v=hgSiKY0z3Vs
+- ProtoPedia article: https://protopedia.net/prototype/8892
+- Live product: https://ops-evidence.yukimurata0421.dev/
+
 Use these first:
 
 - Source semantics: Gemini reading and human approval:
