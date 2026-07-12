@@ -138,6 +138,8 @@ Final decision by Human
 - `assets/screenshots/12-runtime-target.png`
 - `assets/screenshots/21-runtime-metrics.png`
 
+配置：`21-runtime-metrics.png`は90%へ縮小し、1920×1080画面の上段中央（左上基準`X=96 / Y=16`）へ最初の8秒だけ重ねます。中央や下段には置きません。
+
 字幕：
 
 ```text

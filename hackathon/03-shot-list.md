@@ -11,7 +11,7 @@
 | 5 | `assets/screenshots/15-code-profile-human-questions.png` | 9s | Show staged human answers. Do not type or run APIs during the video. |
 | 6 | `assets/screenshots/07-human-semantics-gate.png` | 8s | Move left to right: human answer, Gemini candidate JSON, human approval and SHA. |
 | 7 | `assets/screenshots/11-runtime-agent-trace.png` | 17s | Show all six readable steps for 12s, then add `22-guarded-autonomy.png` for the final 5s. |
-| 8 | `assets/screenshots/12-runtime-target.png` | 28s | Add `21-runtime-metrics.png` for the first 8s, then remove it and hold on youtube_health and provider positions. |
+| 8 | `assets/screenshots/12-runtime-target.png` | 28s | Put `21-runtime-metrics.png` at 90% scale in the top center (1920×1080: X=96, Y=16) for the first 8s. Fade it out, then hold on youtube_health and provider positions. Do not place it in the center or bottom. |
 | 9 | `assets/screenshots/04-platform-live.png` | 5s | Use as a clean transition before the live screen recording. |
 | 10 | Live recording of Fast GCP Review | 20s | Show Load Summary, Run Live Fast Review, progress, and generated Review link. Compress only idle waiting. |
 | 11 | `assets/screenshots/18-rescore-before.png` | 10s | Hold on user_impact_unverified. |
