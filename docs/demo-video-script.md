@@ -17,7 +17,7 @@ Ops Evidence Synthesis
 ## 使用URL
 
 - Runtime Code Profile: https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/
-- Runtime Full Review: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+- Runtime Full Review: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471
 - Fast GCP Review: https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
 - Verified Fast Review: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=2641cb5fe5850d006864dec4aad3b3d2539e9efcef3753b43d5624f8b6e5136b
 - More Data Rescore: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
@@ -111,21 +111,21 @@ source context supplied after approval: no
 
 ## 1:18-1:53 45,000行の実レビュー
 
-Runtime Reviewの概要から `runtime_recovery` のValidation Targetへ移動する。
+Runtime Reviewの概要から `youtube_health` のValidation Targetへ移動する。
 
 字幕:
 
 ```text
 45,000 input rows
-27,926 sanitized events
-909 Evidence Items
+45,000 sanitized events
+1,035 Evidence Items
 5 real AI providers
 Raw log upload: 0
 ```
 
 ナレーション:
 
-> 実際の配信システムでは、45,000行から27,926件のeventを受け入れ、909個のEvidence Itemを5つの実APIで解析しました。
+> 実際の配信システムでは、45,000行を全件サニタイズし、1,035個のEvidence Itemを5つの実APIで解析しました。
 > 復旧仮説は支持されていますが、配信状態とユーザー影響が不足しています。そのため原因にせず、Validation Targetへ回します。
 > 0.74は原因確率ではなく、レビュー優先度です。
 

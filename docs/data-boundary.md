@@ -97,7 +97,7 @@ from the chunked full-corpus provider pass:
 | Case | Sanitized rows | Grouped Evidence Items | Prompt Evidence Items | Prompt occurrences | Prompt coverage | Provider chunks | Provider item coverage |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | amazon-notify real API | 44,944 | 8,519 | 140 | 34,774 | 77.4% | 105 | 100.0% |
-| stream_v3 Dell runtime | 27,926 | 909 | 140 | 27,157 | 97.2% | 19 | 100.0% |
+| stream_v3 Dell runtime | 45,000 | 1,035 | 140 | 44,105 | 98.0% | 21 | 100.0% |
 | stream_v3 arena-server monitoring | 49,942 | 25 | 25 | 49,942 | 100.0% | 4 | 100.0% |
 
 The prompt coverage column is an inspection metric, not an analysis cutoff.

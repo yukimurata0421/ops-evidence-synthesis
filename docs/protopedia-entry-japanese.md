@@ -14,7 +14,7 @@ AIに原因を当てさせるのではなく、原因と呼べる証拠を集め
 
 Ops Evidence Synthesisは、raw logとraw sourceをローカルに残し、サニタイズ済みのEvidence BundleだけをSHA256で固定します。AIは固定された証拠に対して調査し、引用を検証し、モデル間の不一致をReview Targetへ変換し、足りない証拠を要求します。最終原因の確定と危険な運用操作は人間の承認対象です。
 
-公開主導線では、実際の常時配信システムの45,000入力行から27,926件のサニタイズ済みeventを受け入れ、909個のEvidence Itemへ集約しました。Gemini、GPT OSS、Mistral、Qwen、Gemma 4の実API出力を検証し、原因を自動昇格させず7件のValidation Targetとして提示しています。
+公開主導線では、実際の常時配信システムの45,000入力行を全件サニタイズし、1,035個のEvidence Itemへ集約しました。Gemini、GPT OSS、Mistral、Qwen、Gemma 4の実API出力を検証し、原因を自動昇格させず10件のValidation Targetとして提示しています。
 
 ## 解決したい課題
 
@@ -65,7 +65,7 @@ https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e717
 公開Reviewでは0 Primary Candidate、7 Validation Targetです。これは失敗ではなく、証拠が不足した状態で原因を自動確定しなかった結果です。スコアは原因確率ではなく、人間が先に確認するレビュー優先度です。
 
 Primary Review:
-https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471
 
 More Data Rescoreでは、Agentが要求したユーザー影響証拠をchild Evidence Bundleとして追加します。状態は `needs_more_data -> evidence_collected` と進み、Validation TargetがPrimary Candidateへ再評価されます。それでも最終原因の確定は人間が行います。
 

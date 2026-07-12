@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Human-approved operational semantics</title>
+  <desc id="desc">Human answers are normalized into candidate JSON, reviewed, and fixed by SHA before log analysis.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071426"/>
+      <stop offset="0.58" stop-color="#102b4d"/>
+      <stop offset="1" stop-color="#0b5f68"/>
+    </linearGradient>
+    <style>
+      .sans{font-family:Inter,"Noto Sans JP",Arial,sans-serif}.mono{font-family:"IBM Plex Mono",Consolas,monospace}
+    </style>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <text x="110" y="105" class="mono" font-size="24" font-weight="800" fill="#8be3dc">HUMAN SEMANTICS GATE · BEFORE LOG ANALYSIS</text>
+  <text x="110" y="190" class="sans" font-size="58" font-weight="850" fill="#f8fafc">人間の運用知識を、承認済みJSONへ固定する</text>
+
+  <rect x="110" y="260" width="500" height="530" rx="28" fill="#ffffff" opacity=".08" stroke="#ffffff" stroke-opacity=".2"/>
+  <text x="150" y="320" class="mono" font-size="22" font-weight="800" fill="#8be3dc">1 · HUMAN ANSWER</text>
+  <text x="150" y="385" class="sans" font-size="31" font-weight="750" fill="#ffffff">ゼロが正常です。</text>
+  <text x="150" y="435" class="sans" font-size="31" font-weight="750" fill="#ffffff">再起動回数の増加は</text>
+  <text x="150" y="485" class="sans" font-size="31" font-weight="750" fill="#ffffff">異常の可能性があります。</text>
+  <text x="150" y="570" class="sans" font-size="25" fill="#cbd5e1">自然言語で回答</text>
+  <text x="150" y="610" class="sans" font-size="25" fill="#cbd5e1">AIには確定権限を与えない</text>
+
+  <text x="635" y="525" class="sans" font-size="54" font-weight="900" fill="#67e8f9">→</text>
+
+  <rect x="710" y="260" width="570" height="530" rx="28" fill="#071426" opacity=".9" stroke="#67e8f9" stroke-opacity=".45"/>
+  <text x="750" y="320" class="mono" font-size="22" font-weight="800" fill="#8be3dc">2 · GEMINI CANDIDATE JSON</text>
+  <text x="750" y="385" class="mono" font-size="22" fill="#d8e7f5">"metric_name":</text>
+  <text x="750" y="420" class="mono" font-size="22" fill="#ffffff">  "stream_engine_ffmpeg_</text>
+  <text x="750" y="455" class="mono" font-size="22" fill="#ffffff">   restart_count",</text>
+  <text x="750" y="510" class="mono" font-size="22" fill="#d8e7f5">"healthy_direction": "zero",</text>
+  <text x="750" y="565" class="mono" font-size="22" fill="#d8e7f5">"zero_behavior": "healthy",</text>
+  <text x="750" y="620" class="mono" font-size="22" fill="#d8e7f5">"increase_behavior":</text>
+  <text x="750" y="655" class="mono" font-size="22" fill="#ffffff">  "suspicious"</text>
+  <text x="750" y="730" class="sans" font-size="24" font-weight="700" fill="#fbbf24">候補値 · まだ未確定</text>
+
+  <text x="1305" y="525" class="sans" font-size="54" font-weight="900" fill="#67e8f9">→</text>
+
+  <rect x="1380" y="260" width="430" height="530" rx="28" fill="#ffffff" opacity=".08" stroke="#ffffff" stroke-opacity=".2"/>
+  <text x="1420" y="320" class="mono" font-size="22" font-weight="800" fill="#8be3dc">3 · HUMAN RE-REVIEW</text>
+  <text x="1420" y="390" class="mono" font-size="24" font-weight="900" fill="#86efac">status: approved</text>
+  <text x="1420" y="455" class="mono" font-size="20" fill="#ffffff">source_access_after_</text>
+  <text x="1420" y="486" class="mono" font-size="20" fill="#ffffff">approval: disabled</text>
+  <text x="1420" y="550" class="mono" font-size="20" fill="#ffffff">context_is_not_</text>
+  <text x="1420" y="581" class="mono" font-size="20" fill="#ffffff">evidence: true</text>
+  <text x="1420" y="650" class="mono" font-size="20" fill="#cbd5e1">approved_profile_sha256</text>
+  <text x="1420" y="686" class="mono" font-size="25" font-weight="850" fill="#67e8f9">77ceaa551a41…</text>
+  <text x="1420" y="742" class="sans" font-size="23" fill="#cbd5e1">承認後はコードを再参照しない</text>
+
+  <rect x="110" y="850" width="1700" height="120" rx="24" fill="#4fd1c5" opacity=".12" stroke="#67e8f9" stroke-opacity=".38"/>
+  <text x="960" y="925" text-anchor="middle" class="sans" font-size="34" font-weight="850" fill="#ffffff">Human answer → Gemini normalization → Human approval → SHA-fixed profile</text>
+</svg>

@@ -17,7 +17,7 @@ from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sani
 
 
 ROOT = Path(__file__).resolve().parents[1]
-STREAM_V3_DELL_REAL_API_SHA = "a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0"
+STREAM_V3_DELL_REAL_API_SHA = "ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471"
 LEGACY_STREAM_V3_DELL_SHA = "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681"
 
 

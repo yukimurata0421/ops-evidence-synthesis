@@ -41,7 +41,7 @@ PUBLIC_SAMPLE_SHA = "a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f
 PUBLIC_FLAGSHIP_SHA = "3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d"
 PUBLIC_REAL_API_SHA = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
 REAL_API_QWEN_GLM_SHA = "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb"
-STREAM_V3_DELL_REAL_API_SHA = "a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0"
+STREAM_V3_DELL_REAL_API_SHA = "ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471"
 LEGACY_STREAM_V3_DELL_SHA = "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681"
 STREAM_V3_ARENA_REAL_API_SHA = "8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a"
 PUBLIC_PROFILE_CONTEXTS = {
@@ -656,19 +656,19 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "sha": STREAM_V3_DELL_REAL_API_SHA,
             "title": "Five real providers",
             "service": "stream_v3_runtime",
-            "log_count": 27926,
+            "log_count": 45000,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 1,
-                "monitor_only": 6,
+                "auto_archived": 7,
+                "monitor_only": 4,
                 "primary_targets": 0,
-                "validation_targets": 7,
+                "validation_targets": 10,
             },
             "projection_items": 140,
-            "occurrences": 27157,
-            "coverage": 0.972463,
-            "full_corpus_items": 909,
-            "chunk_count": 19,
+            "occurrences": 44105,
+            "coverage": 0.980111,
+            "full_corpus_items": 1035,
+            "chunk_count": 21,
             "profile_generation_status": "persisted",
             "confirmed_user_outcomes": [
                 "Continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio."
@@ -760,6 +760,11 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         if case["sha"] == STREAM_V3_DELL_REAL_API_SHA:
             assert any(
                 target["canonical_review_unit"] == "background_processing"
+                and "audio tracks" in target["suspected_issue"]
+                for target in payload["targets"]
+            )
+            assert any(
+                target["canonical_review_unit"] == "generic_runtime"
                 and "Auto DJ" in target["suspected_issue"]
                 for target in payload["targets"]
             )

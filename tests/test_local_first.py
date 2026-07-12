@@ -376,10 +376,53 @@ def test_sanitize_input_can_filter_by_time_window(tmp_path: Path) -> None:
 
     assert [event["message_sanitized"] for event in events] == ["inside"]
     assert manifest["event_count"] == 1
+    assert manifest["input_line_count"] == 3
+    assert manifest["window_excluded_count"] == 2
+    assert manifest["rejected_count"] == 0
+    assert manifest["accounted_line_count"] == 3
     assert manifest["input_time_window"] == {
         "start": "2026-07-02T00:00:00Z",
         "end": "2026-07-03T00:00:00Z",
     }
+
+
+def test_sanitize_input_uses_structured_timestamp_not_embedded_payload_timestamps(tmp_path: Path) -> None:
+    raw = tmp_path / "raw.jsonl"
+    rows = [
+        {
+            "message": "previous observation was 2026-06-14T22:00:00Z",
+            "timestamp": "2026-06-15T01:00:00Z",
+        },
+        {
+            "labels_json": {"next_check": "2026-06-16T00:00:01Z"},
+            "timestamp": "2026-06-15T02:00:00Z",
+            "message": "inside despite a later embedded timestamp",
+        },
+        {
+            "timestamp": "2026-06-15T03:00:00Z",
+            "message": "must still be processed after the prior row",
+        },
+    ]
+    raw.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+
+    result = sanitize_input(
+        raw,
+        tmp_path / "out",
+        start="2026-06-14T23:15:50Z",
+        end="2026-06-15T23:59:52Z",
+    )
+    events = _read_jsonl(Path(result["sanitized_events"]))
+    manifest = json.loads(Path(result["manifest"]).read_text(encoding="utf-8"))
+
+    assert [event["timestamp"] for event in events] == [
+        "2026-06-15T01:00:00Z",
+        "2026-06-15T02:00:00Z",
+        "2026-06-15T03:00:00Z",
+    ]
+    assert manifest["input_line_count"] == 3
+    assert manifest["event_count"] == 3
+    assert manifest["window_excluded_count"] == 0
+    assert manifest["accounted_line_count"] == 3
 
 
 def test_evidence_bundle_sha_is_stable_and_ignores_json_key_order(tmp_path: Path) -> None:

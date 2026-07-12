@@ -15,22 +15,22 @@ profile and sanitized Evidence Items; source access was disabled after approval.
 | Surface | Runtime | Monitoring |
 | --- | --- | --- |
 | Code Profile | https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/ | https://ops-evidence.yukimurata0421.dev/code-profiles/a762211461c691c7392dd1ff5e774b63f1932b939329693be41017c843a94cc4/ |
-| Static review | https://ops-evidence.yukimurata0421.dev/reviews/a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0/ | https://ops-evidence.yukimurata0421.dev/reviews/8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a/ |
-| Full review | https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0 | https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a |
-| API view | https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0 | https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a |
-| Review graph | https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0 | https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a |
+| Static review | https://ops-evidence.yukimurata0421.dev/reviews/ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471/ | https://ops-evidence.yukimurata0421.dev/reviews/8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a/ |
+| Full review | https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471 | https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a |
+| API view | https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471 | https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a |
+| Review graph | https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471 | https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a |
 
 ## Fixed Artifacts
 
 | Artifact | Runtime | Monitoring |
 | --- | --- | --- |
-| Evidence SHA256 | `a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0` | `8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a` |
-| Pipeline run | `stream-v3-runtime-45k-real-api-20260711-v3` | `stream-v3-monitoring-50k-real-api-20260711-v3` |
-| Canonical graph SHA256 | `e1c832b8396f32860ce7c2bd5328a6fdde785ffdd9d507a0db764cb2b4788d81` | `b5133772b23bdf85b7a33aafa0a425ea0395fe3ed4922e96c794a500cf8a1e86` |
-| Input fingerprint SHA256 | `a4624dfff97e30f87812fcfb56bb14491679c0e087ffea502f91644215576a14` | `ad9fd983765f62a14c5ed09260c6ca3d1549e76a724ecd966429e2e499277cd1` |
+| Evidence SHA256 | `ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471` | `8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a` |
+| Pipeline run | `stream-v3-runtime-45k-real-api-20260712-v5` | `stream-v3-monitoring-50k-real-api-20260711-v3` |
+| Canonical graph SHA256 | `50d4fa99a36b5a8f7a0af6c035964317894cc19a1ef308df81acee456b54ec0d` | `b5133772b23bdf85b7a33aafa0a425ea0395fe3ed4922e96c794a500cf8a1e86` |
+| Input fingerprint SHA256 | `f3c559653bc441fa710205ff4cb6ddca81c33fe7275b4a62bebf8433ff102c69` | `ad9fd983765f62a14c5ed09260c6ca3d1549e76a724ecd966429e2e499277cd1` |
 | Approved profile SHA256 | `77ceaa551a41d4a9e24fa3533de0bfe7df1f17a56702d6ed13e1e6b5342ce709` | `17fd209acd501ff5ebfd28dafcd83e6ebb23e7695ac19a13dd661a6ca1de428e` |
-| Public payload | `data/precomputed_review_summaries/a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0.json` | `data/precomputed_review_summaries/8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a.json` |
-| Payload SHA256 | `c74043dc306d76cb5182356138edf8e22a6220ec86399bea97857405e96974bd` | `62709cf1f070393cd8b51bb85beebb2d6e59f5e573971597afa8a27c9bbe58e9` |
+| Public payload | `data/precomputed_review_summaries/ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471.json` | `data/precomputed_review_summaries/8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a.json` |
+| Payload SHA256 | `5e6c4856c9d370265eda0a2d12538b2d989244bd1c805fe407b8cc0ac17b9dab` | `62709cf1f070393cd8b51bb85beebb2d6e59f5e573971597afa8a27c9bbe58e9` |
 
 The API revision field is intentionally empty for these local-orchestrated,
 GCS-published runs; the pipeline run ID, evidence SHA, model output hashes, and
@@ -41,26 +41,25 @@ canonical graph SHA are the run attestations.
 | Metric | Runtime | Monitoring |
 | --- | ---: | ---: |
 | Staged input lines | 45,000 | 50,000 |
-| Sanitized event rows accepted | 27,926 | 49,942 |
+| Sanitized event rows accepted | 45,000 | 49,942 |
 | Rejected lines | 0 | 0 |
 | Window start | `2026-06-14T23:15:50Z` | `2026-06-18T09:54:00Z` |
 | Window end | `2026-06-15T23:59:52Z` | `2026-06-19T10:48:55Z` |
 | Window hours | 24.733889 | 24.915278 |
-| Grouped Evidence Items | 909 | 25 |
+| Grouped Evidence Items | 1,035 | 25 |
 | Single-prompt Evidence Items | 140 | 25 |
-| Single-prompt occurrences | 27,157 | 49,942 |
-| Single-prompt occurrence coverage | 97.2463% | 100.0% |
-| Maximum chunks per provider | 19 | 4 |
-| Evidence Items covered by provider chunks | 909 | 25 |
+| Single-prompt occurrences | 44,105 | 49,942 |
+| Single-prompt occurrence coverage | 98.0111% | 100.0% |
+| Maximum chunks per provider | 21 | 4 |
+| Evidence Items covered by provider chunks | 1,035 | 25 |
 | Provider Evidence Item coverage | 100.0% | 100.0% |
 | Unassigned Evidence Items | 0 | 0 |
 | Raw rows sent directly to providers | 0 | 0 |
 
-The runtime input contained records outside the sanitizer's selected event
-surface, so staged input lines and accepted sanitized event rows are reported
-separately. Coverage is computed over the accepted sanitized event corpus. Each
-row is represented by a grouped Evidence Item occurrence; row bodies are not
-sent directly to providers.
+The corrected runtime sanitizer accounted for all 45,000 input lines: 45,000
+events were accepted, 0 were outside the selected window, and 0 were rejected.
+Each row is represented by a grouped Evidence Item occurrence; row bodies are
+not sent directly to providers.
 
 ## Profile Gate
 
@@ -85,15 +84,14 @@ All five providers finished with `status=ok` and `schema_valid=true`.
 
 | Provider | Model | Chunks | Failed chunks | Latency ms | Input tokens | Output tokens |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Gemini | `gemini-3.1-pro-preview` | 19 | 0 | 560,068 | 602,924 | 15,694 |
-| Gemma | `gemma-4-26b-a4b-it-maas` | 19 | 0 | 650,870 | 574,466 | 24,732 |
-| Mistral | `mistral-small-2503` | 3 | 0 | 28,976 | 195,080 | 2,007 |
-| GPT OSS | `gpt-oss-20b-maas` | 19 | 3 | 250,154 | 333,983 | 34,519 |
-| Qwen | `qwen/qwen3-coder-480b-a35b-instruct-maas` | 19 | 0 | 256,519 | 514,221 | 29,829 |
+| Gemini | `gemini-3.1-pro-preview` | 21 | 0 | 502,542 | 670,688 | 15,392 |
+| Gemma | `gemma-4-26b-a4b-it-maas` | 21 | 0 | 456,999 | 649,772 | 27,241 |
+| Mistral | `mistral-small-2503` | 6 | 0 | 58,314 | 253,438 | 5,641 |
+| GPT OSS | `gpt-oss-20b-maas` | 21 | 0 | 243,729 | 514,074 | 65,795 |
+| Qwen | `qwen/qwen3-coder-480b-a35b-instruct-maas` | 21 | 0 | 245,766 | 583,833 | 31,100 |
 
-GPT OSS retained 16/19 successful chunks, above the recorded 80% usability
-threshold. Missing chunks remain explicit in the provider ledger; the provider
-is not presented as byte-complete.
+All runtime providers completed every final chunk with schema-valid output.
+The provider ledger records retries separately; final failed chunk count is 0.
 
 ### Monitoring
 
@@ -109,7 +107,7 @@ is not presented as byte-complete.
 
 | Corpus | Primary candidates | Validation targets | Monitor-only | Auto-archived |
 | --- | ---: | ---: | ---: | ---: |
-| Runtime | 0 | 7 | 6 | 1 |
+| Runtime | 0 | 10 | 4 | 7 |
 | Monitoring | 0 | 2 | 3 | 2 |
 
 The monitoring result distinguishes two real timeout observations from the

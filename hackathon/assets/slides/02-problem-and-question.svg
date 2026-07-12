@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Two risks in incident AI</title>
+  <desc id="desc">Raw log exposure and confident diagnosis from incomplete evidence.</desc>
+  <defs><style>.sans{font-family:Inter,"Noto Sans JP",Arial,sans-serif}.mono{font-family:"IBM Plex Mono",Consolas,monospace}</style></defs>
+  <rect width="1920" height="1080" fill="#0b1322"/>
+  <text x="110" y="120" class="mono" font-size="24" font-weight="750" fill="#67e8f9">WHY OES</text>
+  <text x="110" y="205" class="sans" font-size="66" font-weight="850" fill="#f8fafc">障害対応AIの、二つの危険</text>
+  <rect x="110" y="320" width="790" height="480" rx="30" fill="#14233a" stroke="#38bdf8" stroke-width="3"/>
+  <circle cx="190" cy="402" r="38" fill="#38bdf8"/><text x="190" y="415" text-anchor="middle" class="sans" font-size="34" font-weight="900" fill="#082f49">1</text>
+  <text x="250" y="420" class="sans" font-size="40" font-weight="800" fill="#fff">Raw logs contain secrets</text>
+  <text x="170" y="515" class="sans" font-size="29" fill="#cbd5e1">credentials · hostnames · internal IDs</text>
+  <text x="170" y="565" class="sans" font-size="29" fill="#cbd5e1">personal data · operational context</text>
+  <rect x="170" y="650" width="650" height="86" rx="18" fill="#082f49"/>
+  <text x="495" y="705" text-anchor="middle" class="mono" font-size="27" font-weight="800" fill="#67e8f9">raw_log_policy = not_uploaded</text>
+
+  <rect x="1020" y="320" width="790" height="480" rx="30" fill="#2a1c2e" stroke="#fb7185" stroke-width="3"/>
+  <circle cx="1100" cy="402" r="38" fill="#fb7185"/><text x="1100" y="415" text-anchor="middle" class="sans" font-size="34" font-weight="900" fill="#4c0519">2</text>
+  <text x="1160" y="420" class="sans" font-size="36" font-weight="800" fill="#fff">Confidence without evidence</text>
+  <text x="1080" y="515" class="sans" font-size="29" fill="#e7d2dc">もっともらしい説明 ≠ 原因の証明</text>
+  <text x="1080" y="565" class="sans" font-size="29" fill="#e7d2dc">複数AIの一致 ≠ ユーザー影響</text>
+  <rect x="1080" y="650" width="650" height="86" rx="18" fill="#4c0519"/>
+  <text x="1405" y="705" text-anchor="middle" class="mono" font-size="27" font-weight="800" fill="#fda4af">agreement != cause</text>
+
+  <text x="960" y="920" text-anchor="middle" class="sans" font-size="40" font-weight="850" fill="#fff">OESは「原因は何か」より先に、判断できるだけの証拠があるかを問う。</text>
+</svg>

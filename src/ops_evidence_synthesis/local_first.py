@@ -17,7 +17,7 @@ from ops_evidence_synthesis.profiles.registry import normalize_profile_id
 from ops_evidence_synthesis.timeutils import format_timestamp, parse_timestamp, utc_now
 
 
-SANITIZER_VERSION = "sanitize.v1.2"
+SANITIZER_VERSION = "sanitize.v1.3"
 CANONICALIZATION_VERSION = "canonical_json.v1"
 RAW_LOG_POLICY = "not_uploaded"
 LARGE_SEEK_THRESHOLD_BYTES = 50 * 1024 * 1024
@@ -583,8 +583,10 @@ def sanitize_input(
     rejected_path = output / "rejected_lines.jsonl"
 
     report = RedactionCounter()
+    input_line_count = 0
     event_count = 0
     rejected_count = 0
+    window_excluded_count = 0
     first_timestamp = ""
     last_timestamp = ""
     sources: Counter[str] = Counter()
@@ -597,7 +599,14 @@ def sanitize_input(
     window_end_dt = parse_timestamp(window_end) if window_end else None
 
     with sanitized_path.open("w", encoding="utf-8") as sanitized_file, rejected_path.open("w", encoding="utf-8") as rejected_file:
-        for item in iter_input_lines(input_path, include_empty=True, start=window_start, end=window_end):
+        for item in iter_input_lines(
+            input_path,
+            include_empty=True,
+            start=window_start,
+            end=window_end,
+            filter_lines_by_window=False,
+        ):
+            input_line_count += 1
             if not item.text.strip():
                 rejected_count += 1
                 rejected_file.write(
@@ -612,12 +621,6 @@ def sanitize_input(
                     )
                     + "\n"
                 )
-                continue
-            if (
-                window_start_dt is not None
-                and window_end_dt is not None
-                and _raw_line_is_outside_window(item.text, window_start_dt, window_end_dt)
-            ):
                 continue
             try:
                 parsed = parse_line(item)
@@ -634,6 +637,7 @@ def sanitize_input(
                     and window_end_dt is not None
                     and not _event_is_in_window(event, window_start_dt, window_end_dt, include_inferred=False)
                 ):
+                    window_excluded_count += 1
                     continue
             except Exception as exc:  # pragma: no cover - defensive fallback, no raw line is persisted.
                 rejected_count += 1
@@ -677,8 +681,11 @@ def sanitize_input(
         "input_path": redacted_input_path,
         "raw_log_policy": RAW_LOG_POLICY,
         "sanitizer_version": SANITIZER_VERSION,
+        "input_line_count": input_line_count,
         "event_count": event_count,
         "rejected_count": rejected_count,
+        "window_excluded_count": window_excluded_count,
+        "accounted_line_count": event_count + rejected_count + window_excluded_count,
         "detected_format": detected_format,
         "profile_confidence": profile_confidence,
         "source_system": _dominant(sources, default=detected_format),
@@ -710,6 +717,8 @@ def sanitize_input(
         "rejected_lines": str(rejected_path),
         "event_count": event_count,
         "rejected_count": rejected_count,
+        "input_line_count": input_line_count,
+        "window_excluded_count": window_excluded_count,
     }
 
 
@@ -926,6 +935,15 @@ def _raw_line_is_outside_window(line: str, start_dt: datetime, end_dt: datetime)
 
 
 def _raw_line_timestamp(line: str) -> datetime | None:
+    payload = _json_object(line)
+    if payload is not None:
+        value = _timestamp_from_payload(payload)
+        if not value:
+            return None
+        try:
+            return parse_timestamp(value)
+        except (TypeError, ValueError):
+            return None
     match = ISO_TS_RE.search(line[:512])
     if not match:
         return None
@@ -1708,6 +1726,7 @@ def iter_input_lines(
     include_empty: bool = False,
     start: str = "",
     end: str = "",
+    filter_lines_by_window: bool = True,
 ) -> Iterable[InputLine]:
     start_dt = parse_timestamp(start) if start else None
     end_dt = parse_timestamp(end) if end else None
@@ -1715,8 +1734,8 @@ def iter_input_lines(
         yield from _iter_file_input_lines(
             file_path,
             include_empty=include_empty,
-            start_dt=start_dt,
-            end_dt=end_dt,
+            start_dt=start_dt if filter_lines_by_window else None,
+            end_dt=end_dt if filter_lines_by_window else None,
         )
 
 
@@ -1767,7 +1786,7 @@ def _iter_file_input_lines(
                 continue
             if end_dt is not None and line_ts is not None:
                 if line_ts > end_dt:
-                    break
+                    continue
             observed = format_timestamp(fallback_dt + timedelta(seconds=line_number))
             yield InputLine(file_path, line_number, text, observed)
 

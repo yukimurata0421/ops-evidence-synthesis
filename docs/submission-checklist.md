@@ -4,7 +4,8 @@
 
 ## 正本
 
-- 動画台本: [demo-video-script.md](demo-video-script.md)
+- 画面とナレーションの正本: [05-画面とナレーション対応表.md](../hackathon/05-画面とナレーション対応表.md)
+- 音声収録用台本: [02-narration-ja.md](../hackathon/02-narration-ja.md)
 - ProtoPedia文案: [protopedia-entry-japanese.md](protopedia-entry-japanese.md)
 - URL一覧: [submission-links.md](submission-links.md)
 - 構成図: [assets/architecture-devops-ai-agent.svg](assets/architecture-devops-ai-agent.svg)
@@ -16,8 +17,8 @@
 
 - GitHub: https://github.com/yukimurata0421/ops-evidence-synthesis
 - Public URL: https://ops-evidence.yukimurata0421.dev/
-- Cloud Run revision: `ops-evidence-api-00260-qj4`
-- Image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:c37293fc079fd4f3fc8392923e313431131397cd6c9c7ffa9b369aaf27eeaacd`
+- Cloud Run revision: `ops-evidence-api-00263-5xp`
+- Image digest: `asia-northeast1-docker.pkg.dev/ops-evidence-synthesis/ops-evidence/ops-evidence-api@sha256:10c06f9d7912421c009082fdbcd389e73a289da3df186b86371b26dcee7c6947`
 - Request timeout: 900 seconds
 - Fast Review logic: `source-approved-evidence-v2`
 - Public smoke: passed
@@ -41,7 +42,7 @@ make smoke-public
 - [ ] 冒頭12秒で「5つのAIで解析しても、証拠がなければ原因にしない」と言う。
 - [ ] Agent TraceのEvidence固定、Cross-check、Citation validation、Review Target生成を見せる。
 - [ ] Code ProfileでGeminiの読み取りと質問を見せ、承認済みSHAは字幕で示す。
-- [ ] 45,000入力、27,926 event、909 Evidence Items、5実APIを表示する。
+- [ ] 45,000入力、45,000 sanitized events、1,035 Evidence Items、5実APIを表示する。
 - [ ] `0 Primary` を「証拠不足で止まれた結果」と説明する。
 - [ ] Fast GCP Reviewだけ実ライブ実行する。
 - [ ] Cross-checkは約232秒かかるため録画中に実行しない。
