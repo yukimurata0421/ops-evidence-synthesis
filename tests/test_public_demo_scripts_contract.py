@@ -92,6 +92,60 @@ def test_deploy_public_demo_keeps_ci_secret_scan_digest_and_smoke_gates() -> Non
     assert 'make PYTHON="${PYTHON_BIN}" PUBLIC_BASE_URL="${PUBLIC_BASE_URL}" smoke-public' in script
 
 
+def test_demo_video_smoke_keeps_submission_path_contract() -> None:
+    script = (ROOT / "scripts" / "check_demo_video_path.py").read_text(encoding="utf-8")
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "source-approved-evidence-v2" in script
+    assert "Gemini Questions For Human Approval" in script
+    assert "adk:tool:validate_citations" in script
+    assert "fast-gcp-review-20260712-source-approved-v2-final" in script
+    assert "fast-cross-check-20260712-source-approved-v2-200-final" in script
+    assert "needs_more_data -> evidence_collected" in script
+    assert 'smoke-demo-video:' in makefile
+    assert 'scripts/check_demo_video_path.py --base-url $(PUBLIC_BASE_URL)' in makefile
+
+
+def test_submission_docs_have_one_current_copy_per_surface() -> None:
+    obsolete = (
+        "docs/demo-video-script-3min-ja.md",
+        "docs/final-submission-checklist-ja.md",
+        "docs/hackathon-evaluator-experience-strategy-ja.md",
+        "docs/protopedia-entry-v3.md",
+        "docs/protopedia-submission-copy-ja.md",
+        "docs/arena-seed-import.md",
+        "docs/claude-opus-provider-evaluation.md",
+        "docs/gemma-provider-evaluation.md",
+        "docs/grok-provider-evaluation.md",
+        "docs/implementation-record-2026-06-17-18-ja.md",
+        "docs/implementation-record-2026-06-18-productization-ja.md",
+        "docs/implementation-record-ja.md",
+        "docs/implementation-status-ja.md",
+        "docs/latest-implementation-summary-ja.md",
+        "docs/local-first-evidence-bundle-record-ja.md",
+        "docs/stream_v3-monitoring.md",
+        "docs/system-overview-ja.md",
+    )
+    for relative_path in obsolete:
+        assert not (ROOT / relative_path).exists(), relative_path
+
+    video = (ROOT / "docs" / "demo-video-script.md").read_text(encoding="utf-8")
+    protopedia = (ROOT / "docs" / "protopedia-entry-japanese.md").read_text(encoding="utf-8")
+    checklist = (ROOT / "docs" / "submission-checklist.md").read_text(encoding="utf-8")
+    architecture = (ROOT / "docs" / "assets" / "architecture-devops-ai-agent.svg").read_text(encoding="utf-8")
+
+    assert "# 2分58秒 デモ動画台本" in video
+    assert "5つのAIで解析しても、証拠がなければ原因にしない" in video
+    assert "source-approved-evidence-v2" in video
+    assert "5つのAIが同意しても" not in video
+    assert "ProtoPedia 貼り付け用文案" in protopedia
+    assert "make smoke-demo-video" in checklist
+    assert "Gemini system reading" in architecture
+    assert "5 real AI APIs" in architecture
+    assert "Mistral chunks" not in architecture
+    assert "51 rate-paced calls" not in architecture
+
+
 def test_generate_precomputed_review_script_records_public_review_safety_terms() -> None:
     script = (ROOT / "scripts" / "generate_precomputed_review_from_multi_run.py").read_text(encoding="utf-8")
 

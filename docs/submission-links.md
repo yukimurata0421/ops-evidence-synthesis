@@ -34,7 +34,6 @@ Current reviewer-facing URLs for the hackathon submission.
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
 - Architecture image: docs/assets/architecture-devops-ai-agent.svg
 - Demo video script: docs/demo-video-script.md
-- ProtoPedia entry draft: docs/protopedia-entry-v3.md
 - ProtoPedia Japanese entry draft: docs/protopedia-entry-japanese.md
 - X post draft: docs/x-post-draft.md
 
@@ -68,6 +67,3 @@ Current reviewer-facing URLs for the hackathon submission.
 - Billing budget alert: `Ops Evidence Hackathon Budget`, 3000 JPY/month, project-filtered to `ops-evidence-synthesis`
 - Budget note: alerts notify only; they do not automatically stop spend.
 - ADK tool contract: implemented and visible in each `agent_trace`.
-- Vertex Agent Runtime / Agent Engine status: the public artifact claims an
-  ADK-compatible tool contract and Cloud Run serving path; no public
-  `reasoningEngine` resource ID is recorded in this repository.

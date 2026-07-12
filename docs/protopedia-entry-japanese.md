@@ -1,95 +1,143 @@
-# ProtoPedia Entry Draft JA
+# ProtoPedia 貼り付け用文案
 
 ## 作品タイトル
 
-Ops Evidence Synthesis - AIが断定する前に運用証拠を固定するDevOps Review Agent
+Ops Evidence Synthesis - 5つのAIで解析しても、証拠がなければ原因にしないDevOps Agent
+
+## ひとことで
+
+AIに原因を当てさせるのではなく、原因と呼べる証拠を集めさせる。機密ログをローカルに残したまま、Geminiを中心に証拠・反証・不足証拠を統合するDevOps調査エージェントです。
 
 ## 概要
 
-Ops Evidence Synthesis は、DevOpsのインシデントレビューでAIが少ない証拠から自信満々に原因を断定してしまう問題に対して、証拠境界・モデル差分・追加調査点を固定するAIエージェントです。
+障害対応AIの危険は、回答が遅いことではありません。raw logに含まれる秘密情報を外部へ送ってしまうことと、証拠が不足していてももっともらしい原因を断定できることです。
 
-raw log はローカルに残し、サニタイズ済みのEvidence BundleだけをSHA256で固定します。今回の公開主導線では、45,000行の入力から27,926件のサニタイズ済みruntime eventを受け入れ、909個のEvidence Itemにまとめました。Gemini、GPT OSS、Mistral、Qwen、Gemma 4の5つの実APIでチャンク解析し、原因を自動昇格せず7件のhuman-gated validation targetとして可視化します。amazon-notifyのレビューはMore Data Rescore Demoとして残しています。
+Ops Evidence Synthesisは、raw logとraw sourceをローカルに残し、サニタイズ済みのEvidence BundleだけをSHA256で固定します。AIは固定された証拠に対して調査し、引用を検証し、モデル間の不一致をReview Targetへ変換し、足りない証拠を要求します。最終原因の確定と危険な運用操作は人間の承認対象です。
 
-AIは最終原因や危険な運用操作を勝手に決定しません。代わりに、人間が確認すべき論点、足りない証拠、再スコア対象を提示します。Cloud Run上の読み取り専用UIから、Summary、Detail、Review Graph、API View、More Data Rescore Demoを確認できます。
+公開主導線では、実際の常時配信システムの45,000入力行から27,926件のサニタイズ済みeventを受け入れ、909個のEvidence Itemへ集約しました。Gemini、GPT OSS、Mistral、Qwen、Gemma 4の実API出力を検証し、原因を自動昇格させず7件のValidation Targetとして提示しています。
 
-## ストーリー
+## 解決したい課題
 
-### 1. 解決したい課題と背景
+DevOps/SREの現場では、次の問題が同時に発生します。
 
-AIOpsや障害対応AIで危険なのは、AIがログを要約できることではなく、十分な証拠がない状態で原因を断定してしまうことです。実運用では、必要なのは「それっぽい答え」ではなく、どの証拠を見たのか、どのモデルが同意したのか、何が未確認なのか、次に何を集めるべきかを追跡できることです。
+- ログやソースコードを外部AIへそのまま渡せない
+- AIの説明が証拠、推測、操作提案を混在させる
+- 複数AIが同意すると、証拠不足でも正解に見える
+- 不一致や不足証拠が、次の調査タスクへつながらない
+- AIに復旧操作まで任せるにはリスクが高い
 
-Ops Evidence Synthesis は、AIの出力をそのまま結論にするのではなく、Evidence Bundle、provider positions、Canonical Review Graph、More Data Rescore Demoとして確認できる形に変換します。
+OESは「原因は何か」ではなく、「その判断をしてよいだけの証拠があるか」を扱います。
 
-### 2. 想定ユーザー
+## 想定ユーザー
 
-小規模から中規模のDevOps/SRE/運用改善担当者を想定しています。特に、ログやソースコードを外部AIにそのまま渡せない環境、障害対応の判断を人間が最終責任として持つ必要がある環境、複数AIの出力を監査可能にしたい環境を対象にしています。
+小規模から中規模のDevOps/SRE、運用改善担当者を想定しています。特に、機密ログを扱う環境、最終判断を人間が担う必要がある環境、複数AIの出力を監査可能にしたい環境を対象にしています。
 
-### 3. プロダクトの特徴
+## AIエージェントである必然性
 
-- raw log はアップロードせず、ローカルでサニタイズする
-- Evidence BundleをSHA256で固定し、同じ証拠に対するレビューを再現可能にする
-- Gemini、GPT OSS、Mistral、Qwen、Gemma 4でサニタイズ済みEvidence Itemをチャンク解析する
-- AIの出力を最終結論ではなくReview Targetへ変換する
-- technical convergence と incident / user impact promotion gate を分離する
-- 追加証拠を child Evidence Bundle として取り込み、再スコアできる
-- Cloud Run上の読み取り専用UIで、審査員がログインなしに確認できる
+OESのAgent Traceは次の調査ループを実行します。
 
-### 4. つくる
+```text
+freeze_evidence_bundle
+-> run_cross_check_providers
+-> validate_citations
+-> compute_review_targets
+-> request_more_evidence
+-> arbitrate_review_gate
+-> attach_child_bundle
+-> re-score
+```
 
-メインデモでは、まずサニタイズ済みコードをGemini 3.1 Proが読み、人間の8回答を候補JSONへ正規化します。人間が解釈を再確認してSHA承認した後はソース参照を無効化し、45,000行の入力から受け入れた27,926件のruntime event、909個のEvidence Item、承認済みJSONだけを5つの実APIへprovider別チャンクで渡します。providerの支持は「真実」ではなくreview workとして扱い、現在の公開結果は0 primary candidate、7 validation targetです。
+AIは一問一答の要約を返すのではなく、証拠を検証し、次に必要な証拠を決め、追加証拠を受けて判断状態を更新します。自律性の境界も明確です。調査、比較、証拠要求、再評価はAgentが進め、最終原因と運用操作はHuman Gateで止めます。
 
-メインデモURL:
+## つくる - Geminiと人間で意味を確定する
 
-https://ops-evidence.yukimurata0421.dev/?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+ログ解析の前に、Gemini 3.1 Proがサニタイズ済みコードからシステム目的、主要コンポーネント、ログとメトリクスの意味を推定し、人間へ質問します。
 
-### 5. まわす
+人間はJSONを一から書かず、自然言語で運用知識を回答します。Geminiが回答を候補JSONへ正規化し、人間が再確認して承認します。承認結果はSHA256で固定され、その後のログ解析ではコードへの再アクセスを禁止します。Source Profileは解釈コンテキストであり、runtime evidenceとしては扱いません。
 
-More Data Rescore Demo では、追加証拠によって判断が変わる流れを示します。
+Code Profile:
+https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/
 
-- before: `validation_target`
-- promotion score: `0.69`
-- blocked reason: `user_impact_unverified`
-- evidence delta: 追加ログ2件、追加証拠参照4件
-- transition: `needs_more_data -> evidence_collected`
-- after: `primary_candidate`
-- promotion score: `0.84`
-- review priority score: `0.86`
-- blocked reasons: 解消
-- provider positions: 5 provider すべてを表示
+## まわす - 証拠不足を次の調査へ変える
 
-URL:
+5プロバイダーの支持は多数決の正解として扱いません。各主張はEvidence IDを必要とし、反証、不足証拠、ユーザー影響、provider silenceを保持したままCanonical Review Graphへ統合します。
 
+公開Reviewでは0 Primary Candidate、7 Validation Targetです。これは失敗ではなく、証拠が不足した状態で原因を自動確定しなかった結果です。スコアは原因確率ではなく、人間が先に確認するレビュー優先度です。
+
+Primary Review:
+https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
+
+More Data Rescoreでは、Agentが要求したユーザー影響証拠をchild Evidence Bundleとして追加します。状態は `needs_more_data -> evidence_collected` と進み、Validation TargetがPrimary Candidateへ再評価されます。それでも最終原因の確定は人間が行います。
+
+Rescore Demo:
 https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
 
-これは一問一答のAIではなく、追加証拠を取り込み、child Evidence Bundleとして扱い、Review Graphを再スコアするDevOps改善ループです。
+## とどける - Google Cloud上で実際に動かす
 
-### 6. とどける
+読み取り専用UIをCloud Runへデプロイし、審査員はログインなしで固定済みReviewを確認できます。Fast GCP Reviewでは、Cloud RunからVertex Gemini Flash Liteを実行し、固定された2,000行のサニタイズ済み証拠から新しいReview URLを生成します。実測は約14秒で、raw logや任意URLは受け付けません。
 
-Cloud Runにデプロイした読み取り専用UIとして提供しています。初回GETでlive model workを起動せず、precomputed review cacheを返すため、審査員はログインなしでSummary、Detail、Review Graph、Markdown Incident Report、API View、More Data Rescore Demoを確認できます。
+Fast GCP Review:
+https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
 
-Public entry:
+Verified Fast Review:
+https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=2641cb5fe5850d006864dec4aad3b3d2539e9efcef3753b43d5624f8b6e5136b
 
-https://ops-evidence.yukimurata0421.dev/
+リリース経路はテスト、秘密情報検査、Cloud Build、Artifact Registry、Cloud Run更新、公開スモークまでを一つの手順で実行します。
 
-## 開発素材
+## Google Cloud / 開発素材
 
-- Google Cloud Run
-- Vertex MaaS / Mistral
-- Python
-- FastAPI
-- SQLite / PostgreSQL ledger support
-- pytest
+- Vertex AI / Gemini 3.1 Pro / Gemini 3.1 Flash Lite
+- Vertex AI Model Garden / MaaS
+- Cloud Run
 - Cloud Build
-- GitHub Actions
-- gitleaks
-- SVGアーキテクチャ図
-- precomputed review cache
+- Artifact Registry
+- Cloud Storage
+- Secret Manager
+- Python / FastAPI
+- PostgreSQL / SQLite
+- pytest / GitHub Actions / gitleaks
+
+## 差別化
+
+- raw logとraw sourceをモデルへ直接渡さない
+- コードの意味をGeminiが推定し、人間が承認する
+- Evidence Bundleと承認済み解釈をSHA256で固定する
+- 複数AIの一致を原因確率や多数決として扱わない
+- 反証、不足証拠、provider silenceを消さない
+- 追加証拠をchild bundleとして取り込み再評価する
+- 最終原因と運用操作をHuman Gateの外へ出さない
+- 45,000-50,000行の実運用規模と、約14秒のライブデモを両方提示する
+
+## システム構成
+
+アップロード画像:
+`docs/assets/architecture-devops-ai-agent.svg`
+
+```text
+raw logs / raw source stay local
+-> local inspect and sanitize
+-> Gemini source reading
+-> human semantics approval
+-> SHA-fixed approved profile
+-> Evidence Bundle
+-> Gemini-led provider review
+-> citation validation
+-> Canonical Review Graph
+-> missing evidence request
+-> human gate
+-> child Evidence Bundle
+-> re-score
+-> read-only Cloud Run UI
+```
 
 ## 提出URL
 
 - GitHub: https://github.com/yukimurata0421/ops-evidence-synthesis
 - Deployed project: https://ops-evidence.yukimurata0421.dev/
-- Primary incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
-- Architecture image: [assets/architecture-devops-ai-agent.svg](assets/architecture-devops-ai-agent.svg)
-- Demo video script: [demo-video-script.md](demo-video-script.md)
-- Submission links: [submission-links.md](submission-links.md)
+- Demo video script: `docs/demo-video-script.md`
+- Submission links: `docs/submission-links.md`
+
+## 締め
+
+> AIは原因仮説を作れます。
+> OESは、その仮説を人間が安全に判断できる、再現可能な証拠へ変換します。

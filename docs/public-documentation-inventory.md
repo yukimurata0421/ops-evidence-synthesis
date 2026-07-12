@@ -19,7 +19,6 @@ operator history or raw incident material.
 | `docs/submission-links.md` | Copy/paste URL set for the current hackathon submission surfaces and demo pages. | Keep |
 | `docs/submission-checklist.md` | Submission readiness checklist for ProtoPedia, Google Form, X hashtag, deployment, and budget alert status. | Keep |
 | `docs/demo-video-script.md` | Three minute demo script for the required YouTube or Vimeo submission video. | Keep |
-| `docs/protopedia-entry-v3.md` | ProtoPedia article draft aligned with the live demo states and terminology. | Keep |
 | `docs/protopedia-entry-japanese.md` | Japanese ProtoPedia copy/paste draft for the project page. | Keep |
 | `docs/x-post-draft.md` | X post draft with the required hackathon hashtag. | Keep |
 | `docs/assets/architecture-devops-ai-agent.svg` | ProtoPedia-ready system architecture image. | Keep |

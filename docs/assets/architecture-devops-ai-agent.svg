@@ -1,169 +1,126 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1040" viewBox="0 0 1500 1040" role="img" aria-label="Ops Evidence Synthesis architecture">
-<defs>
-<marker id="ah_vault" markerWidth="12" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5 L0,10 Z" fill="#0e9f6e"></path></marker>
-<marker id="ah_context" markerWidth="12" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5 L0,10 Z" fill="#7c3aed"></path></marker>
-<marker id="ah_evidence" markerWidth="12" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5 L0,10 Z" fill="#0284c7"></path></marker>
-<marker id="ah_gate" markerWidth="12" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5 L0,10 Z" fill="#b45309"></path></marker>
-<marker id="ah_deliver" markerWidth="12" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5 L0,10 Z" fill="#475569"></path></marker>
-<marker id="ah_loop" markerWidth="12" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L11,5 L0,10 Z" fill="#4d7c0f"></path></marker>
-<filter id="cardShadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000000" flood-opacity="0.18"></feDropShadow></filter>
-</defs>
-<rect x="0" y="0" width="1500" height="1040" rx="20" fill="#f4f6fb"></rect>
-<text x="58" y="52" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:13px;letter-spacing:2.5px;font-weight:600" fill="#0e9f6e">GUARDED AI · DEVOPS INCIDENT REVIEW</text>
-<text x="58" y="98" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:44px;font-weight:700;letter-spacing:-0.5px" fill="#152038">Ops Evidence Synthesis</text>
-<text x="58" y="132" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:17px" fill="#56657f">Raw logs and source stay local. The AI only ever sees sanitized artifacts and approved profile context.</text>
-<circle cx="62" cy="159" r="5" fill="#0e9f6e"></circle>
-<text x="74" y="163" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12.5px" fill="#8592a8">Local vault</text>
-<circle cx="204" cy="159" r="5" fill="#7c3aed"></circle>
-<text x="216" y="163" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12.5px" fill="#8592a8">Sanitized context</text>
-<circle cx="404" cy="159" r="5" fill="#0284c7"></circle>
-<text x="416" y="163" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12.5px" fill="#8592a8">AI review</text>
-<circle cx="524" cy="159" r="5" fill="#b45309"></circle>
-<text x="536" y="163" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12.5px" fill="#8592a8">Human gate</text>
-<circle cx="664" cy="159" r="5" fill="#475569"></circle>
-<text x="676" y="163" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12.5px" fill="#8592a8">Delivery</text>
-<circle cx="776" cy="159" r="5" fill="#4d7c0f"></circle>
-<text x="788" y="163" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12.5px" fill="#8592a8">Re-score loop</text>
-<line x1="58" y1="184" x2="1442" y2="184" stroke="#dbe3ef" stroke-width="1"></line>
-<text x="58" y="205" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px;letter-spacing:1.5px;font-weight:600" fill="#0e9f6e">◄ LOCAL — RAW STAYS HERE</text>
-<text x="1442" y="205" text-anchor="end" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px;letter-spacing:1.5px;font-weight:600" fill="#8592a8">CLEAN ROOM — ONLY SANITIZED ARTIFACTS CROSS THE WALL ►</text>
-<rect x="40" y="224" width="366" height="396" rx="16" fill="#0e9f6e" fill-opacity="0.06" stroke="#dbe3ef" stroke-width="1"></rect>
-<line x1="406" y1="230" x2="406" y2="614" stroke="rgba(14,159,110,0.42)" stroke-width="2" stroke-dasharray="6 7"></line>
-<line x1="404" y1="620" x2="404" y2="812" stroke="rgba(14,159,110,0.42)" stroke-width="2" stroke-dasharray="6 7"></line>
-<path d="M748,320 L770,320" stroke="#7c3aed" stroke-width="3.5" fill="none" marker-end="url(#ah_context)"></path>
-<path d="M1068,320 L1090,320" stroke="#7c3aed" stroke-width="3.5" fill="none" marker-end="url(#ah_context)"></path>
-<path d="M206,404 L206,444" stroke="#0e9f6e" stroke-width="3.5" fill="none" marker-end="url(#ah_vault)"></path>
-<path d="M748,528 L770,528" stroke="#0284c7" stroke-width="3.5" fill="none" marker-end="url(#ah_evidence)"></path>
-<path d="M1068,528 L1090,528" stroke="#0284c7" stroke-width="3.5" fill="none" marker-end="url(#ah_evidence)"></path>
-<path d="M748,736 L770,736" stroke="#b45309" stroke-width="3.5" fill="none" marker-end="url(#ah_gate)"></path>
-<path d="M1068,736 L1090,736" stroke="#475569" stroke-width="3.5" fill="none" marker-end="url(#ah_deliver)"></path>
-<path d="M356,320 L450,320" stroke="#7c3aed" stroke-width="3.5" fill="none" stroke-dasharray="9 7" marker-end="url(#ah_context)"></path>
-<path d="M356,528 L450,528" stroke="#0284c7" stroke-width="3.5" fill="none" stroke-dasharray="9 7" marker-end="url(#ah_evidence)"></path>
-<path d="M1240,404 C1240,430 900,432 740,444" stroke="#7c3aed" stroke-width="3" fill="none" stroke-dasharray="9 7" marker-end="url(#ah_context)"></path>
-<path d="M206,612 C206,700 320,736 450,736" stroke="#0e9f6e" stroke-width="3" fill="none" stroke-dasharray="9 7" marker-end="url(#ah_vault)"></path>
-<path d="M920,612 C886,636 728,638 632,652" stroke="#b45309" stroke-width="3" fill="none" stroke-dasharray="9 7" marker-end="url(#ah_gate)"></path>
-<path d="M1240,612 C1240,634 1010,638 920,652" stroke="#b45309" stroke-width="3" fill="none" stroke-dasharray="9 7" marker-end="url(#ah_gate)"></path>
-<path d="M918,820 C918,862 900,870 820,870 L360,870 C312,870 300,842 300,588 C300,548 360,544 450,544" stroke="#4d7c0f" stroke-width="4.5" fill="none" stroke-dasharray="12 9" marker-end="url(#ah_loop)"></path>
-<circle cx="404" cy="320" r="13" fill="#ffffff" stroke="#0e9f6e" stroke-width="2"></circle>
-<rect x="399" y="316" width="10" height="2" rx="1" fill="#0e9f6e"></rect>
-<rect x="400.5" y="320" width="7" height="2" rx="1" fill="#0e9f6e"></rect>
-<rect x="402" y="324" width="4" height="2" rx="1" fill="#0e9f6e"></rect>
-<circle cx="404" cy="528" r="13" fill="#ffffff" stroke="#0e9f6e" stroke-width="2"></circle>
-<rect x="399" y="524" width="10" height="2" rx="1" fill="#0e9f6e"></rect>
-<rect x="400.5" y="528" width="7" height="2" rx="1" fill="#0e9f6e"></rect>
-<rect x="402" y="532" width="4" height="2" rx="1" fill="#0e9f6e"></rect>
-<text x="370" y="303" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:11px" fill="#7c3aed">sanitized</text>
-<text x="370" y="511" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:11px" fill="#0284c7">sanitized</text>
-<text x="812" y="420" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:11px" fill="#7c3aed">approved profile context</text>
-<circle cx="462" cy="206" r="11" fill="#7c3aed"></circle>
-<text x="462" y="210" text-anchor="middle" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px;font-weight:700" fill="#ffffff">1</text>
-<text x="480" y="210" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px;letter-spacing:1px" fill="#56657f">CONTEXT</text>
-<circle cx="462" cy="414" r="11" fill="#0284c7"></circle>
-<text x="462" y="418" text-anchor="middle" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px;font-weight:700" fill="#ffffff">2</text>
-<text x="480" y="418" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px;letter-spacing:1px" fill="#56657f">EVIDENCE &amp; AI REVIEW</text>
-<circle cx="462" cy="622" r="11" fill="#b45309"></circle>
-<text x="462" y="626" text-anchor="middle" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px;font-weight:700" fill="#ffffff">3</text>
-<text x="480" y="626" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px;letter-spacing:1px" fill="#56657f">JUDGEMENT &amp; DELIVERY</text>
-<rect x="56" y="236" width="300" height="168" rx="14" fill="#ffffff" stroke="#dbe3ef" stroke-width="1" filter="url(#cardShadow)"></rect>
-<rect x="56" y="249" width="5" height="142" rx="2.5" fill="#0e9f6e"></rect>
-<circle cx="80" cy="266" r="4.5" fill="#0e9f6e"></circle>
-<text x="94" y="272" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">Local raw inputs</text>
-<text x="76" y="304" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Logs · source · config</text>
-<text x="76" y="326" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Local sanitizers run here</text>
-<rect x="76" y="370" width="222" height="22" rx="6" fill="#0e9f6e" fill-opacity="0.15"></rect>
-<text x="85" y="385" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#0e9f6e">raw logs/source stay local</text>
-<rect x="56" y="444" width="300" height="168" rx="14" fill="#ffffff" stroke="#dbe3ef" stroke-width="1" filter="url(#cardShadow)"></rect>
-<rect x="56" y="457" width="5" height="142" rx="2.5" fill="#0e9f6e"></rect>
-<circle cx="80" cy="474" r="4.5" fill="#0e9f6e"></circle>
-<text x="94" y="480" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">SHA evidence bundle</text>
-<text x="76" y="512" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Sanitized Evidence Items</text>
-<text x="76" y="534" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Fixed evidence hash</text>
-<rect x="76" y="578" width="152" height="22" rx="6" fill="#0e9f6e" fill-opacity="0.15"></rect>
-<text x="85" y="593" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#0e9f6e">evidence_sha256</text>
-<rect x="452" y="236" width="296" height="168" rx="14" fill="#ffffff" stroke="#dbe3ef" stroke-width="1" filter="url(#cardShadow)"></rect>
-<rect x="452" y="249" width="5" height="142" rx="2.5" fill="#7c3aed"></rect>
-<circle cx="476" cy="266" r="4.5" fill="#7c3aed"></circle>
-<text x="490" y="272" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">Sanitized code</text>
-<text x="472" y="304" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Component summaries</text>
-<text x="472" y="326" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Env &amp; config metadata</text>
-<rect x="472" y="370" width="159" height="22" rx="6" fill="#7c3aed" fill-opacity="0.15"></rect>
-<text x="481" y="385" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#7c3aed">excerpts are bounded</text>
-<rect x="772" y="236" width="296" height="168" rx="14" fill="#ffffff" stroke="#dbe3ef" stroke-width="1" filter="url(#cardShadow)"></rect>
-<rect x="772" y="249" width="5" height="142" rx="2.5" fill="#7c3aed"></rect>
-<circle cx="796" cy="266" r="4.5" fill="#7c3aed"></circle>
-<text x="810" y="272" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">System profile draft</text>
-<text x="792" y="304" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">What is logged?</text>
-<text x="792" y="326" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">What orchestration is visible?</text>
-<rect x="792" y="370" width="110" height="22" rx="6" fill="#7c3aed" fill-opacity="0.15"></rect>
-<text x="801" y="385" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#7c3aed">AI-assisted</text>
-<rect x="1088" y="232" width="304" height="176" rx="16" fill="none" stroke="#b45309" stroke-width="2" opacity="0.55"></rect>
-<rect x="1092" y="236" width="296" height="168" rx="14" fill="#ffffff" stroke="#b45309" stroke-width="1.5" filter="url(#cardShadow)"></rect>
-<rect x="1092" y="249" width="5" height="142" rx="2.5" fill="#b45309"></rect>
-<circle cx="1116" cy="266" r="4.5" fill="#b45309"></circle>
-<text x="1130" y="272" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">Profile approval</text>
-<text x="1112" y="304" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Human approves profile use</text>
-<text x="1112" y="326" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Context, not evidence</text>
-<rect x="1112" y="370" width="222" height="22" rx="6" fill="#b45309" fill-opacity="0.15"></rect>
-<text x="1121" y="385" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#b45309">runtime claims still need IDs</text>
-<rect x="1274.8" y="223" width="97" height="24" rx="6" fill="#b45309"></rect>
-<text x="1323.3999999999999" y="239" text-anchor="middle" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:11px;font-weight:600;letter-spacing:0.5px" fill="#ffffff">◆ HUMAN GATE</text>
-<rect x="452" y="444" width="296" height="168" rx="14" fill="#ffffff" stroke="#dbe3ef" stroke-width="1" filter="url(#cardShadow)"></rect>
-<rect x="452" y="457" width="5" height="142" rx="2.5" fill="#0284c7"></rect>
-<circle cx="476" cy="474" r="4.5" fill="#0284c7"></circle>
-<text x="490" y="480" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">Provider chunks</text>
-<text x="472" y="512" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Per-provider paced calls</text>
-<text x="472" y="534" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Full Evidence Items, not raw rows</text>
-<rect x="472" y="578" width="152" height="22" rx="6" fill="#0284c7" fill-opacity="0.15"></rect>
-<text x="481" y="593" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#0284c7">full evidence items</text>
-<rect x="772" y="444" width="296" height="168" rx="14" fill="#ffffff" stroke="#dbe3ef" stroke-width="1" filter="url(#cardShadow)"></rect>
-<rect x="772" y="457" width="5" height="142" rx="2.5" fill="#0284c7"></rect>
-<circle cx="796" cy="474" r="4.5" fill="#0284c7"></circle>
-<text x="810" y="480" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">Recorded output</text>
-<text x="792" y="512" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Provider status recorded</text>
-<text x="792" y="534" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Provider support is gated</text>
-<rect x="792" y="578" width="110" height="22" rx="6" fill="#0284c7" fill-opacity="0.15"></rect>
-<text x="801" y="593" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#0284c7">output hashes</text>
-<rect x="1092" y="444" width="296" height="168" rx="14" fill="#ffffff" stroke="#dbe3ef" stroke-width="1" filter="url(#cardShadow)"></rect>
-<rect x="1092" y="457" width="5" height="142" rx="2.5" fill="#0284c7"></rect>
-<circle cx="1116" cy="474" r="4.5" fill="#0284c7"></circle>
-<text x="1130" y="480" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">Provider stances</text>
-<text x="1112" y="512" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Claimed · silent · conflict</text>
-<text x="1112" y="534" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Support signal only</text>
-<rect x="1112" y="578" width="152" height="22" rx="6" fill="#0284c7" fill-opacity="0.15"></rect>
-<text x="1121" y="593" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#0284c7">priority, not truth</text>
-<rect x="452" y="652" width="296" height="168" rx="14" fill="#ffffff" stroke="#b45309" stroke-width="1.5" filter="url(#cardShadow)"></rect>
-<rect x="452" y="665" width="5" height="142" rx="2.5" fill="#b45309"></rect>
-<circle cx="476" cy="682" r="4.5" fill="#b45309"></circle>
-<text x="490" y="688" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">Citation validation</text>
-<text x="472" y="720" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Schema validation</text>
-<text x="472" y="742" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Evidence reference checks</text>
-<rect x="472" y="786" width="159" height="22" rx="6" fill="#b45309" fill-opacity="0.15"></rect>
-<text x="481" y="801" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#b45309">cited refs required</text>
-<rect x="654.6" y="639" width="77" height="24" rx="6" fill="#ffffff" stroke="#b45309" stroke-width="1"></rect>
-<text x="693.3000000000001" y="655" text-anchor="middle" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:11px;letter-spacing:0.5px" fill="#b45309">VALIDATION</text>
-<rect x="768" y="648" width="304" height="176" rx="16" fill="none" stroke="#b45309" stroke-width="2" opacity="0.55"></rect>
-<rect x="772" y="652" width="296" height="168" rx="14" fill="#ffffff" stroke="#b45309" stroke-width="1.5" filter="url(#cardShadow)"></rect>
-<rect x="772" y="665" width="5" height="142" rx="2.5" fill="#b45309"></rect>
-<circle cx="796" cy="682" r="4.5" fill="#b45309"></circle>
-<text x="810" y="688" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">Review arbitration</text>
-<text x="792" y="720" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Promotion gates</text>
-<text x="792" y="742" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Missing-evidence requests</text>
-<rect x="792" y="786" width="215" height="22" rx="6" fill="#b45309" fill-opacity="0.15"></rect>
-<text x="801" y="801" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#b45309">human-gated causal judgement</text>
-<rect x="954.8" y="639" width="97" height="24" rx="6" fill="#b45309"></rect>
-<text x="1003.4" y="655" text-anchor="middle" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:11px;font-weight:600;letter-spacing:0.5px" fill="#ffffff">◆ HUMAN GATE</text>
-<rect x="1092" y="652" width="296" height="168" rx="14" fill="#ffffff" stroke="#dbe3ef" stroke-width="1" filter="url(#cardShadow)"></rect>
-<rect x="1092" y="665" width="5" height="142" rx="2.5" fill="#475569"></rect>
-<circle cx="1116" cy="682" r="4.5" fill="#475569"></circle>
-<text x="1130" y="688" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700" fill="#152038">Read-only delivery</text>
-<text x="1112" y="720" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Cloud Run public UI</text>
-<text x="1112" y="742" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:15px" fill="#56657f">Precomputed review pages</text>
-<rect x="1112" y="786" width="159" height="22" rx="6" fill="#475569" fill-opacity="0.15"></rect>
-<text x="1121" y="801" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:12px" fill="#475569">no public write path</text>
-<text x="432" y="902" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;letter-spacing:0.5px" fill="#4d7c0f">RE-SCORE LOOP</text>
-<text x="588" y="902" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:13px" fill="#56657f">needs_more_data → evidence_collected → primary_candidate</text>
-<line x1="58" y1="942" x2="1442" y2="942" stroke="#dbe3ef" stroke-width="1"></line>
-<text x="58" y="972" style="font-family:ui-monospace,&#39;SF Mono&#39;,Menlo,Consolas,&#39;Liberation Mono&#39;,monospace;font-size:11px;letter-spacing:1px" fill="#8592a8">AUTONOMY BOUNDARY</text>
-<text x="230" y="966" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:14px" fill="#56657f"><tspan style="font-weight:600" fill="#152038">AI may</tspan> draft profiles, investigate, request more evidence, and re-score.</text>
-<text x="230" y="990" style="font-family:&#39;Segoe UI&#39;,system-ui,-apple-system,Helvetica,Arial,sans-serif;font-size:14px" fill="#56657f"><tspan style="font-weight:600" fill="#b45309">Humans gate</tspan> source-profile use, final causal judgement, and operational action.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1070" viewBox="0 0 1600 1070" role="img" aria-labelledby="title desc">
+  <title id="title">Ops Evidence Synthesis architecture</title>
+  <desc id="desc">Local-first evidence pipeline with Gemini source reading, human-approved semantics, five-provider evidence review, citation validation, Cloud Run delivery, and a more-data re-score loop.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f6f8fb; }
+      .band { fill: #ffffff; stroke: #d7dee8; stroke-width: 2; }
+      .local { fill: #eef7f6; stroke: #166d6b; }
+      .profile { fill: #f3f0fb; stroke: #674ca7; }
+      .ai { fill: #eef3fb; stroke: #2f5f9e; }
+      .gate { fill: #fff6e8; stroke: #a15c00; }
+      .deliver { fill: #f2f6fb; stroke: #455a77; }
+      .loop { fill: #f8fbef; stroke: #647a14; }
+      .text { font-family: Inter, Arial, sans-serif; fill: #17202a; font-size: 27px; font-weight: 700; }
+      .small { font-family: Inter, Arial, sans-serif; fill: #4a5565; font-size: 19px; font-weight: 500; }
+      .tiny { font-family: Inter, Arial, sans-serif; fill: #627083; font-size: 16px; font-weight: 500; }
+      .note { font-family: Inter, Arial, sans-serif; fill: #3b4655; font-size: 17px; font-weight: 600; }
+      .arrow { stroke: #526071; stroke-width: 4; fill: none; marker-end: url(#arrowhead); }
+      .softArrow { stroke: #674ca7; stroke-width: 4; fill: none; marker-end: url(#arrowheadProfile); stroke-dasharray: 10 8; }
+      .loopArrow { stroke: #647a14; stroke-width: 4; fill: none; marker-end: url(#arrowheadLoop); stroke-dasharray: 12 10; }
+    </style>
+    <marker id="arrowhead" markerWidth="14" markerHeight="10" refX="13" refY="5" orient="auto">
+      <path d="M0,0 L14,5 L0,10 Z" fill="#526071" />
+    </marker>
+    <marker id="arrowheadProfile" markerWidth="14" markerHeight="10" refX="13" refY="5" orient="auto">
+      <path d="M0,0 L14,5 L0,10 Z" fill="#674ca7" />
+    </marker>
+    <marker id="arrowheadLoop" markerWidth="14" markerHeight="10" refX="13" refY="5" orient="auto">
+      <path d="M0,0 L14,5 L0,10 Z" fill="#647a14" />
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1600" height="1070" />
+  <text class="text" x="70" y="70">Ops Evidence Synthesis</text>
+  <text class="small" x="70" y="104">Guarded AI investigation for DevOps incident review</text>
+  <text class="tiny" x="70" y="132">Raw logs and raw source stay local. AI sees sanitized artifacts and approved profile context only.</text>
+
+  <rect class="band local" x="70" y="175" width="330" height="165" rx="10" />
+  <text class="text" x="100" y="222">Local raw inputs</text>
+  <text class="small" x="100" y="258">Logs, source, config</text>
+  <text class="small" x="100" y="289">Local sanitizers</text>
+  <text class="tiny" x="100" y="318">raw_log_policy = not_uploaded</text>
+
+  <rect class="band profile" x="455" y="175" width="330" height="165" rx="10" />
+  <text class="text" x="485" y="222">Sanitized code</text>
+  <text class="small" x="485" y="258">Component summaries</text>
+  <text class="small" x="485" y="289">Env and config metadata</text>
+  <text class="tiny" x="485" y="318">source excerpts are bounded</text>
+
+  <rect class="band profile" x="840" y="175" width="330" height="165" rx="10" />
+  <text class="text" x="870" y="222">Gemini system reading</text>
+  <text class="small" x="870" y="258">Purpose and components</text>
+  <text class="small" x="870" y="289">Questions for human</text>
+  <text class="tiny" x="870" y="318">source context is not evidence</text>
+
+  <rect class="band gate" x="1225" y="175" width="305" height="165" rx="10" />
+  <text class="text" x="1255" y="222">Profile approval</text>
+  <text class="small" x="1255" y="258">Natural language -&gt; JSON</text>
+  <text class="small" x="1255" y="289">Human gate and SHA</text>
+  <text class="tiny" x="1255" y="318">source access then disabled</text>
+
+  <rect class="band local" x="70" y="425" width="330" height="170" rx="10" />
+  <text class="text" x="100" y="475">SHA evidence bundle</text>
+  <text class="small" x="100" y="511">Canonical sanitized logs</text>
+  <text class="small" x="100" y="543">Fixed evidence hash</text>
+  <text class="tiny" x="100" y="573">review artifacts are reproducible</text>
+
+  <rect class="band ai" x="455" y="425" width="330" height="170" rx="10" />
+  <text class="text" x="485" y="475">Gemini-led providers</text>
+  <text class="small" x="485" y="511">5 real AI APIs</text>
+  <text class="small" x="485" y="543">Provider-specific chunks</text>
+  <text class="tiny" x="485" y="573">not raw log rows</text>
+
+  <rect class="band ai" x="840" y="425" width="330" height="170" rx="10" />
+  <text class="text" x="870" y="475">Recorded output</text>
+  <text class="small" x="870" y="511">Provider status</text>
+  <text class="small" x="870" y="543">Output hashes</text>
+  <text class="tiny" x="870" y="573">provider support is gated</text>
+
+  <rect class="band gate" x="1225" y="425" width="305" height="170" rx="10" />
+  <text class="text" x="1255" y="475">Provider stances</text>
+  <text class="small" x="1255" y="511">Claimed / silent / conflict</text>
+  <text class="small" x="1255" y="543">Support signal only</text>
+  <text class="tiny" x="1255" y="573">priority, not truth probability</text>
+
+  <rect class="band gate" x="255" y="680" width="330" height="165" rx="10" />
+  <text class="text" x="285" y="727">Citation validation</text>
+  <text class="small" x="285" y="763">Schema validation</text>
+  <text class="small" x="285" y="794">Evidence reference checks</text>
+  <text class="tiny" x="285" y="823">uncited claims do not promote</text>
+
+  <rect class="band gate" x="635" y="680" width="330" height="165" rx="10" />
+  <text class="text" x="665" y="727">Review arbitration</text>
+  <text class="small" x="665" y="763">Promotion gates</text>
+  <text class="small" x="665" y="794">Missing evidence requests</text>
+  <text class="tiny" x="665" y="823">human-gated causal judgement</text>
+
+  <rect class="band deliver" x="1015" y="680" width="330" height="165" rx="10" />
+  <text class="text" x="1045" y="727">Cloud Run delivery</text>
+  <text class="small" x="1045" y="763">Cloud Run public UI</text>
+  <text class="small" x="1045" y="794">Fixed review + Fast Live</text>
+  <text class="tiny" x="1045" y="823">arbitrary input disabled</text>
+
+  <rect class="band loop" x="455" y="900" width="690" height="95" rx="10" />
+  <text class="text" x="485" y="944">More data re-score loop</text>
+  <text class="small" x="485" y="977">needs_more_data -&gt; evidence_collected -&gt; human-gated candidate</text>
+
+  <path class="softArrow" d="M400 258 L455 258" />
+  <path class="softArrow" d="M785 258 L840 258" />
+  <path class="softArrow" d="M1170 258 L1225 258" />
+  <path class="softArrow" d="M1377 340 C1377 380 1110 375 1005 425" />
+
+  <path class="arrow" d="M235 340 L235 425" />
+  <path class="arrow" d="M400 510 L455 510" />
+  <path class="arrow" d="M785 510 L840 510" />
+  <path class="arrow" d="M1170 510 L1225 510" />
+  <path class="arrow" d="M1378 595 C1378 650 980 640 800 680" />
+  <path class="arrow" d="M235 595 C235 640 340 645 420 680" />
+  <path class="arrow" d="M585 762 L635 762" />
+  <path class="arrow" d="M965 762 L1015 762" />
+
+  <path class="loopArrow" d="M1180 845 C1180 890 1145 925 1145 948" />
+  <path class="loopArrow" d="M455 948 C250 948 205 790 255 762" />
+
+  <text class="note" x="70" y="1026">Autonomy boundary: AI may draft profiles, investigate, request more evidence, and re-score.</text>
+  <text class="note" x="70" y="1050">Human approval gates source-profile use, final causal judgement, and operational action.</text>
 </svg>

@@ -1,139 +1,215 @@
-# 3分30秒デモ動画台本
+# 2分58秒 デモ動画台本
 
-機能一覧ではなく、「1件の障害判断が、人間による意味付けから証拠付きの
-レビュー判断へ変わる」流れを見せる。
+## 勝ち筋
+
+機能一覧ではなく、次の一つの変化を見せる。
+
+> 5つのAIで解析しても、証拠がなければ原因にしない。
+> 不足証拠が追加されたときだけ、判断を変える。
+
+タイトル:
+
+```text
+5つのAIで解析しても、証拠がなければ原因にしない
+Ops Evidence Synthesis
+```
 
 ## 使用URL
 
 - Runtime Code Profile: https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/
-- Runtime Review: https://ops-evidence.yukimurata0421.dev/reviews/a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0/
 - Runtime Full Review: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
-- Runtime Review Graph: https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=a7fc02ea095516eaaed07f4599c3e25f94d092163ed163efccfb6f0300ee50e0
-- Monitoring Review: https://ops-evidence.yukimurata0421.dev/reviews/8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a/
+- Fast GCP Review: https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
+- Verified Fast Review: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=2641cb5fe5850d006864dec4aad3b3d2539e9efcef3753b43d5624f8b6e5136b
 - More Data Rescore: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
 
-## 0:00-0:15 完成形を先に見せる
+## 構成
 
-Runtime Full Reviewを開き、最上位カード、Evidence ID、counter evidence、
-missing evidence、provider positionsを一瞬見せる。
+| 時間 | 画面 | 審査員に残す情報 |
+| --- | --- | --- |
+| 0:00-0:12 | Runtime Full Review | AIの同意は原因の証明ではない |
+| 0:12-0:28 | 問題提起 | 機密ログと証拠不足の誤診 |
+| 0:28-0:45 | Agent Trace | 調査、証拠要求、人間ゲート |
+| 0:45-1:18 | Code Profile | Geminiによる意味理解と人間承認 |
+| 1:18-1:53 | Runtime Review | 45,000行を原因に自動昇格しない |
+| 1:53-2:24 | Fast GCP Review | Cloud Runから実Geminiを実行 |
+| 2:24-2:47 | More Data Rescore | 追加証拠で判断状態が変わる |
+| 2:47-2:58 | End Card | つくる、まわす、とどける |
+
+## 0:00-0:12 完成形から始める
+
+Runtime Full ReviewでEvidence、Counter Evidence、Missing Evidenceが見える位置を表示する。
 
 ナレーション:
 
-> 5つのAIが障害を解析しています。しかし、ここにあるのは多数決の答えでは
-> ありません。どの証拠が仮説を支持し、何が反証し、何が不足しているかを
-> 人間が判断するためのレビューです。
+> 複数のAIが同じ仮説を支持しても、証拠が不足していればOESは原因にしません。
+> これはAIの回答ではなく、SREが安全に判断するための証拠付きレビューです。
 
-## 0:15-0:35 4段階を示す
-
-画面または字幕:
+字幕:
 
 ```text
-Source Profile -> Human Semantics -> Log Analysis -> Evidence-backed Decision
+Agreement != Cause
+AIの同意は、原因の証明ではない
 ```
 
-ナレーション:
+## 0:12-0:28 課題を二つに絞る
 
-> 複数AIにログを読ませる前に、コードからシステムの意味を推定し、人間が
-> その意味を承認します。承認後は、サニタイズ済み証拠と固定JSONだけで解析します。
-
-## 0:35-1:30 Code Profileを主役にする
-
-Runtime Code Profileを開き、次の順に見せる。
-
-1. Gemini Pro Code Profile
-2. Gemini System Reading
-3. Gemini Questions For Human Approval
-4. 人間回答
-
-ナレーション:
-
-> Gemini 3.1 Proがサニタイズ済みコードから、システム目的、コンポーネント、
-> ログとメトリクスの意味を推定します。ただしGemini自身には、その推定を
-> 確定する権限を与えていません。
-
-入力例として次を見せる。
+画面:
 
 ```text
-The critical outcome is a continuously available public YouTube live stream
-with fresh ADS-B visual content and audible program audio.
-
-Zero is healthy for failure counters. A controlled deployment restart can be
-expected; repeated or failed restarts are suspicious. Monitoring-only warnings
-do not prove user impact without public-output or runtime evidence.
-```
-
-## 1:30-2:05 Gemini解釈と人間の再レビュー
-
-候補パッチで、次のような構造化結果を拡大する。
-
-```json
-{
-  "metric_name": "stream_engine_ffmpeg_restart_count",
-  "healthy_direction": "zero",
-  "zero_behavior": "healthy",
-  "increase_behavior": "suspicious"
-}
+1. Raw logs may contain secrets
+2. AI can sound certain with incomplete evidence
 ```
 
 ナレーション:
 
-> 人間が自然言語で答えた運用知識を、Geminiが機械判定可能な候補JSONへ
-> 変換します。これはまだ確定値ではありません。人間が解釈を再確認し、
-> 問題があれば回答へ戻して再解釈します。
+> 障害対応AIには二つの危険があります。機密情報を含むraw logを外部へ出せないこと。
+> そして、証拠が足りなくても、もっともらしく原因を断定できてしまうことです。
 
-`Approve Reviewed Interpretation` 相当の承認結果を見せる。
+## 0:28-0:45 Agent Traceを見せる
 
-## 2:05-2:25 ハッシュ固定と境界
+Runtime Review内の `Agent Trace - ADK tool contract` を表示し、次を順に指す。
 
-次を表示する。
-
-- `status: approved`
-- Runtime approved profile SHA256: `77ceaa551a41d4a9e24fa3533de0bfe7df1f17a56702d6ed13e1e6b5342ce709`
-- `source_access_after_approval: disabled`
-- `context_is_not_evidence: true`
-
-ナレーション:
-
-> 承認結果は、元プロファイル、人間の回答、Gemini出力とハッシュで結び付きます。
-> 承認後のログ解析にはこのJSONだけを渡し、ソースの再参照を禁止します。
-
-## 2:25-3:10 最終Reviewの1判断だけ説明する
-
-Runtime Reviewを開く。45,000入力行から27,926件のサニタイズ済みeventを
-受け入れ、909 Evidence Itemを5つの実APIが最大19チャンクで解析したことを
-短く示す。全Evidence Item coverageは100%、raw row direct promptは0。
-
-説明するカードは1枚だけに絞る。
-
-- Suspected issue
-- Operational mechanism
-- Evidence IDs
-- Counter evidence
-- Missing evidence
-- Provider positions
-- Promotion state
+```text
+freeze_evidence_bundle
+run_cross_check_providers
+chunk_and_merge_full_corpus
+validate_citations
+compute_review_targets
+```
 
 ナレーション:
 
-> この仮説を原因とは断定していません。Evidence IDが技術的な確認対象を
-> 支持する一方、反証と不足証拠が残るためValidation Targetです。スコアは
-> 真実である確率ではなく、人間が先に確認すべきレビュー優先度です。
+> OESは証拠を固定し、モデルを照合し、引用を検証してReview Targetを作ります。
+> 不足証拠は次の調査へ送り、最終判断だけは人間へ戻します。
 
-## 3:10-3:30 追加証拠で締める
+字幕: `Guarded Autonomy - 調査はAgent、最終責任は人間`
 
-同じReview Graphを数秒見せる。時間に余裕があれば、別の保存済み事例である
-More Data Rescoreを開く。
+## 0:45-1:18 GeminiとHuman Gate
+
+Runtime Code Profileを次の順にスクロールする。
+
+1. Gemini System Reading
+2. Gemini Questions For Human Approval
+3. 回答・正規化・再レビューを示す短い字幕
+4. Runtime ReviewのProfile context
 
 ナレーション:
 
-> 最後に別の保存済み事例で、追加証拠が入るとValidation Targetから判断状態が
-> 変わることを示します。AIは原因仮説を作れます。Ops Evidence Synthesisは、
-> その仮説を人間が安全に判断できる、再現可能な証拠へ変換します。
+> ログ解析の前にGemini 3.1 Proがサニタイズ済みコードを読み、正常と異常の意味を人間に質問します。
+> 自然言語の回答をGeminiが候補JSONへ変換し、人間の再確認後にSHAで固定します。承認後はソースを再参照しません。
 
-## 撮影上の注意
+Code Profileの承認フォームは空欄のまま撮影し、入力やtokenを録画しない。次の承認済み実行値を字幕で表示してから、Runtime ReviewのProfile contextへ切り替える。
 
-- Code Profile時点では「ログもサニタイズ済み」と言わない。正しくは、ログ解析前にコードをサニタイズし、システムの意味を確定している。
-- ターミナルは承認済みprofile pathとReview URLを示す10秒程度に留める。
-- API待ち時間はカットする。
-- monitoringの結果へ切り替える場合は、runtimeとは別の監視面事例だと明示する。
-- provider convergenceを原因確率や多数決として説明しない。
+```text
+Approved profile SHA256:
+77ceaa551a41d4a9e24fa3533de0bfe7df1f17a56702d6ed13e1e6b5342ce709
+
+profile_id: stream_v3_runtime_source_approved_20260711
+mode: approved_profile_context
+source context supplied after approval: no
+```
+
+## 1:18-1:53 45,000行の実レビュー
+
+Runtime Reviewの概要から `runtime_recovery` のValidation Targetへ移動する。
+
+字幕:
+
+```text
+45,000 input rows
+27,926 sanitized events
+909 Evidence Items
+5 real AI providers
+Raw log upload: 0
+```
+
+ナレーション:
+
+> 実際の配信システムでは、45,000行から27,926件のeventを受け入れ、909個のEvidence Itemを5つの実APIで解析しました。
+> 復旧仮説は支持されていますが、配信状態とユーザー影響が不足しています。そのため原因にせず、Validation Targetへ回します。
+> 0.74は原因確率ではなく、レビュー優先度です。
+
+## 1:53-2:24 Cloud Runから実Geminiを動かす
+
+Fast GCP Reviewで次を操作する。
+
+1. `Load Sanitized Code Summary`
+2. `Run Live Fast Review`
+3. 進捗表示
+4. 完了後のReviewリンク
+
+画面で確認する値:
+
+```text
+Logic: source-approved-evidence-v2
+Rows: 2,000
+Model: gemini-3.1-flash-lite
+Raw logs: not_uploaded
+```
+
+ナレーション:
+
+> これはstream_v3専用ではありません。同じAgentを別の通知システムへ適用します。
+> 今、Cloud RunからVertex Gemini Flash Liteを実行しています。
+> 入力は固定された2,000行のサニタイズ済み証拠だけで、raw logは送信しません。
+> 実測約14秒で、schema-validなReview URLが生成されます。
+
+実行画面は別撮りし、実際の待ち時間を8-10秒へ編集する。Cross-checkは約232秒かかるため動画内では押さない。
+
+## 2:24-2:47 不足証拠で判断が変わる
+
+More Data RescoreでBeforeを表示し、`Run Fixed Rescore` を押してAfterへ切り替える。
+
+ナレーション:
+
+> ユーザー影響が不足すると、Agentは追加証拠を要求します。
+> child Evidence Bundleが届くと、needs more dataからevidence collectedへ進み、Primary Candidateへ再評価します。
+> 最終原因と運用操作は、まだ人間の承認対象です。
+
+字幕:
+
+```text
+needs_more_data -> evidence_collected -> re-scored
+```
+
+## 2:47-2:58 締め
+
+画面:
+
+```text
+Gemini / Vertex AI
+Cloud Build -> Cloud Run
+SHA-fixed Evidence
+Human-gated Action
+```
+
+ナレーション:
+
+> AIは原因仮説を作れます。OESは、その仮説を人間が安全に判断できる、再現可能な証拠へ変換します。
+
+最終字幕:
+
+```text
+AIに原因を当てさせるのではなく、
+原因と呼べる証拠を集めさせる。
+```
+
+## 撮影ルール
+
+- 一発撮りにせず、各画面を別録りして編集する。
+- 1920x1080、ブラウザ倍率125-150%、全編字幕付きにする。
+- Fast GCP Reviewだけ実ライブ実行を見せる。
+- JSON全体、長いターミナル、API待機ログは見せない。
+- `0 Primary` は失敗ではなく「証拠不足で止まれる」強みとして説明する。
+- スコアを原因確率と説明しない。
+- Source Profileをruntime evidenceと説明しない。
+- Agent Engineへデプロイ済みとは説明しない。
+- system切替時は「汎用性の証明」と明言する。
+
+## 撮影前検証
+
+```bash
+make smoke-demo-video
+```
+
+このコマンドがCode Profile、Runtime Review、Fast Review実行履歴、More Data Rescoreを公開環境で検証してから撮影する。

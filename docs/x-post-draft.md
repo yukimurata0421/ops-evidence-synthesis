@@ -1,10 +1,9 @@
-# X Post Draft
+# X 投稿文案
 
-DevOps × AI Agent Hackathon向けに、Ops Evidence Synthesisを提出しました。
+5つのAIで解析しても、証拠がなければ原因にしない。
 
-AIが障害原因を自信満々に断定する前に、raw logをローカルに残し、サニタイズ済みEvidence BundleをSHA256で固定。Geminiを起点に複数AIの主張・沈黙・不一致をReview Targetとして可視化するDevOps Review Agentです。
+Ops Evidence Synthesisは、raw logをローカルに残し、Geminiを中心に証拠・反証・不足証拠を統合するDevOps調査Agentです。追加証拠が入ったときだけ判断を再評価し、最終操作は人間が承認します。
 
-AIに最終判断を任せるのではなく、証拠境界・追加調査点・人間の判断ゲートを明確にする設計です。
+https://ops-evidence.yukimurata0421.dev/
 
 #findy_hackathon
-
