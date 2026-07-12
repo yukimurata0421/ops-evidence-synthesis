@@ -192,6 +192,8 @@ Raw log policy: not_uploaded
 Schema-valid: 1/1
 ```
 
+配置：`24-agent-platform-call.png`は`Run Live Fast Review`を押した直後から結果リンクが出る約1秒前まで、動画全体の`2:13–2:20`を目安に表示します。90%へ縮小し、上段中央（左上基準`X=96 / Y=16`）へ置きます。結果リンクを見せるときは外します。
+
 注意：`Run Live Cross-check`は約232秒かかるため、動画内では実行しません。
 
 ## 2:28–2:50　不足証拠による再評価
