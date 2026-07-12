@@ -200,6 +200,8 @@ Schema-valid: 1/1
 
 画面：[More Data Rescore](https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore)
 
+- `2:25`頃：直前のFast Review結果画面のまま、次のナレーションを先行して開始
+- `2:28`：`18-rescore-before.png`へ切り替え
 - Beforeを表示
 - `Run Fixed Rescore`を実行
 - Afterへ切り替え
@@ -212,7 +214,7 @@ Schema-valid: 1/1
 
 ナレーション：
 
-> ユーザー影響が不足すると、OESは追加証拠を要求します。child Evidence Bundleを加えると判断状態が進み、Validation TargetをPrimary Candidateへ再評価します。
+> 最初の判断では、ユーザー影響の証拠が不足しています。OESは仮説を原因へ昇格させず、Human Gateで止め、次に必要な追加証拠を要求します。child Evidence Bundleを加えると判断状態が進み、Validation TargetをPrimary Candidateへ再評価します。
 
 字幕：
 

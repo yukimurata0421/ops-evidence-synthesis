@@ -14,7 +14,7 @@
 | 8 | `assets/screenshots/12-runtime-target.png` | 28s | Put `21-runtime-metrics.png` at 90% scale in the top center (1920×1080: X=96, Y=16) for the first 8s. Fade it out, then hold on youtube_health and provider positions. Do not place it in the center or bottom. |
 | 9 | `assets/screenshots/04-platform-live.png` | 5s | Use as a clean transition before the live screen recording. |
 | 10 | Live recording of Fast GCP Review | 20s | Show Load Summary and Run with no overlay. After the Run click, place `24-agent-platform-call.png` at 90% in the top center (X=96, Y=16) for about 6-7s. Remove it before showing the generated Review link. Compress only idle waiting. |
-| 11 | `assets/screenshots/18-rescore-before.png` | 10s | Hold on user_impact_unverified. |
+| 11 | `assets/screenshots/18-rescore-before.png` | 10s | Start this narration about 3s early over the Fast Review result, cut to this image at 2:28, then hold on user_impact_unverified and Human Gate. |
 | 12 | `assets/screenshots/19-rescore-after.png` | 12s | Show the promoted state for 8s, then add `23-rescore-transition.png` for the final 4s. |
 | 13 | `assets/screenshots/05-end-card.png` | 10s | No extra animation beyond a subtle fade. |
 
