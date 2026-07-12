@@ -28,12 +28,10 @@ Use these first:
   https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo:
   https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
-- Live Cloud Run -> Vertex Gemini review:
+- Live Cloud Run -> Gemini 3.1 Flash-Lite review:
   https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
 
-The full copy/paste URL set for submission is kept in
-[docs/submission-links.md](docs/submission-links.md). The data boundary and
-committed-vs-local artifact split are documented in
+The data boundary and committed-vs-local artifact split are documented in
 [docs/data-boundary.md](docs/data-boundary.md).
 
 ## Why This Matters
@@ -98,11 +96,12 @@ are recorded in [docs/review-modes-runbook.md](docs/review-modes-runbook.md).
 
 ## What You Can Run Now
 
-- The public Cloudflare URL serves a precomputed summary/detail review without
+- The public URL serves a precomputed summary/detail review without
   starting model work on the initial GET.
 - The Fast GCP Review page runs only a fixed sanitized amazon-notify sample,
-  calls Vertex Gemini Flash Lite from Cloud Run, records wall time, and returns
-  a review URL. The optional Cross-check Lite button runs Gemini Flash Lite and
+  calls Gemini 3.1 Flash-Lite through the Agent Platform API and Model Garden
+  from Cloud Run, records wall time, and returns a review URL. The optional
+  Cross-check Lite button runs Gemini Flash-Lite and
   Gemma 4 over a bounded fixed prefix of the same sample. It does not accept
   arbitrary logs, URLs, or file paths.
 - Public deployment fails closed when the write token is missing, rate-limits

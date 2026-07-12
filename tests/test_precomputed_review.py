@@ -841,6 +841,7 @@ def test_precomputed_detail_page_ui_smoke_includes_provider_targets_missing_evid
     assert "GitHub" in html
     assert "Architecture" in html
     assert "Demo Script" in html
+    assert "blob/main/hackathon/02-narration-ja.md" in html
     assert "qwen-agent-platform" in html
     assert "gemma-agent-platform" in html
 

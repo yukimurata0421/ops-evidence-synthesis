@@ -19,8 +19,6 @@ final causal judgement and operational action remain human-gated.
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
 - Live Fast GCP Review: https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
 - Verified Fast GCP result: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=2641cb5fe5850d006864dec4aad3b3d2539e9efcef3753b43d5624f8b6e5136b
-- Full submission URL pack: [docs/submission-links.md](docs/submission-links.md)
-- Checklist and remaining manual actions: [docs/submission-checklist.md](docs/submission-checklist.md)
 
 ## Recorded Review Set
 
@@ -49,7 +47,8 @@ human-gated.
    Evidence IDs, counter evidence, missing evidence, and promotion gates.
 3. Open More Data Rescore and see `needs_more_data -> evidence_collected` and
    validation target -> primary candidate.
-4. Open Fast GCP Review to verify a live Cloud Run -> Vertex Gemini execution
+4. Open Fast GCP Review to verify a live Cloud Run -> Agent Platform API ->
+   Gemini 3.1 Flash-Lite execution
    over a fixed sanitized sample.
 
 ## Key Points
@@ -66,7 +65,7 @@ human-gated.
 - Convergence score is defined as claimed successful providers divided by all
   successful providers.
 - The public primary path shows 5/5 recorded provider outputs, 0 primary
-  candidates, and 7 validation targets. This is the intended restrained result:
+  candidates, and 10 validation targets. This is the intended restrained result:
   technical support does not bypass the incident and user-impact gates.
 - The More data rescore demo shows the AI improvement cycle without public write
   access or live model execution.

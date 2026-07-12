@@ -106,13 +106,24 @@ def test_demo_video_smoke_keeps_submission_path_contract() -> None:
     assert 'scripts/check_demo_video_path.py --base-url $(PUBLIC_BASE_URL)' in makefile
 
 
-def test_submission_docs_have_one_current_copy_per_surface() -> None:
+def test_public_docs_exclude_working_drafts_and_keep_current_demo_material() -> None:
     obsolete = (
+        "docs/demo-video-script.md",
         "docs/demo-video-script-3min-ja.md",
+        "docs/development-failure-log-2026-06-27-ja.md",
         "docs/final-submission-checklist-ja.md",
         "docs/hackathon-evaluator-experience-strategy-ja.md",
+        "docs/implementation-record-2026-06-18-source-first-ja.md",
+        "docs/implementation-record-2026-06-19-hardening-stream-v3-ja.md",
+        "docs/implementation-record-2026-06-20-arena-style-ingest-ja.md",
+        "docs/implementation-record-2026-06-21-planner-ui-ja.md",
+        "docs/implementation-record-2026-06-27-hackathon-failure-log-ja.md",
         "docs/protopedia-entry-v3.md",
+        "docs/protopedia-entry-japanese.md",
         "docs/protopedia-submission-copy-ja.md",
+        "docs/submission-checklist.md",
+        "docs/submission-links.md",
+        "docs/x-post-draft.md",
         "docs/arena-seed-import.md",
         "docs/claude-opus-provider-evaluation.md",
         "docs/gemma-provider-evaluation.md",
@@ -129,17 +140,14 @@ def test_submission_docs_have_one_current_copy_per_surface() -> None:
     for relative_path in obsolete:
         assert not (ROOT / relative_path).exists(), relative_path
 
-    video = (ROOT / "docs" / "demo-video-script.md").read_text(encoding="utf-8")
-    protopedia = (ROOT / "docs" / "protopedia-entry-japanese.md").read_text(encoding="utf-8")
-    checklist = (ROOT / "docs" / "submission-checklist.md").read_text(encoding="utf-8")
+    video = (ROOT / "hackathon" / "02-narration-ja.md").read_text(encoding="utf-8")
+    claims = (ROOT / "hackathon" / "claims-and-sources.md").read_text(encoding="utf-8")
     architecture = (ROOT / "docs" / "assets" / "architecture-devops-ai-agent.svg").read_text(encoding="utf-8")
 
-    assert "# 2分58秒 デモ動画台本" in video
-    assert "5つのAIで解析しても、証拠がなければ原因にしない" in video
-    assert "source-approved-evidence-v2" in video
-    assert "5つのAIが同意しても" not in video
-    assert "ProtoPedia 貼り付け用文案" in protopedia
-    assert "make smoke-demo-video" in checklist
+    assert "# 改訂版3分台本" in video
+    assert "45,000 sanitized events" in video
+    assert "amazon-notifyの最初の判断" in video
+    assert "source-approved-evidence-v2" in claims
     assert "Gemini system reading" in architecture
     assert "5 real AI APIs" in architecture
     assert "Mistral chunks" not in architecture

@@ -81,10 +81,9 @@ contracts, security boundaries, and roadmap items. It should not include:
 - raw log excerpts from real systems
 - dated internal work logs
 
-Public review Evidence SHA values and the deployed demo image digest may appear
-in submission-link or readiness documents when they are used as reviewer-facing
-identifiers or release attestations. They should not be mixed with raw evidence,
-operator-only execution IDs, or private deployment details.
+Public review Evidence SHA values may appear in reviewer-facing run records when
+they identify an inspectable public artifact. They should not be mixed with raw
+evidence, operator-only execution IDs, or private deployment details.
 
 Detailed work records should remain outside the public repository or be
 summarized into stable user-facing documentation.
