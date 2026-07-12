@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
 from pathlib import Path
@@ -17,6 +18,54 @@ from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sani
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _code_profile_review_html() -> str:
+    path = ROOT / "scripts" / "gcs_review_flow.py"
+    spec = importlib.util.spec_from_file_location("gcs_review_flow_browser_test", path)
+    assert spec is not None
+    assert spec.loader is not None
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    focused_profile = {
+        "schema_version": "focused_operational_profile.v1",
+        "system_label": "stream-runtime",
+        "system_summary": {
+            "system_type": "streaming_service",
+            "primary_purpose": "Keep a public live stream available.",
+        },
+        "observability_contract": {
+            "metrics": [
+                {
+                    "metric_name": "publish_gap_seconds",
+                    "meaning": "Time since last successful publish.",
+                    "healthy_direction": "decrease",
+                }
+            ]
+        },
+        "profile_limits": {
+            "source_context_is_incident_evidence": False,
+            "runtime_claims_require_evidence_id": True,
+            "approval_required_before_explicit_profile": True,
+            "raw_source_sent_to_provider": False,
+            "raw_logs_sent_to_provider": False,
+        },
+        "human_review_required": ["Is zero publish gap healthy?"],
+    }
+    review_form = script._render_code_profile_review_form(
+        run_id="browser-review-run",
+        code_profile_id="browser-profile-id",
+        code_profile_url="http://example.test/code-profiles/browser-profile-id/",
+        focused_profile=focused_profile,
+        interpretation={},
+    )
+    return script._render_code_profile_html(
+        title="Code Profile Review",
+        code_profile_url="http://example.test/code-profiles/browser-profile-id/",
+        code_profile_report_url="http://example.test/code-profiles/browser-profile-id/report.md",
+        markdown="# Gemini Pro Code Profile\n\n## Gemini Questions For Human Approval\n\nAnswer the question below.\n",
+        review_form=review_form,
+    )
 
 
 def _redaction_fixture_bundle(tmp_path: Path) -> dict[str, object]:
@@ -288,4 +337,214 @@ def test_planner_panel_stays_left_of_sticky_drawer(tmp_path: Path, monkeypatch: 
 
         assert layout["planner"]["right"] <= layout["drawer"]["left"]
         assert layout["details"]["scrollWidth"] <= layout["details"]["clientWidth"] + 1
+        browser.close()
+
+
+def test_code_profile_review_completes_normalize_preview_and_approval_in_browser() -> None:
+    html = _code_profile_review_html()
+    requests_seen: list[dict[str, object]] = []
+    preview_count = 0
+
+    with sync_api.sync_playwright() as playwright:
+        executable_path = (
+            os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE")
+            or shutil.which("chromium")
+            or shutil.which("chromium-browser")
+            or shutil.which("google-chrome")
+        )
+        launch_kwargs = {"executable_path": executable_path} if executable_path else {}
+        try:
+            browser = playwright.chromium.launch(**launch_kwargs)
+        except Exception as exc:
+            pytest.skip(f"Chromium is not installed for Playwright: {exc}")
+        page = browser.new_page(viewport={"width": 1366, "height": 1000})
+        page.route(
+            "http://example.test/code-profiles/browser-profile-id/",
+            lambda route: route.fulfill(status=200, body=html, content_type="text/html"),
+        )
+
+        def normalize_route(route: sync_api.Route) -> None:
+            payload = route.request.post_data_json
+            requests_seen.append(
+                {
+                    "step": "normalize",
+                    "token": route.request.headers.get("x-oes-write-token", ""),
+                    "payload": payload,
+                }
+            )
+            route.fulfill(
+                status=200,
+                json={
+                    "status": "candidate_patch_ready",
+                    "patch": {
+                        "schema_version": "operational_profile_review_patch.v1",
+                        "system_summary_overrides": {},
+                        "metric_semantics_overrides": [
+                            {
+                                "metric_name": "publish_gap_seconds",
+                                "meaning": "Seconds since the last successful publication.",
+                                "healthy_direction": "decrease",
+                                "zero_behavior": "healthy",
+                                "increase_behavior": "suspicious",
+                                "decrease_behavior": "healthy",
+                                "reason": "Human-confirmed semantics.",
+                                "provenance": "human_answer",
+                            }
+                        ],
+                        "component_role_overrides": [],
+                        "log_source_overrides": [],
+                        "confirmed_user_outcomes": [],
+                        "ignored_component_ids": [],
+                        "approved_collectors": [],
+                        "unresolved_questions": [],
+                    },
+                    "normalization": {"provider_id": "gemini-enterprise-agent-platform"},
+                    "change_summary": {"metric_semantics": 1},
+                },
+            )
+
+        def preview_route(route: sync_api.Route) -> None:
+            nonlocal preview_count
+            preview_count += 1
+            payload = route.request.post_data_json
+            requests_seen.append(
+                {
+                    "step": "preview",
+                    "token": route.request.headers.get("x-oes-write-token", ""),
+                    "payload": payload,
+                }
+            )
+            route.fulfill(
+                status=200,
+                json={
+                    "status": "ready_for_human_re_review",
+                    "reviewed_patch_sha256": str(preview_count) * 64,
+                    "answer_count": 1,
+                    "unresolved_question_count": 0,
+                    "change_summary": {"metric_semantics": 1},
+                    "interpreted_profile": {
+                        "status": "candidate_interpretation",
+                        "system_profile": {"purpose": "Keep a public live stream available."},
+                        "metric_semantics": {
+                            "publish_gap_seconds": {
+                                "zero_behavior": "healthy",
+                                "increase_behavior": "suspicious",
+                            }
+                        },
+                    },
+                },
+            )
+
+        def approve_route(route: sync_api.Route) -> None:
+            payload = route.request.post_data_json
+            requests_seen.append(
+                {
+                    "step": "approve",
+                    "token": route.request.headers.get("x-oes-write-token", ""),
+                    "payload": payload,
+                }
+            )
+            route.fulfill(
+                status=200,
+                json={
+                    "status": "approved",
+                    "approved_profile_sha256": "a" * 64,
+                    "approved_profile": {
+                        "schema_version": "approved_operational_profile.v1",
+                        "status": "approved",
+                        "review_policy": {"source_access_after_approval": "disabled"},
+                    },
+                },
+            )
+
+        page.route("http://example.test/profile-reviews/normalize", normalize_route)
+        page.route("http://example.test/profile-reviews/preview", preview_route)
+        page.route("http://example.test/profile-reviews/approve", approve_route)
+        page.goto(
+            "http://example.test/code-profiles/browser-profile-id/",
+            wait_until="domcontentloaded",
+        )
+
+        page.locator("#review-question-1").fill(
+            "Zero is healthy. Increasing values indicate a publication gap."
+        )
+        page.locator("#profile-matches-deployment").check()
+        page.locator("#deployment-period-confirmed").check()
+        page.locator("#log-scope-confirmed").check()
+        page.locator("#reviewer").fill("operator-1")
+        page.locator("#decision").select_option("approved")
+        page.locator("#approval-note").fill("Confirmed against the deployed runtime.")
+        page.locator("#profile-review-write-token").fill("browser-write-token")
+
+        page.locator("#approve-profile-review").click()
+        assert "Normalize with Gemini first" in page.locator("#review-form-status").inner_text()
+        assert requests_seen == []
+
+        page.locator("#normalize-profile-review").click()
+        page.wait_for_function(
+            "document.getElementById('review-form-status')?.textContent.includes('Candidate patch ready')"
+        )
+        assert page.locator("#preview-profile-review").is_enabled()
+        assert '"zero_behavior": "healthy"' in page.locator("#profile-patch-output").input_value()
+
+        normalize_request = requests_seen[0]
+        assert normalize_request["step"] == "normalize"
+        assert normalize_request["token"] == "browser-write-token"
+        normalize_payload = normalize_request["payload"]
+        assert isinstance(normalize_payload, dict)
+        assert normalize_payload["human_review"]["answers"][0]["answer"].startswith("Zero is healthy")
+
+        page.locator("#preview-profile-review").click()
+        page.wait_for_function(
+            "document.getElementById('review-form-status')?.textContent.includes('interpretation rebuilt')"
+        )
+        assert page.locator("#interpretation-review-confirmed").is_enabled()
+        assert '"candidate_interpretation"' in page.locator("#interpreted-profile-preview").input_value()
+
+        page.locator("#approve-profile-review").click()
+        assert "Step 2 is required" in page.locator("#review-form-status").inner_text()
+        assert [request["step"] for request in requests_seen] == ["normalize", "preview"]
+
+        edited_patch = page.locator("#profile-patch-output").input_value().replace(
+            "Human-confirmed semantics.",
+            "Operator-confirmed semantics.",
+        )
+        page.locator("#profile-patch-output").fill(edited_patch)
+        page.locator("#approve-profile-review").click()
+        assert "Step 1 is required" in page.locator("#review-form-status").inner_text()
+        assert [request["step"] for request in requests_seen] == ["normalize", "preview"]
+
+        page.locator("#preview-profile-review").click()
+        page.wait_for_function(
+            "document.getElementById('review-form-status')?.textContent.includes('interpretation rebuilt')"
+        )
+        page.locator("#interpretation-review-confirmed").check()
+        page.locator("#approve-profile-review").click()
+        page.wait_for_function(
+            "document.getElementById('review-form-status')?.textContent.includes('Approved profile frozen')"
+        )
+
+        assert [request["step"] for request in requests_seen] == [
+            "normalize",
+            "preview",
+            "preview",
+            "approve",
+        ]
+        final_request = requests_seen[-1]
+        assert final_request["token"] == "browser-write-token"
+        final_payload = final_request["payload"]
+        assert isinstance(final_payload, dict)
+        assert final_payload["interpretation_review_confirmed"] is True
+        assert final_payload["reviewed_patch_sha256"] == "2" * 64
+        assert (
+            final_payload["accepted_patch"]["metric_semantics_overrides"][0]["reason"]
+            == "Operator-confirmed semantics."
+        )
+        assert page.locator("#download-approved-profile").is_enabled()
+        assert page.locator("#copy-approve-command").is_enabled()
+        assert '"source_access_after_approval": "disabled"' in page.locator(
+            "#approved-profile-output"
+        ).input_value()
+        stored_values = page.evaluate("Object.values(localStorage)")
+        assert all("browser-write-token" not in value for value in stored_values)
         browser.close()

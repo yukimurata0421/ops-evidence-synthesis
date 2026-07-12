@@ -138,6 +138,24 @@ class FakeGeminiProfileReviewProvider:
         )
 
 
+class StaticGeminiProfileReviewProvider(FakeGeminiProfileReviewProvider):
+    def __init__(self, raw_output: str) -> None:
+        self.raw_output = raw_output
+
+    def run(self, bundle: dict) -> ModelResponse:
+        assert bundle["human_review"]["answers"][0]["answer"].startswith("Yes. Zero is healthy")
+        return ModelResponse(
+            provider=self.provider,
+            model_name=self.model_name,
+            prompt_name=self.prompt_name,
+            temperature=self.temperature,
+            raw_output=self.raw_output,
+            latency_ms=1,
+            input_tokens=100,
+            output_tokens=100,
+        )
+
+
 def test_gemini_normalizes_human_answers_into_valid_candidate_patch() -> None:
     result = normalize_profile_review_with_provider(
         focused_profile(),
@@ -160,6 +178,90 @@ def test_candidate_patch_cannot_introduce_unknown_metric() -> None:
     assert validate_profile_review_patch(patch, focused_profile()) == [
         "unknown metric_name: invented_metric"
     ]
+
+
+def test_candidate_patch_rejects_unknown_references_and_unsupported_semantics() -> None:
+    patch = candidate_patch()
+    metric = patch["metric_semantics_overrides"][0]
+    metric["healthy_direction"] = "up_and_to_the_right"
+    metric["zero_behavior"] = "perfect"
+    patch["component_role_overrides"] = [
+        {
+            "component_id": "invented-component",
+            "role": "Unknown component",
+            "reason": "Not present in the source profile.",
+            "provenance": "human_answer",
+        }
+    ]
+    patch["log_source_overrides"] = [
+        {
+            "source": "invented-log",
+            "meaning": "Unknown log",
+            "reason": "Not present in the source profile.",
+            "provenance": "human_answer",
+        }
+    ]
+    patch["ignored_component_ids"] = ["invented-component"]
+    patch["approved_collectors"] = ["write-capable-collector"]
+
+    assert validate_profile_review_patch(patch, focused_profile()) == [
+        "unknown collector: write-capable-collector",
+        "unknown component_id: invented-component",
+        "unknown ignored component_id: invented-component",
+        "unknown log source: invented-log",
+        "unsupported healthy_direction for publish_gap_seconds: up_and_to_the_right",
+        "unsupported zero_behavior for publish_gap_seconds: perfect",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("raw_output", "expected_error"),
+    [
+        ("not-json", "returned invalid JSON"),
+        (
+            json.dumps({**candidate_patch(), "unsupported_top_level": True}),
+            "contains unsupported fields",
+        ),
+        (
+            json.dumps(
+                {
+                    **candidate_patch(),
+                    "metric_semantics_overrides": [
+                        {
+                            **candidate_patch()["metric_semantics_overrides"][0],
+                            "metric_name": "provider-invented-metric",
+                        }
+                    ],
+                }
+            ),
+            "unknown metric_name: provider-invented-metric",
+        ),
+        (
+            json.dumps(
+                {
+                    **candidate_patch(),
+                    "metric_semantics_overrides": [
+                        {
+                            **candidate_patch()["metric_semantics_overrides"][0],
+                            "reason": "Use token sk-test-fakekey1234567890",
+                        }
+                    ],
+                }
+            ),
+            "failed safety validation",
+        ),
+    ],
+)
+def test_provider_normalization_rejects_invalid_or_unsafe_output(
+    raw_output: str,
+    expected_error: str,
+) -> None:
+    with pytest.raises(ProfileReviewError, match=expected_error):
+        normalize_profile_review_with_provider(
+            focused_profile(),
+            human_review(),
+            StaticGeminiProfileReviewProvider(raw_output),
+        )
 
 
 def test_human_approved_profile_is_hash_bound_and_applies_semantics() -> None:
@@ -279,6 +381,75 @@ def test_normalization_rejects_secret_like_human_answer() -> None:
             review,
             FakeGeminiProfileReviewProvider(),
         )
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "payload", "expected_detail"),
+    [
+        ("/profile-reviews/normalize", {}, "focused_profile object is required"),
+        (
+            "/profile-reviews/normalize",
+            {"focused_profile": focused_profile()},
+            "human_review object is required",
+        ),
+        (
+            "/profile-reviews/preview",
+            {"focused_profile": focused_profile(), "human_review": human_review()},
+            "accepted_patch object is required",
+        ),
+        (
+            "/profile-reviews/preview",
+            {
+                "focused_profile": focused_profile(),
+                "human_review": human_review(),
+                "accepted_patch": candidate_patch(),
+                "normalization": [],
+            },
+            "normalization must be an object or null",
+        ),
+        (
+            "/profile-reviews/approve",
+            {"focused_profile": focused_profile(), "human_review": human_review(approved=True)},
+            "accepted_patch object is required",
+        ),
+        (
+            "/profile-reviews/approve",
+            {
+                "focused_profile": focused_profile(),
+                "human_review": human_review(approved=True),
+                "accepted_patch": candidate_patch(),
+                "normalization": [],
+            },
+            "normalization must be an object or null",
+        ),
+    ],
+)
+def test_profile_review_api_rejects_malformed_workflow_payloads(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    payload: dict,
+    expected_detail: str,
+) -> None:
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx")
+    from fastapi.testclient import TestClient
+
+    from ops_evidence_synthesis.api import app
+
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "profile-review-invalid-api.sqlite3"))
+    monkeypatch.setenv("OES_API_WRITE_TOKEN", "profile-review-token")
+
+    with TestClient(app) as client:
+        response = client.post(
+            endpoint,
+            headers={"x-oes-write-token": "profile-review-token"},
+            json=payload,
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == expected_detail
 
 
 def test_profile_review_api_requires_token_then_returns_approved_json(

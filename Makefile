@@ -29,7 +29,7 @@ LOCAL_REVIEW_PORT ?= 8097
 CLOUDFLARE_WAF_ARGS ?=
 BUDGET_GUARD_ARGS ?=
 
-.PHONY: demo demo-flagship demo-sample review review-from-local gcs-review publish-gcs-review smoke-gcs-review show-public-review-url run-local-review show-local-review serve-local-review verify-precomputed verify-flagship verify-sample test ci smoke-public smoke-demo-video deploy-public configure-cloudflare-waf configure-budget-guard archive-public
+.PHONY: demo demo-flagship demo-sample review review-from-local gcs-review publish-gcs-review smoke-gcs-review show-public-review-url run-local-review show-local-review serve-local-review verify-precomputed verify-flagship verify-sample test coverage ci smoke-public smoke-demo-video deploy-public configure-cloudflare-waf configure-budget-guard archive-public
 
 demo: demo-flagship
 
@@ -76,7 +76,12 @@ verify-flagship:
 test:
 	$(PYTHON) -m pytest $(PYTEST_ARGS)
 
-ci: verify-precomputed test
+coverage:
+	$(PYTHON) -m coverage erase
+	$(PYTHON) -m coverage run -m pytest $(PYTEST_ARGS)
+	$(PYTHON) -m coverage report
+
+ci: verify-precomputed coverage
 
 smoke-public:
 	$(PYTHON) scripts/check_precomputed_review_url.py --base-url $(PUBLIC_BASE_URL) --evidence-sha $(PUBLIC_EVIDENCE_SHA) --missing-evidence-sha $(RETIRED_EVIDENCE_SHA) $(PUBLIC_SMOKE_EXTRA_ARGS)
