@@ -22,6 +22,7 @@ from ops_evidence_synthesis.web.precomputed_review import (
     _precomputed_review_payload,
     _precomputed_review_graph_response,
     _public_precomputed_landing_page,
+    _landing_workspace_preview_html,
     _render_precomputed_graph_page,
     _render_precomputed_markdown_report,
     _render_precomputed_review_detail_page,
@@ -111,6 +112,41 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert "/ui/rescore-demo?id=amazon-notify-more-data-rescore" in html
     assert f"/ui/report.md?evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in html
     assert html.index(STREAM_V3_DELL_REAL_API_SHA[:12]) < html.index(PUBLIC_REAL_API_SHA[:12])
+    assert "<b>0</b><span>primary candidates</span>" in html
+    assert "resource_pressure" in html
+    assert "VALIDATION TARGET" in html
+    assert "primary - 5/5" not in html
+
+
+def test_landing_workspace_preview_is_driven_by_selected_review_payload() -> None:
+    html = _landing_workspace_preview_html(
+        {
+            "targets": [
+                {
+                    "canonical_review_unit": "database_pool_saturation",
+                    "class": "primary_candidate",
+                    "review_priority_score": 0.91,
+                    "operational_mechanism": "Connections wait because the configured pool is exhausted.",
+                    "provider_positions": [
+                        {"provider_id": "gemini-enterprise-agent-platform", "stance": "claimed"},
+                        {"provider_id": "qwen-agent-platform", "stance": "silent"},
+                    ],
+                    "classification": {"provider_support": "1/2"},
+                    "evidence_refs": ["DB-POOL-001", "DB-WAIT-002"],
+                    "next_validation_question": "Did request latency rise in the same window?",
+                    "why_not_promoted": "User impact remains unverified.",
+                }
+            ]
+        }
+    )
+
+    assert "database_pool_saturation" in html
+    assert "PRIMARY CANDIDATE" in html
+    assert "0.91" in html
+    assert "primary candidate - 1/2" in html
+    assert "DB-POOL-001" in html
+    assert "Did request latency rise in the same window?" in html
+    assert "chromium_capture" not in html
 
 
 def test_public_landing_cards_match_linked_payloads(monkeypatch) -> None:

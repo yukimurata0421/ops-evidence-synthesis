@@ -579,6 +579,141 @@ def _archived_links_html(rows: list[tuple[str, str, str, str]]) -> str:
     return links
 
 
+def _landing_workspace_preview_html(payload: dict[str, Any]) -> str:
+    """Render the landing-page workspace from the selected public review.
+
+    The preview deliberately consumes only the persisted public review contract.
+    It must not encode a subsystem, score, provider set, or evidence ID belonging
+    to one demo corpus because the landing manifest can select any review.
+    """
+    targets = [row for row in payload.get("targets") or [] if isinstance(row, dict)]
+    targets = [
+        row
+        for row in targets
+        if str(row.get("class") or "") in {"primary_candidate", "validation_target"}
+    ]
+    if not targets:
+        return """
+          <div class="workspace">
+            <div>
+              <div class="queue-label">Review queue - 0</div>
+              <div class="queue"><div class="queue-row active"><b>No review targets</b><span>Evidence did not create a human review target.</span></div></div>
+            </div>
+            <div>
+              <div class="mock-panel">
+                <div class="mock-title"><span class="mock-pill">NO REVIEW TARGET</span><b>Evidence boundary held</b></div>
+                <p class="mock-copy">The selected public review contains no primary or validation target.</p>
+              </div>
+            </div>
+            <div>
+              <div class="human-gate">
+                <div class="human-top"><span class="hg">HG</span><b>Human-gated</b><span class="human-state">NOT PROMOTED</span></div>
+                <p style="margin-top:9px;font-size:12.5px">No incident cause was auto-promoted.</p>
+              </div>
+            </div>
+          </div>
+        """
+
+    queue_rows: list[str] = []
+    for index, target in enumerate(targets[:4]):
+        unit = str(target.get("canonical_review_unit") or target.get("title") or f"review_target_{index + 1}")
+        target_class = str(target.get("class") or "validation_target")
+        class_label = target_class.replace("_", " ")
+        score = float(target.get("review_priority_score") or 0.0)
+        positions = [row for row in target.get("provider_positions") or [] if isinstance(row, dict)]
+        claimed = sum(1 for row in positions if str(row.get("stance") or "") == "claimed")
+        support = str(
+            (target.get("classification") or {}).get("provider_support")
+            if isinstance(target.get("classification"), dict)
+            else ""
+        ).strip()
+        support = support or f"{claimed}/{len(positions)}"
+        queue_rows.append(
+            f'<div class="queue-row{" active" if index == 0 else ""}">'
+            f'<div><b>{_html(unit)}</b><code>{score:.2f}</code></div>'
+            f'<span>{_html(class_label)} - {_html(support)}</span></div>'
+        )
+    if len(targets) > 4:
+        queue_rows.append(f"<small>+ {len(targets) - 4} targets</small>")
+
+    selected = targets[0]
+    unit = str(selected.get("canonical_review_unit") or selected.get("title") or "review target")
+    target_class = str(selected.get("class") or "validation_target")
+    class_label = target_class.replace("_", " ").upper()
+    score = float(selected.get("review_priority_score") or 0.0)
+    explanation = selected.get("target_explanation") if isinstance(selected.get("target_explanation"), dict) else {}
+    mechanism = str(
+        selected.get("operational_mechanism")
+        or explanation.get("operational_mechanism")
+        or selected.get("claim")
+        or "Operational mechanism was not persisted for this target."
+    )
+    positions = [row for row in selected.get("provider_positions") or [] if isinstance(row, dict)]
+    claimed = sum(1 for row in positions if str(row.get("stance") or "") == "claimed")
+    provider_rows = "".join(
+        (
+            "<div>"
+            f"<span>{_html(_workspace_provider_label(str(row.get('provider_id') or 'provider')))}</span>"
+            f"<i style=\"opacity:{'1' if str(row.get('stance') or '') == 'claimed' else '.28'}\"></i>"
+            f"<small>{_html(str(row.get('stance') or 'silent'))}</small>"
+            "</div>"
+        )
+        for row in positions
+    )
+    if not provider_rows:
+        provider_rows = "<small>No provider positions were persisted.</small>"
+
+    evidence_refs = [str(item) for item in selected.get("evidence_refs") or [] if str(item).strip()]
+    evidence_rows = "".join(
+        f"<div><code>{_html(ref)}</code><span>cited</span></div>" for ref in evidence_refs[:3]
+    )
+    if len(evidence_refs) > 3:
+        evidence_rows += f"<small>+ {len(evidence_refs) - 3} refs</small>"
+    if not evidence_rows:
+        evidence_rows = "<small>No evidence refs were persisted.</small>"
+
+    next_check = str(
+        selected.get("next_validation_question")
+        or explanation.get("next_validation_question")
+        or selected.get("recommended_request_type")
+        or "Review cited evidence and missing signals."
+    )
+    boundary = str(
+        selected.get("why_not_promoted")
+        or explanation.get("why_not_promoted")
+        or "Provider support is review input, not an accepted incident cause."
+    )
+    return f"""
+      <div class="workspace">
+        <div>
+          <div class="queue-label">Review queue - {len(targets)}</div>
+          <div class="queue">{''.join(queue_rows)}</div>
+        </div>
+        <div>
+          <div class="mock-panel">
+            <div class="mock-title"><span class="mock-pill">{_html(class_label)}</span><b>{_html(unit)}</b><span class="mock-score">{score:.2f}</span></div>
+            <p class="mock-copy">{_html(mechanism)}</p>
+          </div>
+          <div class="mock-panel soft" style="margin-top:12px">
+            <div class="mock-label">provider positions - {claimed} claimed / {len(positions) - claimed} other</div>
+            <div class="provider-bars">{provider_rows}</div>
+          </div>
+        </div>
+        <div>
+          <div class="mock-panel soft">
+            <div class="mock-label">cited evidence</div>
+            <div class="evidence-list">{evidence_rows}</div>
+          </div>
+          <div class="human-gate">
+            <div class="human-top"><span class="hg">HG</span><b>Human-gated</b><span class="human-state">NOT PROMOTED</span></div>
+            <p style="margin-top:9px;font-size:12.5px">{_html(boundary)}</p>
+            <p style="margin-top:9px;color:var(--green);font:800 11px/1.3 var(--mono)">next -&gt; {_html(next_check)}</p>
+          </div>
+        </div>
+      </div>
+    """
+
+
 def _public_precomputed_landing_page() -> str:
     manifest_entries = _public_manifest_entries()
     manifest_entries.sort(key=lambda row: (int(row.get("landing_rank") or 100), str(row.get("title") or "")))
@@ -656,13 +791,16 @@ def _public_precomputed_landing_page() -> str:
         ]
     )
     primary_entry = primary_entries[0] if primary_entries else {}
-    gate_provider_total = int(primary_entry.get("provider_count") or 5)
-    gate_provider_success = int(primary_entry.get("schema_valid_count") or gate_provider_total or 5)
+    primary_payload = _precomputed_review_payload(primary_evidence) if primary_evidence else {}
+    primary_payload = primary_payload if isinstance(primary_payload, dict) else {}
+    workspace_preview = _landing_workspace_preview_html(primary_payload)
+    gate_provider_total = int(primary_entry.get("provider_count") or 0)
+    gate_provider_success = int(primary_entry.get("schema_valid_count") or 0)
     gate_signal_label = f"{gate_provider_success} / {gate_provider_total}"
     total_public_rows = sum(int(row.get("row_count") or 0) for row in manifest_entries)
     total_public_corpora = len(manifest_entries)
-    primary_rows = _human_count(int(primary_entry.get("row_count") or 0)) if primary_entry else "45,000"
-    primary_review_targets = int(primary_entry.get("primary_targets") or 0) + int(primary_entry.get("validation_targets") or 0)
+    primary_rows = _human_count(int(primary_entry.get("row_count") or 0))
+    primary_candidate_count = int(primary_entry.get("primary_targets") or 0)
     return f"""
     <!doctype html>
     <html lang="en">
@@ -1007,7 +1145,7 @@ def _public_precomputed_landing_page() -> str:
             <div class="hero-stats" aria-label="Public evidence summary">
               <div><b>{_html(primary_rows)}</b><span>rows analyzed</span></div>
               <div><b>{_html(gate_signal_label)}</b><span>providers - provider signal, not a verdict</span></div>
-              <div><b>{int(primary_entry.get("primary_targets") or 3)}</b><span>primary candidates</span></div>
+              <div><b>{primary_candidate_count}</b><span>primary candidates</span></div>
               <div><b>0</b><span aria-label="0 AUTO-PROMOTED CAUSES">AUTO-PROMOTED CAUSES</span></div>
             </div>
           </section>
@@ -1019,50 +1157,7 @@ def _public_precomputed_landing_page() -> str:
                 <span class="browser-url">ops-evidence.yukimurata0421.dev/ui/full-review-page</span>
                 <span class="browser-chip">real API</span>
               </div>
-              <div class="workspace">
-                <div>
-                  <div class="queue-label">Review queue - {primary_review_targets}</div>
-                  <div class="queue">
-                    <div class="queue-row active"><div><b>chromium_capture</b><code>0.88</code></div><span>primary - 5/5</span></div>
-                    <div class="queue-row"><div><b>observability_contract</b><code>0.84</code></div><span>primary - 4/5</span></div>
-                    <div class="queue-row"><div><b>audio_energy</b><code>0.84</code></div><span>primary - 4/5</span></div>
-                    <div class="queue-row"><div><b>transport_sender</b><code>0.87</code></div><span>validation - 5/5</span></div>
-                    <small>+ {max(0, primary_review_targets - 4)} targets</small>
-                  </div>
-                </div>
-                <div>
-                  <div class="mock-panel">
-                    <div class="mock-title"><span class="mock-pill">PRIMARY CANDIDATE</span><b>chromium_capture</b><span class="mock-score">0.88</span></div>
-                    <p class="mock-copy">Chromium capture process failed to start, leading to missing video frames. Capture freshness feeds the YouTube ingest pipeline.</p>
-                  </div>
-                  <div class="mock-panel soft" style="margin-top:12px">
-                    <div class="mock-label">provider convergence - 5 claimed / 0 silent</div>
-                    <div class="provider-bars">
-                      <div><span>Gemini</span><i></i><small>arbiter</small></div>
-                      <div><span>Gemma 4</span><i></i><small>claimed</small></div>
-                      <div><span>Mistral</span><i></i><small>claimed</small></div>
-                      <div><span>Qwen</span><i></i><small>claimed</small></div>
-                      <div><span>GPT-OSS</span><i></i><small>claimed</small></div>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <div class="mock-panel soft">
-                    <div class="mock-label">cited evidence</div>
-                    <div class="evidence-list">
-                      <div><code>PATTERN-172</code><span>CRITICAL</span></div>
-                      <div><code>PATTERN-016</code><span>renderer crash</span></div>
-                      <div><code>PATTERN-173</code><span>GPU crash</span></div>
-                      <small>+ 6 refs</small>
-                    </div>
-                  </div>
-                  <div class="human-gate">
-                    <div class="human-top"><span class="hg">HG</span><b>Human-gated</b><span class="human-state">NOT PROMOTED</span></div>
-                    <p style="margin-top:9px;font-size:12.5px">Convergence is support, not a verdict.</p>
-                    <p style="margin-top:9px;color:var(--green);font:800 11px/1.3 var(--mono)">next -&gt; is capture_freshness_count zero?</p>
-                  </div>
-                </div>
-              </div>
+              {workspace_preview}
             </a>
           </section>
           <div class="band" id="loop">

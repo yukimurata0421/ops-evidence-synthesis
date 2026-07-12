@@ -391,6 +391,29 @@ def test_public_rate_limit_blocks_repeated_public_reads(
     assert first.status_code == 200, first.text
     assert second.status_code == 429, second.text
     assert second.json()["detail"]["reason_code"] == "public_rate_limited"
+    assert second.headers["x-content-type-options"] == "nosniff"
+    assert second.headers["x-frame-options"] == "DENY"
+
+
+def test_public_responses_include_browser_security_headers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OES_STORE", "sqlite")
+    monkeypatch.setenv("OES_DB_PATH", str(tmp_path / "api.sqlite3"))
+    monkeypatch.setenv("OES_UI_PRECOMPUTED_ONLY", "1")
+    monkeypatch.setenv("OES_PUBLIC_RATE_LIMIT_ENABLED", "0")
+
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers["strict-transport-security"] == "max-age=31536000; includeSubDomains"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["permissions-policy"] == "camera=(), microphone=(), geolocation=()"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
 
 
 def test_public_fast_gcp_review_uses_fixed_sample_without_write_token(

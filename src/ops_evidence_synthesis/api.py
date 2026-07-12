@@ -204,25 +204,40 @@ app = FastAPI(
 app.include_router(api_router)
 
 
+def _apply_public_response_headers(response: Any, *, request_id: str, path: str) -> Any:
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
+        "object-src 'none'; img-src 'self' data:; font-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'"
+    )
+    if path == "/" or str(response.headers.get("content-type") or "").startswith("text/html"):
+        response.headers["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 @app.middleware("http")
 async def _request_observability(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or f"req-{uuid.uuid4().hex[:16]}"
     started = time.perf_counter()
     rate_limited_response = _public_rate_limit_response(request, request_id)
     if rate_limited_response is not None:
-        return rate_limited_response
+        return _apply_public_response_headers(rate_limited_response, request_id=request_id, path=request.url.path)
     blocked_response = await _write_guard_response(request, request_id)
     if blocked_response is not None:
-        return blocked_response
+        return _apply_public_response_headers(blocked_response, request_id=request_id, path=request.url.path)
     public_read_response = _public_precomputed_read_guard(request, request_id)
     if public_read_response is not None:
-        return public_read_response
+        return _apply_public_response_headers(public_read_response, request_id=request_id, path=request.url.path)
     response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
-    if request.url.path == "/" or str(response.headers.get("content-type") or "").startswith("text/html"):
-        response.headers["Cache-Control"] = "no-store, max-age=0, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
+    _apply_public_response_headers(response, request_id=request_id, path=request.url.path)
     log_event(
         LOGGER,
         "api_request",
