@@ -29,9 +29,15 @@ locals {
       OES_JOB_STATIC_REVIEW_OUTPUT_PREFIX_URI = "gs://${google_storage_bucket.private_artifacts.name}/review-pages"
       OES_JOB_PROVIDER_MODE                 = var.chunked_review_job_provider_mode
       OES_JOB_PROVIDERS                     = join(",", var.chunked_review_job_providers)
-      OES_MULTI_AI_CHUNK_WORKERS            = tostring(var.chunked_review_job_chunk_workers)
+      OES_MULTI_AI_CHUNK_MAX_WORKERS        = tostring(var.chunked_review_job_chunk_workers)
+      OES_MULTI_AI_CHUNK_MAX_WORKERS_BY_PROVIDER = "mistral-agent-platform=1"
       OES_MULTI_AI_PROVIDER_WORKERS         = tostring(var.chunked_review_job_provider_workers)
       OES_MULTI_AI_CHUNK_RETRY_ATTEMPTS     = tostring(var.chunked_review_job_chunk_retry_attempts)
+      OES_MULTI_AI_MERGE_SMALL_SEMANTIC_CHUNKS = "1"
+      OES_MULTI_AI_RATE_LIMIT_BACKOFF_SECONDS = "30"
+      OES_MODEL_MAX_ATTEMPTS                = "5"
+      OES_MODEL_RETRY_BASE_SECONDS          = "5"
+      OES_MODEL_RETRY_MAX_SECONDS           = "60"
     },
     var.chunked_review_job_env,
   )
