@@ -5672,7 +5672,7 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     score_text = score_definition or (
         "Convergence score = supporting schema-valid providers / all schema-valid providers."
     )
-    note_text = note or "Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent."
+    note_text = note or "Partial overlap is an overlay count for support-converged targets where at least one schema-valid Provider did not supply support."
     is_observation_gap = _detail_is_observation_gap(payload)
     section_heading = (
         "Absence of evidence is not evidence of health."
@@ -5681,7 +5681,7 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     )
     if is_observation_gap:
         summary_text = (
-            f"{converged} review units had at least two provider positions. "
+            f"{converged} review units had support from at least two Providers. "
             "The corpus can show normal throughput while positive liveness evidence is still missing, "
             "so every promoted signal remains a question to answer, not a cause to accept."
         )
@@ -5696,7 +5696,7 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
         else "A graph-level support signal is not a verdict. Each target promotes on its own evidence; promotion stays human-gated until impact evidence is attached."
     )
     stat_cells = [
-        (str(converged), "converged targets", "primary"),
+        (str(converged), "support-converged targets", "primary"),
         (str(single_source), "single-source targets", ""),
         (str(partial_overlap), "partial overlap", ""),
         (str(conflicts), "explicit conflicts", "safe" if conflicts == 0 else ""),

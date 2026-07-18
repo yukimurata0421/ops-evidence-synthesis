@@ -519,7 +519,7 @@ def _review_graph_summary(
         "summary": summary,
         "note": (
             "Provider convergence is treated as technical support only; causal judgement remains human-gated. "
-            "Partial overlap is an overlay count for targets where some schema-valid providers were silent; "
+            "Partial overlap is an overlay count for targets where some schema-valid Providers did not supply support; "
             "it is not additive with converged/single-source target counts."
         ),
         "score_definition": (

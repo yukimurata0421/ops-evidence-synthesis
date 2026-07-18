@@ -2588,7 +2588,8 @@ def _review_graph_summary(
         ),
         "note": (
             "Provider convergence is technical support only; causal and impact judgement remains human-gated. "
-            "Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; "
+            "Partial overlap is an overlay count for support-converged targets where at least one schema-valid "
+            "Provider did not supply support; "
             "it is not additive with target verdict counts."
         ),
         "summary": (
@@ -3009,11 +3010,11 @@ def _promotion_explanation(
     if provider_count >= 2:
         if has_user_impact:
             return (
-                f"{provider_count}/{max(valid_count, 1)} providers converged and direct user impact is established; "
+                f"{provider_count}/{max(valid_count, 1)} providers supplied support and direct user impact is established; "
                 "the target remains validation work until its causal and operational evidence gates are closed."
             )
         return (
-            f"{provider_count}/{max(valid_count, 1)} providers converged, so this is technical support; "
+            f"{provider_count}/{max(valid_count, 1)} providers supplied support, so this is technical support; "
             "it remains validation work until user impact or operational outcome evidence is attached."
         )
     if provider_count == 1:
