@@ -1737,6 +1737,7 @@ def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
                 raw.get("provider_candidate_membership_counts") or raw.get("provider_vote_counts") or {}
             ),
             "supporting_provider_counts": dict(raw.get("supporting_provider_counts") or {}),
+            "countering_provider_counts": dict(raw.get("countering_provider_counts") or {}),
             "same_provider_duplicate_count": int(raw.get("same_provider_duplicate_count") or 0),
             "evidence_ref_count": (
                 int(raw.get("evidence_ref_count") or 0)
@@ -1766,6 +1767,7 @@ def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
         }
     providers = _unique(candidate.get("providers") or [])
     supporting_providers = _unique(candidate.get("supporting_providers") or [])
+    countering_providers = _unique(candidate.get("countering_providers") or [])
     refs = _unique(
         candidate.get("support_evidence_refs")
         if "support_evidence_refs" in candidate
@@ -1778,6 +1780,7 @@ def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
         "provider_vote_counts": {provider: 1 for provider in providers},
         "provider_candidate_membership_counts": {provider: 1 for provider in providers},
         "supporting_provider_counts": {provider: 1 for provider in supporting_providers},
+        "countering_provider_counts": {provider: 1 for provider in countering_providers},
         "same_provider_duplicate_count": 0,
         "evidence_ref_count": len(refs),
         "evidence_family_count": len({_evidence_family(ref) for ref in refs if _evidence_family(ref)}),

@@ -314,6 +314,11 @@ def _target_rollup_projection(target: dict[str, Any]) -> dict[str, Any]:
         if isinstance(rollup.get("supporting_provider_counts"), dict)
         else {}
     )
+    countering_provider_counts = (
+        rollup.get("countering_provider_counts")
+        if isinstance(rollup.get("countering_provider_counts"), dict)
+        else {}
+    )
     source_candidate_count = int(rollup.get("source_candidate_count") or target.get("source_candidate_count") or 1)
     distinct_target_type_count = int(
         rollup.get("distinct_target_type_count") or len(source_candidate_type_counts) or 1
@@ -327,6 +332,7 @@ def _target_rollup_projection(target: dict[str, Any]) -> dict[str, Any]:
         ),
         "provider_candidate_membership_counts": dict(sorted(provider_candidate_membership_counts.items())),
         "supporting_provider_counts": dict(sorted(supporting_provider_counts.items())),
+        "countering_provider_counts": dict(sorted(countering_provider_counts.items())),
         "source_candidate_type_counts": dict(sorted(source_candidate_type_counts.items())),
         "provider_vote_counts": dict(sorted(provider_candidate_membership_counts.items())),
         "target_type_votes": dict(sorted(source_candidate_type_counts.items())),

@@ -3648,6 +3648,16 @@ def _rollup_audit_html(target: dict[str, Any]) -> str:
         if isinstance(rollup.get("provider_vote_counts"), dict)
         else {}
     )
+    supporting_provider_counts = (
+        rollup.get("supporting_provider_counts")
+        if isinstance(rollup.get("supporting_provider_counts"), dict)
+        else {}
+    )
+    countering_provider_counts = (
+        rollup.get("countering_provider_counts")
+        if isinstance(rollup.get("countering_provider_counts"), dict)
+        else {}
+    )
     source_candidates = [row for row in target.get("source_candidates") or [] if isinstance(row, dict)]
     source_candidate_count = int(rollup.get("source_candidate_count") or len(source_candidates) or 1)
     distinct_target_type_count = int(rollup.get("distinct_target_type_count") or len(target_type_counts) or 1)
@@ -3659,18 +3669,29 @@ def _rollup_audit_html(target: dict[str, Any]) -> str:
         for target_type, count in sorted(target_type_counts.items())
     ) or "<li>Candidate-type counts were not retained for this artifact.</li>"
     provider_items = "".join(
-        f"<li><b>{_html(str(provider))}</b>: {_html(str(count))} candidate vote(s)</li>"
+        f"<li><b>{_html(str(provider))}</b>: {_html(str(count))} candidate membership(s)</li>"
         for provider, count in sorted(provider_membership_counts.items())
     ) or "<li>Provider candidate-membership counts were not retained for this artifact.</li>"
+    supporting_items = "".join(
+        f"<li><b>{_html(str(provider))}</b>: {_html(str(count))} supporting candidate(s)</li>"
+        for provider, count in sorted(supporting_provider_counts.items())
+    ) or "<li>No supporting-provider counts were retained.</li>"
+    countering_items = "".join(
+        f"<li><b>{_html(str(provider))}</b>: {_html(str(count))} countering candidate(s)</li>"
+        for provider, count in sorted(countering_provider_counts.items())
+    ) or "<li>No countering-provider counts were retained.</li>"
     candidate_items = []
     for candidate in source_candidates[:20]:
         providers = ", ".join(str(value) for value in candidate.get("provider_ids") or []) or "provider unavailable"
+        supporters = ", ".join(str(value) for value in candidate.get("supporting_provider_ids") or []) or "none"
+        counters = ", ".join(str(value) for value in candidate.get("countering_provider_ids") or []) or "none"
         refs = ", ".join(str(value) for value in candidate.get("evidence_refs") or []) or "no refs retained"
         claim = str(candidate.get("claim") or "claim summary unavailable")
         candidate_items.append(
             "<li>"
             f"<b>{_html(str(candidate.get('canonical_target_type') or 'general_review'))}</b> "
-            f"/ {_html(providers)} / refs {_html(refs)}<br>"
+            f"/ participants {_html(providers)} / supports {_html(supporters)} / counters {_html(counters)} "
+            f"/ refs {_html(refs)}<br>"
             f"{_html(claim)}"
             "</li>"
         )
@@ -3686,6 +3707,8 @@ def _rollup_audit_html(target: dict[str, Any]) -> str:
             <summary>Compare candidate-type counts, provider memberships, and pre-merge candidates</summary>
             <h4>Source-candidate type counts</h4><ul>{vote_items}</ul>
             <h4>Provider candidate memberships</h4><ul>{provider_items}</ul>
+            <h4>Supporting provider counts</h4><ul>{supporting_items}</ul>
+            <h4>Countering provider counts</h4><ul>{countering_items}</ul>
             <h4>Source candidates</h4><ol>{candidate_html}</ol>
           </details>
         </div>

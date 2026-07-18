@@ -11,7 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Portable semantic classification for Evidence Items using `event_family`, `event_name`, `template_fingerprint`, classification provenance, and optional approved-profile overrides.
 - Independent agreement, disagreement, and unsupported-validity signals for mixed provider conclusions and invalid citations.
 - Stance-specific provider sets and Evidence references, including participating, supporting, countering, caveat, validation, and insufficient-evidence membership.
-- Canonical rollup audit data with source-candidate type counts, provider candidate-membership counts, supporting-provider counts, source-candidate counts, and distinct target-type counts.
+- Canonical rollup audit data with source-candidate type counts, provider candidate-membership counts, supporting- and countering-provider counts, source-candidate counts, and distinct target-type counts.
 - Review UI warnings and source-candidate details for canonical groups that may contain multiple failure types.
 - Model-aware provider execution contract hashes for safe PostgreSQL and local-ledger result reuse.
 - Versioned provider execution contract v2 covering exact compacted model input, rendered prompt, response schema, generation settings, adapter source, request protocol, safety/tool policy, and model revision metadata.

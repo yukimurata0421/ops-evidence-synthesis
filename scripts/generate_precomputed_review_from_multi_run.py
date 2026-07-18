@@ -896,6 +896,7 @@ def _targets(
                         "provider_candidate_membership_counts"
                     ],
                     "supporting_provider_counts": public_rollup["supporting_provider_counts"],
+                    "countering_provider_counts": public_rollup["countering_provider_counts"],
                     "provider_vote_counts": public_rollup["provider_vote_counts"],
                 },
             }
@@ -1169,6 +1170,7 @@ def _merge_duplicate_public_target(
         "provider_candidate_membership_counts"
     ]
     raw["supporting_provider_counts"] = merged_rollup["supporting_provider_counts"]
+    raw["countering_provider_counts"] = merged_rollup["countering_provider_counts"]
     raw["provider_vote_counts"] = merged_rollup["provider_vote_counts"]
     merged["raw"] = raw
     agreement = dict(merged.get("agreement") or {})
@@ -1257,6 +1259,7 @@ def _merge_public_rollup_details(
         source_candidate_type_counts: dict[str, int] = {}
         provider_candidate_membership_counts: dict[str, int] = {}
         supporting_provider_counts: dict[str, int] = {}
+        countering_provider_counts: dict[str, int] = {}
         for candidate in source_candidates:
             target_type = str(candidate.get("canonical_target_type") or "general_review")
             source_candidate_type_counts[target_type] = source_candidate_type_counts.get(target_type, 0) + 1
@@ -1268,6 +1271,10 @@ def _merge_public_rollup_details(
                 str(value) for value in candidate.get("supporting_provider_ids") or [] if str(value)
             }:
                 supporting_provider_counts[provider_id] = supporting_provider_counts.get(provider_id, 0) + 1
+            for provider_id in {
+                str(value) for value in candidate.get("countering_provider_ids") or [] if str(value)
+            }:
+                countering_provider_counts[provider_id] = countering_provider_counts.get(provider_id, 0) + 1
     else:
         source_candidate_type_counts = _sum_public_vote_counts(
             first_rollup.get("source_candidate_type_counts") or first_rollup.get("target_type_votes"),
@@ -1280,6 +1287,10 @@ def _merge_public_rollup_details(
         supporting_provider_counts = _sum_public_vote_counts(
             first_rollup.get("supporting_provider_counts"),
             second_rollup.get("supporting_provider_counts"),
+        )
+        countering_provider_counts = _sum_public_vote_counts(
+            first_rollup.get("countering_provider_counts"),
+            second_rollup.get("countering_provider_counts"),
         )
 
     distinct_target_type_count = max(
@@ -1313,6 +1324,7 @@ def _merge_public_rollup_details(
         "independent_support_provider_count": independent_support_provider_count,
         "provider_candidate_membership_counts": dict(sorted(provider_candidate_membership_counts.items())),
         "supporting_provider_counts": dict(sorted(supporting_provider_counts.items())),
+        "countering_provider_counts": dict(sorted(countering_provider_counts.items())),
         "provider_vote_counts": dict(sorted(provider_candidate_membership_counts.items())),
         "provider_vote_counts_deprecated_alias_for": "provider_candidate_membership_counts",
         "source_candidate_type_counts": dict(sorted(source_candidate_type_counts.items())),
@@ -1775,6 +1787,11 @@ def _public_rollup_details(target: dict[str, Any], *, source_candidate_count: in
         if isinstance(rollup.get("supporting_provider_counts"), dict)
         else {}
     )
+    countering_provider_counts = (
+        rollup.get("countering_provider_counts")
+        if isinstance(rollup.get("countering_provider_counts"), dict)
+        else {}
+    )
     distinct_target_type_count = (
         _int(rollup.get("distinct_target_type_count")) or len(source_candidate_type_counts) or 1
     )
@@ -1796,6 +1813,9 @@ def _public_rollup_details(target: dict[str, Any], *, source_candidate_count: in
         "provider_candidate_membership_counts": public_membership_counts,
         "supporting_provider_counts": {
             str(key): _int(value) for key, value in sorted(supporting_provider_counts.items())
+        },
+        "countering_provider_counts": {
+            str(key): _int(value) for key, value in sorted(countering_provider_counts.items())
         },
         "provider_vote_counts": public_membership_counts,
         "provider_vote_counts_deprecated_alias_for": "provider_candidate_membership_counts",

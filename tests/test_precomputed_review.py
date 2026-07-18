@@ -79,6 +79,7 @@ def test_rollup_audit_shows_type_counts_provider_memberships_and_source_candidat
                 "source_candidate_type_counts": {"restart_loop": 1, "runtime_exception": 1},
                 "provider_candidate_membership_counts": {"provider-a": 1, "provider-b": 1},
                 "supporting_provider_counts": {"provider-a": 1},
+                "countering_provider_counts": {"provider-b": 1},
                 "target_type_divergence_penalty": 0.03,
             },
             "overmerge_review": {
@@ -88,12 +89,14 @@ def test_rollup_audit_shows_type_counts_provider_memberships_and_source_candidat
                 {
                     "canonical_target_type": "restart_loop",
                     "provider_ids": ["provider-a"],
+                    "supporting_provider_ids": ["provider-a"],
                     "evidence_refs": ["OPS-001"],
                     "claim": "worker restart loop",
                 },
                 {
                     "canonical_target_type": "runtime_exception",
                     "provider_ids": ["provider-b"],
+                    "countering_provider_ids": ["provider-b"],
                     "evidence_refs": ["OPS-002"],
                     "claim": "uncaught worker exception",
                 },
@@ -108,6 +111,9 @@ def test_rollup_audit_shows_type_counts_provider_memberships_and_source_candidat
     assert "provider-a" in html
     assert "Source-candidate type counts" in html
     assert "Provider candidate memberships" in html
+    assert "Supporting provider counts" in html
+    assert "Countering provider counts" in html
+    assert "candidate vote(s)" not in html
     assert "OPS-002" in html
 
 
@@ -117,8 +123,9 @@ def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
         "source_candidates": [
             {
                 "source_candidate_id": "candidate-a",
-                "provider_ids": ["provider-a"],
+                "provider_ids": ["provider-a", "provider-c"],
                 "supporting_provider_ids": ["provider-a"],
+                "countering_provider_ids": ["provider-c"],
                 "canonical_target_type": "restart_loop",
                 "evidence_refs": ["OPS-001"],
                 "claim": "worker restart loop",
@@ -126,8 +133,9 @@ def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
         ],
         "rollup": {
             "source_candidate_count": 1,
-            "provider_candidate_membership_counts": {"provider-a": 1},
+            "provider_candidate_membership_counts": {"provider-a": 1, "provider-c": 1},
             "supporting_provider_counts": {"provider-a": 1},
+            "countering_provider_counts": {"provider-c": 1},
             "source_candidate_type_counts": {"restart_loop": 1},
             "distinct_target_type_count": 1,
         },
@@ -154,6 +162,7 @@ def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
             "source_candidate_count": 1,
             "provider_candidate_membership_counts": {"provider-b": 1},
             "supporting_provider_counts": {"provider-b": 1},
+            "countering_provider_counts": {},
             "source_candidate_type_counts": {"runtime_exception": 1},
             "distinct_target_type_count": 1,
         },
@@ -170,11 +179,13 @@ def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
     assert merged["rollup"]["provider_candidate_membership_counts"] == {
         "provider-a": 1,
         "provider-b": 1,
+        "provider-c": 1,
     }
     assert merged["rollup"]["supporting_provider_counts"] == {
         "provider-a": 1,
         "provider-b": 1,
     }
+    assert merged["rollup"]["countering_provider_counts"] == {"provider-c": 1}
     assert merged["rollup"]["independent_support_provider_count"] == 2
     assert merged["rollup"]["target_type_votes"] == merged["rollup"]["source_candidate_type_counts"]
     assert merged["rollup"]["provider_vote_counts"] == merged["rollup"][

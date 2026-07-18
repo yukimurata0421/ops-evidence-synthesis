@@ -39,7 +39,7 @@ The grouping and arbitration path must remain deterministic, portable across sou
 4. Treat distinct target types as divergence:
    - preserve `source_candidate_type_counts` and `distinct_target_type_count`;
    - apply a bounded divergence penalty instead of a convergence bonus;
-   - preserve provider candidate-membership counts, supporting-provider counts, source-candidate counts, and pre-rollup candidates;
+   - preserve provider candidate-membership counts, supporting- and countering-provider counts, source-candidate counts, and pre-rollup candidates;
    - expose these fields and a visible warning in the human review UI.
 
    The legacy keys `target_type_votes` and `provider_vote_counts` remain compatibility aliases. They are counts of source-candidate types and provider candidate memberships, not majority votes. Provider convergence bonuses, baseline support scores, and rollup ratios use distinct supporting providers only.
@@ -56,7 +56,7 @@ Rejected because a subsystem can contain independent restart, runtime exception,
 
 ### Exact target-type grouping
 
-Rejected as the only rule because providers may use different but related type labels for the same operational mechanism. Target type is retained as an auditable vote and divergence signal instead.
+Rejected as the only rule because providers may use different but related type labels for the same operational mechanism. Target type is retained as an auditable source-candidate count and divergence signal instead.
 
 ### Exclusive agreement/disagreement states
 

@@ -854,6 +854,7 @@ def _consensus_class(target: dict[str, Any]) -> str:
 def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> dict[str, Any]:
     provider_candidate_memberships: list[str] = []
     supporting_provider_memberships: list[str] = []
+    countering_provider_memberships: list[str] = []
     for row in rows:
         providers = _unique_str(row.get("providers") or [])
         if providers:
@@ -861,8 +862,12 @@ def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> 
         supporting_providers = _unique_str(row.get("supporting_providers") or [])
         if supporting_providers:
             supporting_provider_memberships.extend(supporting_providers)
+        countering_providers = _unique_str(row.get("countering_providers") or [])
+        if countering_providers:
+            countering_provider_memberships.extend(countering_providers)
     provider_candidate_membership_counts = Counter(provider_candidate_memberships)
     supporting_provider_counts = Counter(supporting_provider_memberships)
+    countering_provider_counts = Counter(countering_provider_memberships)
     source_candidate_type_counts = Counter(
         _normalize_token(str(row.get("canonical_target_type") or row.get("core_target_type") or "general_review"))
         for row in rows
@@ -932,6 +937,7 @@ def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> 
         "independent_support_provider_count": independent_support_provider_count,
         "provider_candidate_membership_counts": dict(sorted(provider_candidate_membership_counts.items())),
         "supporting_provider_counts": dict(sorted(supporting_provider_counts.items())),
+        "countering_provider_counts": dict(sorted(countering_provider_counts.items())),
         "provider_vote_counts": dict(sorted(provider_candidate_membership_counts.items())),
         "provider_vote_counts_deprecated_alias_for": "provider_candidate_membership_counts",
         "same_provider_duplicate_count": repeated_provider_memberships,

@@ -216,8 +216,9 @@ Target-type diversity is treated as divergence, not convergence. More than one
 canonical target type adds `target_type_divergence`, subtracts a bounded
 `target_type_divergence_penalty` from rollup priority, and blocks promotion
 until a human validates the mixed candidates. Public review payloads retain
-target-type votes, provider candidate votes, and bounded pre-merge candidate
-summaries so the UI can show what was combined.
+source-candidate type counts, provider candidate memberships, supporting and
+countering provider counts, and bounded pre-merge candidate summaries so the
+UI can show what was combined.
 
 ## Pipeline Progress
 

@@ -380,7 +380,7 @@
   "evidence_sha256": "90df7ce2f75392b1d2e0043f5e45076b223e9001d1eb1fde8bc83beeed0b42af",
   "generation": {
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "c4c6f43bce6d8e2862b8de2775b526cd83f12f1b5ae2eb1e8b705b0a887bb60f",
+    "payload_sha256": "a1818c0205cb5d27659f35296051f45d42b294a0bc9df355104aaac412b0c081",
     "provider_mode": "deterministic_local",
     "raw_log_policy": "not_uploaded",
     "schema_version": "precomputed_review_generation.v1",
@@ -583,7 +583,7 @@
       "incident": false,
       "technical": true
     },
-    "canonical_graph_sha256": "fdeca205a6f5b411fc86e1bb1f1811fb10ec73b8ad740f8a8798b328e716c34e",
+    "canonical_graph_sha256": "e3b8d9bd90ca0a444e114b02260ac9e55dccad156a69b02e8237266c81fe186a",
     "canonical_graph_status": "pipeline_generated",
     "finding": {
       "impact": "1 target(s) show provider convergence, and 5 validation target(s) remain human-gated.",
@@ -669,6 +669,7 @@
       "review_priority_score": 0.6925,
       "review_target_id": "prt-00b9401a0d27a0a7af86",
       "rollup": {
+        "countering_provider_counts": {},
         "distinct_target_type_count": 1,
         "independent_provider_count": 0,
         "independent_support_provider_count": 0,
@@ -745,6 +746,7 @@
       "review_priority_score": 0.6125,
       "review_target_id": "prt-30f75fe1c76934296e5e",
       "rollup": {
+        "countering_provider_counts": {},
         "distinct_target_type_count": 1,
         "independent_provider_count": 0,
         "independent_support_provider_count": 0,
@@ -822,6 +824,7 @@
       "review_priority_score": 0.6125,
       "review_target_id": "prt-c08704b02e8e4905d2f6",
       "rollup": {
+        "countering_provider_counts": {},
         "distinct_target_type_count": 1,
         "independent_provider_count": 0,
         "independent_support_provider_count": 0,
@@ -901,6 +904,7 @@
       "review_priority_score": 0.6125,
       "review_target_id": "prt-f3e7c574da42adf8dc39",
       "rollup": {
+        "countering_provider_counts": {},
         "distinct_target_type_count": 1,
         "independent_provider_count": 0,
         "independent_support_provider_count": 0,
@@ -978,6 +982,7 @@
       "review_priority_score": 0.6125,
       "review_target_id": "prt-657a2825d7ecfb08fa54",
       "rollup": {
+        "countering_provider_counts": {},
         "distinct_target_type_count": 1,
         "independent_provider_count": 0,
         "independent_support_provider_count": 0,

@@ -277,6 +277,30 @@ def test_target_type_divergence_reduces_rollup_priority_bonus() -> None:
     assert divergent["priority_bonus"] < aligned["priority_bonus"]
 
 
+def test_rollup_separates_provider_membership_support_and_counter_counts() -> None:
+    rollup = _rollup_profile(
+        [
+            {
+                "providers": ["provider-a", "provider-b"],
+                "supporting_providers": ["provider-a"],
+                "countering_providers": ["provider-b"],
+                "support_evidence_refs": ["OPS-001"],
+                "counter_evidence_refs": ["OPS-002"],
+                "canonical_target_type": "runtime_exception",
+            }
+        ],
+        evidence_refs=["OPS-001", "OPS-002"],
+    )
+
+    assert rollup["provider_candidate_membership_counts"] == {
+        "provider-a": 1,
+        "provider-b": 1,
+    }
+    assert rollup["supporting_provider_counts"] == {"provider-a": 1}
+    assert rollup["countering_provider_counts"] == {"provider-b": 1}
+    assert rollup["independent_support_provider_count"] == 1
+
+
 def test_canonical_observation_groups_roll_up_transport_aliases(tmp_path: Path) -> None:
     store = SQLiteStore(tmp_path / "transport-unit.sqlite3")
     bundle = {

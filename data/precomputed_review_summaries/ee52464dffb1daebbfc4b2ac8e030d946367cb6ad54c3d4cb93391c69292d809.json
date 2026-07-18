@@ -377,7 +377,7 @@
   "evidence_sha256": "ee52464dffb1daebbfc4b2ac8e030d946367cb6ad54c3d4cb93391c69292d809",
   "generation": {
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "d23462a4a5a3df3f38b0901f85b4ee8550a0693ed99e44ac05a0591b2916577b",
+    "payload_sha256": "939f7ce19b3b02100f99eaa3c78ec52789ad6d2cc486b11c9e8ba7888dfbd061",
     "provider_mode": "deterministic_local",
     "raw_log_policy": "not_uploaded",
     "schema_version": "precomputed_review_generation.v1",
@@ -580,7 +580,7 @@
       "incident": false,
       "technical": true
     },
-    "canonical_graph_sha256": "fdc432c8a04d3b71b018640cc5c7e7b774d55165a72533f3d0105dfe1092c978",
+    "canonical_graph_sha256": "66e96f7e9e1b54ab3dd214ec672ad4745f70ea4bb74d8cf985207d7a4d929a82",
     "canonical_graph_status": "pipeline_generated",
     "finding": {
       "impact": "1 target(s) show provider convergence, and 1 validation target(s) remain human-gated.",
@@ -667,6 +667,7 @@
       "review_priority_score": 0.8175,
       "review_target_id": "prt-a442947b33bff021735a",
       "rollup": {
+        "countering_provider_counts": {},
         "distinct_target_type_count": 1,
         "independent_provider_count": 0,
         "independent_support_provider_count": 0,
