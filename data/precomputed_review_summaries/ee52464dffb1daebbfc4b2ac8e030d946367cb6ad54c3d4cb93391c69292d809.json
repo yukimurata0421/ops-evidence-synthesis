@@ -377,7 +377,7 @@
   "evidence_sha256": "ee52464dffb1daebbfc4b2ac8e030d946367cb6ad54c3d4cb93391c69292d809",
   "generation": {
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "4ae4b3239ebbab424dae44aafe2b0bf4777b27df9924f17214799cc8df33004a",
+    "payload_sha256": "813c16fac058ad3f1137b924d478df61bc5f2ec3108576a2dfe8b92edbb41b17",
     "provider_mode": "deterministic_local",
     "raw_log_policy": "not_uploaded",
     "schema_version": "precomputed_review_generation.v1",
@@ -562,7 +562,7 @@
     "hidden_multi_provider_archived_count": 0,
     "incident_baseline": "open",
     "incident_baseline_established_count": 0,
-    "note": "Provider convergence is treated as technical support only; causal judgement remains human-gated. Partial overlap is an overlay count for targets where some schema-valid providers were silent; it is not additive with converged/single-source target counts.",
+    "note": "Provider convergence is treated as technical support only; causal judgement remains human-gated. Partial overlap is an overlay count for targets where some schema-valid Providers did not supply support; it is not additive with converged/single-source target counts.",
     "partial_overlap_count": 1,
     "primary_promoted_count": 0,
     "provider_detection_overlap": "2/3",
@@ -580,7 +580,7 @@
       "incident": false,
       "technical": true
     },
-    "canonical_graph_sha256": "567089033067480a990ea582e061ba50423a195eb29d3534b3b92b562c0b27ca",
+    "canonical_graph_sha256": "4b8ec615f8db86644ca1ddc0b28b6c40031ca583182328edb41cd569d1465e82",
     "canonical_graph_status": "pipeline_generated",
     "finding": {
       "impact": "1 target(s) show provider convergence, and 1 validation target(s) remain human-gated.",

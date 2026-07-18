@@ -1,7 +1,7 @@
 {
   "api_revision": "",
   "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96",
-  "canonical_graph_sha256": "03366552f643fcaeb2dfb7070ccf558a03322eb7000f676b5d430d471d474ffd",
+  "canonical_graph_sha256": "a59295195c5adf21b41a71ec2602c1c3401caff502958aafff58c2a0e54d2ebc",
   "case_id": "stream_v3_dell_runtime_real_api",
   "evidence_sha256": "b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96",
   "execution_timing": {
@@ -39,7 +39,21 @@
     "interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_runtime bundle keeps 45,000 rows and 1,036 grouped Evidence Items, while the bounded projection tracks 140 high-signal Evidence Items representing 44,104 repeated occurrences. Multi-provider synthesis then covered 1,036/1,036 grouped Evidence Items through chunked provider calls across up to 10 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency."
   },
   "input_fingerprint_sha256": "0806e6178fe17a71aea20ccac4d39cef39404647b6223ad8769a2279aa32a667",
-  "payload_sha256": "7b7838daf214d982e123e1356b919d75760a6f3ea9cff3c0a155ac7184bb615b",
+  "payload_sha256": "019ac22f0eb14dd56cae869522d7a993683064f3db075df955b39e70866abaab",
+  "provenance": {
+    "agreement_contract": "stance_aware_support.v2",
+    "derivation_mode": "deterministic_resynthesis_without_provider_api_calls",
+    "source_artifact_sha256": "de3a5172b1fda073e85fb448049cb8f808207c84135d16ee43edede7637c32fc",
+    "tested_implementation_commit_sha": "021fbd74b33b39536e332172c1ea2b7b72a25b4c",
+    "artifact_generation_commit_sha": "021fbd74b33b39536e332172c1ea2b7b72a25b4c",
+    "published_repository_head_sha": "",
+    "deployed_image_digest": "",
+    "runtime_overlay_fields": [
+      "published_repository_head_sha",
+      "deployed_image_digest"
+    ],
+    "historical_payload_path": "data/precomputed_review_summaries/legacy_v1/b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96.json"
+  },
   "pipeline_run_id": "stream-v3-runtime-45k-semantic-real-api-20260718-v3",
   "precomputed_payload_path": "data/precomputed_review_summaries/b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96.json",
   "profile_gate": {
@@ -272,7 +286,7 @@
   "public_positioning": {
     "landing_rank": 10,
     "landing_role": "primary_review",
-    "note": "Source-approved semantic real-provider review. Provider convergence creates human review work; no incident cause is auto-accepted.",
+    "note": "Source-approved semantic real-provider review re-synthesized from immutable recorded outputs. Agreement counts supporting Providers; participation and counter-signals remain separate. No incident cause is auto-accepted.",
     "title": "Primary review: stream_v3 runtime 45k semantic rerun, 0 auto-promoted causes"
   },
   "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96",
@@ -281,8 +295,8 @@
     "source_context_sha256": "",
     "source_analysis_sha256": "",
     "source_discovery_sha256": "08067a4229e875c89be713e609c180372de966a0105eb7ea4fbbcc6ed8ac9708",
-    "updated_at": "2026-07-18T07:21:17Z",
-    "window_selection_note": "Approved profile stream_v3_runtime_source_approved_20260711 was frozen before log analysis; source access remained disabled after approval. Canonical graph 03366552f643fcaeb2dfb7070ccf558a03322eb7000f676b5d430d471d474ffd identifies this accepted run."
+    "updated_at": "2026-07-18T11:05:00Z",
+    "window_selection_note": "Approved profile stream_v3_runtime_source_approved_20260711 was frozen before log analysis; source access remained disabled after approval. Canonical graph a59295195c5adf21b41a71ec2602c1c3401caff502958aafff58c2a0e54d2ebc was deterministically derived from the immutable recorded Provider outputs under stance-aware Agreement contract v2 without new Provider calls."
   },
   "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96",
   "review_summary": {
@@ -294,6 +308,8 @@
     "incident_gate_signal": "signal_present",
     "technical_baseline": "open",
     "provider_detection_overlap": "5/5",
+    "provider_support_overlap": "4/5",
+    "agreement_contract": "stance_aware_support.v2",
     "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target."
   },
   "sanitized_corpus": {

@@ -64,10 +64,11 @@ human-gated.
 - DB-backed runs assign every sanitized log row in the incident window to a
   grouped Evidence Item before provider chunking, so low-frequency rows are not
   dropped by count alone.
-- Convergence score is defined as claimed successful providers divided by all
-  successful providers.
+- Convergence score is defined as supporting schema-valid providers divided by
+  all schema-valid providers. Participation, caveat, counter, validation-only,
+  and silent positions do not count as support.
 - The public primary path shows 5/5 recorded provider outputs, 0 primary
-  candidates, and 10 validation targets. This is the intended restrained result:
+  candidates, and 6 validation targets. This is the intended restrained result:
   technical support does not bypass the incident and user-impact gates.
 - The More data rescore demo shows the AI improvement cycle without public write
   access or live model execution.

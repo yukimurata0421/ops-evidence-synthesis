@@ -26,15 +26,19 @@ profile and sanitized Evidence Items; source access was disabled after approval.
 | --- | --- | --- |
 | Evidence SHA256 | `b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96` | `8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a` |
 | Pipeline run | `stream-v3-runtime-45k-semantic-real-api-20260718-v3` | `stream-v3-monitoring-50k-real-api-20260711-v3` |
-| Canonical graph SHA256 | `03366552f643fcaeb2dfb7070ccf558a03322eb7000f676b5d430d471d474ffd` | `b5133772b23bdf85b7a33aafa0a425ea0395fe3ed4922e96c794a500cf8a1e86` |
+| Canonical graph SHA256 | `a59295195c5adf21b41a71ec2602c1c3401caff502958aafff58c2a0e54d2ebc` | `b5133772b23bdf85b7a33aafa0a425ea0395fe3ed4922e96c794a500cf8a1e86` |
 | Input fingerprint SHA256 | `0806e6178fe17a71aea20ccac4d39cef39404647b6223ad8769a2279aa32a667` | `ad9fd983765f62a14c5ed09260c6ca3d1549e76a724ecd966429e2e499277cd1` |
 | Approved profile SHA256 | `77ceaa551a41d4a9e24fa3533de0bfe7df1f17a56702d6ed13e1e6b5342ce709` | `17fd209acd501ff5ebfd28dafcd83e6ebb23e7695ac19a13dd661a6ca1de428e` |
 | Public payload | `data/precomputed_review_summaries/b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96.json` | `data/precomputed_review_summaries/8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a.json` |
-| Payload SHA256 | `7b7838daf214d982e123e1356b919d75760a6f3ea9cff3c0a155ac7184bb615b` | `62709cf1f070393cd8b51bb85beebb2d6e59f5e573971597afa8a27c9bbe58e9` |
+| Payload SHA256 | `019ac22f0eb14dd56cae869522d7a993683064f3db075df955b39e70866abaab` | `62709cf1f070393cd8b51bb85beebb2d6e59f5e573971597afa8a27c9bbe58e9` |
+| Source multi-run SHA256 | `de3a5172b1fda073e85fb448049cb8f808207c84135d16ee43edede7637c32fc` | historical artifact |
+| Artifact generation commit | `021fbd74b33b39536e332172c1ea2b7b72a25b4c` | historical artifact |
 
-The API revision field is intentionally empty for these local-orchestrated,
-GCS-published runs; the pipeline run ID, evidence SHA, model output hashes, and
-canonical graph SHA are the run attestations.
+The runtime API revision field is intentionally empty for these local-orchestrated,
+GCS-published runs. The runtime Flagship projection was deterministically
+re-synthesized from the immutable recorded Provider outputs under
+`stance_aware_support.v2`; no Provider API was called. The original pre-v2
+payload remains under `data/precomputed_review_summaries/legacy_v1/`.
 
 ## Windows and Coverage
 
