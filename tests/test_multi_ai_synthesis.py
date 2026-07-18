@@ -13,6 +13,10 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from ops_evidence_synthesis.ai.base import ModelResponse
+from ops_evidence_synthesis.ai.execution_contract import (
+    build_provider_execution_contract,
+    provider_execution_contract_sha256,
+)
 from ops_evidence_synthesis.ai.runtime import SafetyPreflightResult
 from ops_evidence_synthesis.local_first import build_bundle_from_sanitized, sanitize_input
 from ops_evidence_synthesis.profile_discovery import approve_profile_draft, discover_profile, draft_profile
@@ -24,7 +28,6 @@ from ops_evidence_synthesis.synthesis.multi_ai import (
     _adaptive_subchunk_retry_enabled,
     _artifact_execution_status,
     _bundle_for_evidence_chunk,
-    _chunk_cache_key,
     _chunk_input_tokens_per_minute,
     _chunk_min_start_interval_seconds,
     _chunk_start_interval_seconds,
@@ -406,6 +409,7 @@ def test_run_multi_ai_cli_generates_artifacts_with_local_providers(tmp_path: Pat
     profile_context = json.loads((out / "profile_context.json").read_text(encoding="utf-8"))
     review_targets = json.loads((out / "review_targets.json").read_text(encoding="utf-8"))
     canonical_graph = json.loads((out / "canonical_review_graph.json").read_text(encoding="utf-8"))
+    provenance = json.loads((out / "validation_provenance.json").read_text(encoding="utf-8"))
 
     assert len(model_runs) == 3
     for run in model_runs:
@@ -440,6 +444,15 @@ def test_run_multi_ai_cli_generates_artifacts_with_local_providers(tmp_path: Pat
     assert review_targets
     assert canonical_graph["schema_version"] == "canonical_review_graph.v1"
     assert "agreement_dimensions" in canonical_graph
+    assert provenance["schema_version"] == "multi_ai_validation_provenance.v1"
+    assert provenance["implementation"]["commit_sha"]
+    assert len(provenance["artifacts"]["multi_ai_run.json"]["sha256"]) == 64
+    assert provenance["public_projection_artifact"]["sha256"] == provenance["artifacts"]["multi_ai_run.json"][
+        "sha256"
+    ]
+    assert provenance["canonical_graph_artifact"]["sha256"] == provenance["artifacts"][
+        "canonical_review_graph.json"
+    ]["sha256"]
 
 
 def test_support_claim_without_evidence_id_is_unsupported() -> None:
@@ -1350,44 +1363,87 @@ def test_provider_chunk_ledger_reuses_successful_chunks(monkeypatch, tmp_path: P
 
 
 def test_provider_chunk_ledger_reuses_failed_chunks_only_when_enabled(monkeypatch) -> None:
-    prompt_sha256 = "failed-prompt"
+    provider = CountingChunkProvider(
+        provider="mistral-agent-platform",
+        model_name="mistral-small-2503",
+    )
+    bundle = _bundle_for_evidence_chunk(
+        _chunk_contract_bundle(1),
+        evidence_items=_chunk_contract_bundle(1)["evidence_items"],
+        chunk_index=1,
+        total_chunks=1,
+        provider_id=provider.provider,
+    )
+    execution_contract = build_provider_execution_contract(provider, bundle)
+    execution_contract_sha256 = provider_execution_contract_sha256(execution_contract)
     record = {
-        "provider_id": "mistral-agent-platform",
-        "prompt_sha256": prompt_sha256,
+        "provider_id": provider.provider,
+        "model_name": provider.model_name,
+        "execution_contract_sha256": execution_contract_sha256,
+        "execution_contract": execution_contract,
         "status": "rate_limited",
         "artifact": {"status": "failed", "schema_valid": False},
         "parsed_payload": {"claims": [], "propositions": []},
     }
     ledger = _ProviderChunkLedger(
         records=[record],
-        cache={_chunk_cache_key("mistral-agent-platform", prompt_sha256): record},
+        cache={execution_contract_sha256: record},
     )
 
     monkeypatch.delenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS", raising=False)
     monkeypatch.delenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS_BY_PROVIDER", raising=False)
-    assert ledger.reusable_record("mistral-agent-platform", prompt_sha256) is None
+    assert ledger.reusable_record(provider.provider, execution_contract) is None
 
     monkeypatch.setenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS", "1")
-    assert ledger.reusable_record("mistral-agent-platform", prompt_sha256) == record
+    assert ledger.reusable_record(provider.provider, execution_contract) == record
 
     monkeypatch.delenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS", raising=False)
     monkeypatch.setenv("OES_MULTI_AI_REUSE_FAILED_CHUNK_RECORDS_BY_PROVIDER", "llama-agent-platform=1")
-    assert ledger.reusable_record("mistral-agent-platform", prompt_sha256) is None
+    assert ledger.reusable_record(provider.provider, execution_contract) is None
 
-    llama_record = {**record, "provider_id": "llama-agent-platform"}
+    llama_provider = CountingChunkProvider(
+        provider="llama-agent-platform",
+        model_name="llama-4-maverick-17b-128e-instruct-maas",
+    )
+    llama_contract = build_provider_execution_contract(llama_provider, bundle)
+    llama_contract_sha256 = provider_execution_contract_sha256(llama_contract)
+    llama_record = {
+        **record,
+        "provider_id": llama_provider.provider,
+        "model_name": llama_provider.model_name,
+        "execution_contract_sha256": llama_contract_sha256,
+        "execution_contract": llama_contract,
+    }
     llama_ledger = _ProviderChunkLedger(
         records=[llama_record],
-        cache={_chunk_cache_key("llama-agent-platform", prompt_sha256): llama_record},
+        cache={llama_contract_sha256: llama_record},
     )
-    assert llama_ledger.reusable_record("llama-agent-platform", prompt_sha256) == llama_record
+    assert llama_ledger.reusable_record(llama_provider.provider, llama_contract) == llama_record
 
 
 def test_provider_chunk_ledger_cache_key_includes_model_name() -> None:
-    prompt_sha256 = "same-prompt"
+    bundle = _bundle_for_evidence_chunk(
+        _chunk_contract_bundle(1),
+        evidence_items=_chunk_contract_bundle(1)["evidence_items"],
+        chunk_index=1,
+        total_chunks=1,
+        provider_id="gemini-enterprise-agent-platform",
+    )
+    pro_provider = CountingChunkProvider(
+        provider="gemini-enterprise-agent-platform",
+        model_name="gemini-3.1-pro-preview",
+    )
+    flash_provider = CountingChunkProvider(
+        provider="gemini-enterprise-agent-platform",
+        model_name="gemini-3.1-flash-lite",
+    )
+    pro_contract = build_provider_execution_contract(pro_provider, bundle)
+    flash_contract = build_provider_execution_contract(flash_provider, bundle)
     pro_record = {
         "provider_id": "gemini-enterprise-agent-platform",
         "model_name": "gemini-3.1-pro-preview",
-        "prompt_sha256": prompt_sha256,
+        "execution_contract_sha256": provider_execution_contract_sha256(pro_contract),
+        "execution_contract": pro_contract,
         "status": "ok",
         "artifact": {"status": "ok", "schema_valid": True},
         "parsed_payload": {"claims": [{"claim_text": "pro output"}], "propositions": []},
@@ -1395,6 +1451,8 @@ def test_provider_chunk_ledger_cache_key_includes_model_name() -> None:
     flash_record = {
         **pro_record,
         "model_name": "gemini-3.1-flash-lite",
+        "execution_contract_sha256": provider_execution_contract_sha256(flash_contract),
+        "execution_contract": flash_contract,
         "parsed_payload": {"claims": [{"claim_text": "flash output"}], "propositions": []},
     }
     ledger = _ProviderChunkLedger(records=[], cache={})
@@ -1404,20 +1462,93 @@ def test_provider_chunk_ledger_cache_key_includes_model_name() -> None:
     assert (
         ledger.reusable_record(
             "gemini-enterprise-agent-platform",
-            prompt_sha256,
-            "gemini-3.1-pro-preview",
+            pro_contract,
         )["parsed_payload"]["claims"][0]["claim_text"]
         == "pro output"
     )
     assert (
         ledger.reusable_record(
             "gemini-enterprise-agent-platform",
-            prompt_sha256,
-            "gemini-3.1-flash-lite",
+            flash_contract,
         )["parsed_payload"]["claims"][0]["claim_text"]
         == "flash output"
     )
-    assert ledger.reusable_record("gemini-enterprise-agent-platform", prompt_sha256, "gemini-other") is None
+    other_contract = build_provider_execution_contract(
+        CountingChunkProvider(
+            provider="gemini-enterprise-agent-platform",
+            model_name="gemini-other",
+        ),
+        bundle,
+    )
+    assert ledger.reusable_record("gemini-enterprise-agent-platform", other_contract) is None
+
+
+def test_mutable_model_alias_reuses_only_records_created_in_current_run() -> None:
+    bundle = _bundle_for_evidence_chunk(
+        _chunk_contract_bundle(1),
+        evidence_items=_chunk_contract_bundle(1)["evidence_items"],
+        chunk_index=1,
+        total_chunks=1,
+        provider_id="mutable-provider",
+    )
+    provider = CountingChunkProvider(
+        provider="mutable-provider",
+        model_name="model-latest",
+    )
+    execution_contract = build_provider_execution_contract(provider, bundle)
+    execution_contract_sha256 = provider_execution_contract_sha256(execution_contract)
+    record = {
+        "provider_id": provider.provider,
+        "model_name": provider.model_name,
+        "execution_contract_sha256": execution_contract_sha256,
+        "execution_contract": execution_contract,
+        "status": "ok",
+        "artifact": {"status": "ok", "schema_valid": True},
+        "parsed_payload": {"claims": [{"claim_text": "current output"}], "propositions": []},
+    }
+
+    reloaded = _ProviderChunkLedger(
+        records=[record],
+        cache={execution_contract_sha256: record},
+    )
+    assert reloaded.reusable_record(provider.provider, execution_contract) is None
+
+    current = _ProviderChunkLedger(records=[], cache={})
+    current.append(record)
+    assert current.reusable_record(provider.provider, execution_contract) == record
+
+
+def test_v1_chunk_record_cannot_satisfy_v2_cache_lookup() -> None:
+    bundle = _bundle_for_evidence_chunk(
+        _chunk_contract_bundle(1),
+        evidence_items=_chunk_contract_bundle(1)["evidence_items"],
+        chunk_index=1,
+        total_chunks=1,
+        provider_id="provider-a",
+    )
+    provider = CountingChunkProvider(provider="provider-a", model_name="model-v1")
+    execution_contract = build_provider_execution_contract(provider, bundle)
+    execution_contract_sha256 = provider_execution_contract_sha256(execution_contract)
+    legacy_record = {
+        "provider_id": provider.provider,
+        "model_name": provider.model_name,
+        "execution_contract_sha256": execution_contract_sha256,
+        "execution_contract": {
+            "schema_version": "provider_execution_contract.v1",
+            "provider_id": provider.provider,
+            "model_name": provider.model_name,
+            "prompt_sha256": "legacy",
+        },
+        "status": "ok",
+        "artifact": {"status": "ok", "schema_valid": True},
+        "parsed_payload": {"claims": [{"claim_text": "legacy output"}], "propositions": []},
+    }
+    ledger = _ProviderChunkLedger(
+        records=[legacy_record],
+        cache={execution_contract_sha256: legacy_record},
+    )
+
+    assert ledger.reusable_record(provider.provider, execution_contract) is None
 
 
 def test_chunk_failure_classifier_separates_scheduler_and_schema_failures() -> None:

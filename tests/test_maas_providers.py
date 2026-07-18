@@ -61,6 +61,7 @@ def test_gpt_oss_retries_empty_content_with_larger_output_budget(monkeypatch) ->
         if len(calls) == 1:
             return {"choices": [{"message": {"content": ""}}], "usage": {}}
         return {
+            "model": "openai/gpt-oss-20b-maas@20260718",
             "choices": [
                 {
                     "message": {
@@ -93,6 +94,9 @@ def test_gpt_oss_retries_empty_content_with_larger_output_budget(monkeypatch) ->
 
     assert calls == [4096, 8192]
     assert '"schema_version":"claim-result/v1"' in response.raw_output
+    assert response.requested_model_name == "gpt-oss-20b-maas"
+    assert response.resolved_model_name == "openai/gpt-oss-20b-maas@20260718"
+    assert response.provider_response_model_id == "openai/gpt-oss-20b-maas@20260718"
 
 
 def test_mistral_raw_predict_url_uses_mistralai_publisher() -> None:

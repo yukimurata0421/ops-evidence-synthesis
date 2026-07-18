@@ -200,6 +200,11 @@ class PostgresProviderChunkRunStore:
 def _postgres_record_values(record: dict[str, Any], *, jsonb: Any) -> dict[str, Any]:
     status = str(record.get("status") or "")
     retry_after = int(record.get("retry_after_sec") or 0)
+    execution_contract = (
+        record.get("execution_contract")
+        if isinstance(record.get("execution_contract"), dict)
+        else {}
+    )
     return {
         "run_id": str(record.get("run_id") or ""),
         "evidence_sha256": str(record.get("evidence_sha256") or ""),
@@ -217,6 +222,20 @@ def _postgres_record_values(record: dict[str, Any], *, jsonb: Any) -> dict[str, 
             or record.get("prompt_sha256")
             or ""
         ),
+        "execution_contract_version": str(
+            record.get("execution_contract_version")
+            or execution_contract.get("schema_version")
+            or "provider_execution_contract.v1"
+        ),
+        "execution_contract_json": jsonb(execution_contract),
+        "model_input_sha256": str(record.get("model_input_sha256") or ""),
+        "prompt_contract_sha256": str(record.get("prompt_contract_sha256") or ""),
+        "requested_model_name": str(record.get("requested_model_name") or record.get("model_name") or ""),
+        "resolved_model_name": str(record.get("resolved_model_name") or ""),
+        "resolved_model_revision": str(record.get("resolved_model_revision") or ""),
+        "provider_response_model_id": str(record.get("provider_response_model_id") or ""),
+        "mutable_model_alias": bool(record.get("mutable_model_alias")),
+        "cache_reuse_policy": str(record.get("cache_reuse_policy") or "disabled"),
         "status": status,
         "provider_status": str(record.get("provider_status") or ""),
         "schema_valid": bool(record.get("schema_valid")),
@@ -269,6 +288,15 @@ def _attempt_json(record: dict[str, Any]) -> dict[str, Any]:
             or record.get("prompt_sha256")
             or ""
         ),
+        "execution_contract_version": str(record.get("execution_contract_version") or ""),
+        "model_input_sha256": str(record.get("model_input_sha256") or ""),
+        "prompt_contract_sha256": str(record.get("prompt_contract_sha256") or ""),
+        "requested_model_name": str(record.get("requested_model_name") or record.get("model_name") or ""),
+        "resolved_model_name": str(record.get("resolved_model_name") or ""),
+        "resolved_model_revision": str(record.get("resolved_model_revision") or ""),
+        "provider_response_model_id": str(record.get("provider_response_model_id") or ""),
+        "mutable_model_alias": bool(record.get("mutable_model_alias")),
+        "cache_reuse_policy": str(record.get("cache_reuse_policy") or "disabled"),
         "status": str(record.get("status") or ""),
         "provider_status": str(record.get("provider_status") or ""),
         "schema_valid": bool(record.get("schema_valid")),
@@ -313,6 +341,16 @@ CREATE TABLE IF NOT EXISTS provider_chunk_runs (
   prompt_sha256 text NOT NULL,
   prompt_cache_key text NOT NULL DEFAULT '',
   execution_contract_sha256 text NOT NULL,
+  execution_contract_version text NOT NULL DEFAULT 'provider_execution_contract.v1',
+  execution_contract_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  model_input_sha256 text NOT NULL DEFAULT '',
+  prompt_contract_sha256 text NOT NULL DEFAULT '',
+  requested_model_name text NOT NULL DEFAULT '',
+  resolved_model_name text NOT NULL DEFAULT '',
+  resolved_model_revision text NOT NULL DEFAULT '',
+  provider_response_model_id text NOT NULL DEFAULT '',
+  mutable_model_alias boolean NOT NULL DEFAULT false,
+  cache_reuse_policy text NOT NULL DEFAULT 'disabled',
   status text NOT NULL,
   provider_status text NOT NULL DEFAULT '',
   schema_valid boolean NOT NULL DEFAULT false,
@@ -353,6 +391,18 @@ CREATE TABLE IF NOT EXISTS provider_chunk_runs (
 ALTER TABLE provider_chunk_runs
   ADD COLUMN IF NOT EXISTS execution_contract_sha256 text NOT NULL DEFAULT '';
 
+ALTER TABLE provider_chunk_runs
+  ADD COLUMN IF NOT EXISTS execution_contract_version text NOT NULL DEFAULT 'provider_execution_contract.v1',
+  ADD COLUMN IF NOT EXISTS execution_contract_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS model_input_sha256 text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS prompt_contract_sha256 text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS requested_model_name text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS resolved_model_name text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS resolved_model_revision text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS provider_response_model_id text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS mutable_model_alias boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS cache_reuse_policy text NOT NULL DEFAULT 'disabled';
+
 UPDATE provider_chunk_runs
 SET execution_contract_sha256 = COALESCE(NULLIF(prompt_cache_key, ''), prompt_sha256)
 WHERE execution_contract_sha256 = '';
@@ -380,6 +430,9 @@ CREATE TABLE IF NOT EXISTS provider_chunk_attempts (
   chunk_count integer NOT NULL DEFAULT 0,
   prompt_sha256 text NOT NULL,
   execution_contract_sha256 text NOT NULL DEFAULT '',
+  execution_contract_version text NOT NULL DEFAULT 'provider_execution_contract.v1',
+  model_input_sha256 text NOT NULL DEFAULT '',
+  prompt_contract_sha256 text NOT NULL DEFAULT '',
   attempt_no integer NOT NULL DEFAULT 1,
   status text NOT NULL,
   provider_status text NOT NULL DEFAULT '',
@@ -402,6 +455,11 @@ CREATE TABLE IF NOT EXISTS provider_chunk_attempts (
 ALTER TABLE provider_chunk_attempts
   ADD COLUMN IF NOT EXISTS execution_contract_sha256 text NOT NULL DEFAULT '';
 
+ALTER TABLE provider_chunk_attempts
+  ADD COLUMN IF NOT EXISTS execution_contract_version text NOT NULL DEFAULT 'provider_execution_contract.v1',
+  ADD COLUMN IF NOT EXISTS model_input_sha256 text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS prompt_contract_sha256 text NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS provider_chunk_attempts_lookup
   ON provider_chunk_attempts(evidence_sha256, provider_id, chunk_id, created_at);
 """
@@ -419,6 +477,16 @@ INSERT INTO provider_chunk_runs (
   prompt_sha256,
   prompt_cache_key,
   execution_contract_sha256,
+  execution_contract_version,
+  execution_contract_json,
+  model_input_sha256,
+  prompt_contract_sha256,
+  requested_model_name,
+  resolved_model_name,
+  resolved_model_revision,
+  provider_response_model_id,
+  mutable_model_alias,
+  cache_reuse_policy,
   status,
   provider_status,
   schema_valid,
@@ -460,6 +528,16 @@ INSERT INTO provider_chunk_runs (
   %(prompt_sha256)s,
   %(prompt_cache_key)s,
   %(execution_contract_sha256)s,
+  %(execution_contract_version)s,
+  %(execution_contract_json)s,
+  %(model_input_sha256)s,
+  %(prompt_contract_sha256)s,
+  %(requested_model_name)s,
+  %(resolved_model_name)s,
+  %(resolved_model_revision)s,
+  %(provider_response_model_id)s,
+  %(mutable_model_alias)s,
+  %(cache_reuse_policy)s,
   %(status)s,
   %(provider_status)s,
   %(schema_valid)s,
@@ -500,6 +578,16 @@ ON CONFLICT (provider_id, execution_contract_sha256) DO UPDATE SET
   chunk_type = EXCLUDED.chunk_type,
   prompt_cache_key = EXCLUDED.prompt_cache_key,
   prompt_sha256 = EXCLUDED.prompt_sha256,
+  execution_contract_version = EXCLUDED.execution_contract_version,
+  execution_contract_json = EXCLUDED.execution_contract_json,
+  model_input_sha256 = EXCLUDED.model_input_sha256,
+  prompt_contract_sha256 = EXCLUDED.prompt_contract_sha256,
+  requested_model_name = EXCLUDED.requested_model_name,
+  resolved_model_name = EXCLUDED.resolved_model_name,
+  resolved_model_revision = EXCLUDED.resolved_model_revision,
+  provider_response_model_id = EXCLUDED.provider_response_model_id,
+  mutable_model_alias = EXCLUDED.mutable_model_alias,
+  cache_reuse_policy = EXCLUDED.cache_reuse_policy,
   status = EXCLUDED.status,
   provider_status = EXCLUDED.provider_status,
   schema_valid = EXCLUDED.schema_valid,
@@ -547,6 +635,9 @@ INSERT INTO provider_chunk_attempts (
   chunk_count,
   prompt_sha256,
   execution_contract_sha256,
+  execution_contract_version,
+  model_input_sha256,
+  prompt_contract_sha256,
   attempt_no,
   status,
   provider_status,
@@ -573,6 +664,9 @@ INSERT INTO provider_chunk_attempts (
   %(chunk_count)s,
   %(prompt_sha256)s,
   %(execution_contract_sha256)s,
+  %(execution_contract_version)s,
+  %(model_input_sha256)s,
+  %(prompt_contract_sha256)s,
   %(attempt_no)s,
   %(status)s,
   %(provider_status)s,

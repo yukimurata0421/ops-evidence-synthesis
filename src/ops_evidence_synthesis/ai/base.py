@@ -15,6 +15,10 @@ class ModelResponse:
     input_tokens: int
     output_tokens: int
     status: str = "ok"
+    requested_model_name: str = ""
+    resolved_model_name: str = ""
+    resolved_model_revision: str = ""
+    provider_response_model_id: str = ""
 
 
 class ModelProvider(Protocol):

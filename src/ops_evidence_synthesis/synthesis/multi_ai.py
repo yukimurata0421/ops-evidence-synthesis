@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -14,6 +15,13 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from ops_evidence_synthesis.ai.base import ModelProvider, ModelResponse
+from ops_evidence_synthesis.ai.execution_contract import (
+    EXECUTION_CONTRACT_SCHEMA_VERSION,
+    build_provider_execution_contract,
+    execution_contract_allows_cross_run_reuse,
+    provider_execution_contract_sha256,
+    response_model_observation,
+)
 from ops_evidence_synthesis.ai.provider_registry import build_multi_ai_providers, provider_infos
 from ops_evidence_synthesis.ai.runtime import (
     SafetyPreflightResult,
@@ -113,6 +121,7 @@ CHUNK_FAILURE_STATUSES = {
 }
 PROVIDER_CHUNK_LEDGER_FILENAME = "provider_chunk_runs.jsonl"
 _PROGRESS_LOCK = threading.Lock()
+_EXECUTION_CONTRACT_CACHE_KEY = "_provider_execution_contract_cache"
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,45 +170,75 @@ class _ProviderChunkLedger:
     cache: dict[str, dict[str, Any]]
     path: Path | None = None
     backend: ProviderChunkRunStore | None = None
+    current_execution_contracts: set[str] = field(default_factory=set)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def success_record(self, provider_id: str, prompt_sha256: str, model_name: str = "") -> dict[str, Any] | None:
-        execution_contract_sha256 = _provider_execution_contract_sha256(provider_id, model_name, prompt_sha256)
-        if self.backend is not None:
+    def success_record(
+        self,
+        provider_id: str,
+        execution_contract: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        execution_contract_sha256 = _provider_execution_contract_sha256(execution_contract)
+        allow_cross_run = execution_contract_allows_cross_run_reuse(execution_contract)
+        if self.backend is not None and allow_cross_run:
             record = self.backend.success_record(provider_id, execution_contract_sha256)
-            if record is not None and _chunk_record_is_success(record) and _chunk_record_matches_model(record, model_name):
-                self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+            if record is not None and _chunk_record_is_success(record) and _chunk_record_matches_contract(
+                record,
+                execution_contract,
+            ):
+                self.cache[execution_contract_sha256] = record
                 return record
-        record = self.cache.get(_chunk_cache_key(provider_id, prompt_sha256, model_name))
+        record = self.cache.get(execution_contract_sha256)
         if not record:
             return None
-        if _chunk_record_is_success(record) and _chunk_record_matches_model(record, model_name):
+        if not allow_cross_run and execution_contract_sha256 not in self.current_execution_contracts:
+            return None
+        if _chunk_record_is_success(record) and _chunk_record_matches_contract(record, execution_contract):
             return record
         return None
 
-    def reusable_record(self, provider_id: str, prompt_sha256: str, model_name: str = "") -> dict[str, Any] | None:
-        success = self.success_record(provider_id, prompt_sha256, model_name)
+    def reusable_record(
+        self,
+        provider_id: str,
+        execution_contract: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        success = self.success_record(provider_id, execution_contract)
         if success is not None:
             return success
         if not _reuse_failed_chunk_records(provider_id):
             return None
-        if self.backend is not None:
-            execution_contract_sha256 = _provider_execution_contract_sha256(provider_id, model_name, prompt_sha256)
+        execution_contract_sha256 = _provider_execution_contract_sha256(execution_contract)
+        allow_cross_run = execution_contract_allows_cross_run_reuse(execution_contract)
+        if self.backend is not None and allow_cross_run:
             record = self.backend.latest_record(provider_id, execution_contract_sha256)
-            if _chunk_record_is_reusable(record) and _chunk_record_matches_model(record, model_name):
-                self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+            if _chunk_record_is_reusable(record) and _chunk_record_matches_contract(record, execution_contract):
+                self.cache[execution_contract_sha256] = record
                 return record
-        record = self.cache.get(_chunk_cache_key(provider_id, prompt_sha256, model_name))
-        return record if _chunk_record_is_reusable(record) and _chunk_record_matches_model(record, model_name) else None
+        record = self.cache.get(execution_contract_sha256)
+        if not allow_cross_run and execution_contract_sha256 not in self.current_execution_contracts:
+            return None
+        return record if _chunk_record_is_reusable(record) and _chunk_record_matches_contract(
+            record,
+            execution_contract,
+        ) else None
 
     def append(self, record: dict[str, Any]) -> None:
         with self.lock:
             self.records.append(record)
             provider_id = str(record.get("provider_id") or "")
-            model_name = str(record.get("model_name") or "")
-            prompt_sha256 = str(record.get("prompt_sha256") or "")
-            if provider_id and prompt_sha256:
-                self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+            execution_contract_sha256 = str(record.get("execution_contract_sha256") or "")
+            execution_contract = (
+                record.get("execution_contract")
+                if isinstance(record.get("execution_contract"), dict)
+                else {}
+            )
+            if (
+                provider_id
+                and execution_contract_sha256
+                and execution_contract.get("schema_version") == EXECUTION_CONTRACT_SCHEMA_VERSION
+            ):
+                self.cache[execution_contract_sha256] = record
+                self.current_execution_contracts.add(execution_contract_sha256)
             if self.path is not None:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 with self.path.open("a", encoding="utf-8") as handle:
@@ -226,12 +265,23 @@ def _chunk_record_is_reusable(record: dict[str, Any] | None) -> bool:
     return bool(str(record.get("status") or ""))
 
 
-def _chunk_record_matches_model(record: dict[str, Any], model_name: str = "") -> bool:
-    requested = str(model_name or "").strip()
-    if not requested:
-        return True
-    recorded = str(record.get("model_name") or "").strip()
-    return bool(recorded) and recorded == requested
+def _chunk_record_matches_contract(
+    record: dict[str, Any],
+    execution_contract: dict[str, Any],
+) -> bool:
+    recorded_contract = (
+        record.get("execution_contract")
+        if isinstance(record.get("execution_contract"), dict)
+        else {}
+    )
+    if recorded_contract.get("schema_version") != EXECUTION_CONTRACT_SCHEMA_VERSION:
+        return False
+    expected_sha256 = _provider_execution_contract_sha256(execution_contract)
+    recorded_sha256 = str(record.get("execution_contract_sha256") or "")
+    return (
+        recorded_sha256 == expected_sha256
+        and _provider_execution_contract_sha256(recorded_contract) == expected_sha256
+    )
 
 
 def _reuse_failed_chunk_records(provider_id: str = "") -> bool:
@@ -242,20 +292,26 @@ def _reuse_failed_chunk_records(provider_id: str = "") -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
-def _chunk_cache_key(provider_id: str, prompt_sha256: str, model_name: str = "") -> str:
-    return _provider_execution_contract_sha256(provider_id, model_name, prompt_sha256)
+def _provider_execution_contract_sha256(execution_contract: dict[str, Any]) -> str:
+    return provider_execution_contract_sha256(execution_contract)
 
 
-def _provider_execution_contract_sha256(provider_id: str, model_name: str, prompt_sha256: str) -> str:
-    return sha256_json(
-        {
-            "schema_version": "provider_execution_contract.v1",
-            "provider_id": str(provider_id or ""),
-            "model_name": str(model_name or ""),
-            "prompt_sha256": str(prompt_sha256 or ""),
-            "output_contract": "claim_result.v1",
-        }
+def _provider_execution_contract_for_bundle(
+    provider: ModelProvider,
+    bundle: dict[str, Any],
+) -> dict[str, Any]:
+    cached = (
+        bundle.get(_EXECUTION_CONTRACT_CACHE_KEY)
+        if isinstance(bundle.get(_EXECUTION_CONTRACT_CACHE_KEY), dict)
+        else {}
     )
+    provider_key = str(id(provider))
+    existing = cached.get(provider_key)
+    if isinstance(existing, dict):
+        return existing
+    execution_contract = build_provider_execution_contract(provider, bundle)
+    bundle[_EXECUTION_CONTRACT_CACHE_KEY] = {**cached, provider_key: execution_contract}
+    return execution_contract
 
 
 def _provider_chunk_ledger_for_output_dir(output_dir: str | Path | None) -> _ProviderChunkLedger:
@@ -274,10 +330,18 @@ def _provider_chunk_ledger_for_output_dir(output_dir: str | Path | None) -> _Pro
                 continue
             records.append(record)
             provider_id = str(record.get("provider_id") or "")
-            model_name = str(record.get("model_name") or "")
-            prompt_sha256 = str(record.get("prompt_sha256") or "")
-            if provider_id and prompt_sha256:
-                cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+            execution_contract_sha256 = str(record.get("execution_contract_sha256") or "")
+            execution_contract = (
+                record.get("execution_contract")
+                if isinstance(record.get("execution_contract"), dict)
+                else {}
+            )
+            if (
+                provider_id
+                and execution_contract_sha256
+                and execution_contract.get("schema_version") == EXECUTION_CONTRACT_SCHEMA_VERSION
+            ):
+                cache[execution_contract_sha256] = record
     backend = build_provider_chunk_run_store_from_env()
     if backend is not None:
         backend.init_schema()
@@ -622,6 +686,7 @@ def _progress_enabled() -> bool:
 def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> None:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
+    implementation = _implementation_revision()
     (out / "multi_ai_run.json").write_text(
         pretty_json(_public_multi_ai_run_result(result)) + "\n",
         encoding="utf-8",
@@ -652,6 +717,126 @@ def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> No
         pretty_json(result.get("canonical_graph_snapshot") or {}) + "\n",
         encoding="utf-8",
     )
+    artifact_names = (
+        "multi_ai_run.json",
+        "profile_context.json",
+        "model_runs.jsonl",
+        PROVIDER_CHUNK_LEDGER_FILENAME,
+        "multi_ai_synthesis.json",
+        "review_targets.json",
+        "canonical_review_graph.json",
+        "canonical_review_graph_snapshot.json",
+    )
+    artifact_hashes = {
+        name: sha256_text((out / name).read_text(encoding="utf-8"))
+        for name in artifact_names
+    }
+    provenance = {
+        "schema_version": "multi_ai_validation_provenance.v1",
+        "implementation": implementation,
+        "evidence_bundle_sha256": str(result.get("evidence_sha256") or ""),
+        "providers": _provider_model_provenance(result),
+        "artifacts": {
+            name: {"sha256": digest}
+            for name, digest in artifact_hashes.items()
+        },
+        "public_projection_artifact": {
+            "path": "multi_ai_run.json",
+            "sha256": artifact_hashes["multi_ai_run.json"],
+        },
+        "canonical_graph_artifact": {
+            "path": "canonical_review_graph.json",
+            "sha256": artifact_hashes["canonical_review_graph.json"],
+        },
+    }
+    (out / "validation_provenance.json").write_text(
+        pretty_json(provenance) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _implementation_revision() -> dict[str, Any]:
+    explicit_commit = os.environ.get("OES_IMPLEMENTATION_COMMIT_SHA", "").strip()
+    repo_root = Path(__file__).resolve().parents[3]
+    commit_sha = explicit_commit or _git_output(repo_root, "rev-parse", "HEAD")
+    dirty_output = _git_output(
+        repo_root,
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+        "--",
+        "src",
+        "scripts",
+        "tests",
+        "docs",
+        "pyproject.toml",
+        "CHANGELOG.md",
+    )
+    return {
+        "commit_sha": commit_sha,
+        "source_dirty": bool(dirty_output),
+        "commit_source": "environment" if explicit_commit else ("git" if commit_sha else "unavailable"),
+    }
+
+
+def _git_output(repo_root: Path, *args: str) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repo_root), *args],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return completed.stdout.strip() if completed.returncode == 0 else ""
+
+
+def _provider_model_provenance(result: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = [
+        *(result.get("provider_chunk_runs") or []),
+        *(result.get("model_runs") or []),
+    ]
+    output: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        response_model = row.get("response_model") if isinstance(row.get("response_model"), dict) else {}
+        item = {
+            "provider_id": str(row.get("provider_id") or ""),
+            "requested_model_name": str(
+                row.get("requested_model_name")
+                or response_model.get("requested_model_name")
+                or row.get("model_name")
+                or ""
+            ),
+            "resolved_model_name": str(
+                row.get("resolved_model_name") or response_model.get("resolved_model_name") or ""
+            ),
+            "resolved_model_revision": str(
+                row.get("resolved_model_revision")
+                or response_model.get("resolved_model_revision")
+                or ""
+            ),
+            "provider_response_model_id": str(
+                row.get("provider_response_model_id")
+                or response_model.get("provider_response_model_id")
+                or ""
+            ),
+        }
+        identity = (
+            item["provider_id"],
+            item["requested_model_name"],
+            item["resolved_model_revision"],
+            item["provider_response_model_id"],
+        )
+        if identity in seen:
+            continue
+        seen.add(identity)
+        output.append(item)
+    return output
 
 
 def _public_multi_ai_run_result(result: dict[str, Any]) -> dict[str, Any]:
@@ -1125,35 +1310,45 @@ def _provider_chunk_run_record(
 ) -> dict[str, Any]:
     artifact = envelope.artifact
     chunk = _artifact_chunk_manifest(artifact)
-    prompt_sha256 = str(chunk.get("provider_prompt_sha256") or "")
-    execution_contract_sha256 = _provider_execution_contract_sha256(
-        provider.provider,
-        provider.model_name,
-        prompt_sha256,
+    execution_contract = _provider_execution_contract_for_bundle(provider, bundle)
+    execution_contract_sha256 = _provider_execution_contract_sha256(execution_contract)
+    prompt_contract = execution_contract["prompt_contract"]
+    model_contract = execution_contract["model"]
+    model_input = execution_contract["input"]
+    reuse_policy = execution_contract["reuse_policy"]
+    prompt_sha256 = str(prompt_contract.get("rendered_prompt_sha256") or "")
+    response_model = (
+        artifact.get("response_model")
+        if isinstance(artifact.get("response_model"), dict)
+        else {}
     )
     execution_status = _artifact_execution_status(artifact)
     retry = artifact.get("retry") if isinstance(artifact.get("retry"), dict) else {}
     failure_message = _artifact_failure_message(artifact)
     return {
-        "schema_version": "provider_chunk_run.v1",
+        "schema_version": "provider_chunk_run.v2",
         "run_id": str(artifact.get("run_id") or ""),
         "evidence_sha256": str(bundle.get("evidence_sha256") or artifact.get("evidence_sha256") or ""),
         "provider_id": provider.provider,
         "model_name": provider.model_name,
+        "requested_model_name": str(model_contract.get("requested_model_name") or ""),
+        "resolved_model_name": str(response_model.get("resolved_model_name") or ""),
+        "resolved_model_revision": str(response_model.get("resolved_model_revision") or ""),
+        "provider_response_model_id": str(response_model.get("provider_response_model_id") or ""),
+        "mutable_model_alias": bool(model_contract.get("mutable_alias")),
+        "cache_reuse_policy": str(reuse_policy.get("cross_run") or "disabled"),
         "chunk_id": str(chunk.get("chunk_id") or ""),
         "chunk_index": int(chunk.get("chunk_index") or 0),
         "chunk_count": int(chunk.get("chunk_count") or 0),
         "chunk_type": str(chunk.get("chunk_type") or ""),
         "prompt_sha256": prompt_sha256,
+        "legacy_model_projection_sha256": str(chunk.get("provider_prompt_sha256") or ""),
+        "model_input_sha256": str(model_input.get("model_input_sha256") or ""),
+        "prompt_contract_sha256": str(prompt_contract.get("prompt_contract_sha256") or ""),
         "prompt_cache_key": execution_contract_sha256 if prompt_sha256 else "",
         "execution_contract_sha256": execution_contract_sha256 if prompt_sha256 else "",
-        "execution_contract": {
-            "schema_version": "provider_execution_contract.v1",
-            "provider_id": provider.provider,
-            "model_name": provider.model_name,
-            "prompt_sha256": prompt_sha256,
-            "output_contract": "claim_result.v1",
-        },
+        "execution_contract_version": EXECUTION_CONTRACT_SCHEMA_VERSION,
+        "execution_contract": execution_contract,
         "status": execution_status,
         "provider_status": str(artifact.get("status") or ""),
         "schema_valid": bool(artifact.get("schema_valid")),
@@ -1326,11 +1521,8 @@ def _cached_provider_chunk_envelope(
 ) -> _ArtifactEnvelope | None:
     if chunk_ledger is None:
         return None
-    chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
-    prompt_sha256 = str(chunk.get("provider_prompt_sha256") or "")
-    if not prompt_sha256:
-        return None
-    cached = chunk_ledger.reusable_record(provider.provider, prompt_sha256, provider.model_name)
+    execution_contract = _provider_execution_contract_for_bundle(provider, bundle)
+    cached = chunk_ledger.reusable_record(provider.provider, execution_contract)
     if cached is None:
         return None
     return _envelope_from_chunk_ledger_record(cached)
@@ -2752,6 +2944,7 @@ def _artifact_from_response(
     schema_repair_rules: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     parsed_json_sha256 = sha256_json(parsed_payload) if parsed_payload else ""
+    response_model = response_model_observation(response)
     repair_rules = [
         *list(getattr(output_parse, "repair_rules", ()) or ()),
         *list(schema_repair_rules),
@@ -2763,6 +2956,8 @@ def _artifact_from_response(
         "provider_id": response.provider,
         "display_name": _display_name(response.provider),
         "model_name": response.model_name,
+        "temperature": response.temperature,
+        "response_model": response_model,
         "status": status if status in SUPPORTED_MODEL_STATUSES else "failed",
         "latency_ms": latency_ms,
         "input_tokens": int(response.input_tokens or 0),
@@ -2952,10 +3147,13 @@ def _persist_artifact(
         run_id=str(artifact["run_id"]),
         evidence_sha256=str(artifact["evidence_sha256"]),
         prompt_sha256=sha256_text(f"{artifact['provider_id']}:{artifact['model_name']}:multi-ai"),
-        model_input_sha256=str(artifact["evidence_sha256"]),
+        model_input_sha256=str(
+            (artifact.get("model_input_context") or {}).get("model_input_sha256")
+            or artifact["evidence_sha256"]
+        ),
         provider=str(artifact["provider_id"]),
         model_name=str(artifact["model_name"]),
-        temperature=0.0,
+        temperature=float(artifact.get("temperature") or 0.0),
         raw_output=raw_output,
         raw_output_sha256=str(artifact["raw_output_sha256"]),
         latency_ms=int(artifact["latency_ms"]),
