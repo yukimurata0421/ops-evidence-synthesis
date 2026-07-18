@@ -17,7 +17,7 @@ def test_manual_gcs_precomputed_review_lookup_reads_private_artifact_prefix(monk
     assert prefix.startswith("gs://"), "OES_PRECOMPUTED_REVIEW_GCS_PREFIX must be a gs:// URI"
     evidence_sha = os.environ.get(
         "OES_TEST_GCS_EVIDENCE_SHA",
-        "ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471",
+        "b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96",
     )
     monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_DIR", "/tmp/oes-empty-precomputed")
     monkeypatch.setenv("OES_PRECOMPUTED_REVIEW_CACHE_SECONDS", "0")

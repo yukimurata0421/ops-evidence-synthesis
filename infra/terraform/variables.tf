@@ -273,7 +273,7 @@ variable "chunked_review_job_providers" {
 variable "chunked_review_job_chunk_workers" {
   type        = number
   description = "Maximum per-provider chunk worker count used by the job."
-  default     = 2
+  default     = 4
 }
 
 variable "chunked_review_job_provider_workers" {

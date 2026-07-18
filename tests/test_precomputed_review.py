@@ -44,7 +44,7 @@ PUBLIC_SAMPLE_SHA = "518a25bd716c2c37ba10db0f3a56ab6562eb65e88e7b6b0b1c65c5f34d4
 PUBLIC_FLAGSHIP_SHA = "a6af3d3ca5cc7254abbc97b232a430e1be111c8ce66adb28f32b9ee23b47cf75"
 PUBLIC_REAL_API_SHA = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
 REAL_API_QWEN_GLM_SHA = "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb"
-STREAM_V3_DELL_REAL_API_SHA = "ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471"
+STREAM_V3_DELL_REAL_API_SHA = "b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96"
 LEGACY_STREAM_V3_DELL_SHA = "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681"
 STREAM_V3_ARENA_REAL_API_SHA = "8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a"
 PUBLIC_PROFILE_CONTEXTS = {
@@ -226,7 +226,7 @@ def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     assert f"/ui/report.md?evidence_sha256={STREAM_V3_DELL_REAL_API_SHA}" in html
     assert html.index(STREAM_V3_DELL_REAL_API_SHA[:12]) < html.index(PUBLIC_REAL_API_SHA[:12])
     assert "<b>0</b><span>primary candidates</span>" in html
-    assert "resource_pressure" in html
+    assert "transport_sender" in html
     assert "VALIDATION TARGET" in html
     assert "primary - 5/5" not in html
 
@@ -808,16 +808,16 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
             "log_count": 45000,
             "providers": {"success": 5, "total": 5, "pipeline_status": "succeeded"},
             "review": {
-                "auto_archived": 7,
-                "monitor_only": 4,
+                "auto_archived": 2,
+                "monitor_only": 6,
                 "primary_targets": 0,
-                "validation_targets": 10,
+                "validation_targets": 6,
             },
             "projection_items": 140,
-            "occurrences": 44105,
-            "coverage": 0.980111,
-            "full_corpus_items": 1035,
-            "chunk_count": 21,
+            "occurrences": 44104,
+            "coverage": 0.980089,
+            "full_corpus_items": 1036,
+            "chunk_count": 10,
             "profile_generation_status": "persisted",
             "confirmed_user_outcomes": [
                 "Continuously available public YouTube live stream with fresh ADS-B visual content and audible program audio."
@@ -909,12 +909,12 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         if case["sha"] == STREAM_V3_DELL_REAL_API_SHA:
             assert any(
                 target["canonical_review_unit"] == "background_processing"
-                and "audio tracks" in target["suspected_issue"]
+                and "playlist exhaustion" in target["suspected_issue"].lower()
                 for target in payload["targets"]
             )
             assert any(
-                target["canonical_review_unit"] == "generic_runtime"
-                and "Auto DJ" in target["suspected_issue"]
+                target["canonical_review_unit"] == "capture_pipeline"
+                and "causal link" in target["suspected_issue"].lower()
                 for target in payload["targets"]
             )
             assert all(target["canonical_review_unit"] != "database_connection_pool" for target in payload["targets"])

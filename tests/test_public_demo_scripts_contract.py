@@ -52,7 +52,6 @@ def test_fast_gcp_and_cloud_run_job_config_keep_provider_storage_and_model_contr
     assert 'OES_JOB_PROVIDER_MODE                 = var.chunked_review_job_provider_mode' in main_tf
     assert 'OES_MULTI_AI_CHUNK_MAX_WORKERS        = tostring(var.chunked_review_job_chunk_workers)' in main_tf
     assert 'OES_MULTI_AI_CHUNK_MAX_WORKERS_BY_PROVIDER = "mistral-agent-platform=1"' in main_tf
-    assert 'OES_MULTI_AI_MERGE_SMALL_SEMANTIC_CHUNKS = "1"' in main_tf
     assert 'OES_MULTI_AI_RATE_LIMIT_BACKOFF_SECONDS = "30"' in main_tf
     assert 'OES_MODEL_MAX_ATTEMPTS                = "5"' in main_tf
     assert 'OES_CHUNK_RUN_STORE                   = "postgres"' in main_tf

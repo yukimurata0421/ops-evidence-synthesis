@@ -33,7 +33,6 @@ locals {
       OES_MULTI_AI_CHUNK_MAX_WORKERS_BY_PROVIDER = "mistral-agent-platform=1"
       OES_MULTI_AI_PROVIDER_WORKERS         = tostring(var.chunked_review_job_provider_workers)
       OES_MULTI_AI_CHUNK_RETRY_ATTEMPTS     = tostring(var.chunked_review_job_chunk_retry_attempts)
-      OES_MULTI_AI_MERGE_SMALL_SEMANTIC_CHUNKS = "1"
       OES_MULTI_AI_RATE_LIMIT_BACKOFF_SECONDS = "30"
       OES_MODEL_MAX_ATTEMPTS                = "5"
       OES_MODEL_RETRY_BASE_SECONDS          = "5"

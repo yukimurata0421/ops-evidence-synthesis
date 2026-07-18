@@ -30,4 +30,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Verification
 
-- Real-provider rerun results for the 45,000-row `stream_v3_runtime` corpus will be recorded here after completion.
+- Re-sanitized all 45,000 `stream_v3_runtime` rows with the current rules; the model-input safety preflight reported zero secret, IP, home-path, and internal-URL findings.
+- Verified prompt-bounded planning for 1,036 Evidence Items: 45 chunks across five providers with no estimated token-budget overruns.
+- Completed real-provider run `stream-v3-runtime-45k-semantic-real-api-20260718-v3` in 8 minutes 38 seconds with 5/5 schema-valid providers and zero final failed chunks.
+- Confirmed retry recovery from four HTTP 429 records, three empty-response provider errors, and one schema-invalid response without abandoning the provider run.
+- Kept semantic chunk boundaries independent of rate-limit handling; shared-quota contention uses retry and backoff without repartitioning evidence chunks.

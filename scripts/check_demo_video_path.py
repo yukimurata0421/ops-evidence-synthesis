@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_CODE_PROFILE_ID = "31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621"
-DEFAULT_RUNTIME_REVIEW_ID = "ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471"
+DEFAULT_RUNTIME_REVIEW_ID = "b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96"
 DEFAULT_FAST_RUN_ID = "fast-gcp-review-20260712-source-approved-v2-final"
 DEFAULT_CROSS_RUN_ID = "fast-cross-check-20260712-source-approved-v2-200-final"
 DEFAULT_FAST_REVIEW_ID = "2641cb5fe5850d006864dec4aad3b3d2539e9efcef3753b43d5624f8b6e5136b"
@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
             "adk:tool:validate_citations",
             "adk:tool:compute_review_targets",
             "45,000 sanitized rows",
-            "1,035/1,035 Evidence Item",
+            "1,036/1,036 Evidence Item",
             "0 primary candidate(s)",
             "Review target requires validation: youtube_health",
             "profile_id=stream_v3_runtime_source_approved_20260711",

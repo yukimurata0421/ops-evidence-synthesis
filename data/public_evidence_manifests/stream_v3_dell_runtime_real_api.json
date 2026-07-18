@@ -1,47 +1,47 @@
 {
   "api_revision": "",
-  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471",
-  "canonical_graph_sha256": "50d4fa99a36b5a8f7a0af6c035964317894cc19a1ef308df81acee456b54ec0d",
+  "api_view_url": "https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96",
+  "canonical_graph_sha256": "03366552f643fcaeb2dfb7070ccf558a03322eb7000f676b5d430d471d474ffd",
   "case_id": "stream_v3_dell_runtime_real_api",
-  "evidence_sha256": "ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471",
+  "evidence_sha256": "b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96",
   "execution_timing": {
     "schema_version": "public_execution_timing.v2",
-    "measurement_source": "stream_v3_source_approved_real_api_run.v4",
-    "measurement_note": "Measured human-review build wall time for the accepted run. Provider latency is the sum of recorded chunk latencies and is not wall-clock time.",
-    "real_api_wall_seconds": 817.8,
-    "provider_latency_sum_ms": 1507350,
-    "gemini_pro_provider_latency_sum_ms": 502542,
+    "measurement_source": "stream_v3_source_approved_real_api_run.v5",
+    "measurement_note": "Measured Cloud Run Job wall time for the accepted semantic rerun. Provider latency is the sum of recorded chunk latencies and is not wall-clock time.",
+    "real_api_wall_seconds": 518.27,
+    "provider_latency_sum_ms": 1256380,
+    "gemini_pro_provider_latency_sum_ms": 542535,
     "provider_count": 5,
     "schema_valid_provider_count": 5,
-    "review_target_count": 10
+    "review_target_count": 6
   },
   "full_corpus_review": {
     "provider_count": 5,
     "schema_valid_provider_count": 5,
-    "provider_full_corpus_evidence_items": 1035,
-    "provider_full_corpus_analyzed_evidence_items": 1035,
+    "provider_full_corpus_evidence_items": 1036,
+    "provider_full_corpus_analyzed_evidence_items": 1036,
     "provider_full_corpus_unassigned_evidence_items": 0,
     "provider_full_corpus_coverage_ratio": 1.0,
-    "max_chunk_count": 21,
+    "max_chunk_count": 10,
     "chunk_manifest_sha256s": [
-      "5e15e523a4e80dd9dc2b297e3584d7be3d6b3e67d1928fd32403bc3d8db3dfcc",
-      "8ea79bd6b483701b452bbfa24f6f563b390f761e7063d18594af4b9decdff954",
-      "c04d3c03e68c9802f0c29f39620af3ef487b0608627c0b966a165276fcf54e61"
+      "6731861e9365b8e55c15febca083f09499f9abba46794f2d1e993fff8dffaf0b",
+      "77c0f4d4cf5995d31eb2def9c5c94f0426629ab1b7b09434e97b7539db8aff86",
+      "792803155bf44d6f45112ad16d5835a602c84f54eb87279bcba5736ec77b424d"
     ],
     "provider_full_corpus_chunk_count_by_provider": {
-      "gemini-enterprise-agent-platform": 21,
-      "gemma-agent-platform": 21,
-      "mistral-agent-platform": 6,
-      "openai-gpt-oss-on-vertex": 21,
-      "qwen-agent-platform": 21
+      "gemini-enterprise-agent-platform": 10,
+      "gemma-agent-platform": 10,
+      "mistral-agent-platform": 5,
+      "openai-gpt-oss-on-vertex": 10,
+      "qwen-agent-platform": 10
     },
     "policy": "provider prompts use chunked Evidence Item corpora; raw rows are not sent directly to providers",
-    "interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_runtime bundle keeps 45,000 rows and 1,035 grouped Evidence Items, while the bounded projection tracks 140 high-signal Evidence Items representing 44,105 repeated occurrences. Multi-provider synthesis then covered 1,035/1,035 grouped Evidence Items through chunked provider calls across up to 21 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency."
+    "interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_runtime bundle keeps 45,000 rows and 1,036 grouped Evidence Items, while the bounded projection tracks 140 high-signal Evidence Items representing 44,104 repeated occurrences. Multi-provider synthesis then covered 1,036/1,036 grouped Evidence Items through chunked provider calls across up to 10 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency."
   },
-  "input_fingerprint_sha256": "f3c559653bc441fa710205ff4cb6ddca81c33fe7275b4a62bebf8433ff102c69",
-  "payload_sha256": "5e6c4856c9d370265eda0a2d12538b2d989244bd1c805fe407b8cc0ac17b9dab",
-  "pipeline_run_id": "stream-v3-runtime-45k-real-api-20260712-v5",
-  "precomputed_payload_path": "data/precomputed_review_summaries/ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471.json",
+  "input_fingerprint_sha256": "0806e6178fe17a71aea20ccac4d39cef39404647b6223ad8769a2279aa32a667",
+  "payload_sha256": "7b7838daf214d982e123e1356b919d75760a6f3ea9cff3c0a155ac7184bb615b",
+  "pipeline_run_id": "stream-v3-runtime-45k-semantic-real-api-20260718-v3",
+  "precomputed_payload_path": "data/precomputed_review_summaries/b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96.json",
   "profile_gate": {
     "approved": true,
     "collector_mapping_count": 3,
@@ -95,31 +95,31 @@
       {
         "chunk_failure_count": 0,
         "chunk_status_counts": {
-          "ok": 21
+          "ok": 10
         },
         "display_name": "Vertex Gemini",
         "failure_reason": "",
-        "input_tokens": 670688,
-        "latency_ms": 502542,
+        "input_tokens": 590170,
+        "latency_ms": 542535,
         "model_name": "gemini-3.1-pro-preview",
-        "output_tokens": 15392,
-        "parsed_json_sha256": "6f8b40b331f997f6ff019310fd7a54a53ea029a746b68f6328f2274a8e44d8b2",
+        "output_tokens": 14800,
+        "parsed_json_sha256": "658589d62999607c5da02a433ac953bd2295088caca73caaabc3748517781f1c",
         "partial_chunk_result": {
           "failure_count": 0,
           "min_success_ratio": 0.8,
           "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
-          "success_chunk_count": 21,
+          "success_chunk_count": 10,
           "success_ratio": 1.0,
-          "total_chunk_count": 21,
+          "total_chunk_count": 10,
           "usable": true
         },
         "provider_id": "gemini-enterprise-agent-platform",
-        "raw_output_sha256": "da7a2f797c4817073b390bc4a36d965ab80c57af823d4402a213aa8af1102976",
+        "raw_output_sha256": "55e763d2400514cf0f0fe5d694dadc7cdd9ef87cc31b4e2b8ccbcf33d29d087e",
         "retry": {
-          "attempts": 24,
+          "attempts": 13,
           "exception_type": "",
           "failure_reason": "",
-          "max_attempts": 42,
+          "max_attempts": 20,
           "retried": true,
           "retryable": false
         },
@@ -130,31 +130,31 @@
       {
         "chunk_failure_count": 0,
         "chunk_status_counts": {
-          "ok": 21
+          "ok": 10
         },
         "display_name": "Gemma on Gemini Enterprise Agent Platform",
         "failure_reason": "",
-        "input_tokens": 649772,
-        "latency_ms": 456999,
+        "input_tokens": 580210,
+        "latency_ms": 394590,
         "model_name": "gemma-4-26b-a4b-it-maas",
-        "output_tokens": 27241,
-        "parsed_json_sha256": "15ab7d59de6f3c5f7eb1638572345c67704f6f7ddffa198b35ae82b4f8e12284",
+        "output_tokens": 14252,
+        "parsed_json_sha256": "5f4afb9f02e34015579311b026ea02397eef9133cda75e81b6bceba7afd3d6fc",
         "partial_chunk_result": {
           "failure_count": 0,
           "min_success_ratio": 0.8,
           "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
-          "success_chunk_count": 21,
+          "success_chunk_count": 10,
           "success_ratio": 1.0,
-          "total_chunk_count": 21,
+          "total_chunk_count": 10,
           "usable": true
         },
         "provider_id": "gemma-agent-platform",
-        "raw_output_sha256": "b74f2e16687cb510b92ff83d92b3721b1bf60d0fbaad27a558abed61a723b941",
+        "raw_output_sha256": "743a5d016a0a02faba8425fe8434841eafa9d164f8f0902e19a8429480c64284",
         "retry": {
-          "attempts": 21,
+          "attempts": 10,
           "exception_type": "",
           "failure_reason": "",
-          "max_attempts": 42,
+          "max_attempts": 20,
           "retried": false,
           "retryable": false
         },
@@ -165,31 +165,31 @@
       {
         "chunk_failure_count": 0,
         "chunk_status_counts": {
-          "ok": 6
+          "ok": 5
         },
         "display_name": "Mistral on Vertex MaaS",
         "failure_reason": "",
-        "input_tokens": 253438,
-        "latency_ms": 58314,
+        "input_tokens": 307778,
+        "latency_ms": 45025,
         "model_name": "mistral-small-2503",
-        "output_tokens": 5641,
-        "parsed_json_sha256": "2f1d5f469ae9ac5f54f9d4ded1103048c89b7d58b84877254e3970ebe2c3e9e6",
+        "output_tokens": 4279,
+        "parsed_json_sha256": "a8312728bac48d8ef0629c2c92d28309a7a65ca09ac9ced19cf3057f72e4dd56",
         "partial_chunk_result": {
           "failure_count": 0,
           "min_success_ratio": 0.8,
           "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
-          "success_chunk_count": 6,
+          "success_chunk_count": 5,
           "success_ratio": 1.0,
-          "total_chunk_count": 6,
+          "total_chunk_count": 5,
           "usable": true
         },
         "provider_id": "mistral-agent-platform",
-        "raw_output_sha256": "89d2dc8e54641d98ffbd9f975653068f9378d01213889d30e62435c6e359c266",
+        "raw_output_sha256": "94c09f5bb1148d8ce52616ba23923f13fb47f9d7fb493221134219c29062f1d9",
         "retry": {
-          "attempts": 6,
+          "attempts": 5,
           "exception_type": "",
           "failure_reason": "",
-          "max_attempts": 12,
+          "max_attempts": 10,
           "retried": false,
           "retryable": false
         },
@@ -200,31 +200,31 @@
       {
         "chunk_failure_count": 0,
         "chunk_status_counts": {
-          "ok": 21
+          "ok": 10
         },
         "display_name": "gpt-oss on Vertex MaaS",
         "failure_reason": "",
-        "input_tokens": 514074,
-        "latency_ms": 243729,
+        "input_tokens": 454517,
+        "latency_ms": 158510,
         "model_name": "gpt-oss-20b-maas",
-        "output_tokens": 65795,
-        "parsed_json_sha256": "3dda094f185bca365067a7ec0c606ceb985bb21db89b87f40bf8a24977956696",
+        "output_tokens": 35555,
+        "parsed_json_sha256": "b72caee588ec0fc586ef48bfe9ac13464966ee890936e1e6291d5f57839f09e4",
         "partial_chunk_result": {
           "failure_count": 0,
           "min_success_ratio": 0.8,
           "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
-          "success_chunk_count": 21,
+          "success_chunk_count": 10,
           "success_ratio": 1.0,
-          "total_chunk_count": 21,
+          "total_chunk_count": 10,
           "usable": true
         },
         "provider_id": "openai-gpt-oss-on-vertex",
-        "raw_output_sha256": "31eff6c94045f5baa34751741a3bec20cc4e7e77a3f2d6985477d0817aed8793",
+        "raw_output_sha256": "033df32eb811ab86d37f7536fb0c5ffcc85df69fe2e717d5b6e0ea65125f521f",
         "retry": {
-          "attempts": 22,
+          "attempts": 11,
           "exception_type": "",
           "failure_reason": "",
-          "max_attempts": 42,
+          "max_attempts": 20,
           "retried": true,
           "retryable": false
         },
@@ -235,31 +235,31 @@
       {
         "chunk_failure_count": 0,
         "chunk_status_counts": {
-          "ok": 21
+          "ok": 10
         },
         "display_name": "Qwen on Vertex MaaS",
         "failure_reason": "",
-        "input_tokens": 583833,
-        "latency_ms": 245766,
+        "input_tokens": 514957,
+        "latency_ms": 115720,
         "model_name": "qwen/qwen3-coder-480b-a35b-instruct-maas",
-        "output_tokens": 31100,
-        "parsed_json_sha256": "a44a313ad7b3b525b9643fc64c35a5b323b9ed01b89799b7149d7158d8d9bcf5",
+        "output_tokens": 18212,
+        "parsed_json_sha256": "9d126e16fa47eeca629bb08d7c9bd19c485b82220a794b8cc83850d13b2f96e8",
         "partial_chunk_result": {
           "failure_count": 0,
           "min_success_ratio": 0.8,
           "policy": "schema_valid_success_chunks_are_usable_when_success_ratio_meets_threshold",
-          "success_chunk_count": 21,
+          "success_chunk_count": 10,
           "success_ratio": 1.0,
-          "total_chunk_count": 21,
+          "total_chunk_count": 10,
           "usable": true
         },
         "provider_id": "qwen-agent-platform",
-        "raw_output_sha256": "fb32f3ae45c101844b2c5945ac2e82f401d6aaf687e54d8bb8fa76b430d41efc",
+        "raw_output_sha256": "7e097b6c0af36397fafd75d505bac0564660ddf6bf091609a8f06cc0da87d808",
         "retry": {
-          "attempts": 21,
+          "attempts": 10,
           "exception_type": "",
           "failure_reason": "",
-          "max_attempts": 42,
+          "max_attempts": 20,
           "retried": false,
           "retryable": false
         },
@@ -272,27 +272,27 @@
   "public_positioning": {
     "landing_rank": 10,
     "landing_role": "primary_review",
-    "note": "Source-approved real-provider review. Provider convergence creates human review work; no incident cause is auto-accepted.",
-    "title": "Primary review: stream_v3 runtime 45k source-approved run, 0 auto-promoted causes"
+    "note": "Source-approved semantic real-provider review. Provider convergence creates human review work; no incident cause is auto-accepted.",
+    "title": "Primary review: stream_v3 runtime 45k semantic rerun, 0 auto-promoted causes"
   },
-  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471",
+  "public_url": "https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96",
   "public_verification": {
     "profile_id": "stream_v3_runtime_source_approved_20260711",
     "source_context_sha256": "",
     "source_analysis_sha256": "",
     "source_discovery_sha256": "08067a4229e875c89be713e609c180372de966a0105eb7ea4fbbcc6ed8ac9708",
-    "updated_at": "2026-07-12T06:00:00Z",
-    "window_selection_note": "Approved profile stream_v3_runtime_source_approved_20260711 was frozen before log analysis; source access remained disabled after approval. Canonical graph 50d4fa99a36b5a8f7a0af6c035964317894cc19a1ef308df81acee456b54ec0d identifies this accepted run."
+    "updated_at": "2026-07-18T07:21:17Z",
+    "window_selection_note": "Approved profile stream_v3_runtime_source_approved_20260711 was frozen before log analysis; source access remained disabled after approval. Canonical graph 03366552f643fcaeb2dfb7070ccf558a03322eb7000f676b5d430d471d474ffd identifies this accepted run."
   },
-  "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471",
+  "review_graph_url": "https://ops-evidence.yukimurata0421.dev/ui/review-graph?evidence_sha256=b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96",
   "review_summary": {
     "primary_targets": 0,
-    "validation_targets": 10,
-    "monitor_only": 4,
-    "auto_archived": 7,
+    "validation_targets": 6,
+    "monitor_only": 6,
+    "auto_archived": 2,
     "incident_baseline": "established",
     "incident_gate_signal": "signal_present",
-    "technical_baseline": "established",
+    "technical_baseline": "open",
     "provider_detection_overlap": "5/5",
     "target_promotion_policy": "Incident gate signal is a graph-level support signal. Each review target still has its own promotion state, and promotion remains human-gated until impact and operational outcome evidence are attached to that target."
   },
@@ -307,25 +307,25 @@
     "window_end": "2026-06-15T23:59:52Z",
     "analysis_window_hours": 24.733889,
     "min_analysis_window_hours": 24,
-    "evidence_item_count": 1035,
+    "evidence_item_count": 1036,
     "evidence_item_accounting": {
-      "db_pattern_groups": 1035,
+      "db_pattern_groups": 1036,
       "derived_metric_or_operational_items": 0,
       "explanation": "Evidence Item count can exceed DB pattern groups because deterministic metric, state, or operational boundary items are added after row-level grouping.",
       "schema_version": "evidence_item_accounting.v1",
-      "total_evidence_items": 1035
+      "total_evidence_items": 1036
     },
     "db_corpus_row_count": 45000,
     "db_corpus_covered_row_count": 45000,
     "db_corpus_coverage_ratio": 1.0,
-    "db_corpus_pattern_count": 1035,
+    "db_corpus_pattern_count": 1036,
     "db_corpus_singleton_pattern_count": 983,
     "db_corpus_direct_prompt_row_count": 0,
     "db_corpus_raw_rows_sent_to_providers": false,
     "db_corpus_row_assignments_sha256": "",
     "db_corpus_coverage_class_counts": {},
     "public_row_level_file": null,
-    "public_note": "All 45,000 input rows were accounted for and accepted after structured timestamp filtering. Row-level sanitized events remain local; the committed payload contains grouped Evidence Items and coverage metadata only."
+    "public_note": "All 45,000 input rows were re-sanitized with the current rules, accounted for, and accepted after structured timestamp filtering. Row-level sanitized events remain local; the committed payload contains grouped Evidence Items and coverage metadata only."
   },
   "schema_version": "public_evidence_manifest.v1",
   "source_boundary": {
@@ -342,24 +342,24 @@
     "source_analysis_sha256": "",
     "source_discovery_sha256": "08067a4229e875c89be713e609c180372de966a0105eb7ea4fbbcc6ed8ac9708"
   },
-  "title": "stream_v3 Dell runtime 45k real API source-aware review",
+  "title": "stream_v3 Dell runtime 45k semantic real API source-aware review",
   "token_compression": {
-    "evidence_item_count": 1035,
+    "evidence_item_count": 1036,
     "model_projection_evidence_items": 140,
-    "model_projection_occurrence_count": 44105,
-    "model_projection_occurrence_coverage_ratio": 0.980111,
+    "model_projection_occurrence_count": 44104,
+    "model_projection_occurrence_coverage_ratio": 0.980089,
     "policy": "Single-prompt metadata records the bounded Evidence Bundle projection. Multi-provider synthesis uses chunked full-corpus Evidence Item coverage; row-level raw logs stay out of provider prompts.",
-    "interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_runtime bundle keeps 45,000 rows and 1,035 grouped Evidence Items, while the bounded projection tracks 140 high-signal Evidence Items representing 44,105 repeated occurrences. Multi-provider synthesis then covered 1,035/1,035 grouped Evidence Items through chunked provider calls across up to 21 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency.",
-    "provider_full_corpus_evidence_items": 1035,
-    "provider_full_corpus_analyzed_evidence_items": 1035,
+    "interpretation": "Single-prompt projection coverage is occurrence-weighted, not raw-row coverage: the full sanitized stream_v3_runtime bundle keeps 45,000 rows and 1,036 grouped Evidence Items, while the bounded projection tracks 140 high-signal Evidence Items representing 44,104 repeated occurrences. Multi-provider synthesis then covered 1,036/1,036 grouped Evidence Items through chunked provider calls across up to 10 chunk(s), so low-frequency Evidence Items are analyzed instead of being dropped by frequency.",
+    "provider_full_corpus_evidence_items": 1036,
+    "provider_full_corpus_analyzed_evidence_items": 1036,
     "provider_full_corpus_unassigned_evidence_items": 0,
     "provider_full_corpus_coverage_ratio": 1.0,
-    "provider_full_corpus_chunk_count": 21,
-    "provider_full_corpus_chunk_manifest_count": 21,
+    "provider_full_corpus_chunk_count": 10,
+    "provider_full_corpus_chunk_manifest_count": 10,
     "provider_full_corpus_chunk_manifest_sha256s": [
-      "5e15e523a4e80dd9dc2b297e3584d7be3d6b3e67d1928fd32403bc3d8db3dfcc",
-      "8ea79bd6b483701b452bbfa24f6f563b390f761e7063d18594af4b9decdff954",
-      "c04d3c03e68c9802f0c29f39620af3ef487b0608627c0b966a165276fcf54e61"
+      "6731861e9365b8e55c15febca083f09499f9abba46794f2d1e993fff8dffaf0b",
+      "77c0f4d4cf5995d31eb2def9c5c94f0426629ab1b7b09434e97b7539db8aff86",
+      "792803155bf44d6f45112ad16d5835a602c84f54eb87279bcba5736ec77b424d"
     ]
   }
 }
