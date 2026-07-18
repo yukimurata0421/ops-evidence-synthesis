@@ -204,7 +204,7 @@ def merge_candidate_observations(
     return merged, groups
 
 
-def canonical_observation_key(candidate: dict[str, Any], *, evidence_sha256: str) -> dict[str, str]:
+def canonical_observation_key(candidate: dict[str, Any], *, evidence_sha256: str) -> dict[str, Any]:
     text = _candidate_text(candidate)
     target_type = _canonical_target_type(candidate, text)
     subject = _canonical_subject(candidate, text)
@@ -216,12 +216,22 @@ def canonical_observation_key(candidate: dict[str, Any], *, evidence_sha256: str
     }
     if review_family:
         key_payload["canonical_review_family"] = review_family
+    grouping_dimensions = ["canonical_review_unit"]
+    if review_family:
+        grouping_dimensions.append("canonical_review_family")
     return {
         "canonical_group_key": sha256_json(key_payload)[:24],
         "canonical_target_type": target_type,
         "canonical_subject": subject,
         "canonical_review_unit": review_unit,
         "canonical_review_family": review_family,
+        "canonical_key_contract": {
+            "schema_version": "canonical_observation_key.v1",
+            "evidence_sha256_scope": "entire_evidence_bundle",
+            "evidence_id_set_in_key": False,
+            "hash_dimensions": ["evidence_bundle_sha256", *grouping_dimensions],
+            "effective_within_bundle_dimensions": grouping_dimensions,
+        },
     }
 
 
@@ -576,6 +586,7 @@ def _merge_observation_group(
     caveats = _unique_str(item for row in rows for item in row.get("caveats") or [])
     target_explanation = _merge_target_explanations(rows, top)
     rollup = _rollup_profile(rows, evidence_refs=evidence_refs)
+    source_candidates = _source_candidate_summaries(rows)
     group_id = "cog-" + sha256_json(
         {
             "evidence_sha256": evidence_sha256,
@@ -614,8 +625,11 @@ def _merge_observation_group(
         "canonical_target_type": str(top.get("canonical_target_type") or ""),
         "canonical_subject": str(top.get("canonical_subject") or ""),
         "canonical_review_unit": str(top.get("canonical_review_unit") or ""),
+        "canonical_review_family": str(top.get("canonical_review_family") or ""),
+        "canonical_key_contract": dict(top.get("canonical_key_contract") or {}),
         "source_target_ids": source_target_ids,
         "source_candidate_count": len(rows),
+        "source_candidates": source_candidates,
         "rollup": rollup,
         "rollup_provider_ratio": rollup["rollup_provider_ratio"],
         "baseline_support_score": rollup["baseline_support_score"],
@@ -634,10 +648,13 @@ def _merge_observation_group(
         "canonical_target_type": str(merged.get("canonical_target_type") or merged.get("core_target_type") or ""),
         "canonical_subject": str(merged.get("canonical_subject") or ""),
         "canonical_review_unit": str(merged.get("canonical_review_unit") or ""),
+        "canonical_review_family": str(merged.get("canonical_review_family") or ""),
+        "canonical_key_contract": dict(merged.get("canonical_key_contract") or {}),
         "subsystem": str(merged.get("subsystem") or "general"),
         "component": str(merged.get("component") or ""),
         "source_target_ids": source_target_ids,
         "source_candidate_count": len(rows),
+        "source_candidates": source_candidates,
         "providers": providers,
         "provider_count": int(merged["provider_count"]),
         "evidence_refs": evidence_refs,
@@ -654,6 +671,48 @@ def _merge_observation_group(
         "group_json": merged,
     }
     return merged, group
+
+
+def _source_candidate_summaries(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    summaries: list[dict[str, Any]] = []
+    for index, row in enumerate(rows, start=1):
+        raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+        explanation = row.get("target_explanation") if isinstance(row.get("target_explanation"), dict) else {}
+        providers = _unique_str(row.get("providers") or raw.get("providers") or [])
+        source_chunks = _unique_str(
+            [
+                row.get("source_chunk_id"),
+                row.get("source_parent_chunk_id"),
+                raw.get("source_chunk_id"),
+                raw.get("source_parent_chunk_id"),
+            ]
+        )
+        summaries.append(
+            {
+                "source_candidate_id": str(row.get("target_id") or row.get("group_id") or f"candidate-{index:03d}"),
+                "provider_ids": providers,
+                "canonical_target_type": str(
+                    row.get("canonical_target_type")
+                    or row.get("core_target_type")
+                    or raw.get("core_target_type")
+                    or "general_review"
+                ),
+                "subsystem": str(row.get("subsystem") or raw.get("subsystem") or "general"),
+                "component": str(row.get("component") or raw.get("component") or ""),
+                "evidence_refs": _unique_str(row.get("evidence_refs") or raw.get("evidence_refs") or [])[:20],
+                "source_chunk_ids": source_chunks,
+                "claim": str(
+                    row.get("suspected_issue")
+                    or explanation.get("suspected_issue")
+                    or row.get("impact_summary")
+                    or row.get("title")
+                    or raw.get("core_claim")
+                    or raw.get("claim_text")
+                    or ""
+                )[:500],
+            }
+        )
+    return summaries
 
 
 def _merge_jsonish(values: Any) -> list[Any]:
@@ -767,12 +826,19 @@ def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> 
     elif independent_provider_count == 2:
         provider_bonus = 0.06
     evidence_bonus = min(0.06, max(0, len(family_counts) - 1) * 0.03 + max(0, len(evidence_refs) - 1) * 0.005)
-    type_bonus = min(0.03, max(0, len(target_type_votes) - 1) * 0.015)
+    type_divergence_penalty = min(0.06, max(0, len(target_type_votes) - 1) * 0.03)
     repeated_independent_bonus = min(0.04, max(0, source_candidate_count - 1) * 0.01)
     same_provider_duplicate_bonus = min(0.02, repeated_provider_votes * 0.005)
-    priority_bonus = min(
-        0.18,
-        provider_bonus + evidence_bonus + type_bonus + repeated_independent_bonus + same_provider_duplicate_bonus,
+    priority_bonus = max(
+        0.0,
+        min(
+            0.18,
+            provider_bonus
+            + evidence_bonus
+            + repeated_independent_bonus
+            + same_provider_duplicate_bonus
+            - type_divergence_penalty,
+        ),
     )
     baseline_support_score = min(
         1.0,
@@ -800,7 +866,8 @@ def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> 
         "distinct_target_type_count": len(target_type_votes),
         "provider_convergence_bonus": round(provider_bonus, 4),
         "evidence_diversity_bonus": round(evidence_bonus, 4),
-        "target_type_convergence_bonus": round(type_bonus, 4),
+        "target_type_divergence": len(target_type_votes) > 1,
+        "target_type_divergence_penalty": round(type_divergence_penalty, 4),
         "repeated_independent_claim_bonus": round(repeated_independent_bonus, 4),
         "same_provider_duplicate_bonus": round(same_provider_duplicate_bonus, 4),
         "priority_bonus": round(priority_bonus, 4),

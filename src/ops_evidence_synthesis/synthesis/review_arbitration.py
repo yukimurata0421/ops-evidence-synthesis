@@ -737,6 +737,7 @@ def _apply_review_unit_convergence(agreement_dimensions: dict[str, Any], targets
         if int(row.get("source_candidate_count") or 0) >= 2
         and int(row.get("independent_provider_count") or 0) >= 2
         and int(row.get("evidence_ref_count") or 0) >= 2
+        and int(row.get("distinct_target_type_count") or 1) <= 1
         and float(row.get("baseline_support_score") or 0.0) >= 0.65
     ]
     if converged:
@@ -774,6 +775,9 @@ def _review_unit_convergence_row(target: dict[str, Any]) -> dict[str, Any]:
         "evidence_ref_count": int(rollup.get("evidence_ref_count") or len(target.get("evidence_refs") or [])),
         "baseline_support_score": float(rollup.get("baseline_support_score") or 0.0),
         "rollup_provider_ratio": float(rollup.get("rollup_provider_ratio") or 0.0),
+        "target_type_votes": dict(rollup.get("target_type_votes") or {}),
+        "distinct_target_type_count": int(rollup.get("distinct_target_type_count") or 1),
+        "target_type_divergence": bool(rollup.get("target_type_divergence")),
         "review_priority_score": float(target.get("review_priority_score") or 0.0),
     }
 
@@ -1077,10 +1081,16 @@ def _candidate_from_multi_ai(row: dict[str, Any], *, original_class: str) -> dic
     target_id = str(row.get("review_target_id") or row.get("target_id") or row.get("group_id") or "")
     if not target_id:
         target_id = "mai-" + sha256_json(row)[:16]
+    agreement_signal = bool(row.get("agreement_signal"))
+    disagreement_signal = bool(row.get("disagreement_signal"))
+    effective_original_class = "validation_target" if disagreement_signal else original_class
     return {
         "target_id": target_id,
         "source": "multi_ai_synthesis",
-        "original_class": original_class,
+        "original_class": effective_original_class,
+        "agreement_signal": agreement_signal,
+        "disagreement_signal": disagreement_signal,
+        "claim_group_signals": dict(row.get("claim_group_signals") or {}),
         "title": str(row.get("title") or row.get("core_target_type") or "Review target requires validation"),
         "impact_summary": str(row.get("impact_summary") or ""),
         "core_target_type": str(row.get("core_target_type") or row.get("review_target_type") or "general_review"),
@@ -1099,7 +1109,11 @@ def _candidate_from_multi_ai(row: dict[str, Any], *, original_class: str) -> dic
         "counter_evidence_summary": _unique(row.get("counter_evidence_summary") or []),
         "why_not_promoted": str(row.get("why_not_promoted") or ""),
         "next_validation_question": str(row.get("next_validation_question") or ""),
-        "score_before": float(row.get("review_priority_score") or row.get("score") or (0.75 if original_class == "primary_candidate" else 0.62)),
+        "score_before": float(
+            row.get("review_priority_score")
+            or row.get("score")
+            or (0.75 if effective_original_class == "primary_candidate" else 0.62)
+        ),
         "group_id": str(row.get("group_id") or target_id),
         "raw": row,
     }
@@ -1280,6 +1294,9 @@ def _arbitrate_candidate(
         reasons.append("blocking_caveat_present")
         reasons.extend(blocking_caveats)
         score_after = _cap(score_after, 0.65, "blocking_caveat_present", score_caps)
+    if int(rollup.get("distinct_target_type_count") or 1) > 1:
+        reasons.append("target_type_divergence")
+        score_after = _cap(score_after, 0.72, "target_type_divergence", score_caps)
     if str(cause.get("value") or "") == "none" and (baseline.get("established") is False):
         reasons.append("cause_disagreement")
     if str(impact.get("value") or "") == "none" and not has_user_impact:
@@ -1384,9 +1401,12 @@ def _arbitrate_candidate(
         "canonical_target_type": str(candidate.get("canonical_target_type") or candidate.get("core_target_type") or "general_review"),
         "canonical_subject": str(candidate.get("canonical_subject") or ""),
         "canonical_review_unit": str(candidate.get("canonical_review_unit") or candidate.get("subsystem") or ""),
+        "canonical_review_family": str(candidate.get("canonical_review_family") or ""),
+        "canonical_key_contract": dict(candidate.get("canonical_key_contract") or {}),
         "canonical_observation_group_id": str(candidate.get("group_id") or candidate.get("target_id") or ""),
         "source_target_ids": _unique(candidate.get("source_target_ids") or [candidate.get("target_id")]),
         "source_candidate_count": int(candidate.get("source_candidate_count") or 1),
+        "source_candidates": list(candidate.get("source_candidates") or [])[:100],
         "subsystem": str(candidate.get("subsystem") or "general"),
         "component": str(candidate.get("component") or ""),
         "review_priority_score": round(review_priority_score, 4),
@@ -1657,9 +1677,10 @@ def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
             "evidence_family_counts": dict(raw.get("evidence_family_counts") or {}),
             "target_type_votes": dict(raw.get("target_type_votes") or {}),
             "distinct_target_type_count": int(raw.get("distinct_target_type_count") or 0),
+            "target_type_divergence": bool(raw.get("target_type_divergence")),
             "provider_convergence_bonus": float(raw.get("provider_convergence_bonus") or 0.0),
             "evidence_diversity_bonus": float(raw.get("evidence_diversity_bonus") or 0.0),
-            "target_type_convergence_bonus": float(raw.get("target_type_convergence_bonus") or 0.0),
+            "target_type_divergence_penalty": float(raw.get("target_type_divergence_penalty") or 0.0),
             "repeated_independent_claim_bonus": float(raw.get("repeated_independent_claim_bonus") or 0.0),
             "same_provider_duplicate_bonus": float(raw.get("same_provider_duplicate_bonus") or 0.0),
             "priority_bonus": float(raw.get("priority_bonus") or 0.0),
@@ -1678,9 +1699,10 @@ def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
         "evidence_family_counts": {},
         "target_type_votes": {str(candidate.get("core_target_type") or "general_review"): 1},
         "distinct_target_type_count": 1,
+        "target_type_divergence": False,
         "provider_convergence_bonus": 0.0,
         "evidence_diversity_bonus": 0.0,
-        "target_type_convergence_bonus": 0.0,
+        "target_type_divergence_penalty": 0.0,
         "repeated_independent_claim_bonus": 0.0,
         "same_provider_duplicate_bonus": 0.0,
         "priority_bonus": 0.0,
@@ -1807,6 +1829,7 @@ def _final_class(original: str, *, runtime: bool, reasons: list[str], score: flo
         "cause_disagreement",
         "impact_disagreement",
         "core_missing_evidence",
+        "target_type_divergence",
     }
     if blocking.intersection(reasons):
         return "validation_target"

@@ -5,7 +5,31 @@ from copy import deepcopy
 from fastapi.testclient import TestClient
 
 from ops_evidence_synthesis.evidence_request_planner import build_evidence_request_plan
-from ops_evidence_synthesis.synthesis.review_arbitration import arbitrate_review_targets
+from ops_evidence_synthesis.synthesis.review_arbitration import (
+    _candidate_from_multi_ai,
+    arbitrate_review_targets,
+)
+
+
+def test_nonexclusive_claim_group_stays_validation_when_disagreement_is_present() -> None:
+    candidate = _candidate_from_multi_ai(
+        {
+            "group_id": "cg-both",
+            "agreement_signal": True,
+            "disagreement_signal": True,
+            "claim_group_signals": {
+                "relationship": "independent_non_exclusive",
+                "agreement": True,
+                "disagreement": True,
+            },
+        },
+        original_class="primary_candidate",
+    )
+
+    assert candidate["agreement_signal"] is True
+    assert candidate["disagreement_signal"] is True
+    assert candidate["original_class"] == "validation_target"
+    assert candidate["claim_group_signals"]["relationship"] == "independent_non_exclusive"
 
 
 def _bundle() -> dict[str, object]:
@@ -202,7 +226,7 @@ def test_approved_outcome_and_matching_http_5xx_evidence_verify_user_impact() ->
     assert "user impact is not proven" not in target["why_it_matters"]
 
 
-def test_review_unit_convergence_increases_priority_without_primary_promotion() -> None:
+def test_review_unit_type_divergence_stays_validation_without_baseline_convergence() -> None:
     synthesis = {
         "schema_version": "multi_ai_synthesis.v1",
         "evidence_sha256": "sha",
@@ -251,16 +275,20 @@ def test_review_unit_convergence_increases_priority_without_primary_promotion() 
 
     assert graph["summary"]["primary_count"] == 0
     assert graph["summary"]["validation_count"] == 1
-    assert graph["agreement_dimensions"]["technical_baseline_agreement"]["established"] is True
+    assert graph["agreement_dimensions"]["technical_baseline_agreement"]["established"] is False
     assert graph["agreement_dimensions"]["incident_baseline_agreement"]["established"] is False
-    assert graph["agreement_dimensions"]["review_unit_convergence"]["value"] == "strong"
+    assert graph["agreement_dimensions"]["review_unit_convergence"]["value"] == "partial"
     target = graph["validation_targets"][0]
     assert target["canonical_review_unit"] == "runtime_recovery"
     assert target["source_candidate_count"] == 3
     assert target["rollup"]["independent_provider_count"] == 3
-    assert target["score_breakdown"]["convergence_bonus"] > 0.10
+    assert target["rollup"]["distinct_target_type_count"] == 3
+    assert target["rollup"]["target_type_divergence"] is True
+    assert target["rollup"]["target_type_divergence_penalty"] == 0.06
+    assert target["score_breakdown"]["convergence_bonus"] == 0.10
     assert target["review_priority_score"] > target["promotion_score"]
     assert "user_impact_unverified" in target["promotion_blocked_reasons"]
+    assert "target_type_divergence" in target["promotion_blocked_reasons"]
     priority = graph["planner_inputs"]["validation_target_priorities"][0]
     assert priority["canonical_review_unit"] == "runtime_recovery"
     assert priority["baseline_support_score"] >= 0.65

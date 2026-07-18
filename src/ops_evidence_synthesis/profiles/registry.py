@@ -80,6 +80,7 @@ def profile_context_for_bundle(bundle: dict[str, Any] | None) -> dict[str, Any]:
         "operational_contract": profile.get("operational_contract") or {},
         "log_sources": profile.get("log_sources") or [],
         "metric_semantics": profile.get("metric_semantics") or profile.get("metrics") or {},
+        "event_semantics": profile.get("event_semantics") or [],
         "component_map": profile.get("component_map") or {},
         "known_benign_noise": profile.get("known_benign_noise") or [],
         "action_constraints": profile.get("action_constraints") or [],

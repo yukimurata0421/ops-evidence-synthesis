@@ -8,6 +8,7 @@ from datetime import timedelta
 from typing import Any
 
 from ops_evidence_synthesis.canonical import sha256_json, sha256_text
+from ops_evidence_synthesis.event_semantics import enrich_evidence_item_semantics
 from ops_evidence_synthesis.models import IncidentWindow, SanitizedLog, severity_rank
 from ops_evidence_synthesis.normalize import normalized_event_from_log
 from ops_evidence_synthesis.profiles import metric_semantics, operational_evidence_specs, profile_context_for_bundle
@@ -184,6 +185,15 @@ class EvidenceBundleBuilder:
             metrics,
             operational_evidence,
         )
+        profile_event_semantics = profile_context.get("event_semantics") or []
+        evidence_items = [
+            enrich_evidence_item_semantics(
+                item,
+                profile_event_semantics=profile_event_semantics,
+                profile_approved=bool(profile_event_semantics),
+            )
+            for item in evidence_items
+        ]
         db_corpus_coverage = self._db_corpus_coverage(current_logs, patterns)
         signal_graph_input = {
             **profile_context,

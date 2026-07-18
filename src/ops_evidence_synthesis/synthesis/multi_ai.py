@@ -25,6 +25,7 @@ from ops_evidence_synthesis.ai.runtime import (
     summarize_model_run_costs,
 )
 from ops_evidence_synthesis.canonical import canonical_json, pretty_json, sha256_json, sha256_text
+from ops_evidence_synthesis.event_semantics import WEAK_EVENT_NAMES, semantic_identity_for_item
 from ops_evidence_synthesis.models import ModelRunRecord, ParsedResultRecord
 from ops_evidence_synthesis.pipeline_progress import (
     finish_pipeline_run,
@@ -152,8 +153,9 @@ class _ProviderChunkLedger:
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def success_record(self, provider_id: str, prompt_sha256: str, model_name: str = "") -> dict[str, Any] | None:
+        execution_contract_sha256 = _provider_execution_contract_sha256(provider_id, model_name, prompt_sha256)
         if self.backend is not None:
-            record = self.backend.success_record(provider_id, prompt_sha256)
+            record = self.backend.success_record(provider_id, execution_contract_sha256)
             if record is not None and _chunk_record_is_success(record) and _chunk_record_matches_model(record, model_name):
                 self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
                 return record
@@ -171,7 +173,8 @@ class _ProviderChunkLedger:
         if not _reuse_failed_chunk_records(provider_id):
             return None
         if self.backend is not None:
-            record = self.backend.latest_record(provider_id, prompt_sha256)
+            execution_contract_sha256 = _provider_execution_contract_sha256(provider_id, model_name, prompt_sha256)
+            record = self.backend.latest_record(provider_id, execution_contract_sha256)
             if _chunk_record_is_reusable(record) and _chunk_record_matches_model(record, model_name):
                 self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
                 return record
@@ -229,7 +232,19 @@ def _reuse_failed_chunk_records(provider_id: str = "") -> bool:
 
 
 def _chunk_cache_key(provider_id: str, prompt_sha256: str, model_name: str = "") -> str:
-    return sha256_text(f"{provider_id}:{model_name}:{prompt_sha256}")
+    return _provider_execution_contract_sha256(provider_id, model_name, prompt_sha256)
+
+
+def _provider_execution_contract_sha256(provider_id: str, model_name: str, prompt_sha256: str) -> str:
+    return sha256_json(
+        {
+            "schema_version": "provider_execution_contract.v1",
+            "provider_id": str(provider_id or ""),
+            "model_name": str(model_name or ""),
+            "prompt_sha256": str(prompt_sha256 or ""),
+            "output_contract": "claim_result.v1",
+        }
+    )
 
 
 def _provider_chunk_ledger_for_output_dir(output_dir: str | Path | None) -> _ProviderChunkLedger:
@@ -725,23 +740,19 @@ def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[s
     provider_execution_status_counts = Counter(_artifact_execution_status(run) for run in model_runs)
     cost_summary = summarize_model_run_costs(model_runs)
     known_refs = _known_evidence_refs(evidence_bundle)
-    claim_groups = _claim_groups(successful, known_refs)
+    claim_groups = [
+        _with_claim_group_signals(group, successful_provider_count=len(successful))
+        for group in _claim_groups(successful, known_refs)
+    ]
     agreement_groups = [
         group
         for group in claim_groups
-        if int(group["provider_count"]) >= 2 and int(group["support_claim_count"]) > 0 and not group["unsupported"]
+        if group["agreement_signal"] is True
     ]
     disagreement_groups = [
         group
         for group in claim_groups
-        if not group["unsupported"]
-        and (
-            int(group["counter_claim_count"]) > 0
-            or int(group["caveat_claim_count"]) > 0
-            or int(group["validation_claim_count"]) > 0
-            or bool(group["missing_evidence"])
-            or (len(successful) > 1 and int(group["provider_count"]) == 1)
-        )
+        if group["disagreement_signal"] is True
     ]
     unsupported_groups = [group for group in claim_groups if group["unsupported"]]
     primary_candidates = [_candidate_from_group(group, "agreement_baseline_signal") for group in agreement_groups]
@@ -788,6 +799,11 @@ def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[s
             "pricing_source": cost_summary["pricing_source"],
         },
         "claim_groups": claim_groups,
+        "claim_group_signal_contract": {
+            "schema_version": "claim_group_signals.v1",
+            "relationship": "independent_non_exclusive",
+            "agreement_and_disagreement_can_both_be_true": True,
+        },
         "agreement_groups": agreement_groups,
         "disagreement_groups": disagreement_groups,
         "disagreement_themes": disagreement_themes,
@@ -1099,6 +1115,11 @@ def _provider_chunk_run_record(
     artifact = envelope.artifact
     chunk = _artifact_chunk_manifest(artifact)
     prompt_sha256 = str(chunk.get("provider_prompt_sha256") or "")
+    execution_contract_sha256 = _provider_execution_contract_sha256(
+        provider.provider,
+        provider.model_name,
+        prompt_sha256,
+    )
     execution_status = _artifact_execution_status(artifact)
     retry = artifact.get("retry") if isinstance(artifact.get("retry"), dict) else {}
     failure_message = _artifact_failure_message(artifact)
@@ -1113,7 +1134,15 @@ def _provider_chunk_run_record(
         "chunk_count": int(chunk.get("chunk_count") or 0),
         "chunk_type": str(chunk.get("chunk_type") or ""),
         "prompt_sha256": prompt_sha256,
-        "prompt_cache_key": _chunk_cache_key(provider.provider, prompt_sha256, provider.model_name) if prompt_sha256 else "",
+        "prompt_cache_key": execution_contract_sha256 if prompt_sha256 else "",
+        "execution_contract_sha256": execution_contract_sha256 if prompt_sha256 else "",
+        "execution_contract": {
+            "schema_version": "provider_execution_contract.v1",
+            "provider_id": provider.provider,
+            "model_name": provider.model_name,
+            "prompt_sha256": prompt_sha256,
+            "output_contract": "claim_result.v1",
+        },
         "status": execution_status,
         "provider_status": str(artifact.get("status") or ""),
         "schema_valid": bool(artifact.get("schema_valid")),
@@ -1748,7 +1777,7 @@ def _semantic_evidence_buckets(items: list[dict[str, Any]]) -> list[list[dict[st
     order: list[str] = []
     buckets: dict[str, list[dict[str, Any]]] = {}
     for item in items:
-        key = _semantic_key_for_item(item)
+        key = _semantic_bucket_key_for_item(item)
         if key not in buckets:
             order.append(key)
             buckets[key] = []
@@ -1767,22 +1796,29 @@ def _semantic_keys_for_items(items: list[dict[str, Any]]) -> list[str]:
 
 def _semantic_key_for_item(item: dict[str, Any]) -> str:
     coverage_class = str(item.get("coverage_class") or "").strip() or _fallback_coverage_class(item)
+    if coverage_class in {"rare", "singleton"}:
+        coverage_class = "rare_singleton"
     subsystem = (
         str(item.get("subsystem") or "").strip()
         or str(item.get("component") or "").strip()
         or str(item.get("service") or "").strip()
         or "unknown"
     )
-    event_type = (
-        str(item.get("event_type") or "").strip()
-        or str(item.get("type") or "").strip()
-        or "event"
-    )
-    if coverage_class in {"pattern", "state_transition", "temporal_bucket"}:
-        return f"{coverage_class}:{subsystem}:{event_type}"
-    if coverage_class in {"rare", "singleton"}:
-        return f"rare_singleton:{subsystem}:{event_type}"
-    return f"{coverage_class}:{subsystem}:{event_type}"
+    identity = semantic_identity_for_item(item)
+    base = f"{coverage_class}:{subsystem}:{identity['event_family']}:{identity['event_name']}"
+    if identity["event_name"] in WEAK_EVENT_NAMES:
+        return f"{base}:{identity['template_fingerprint']}"
+    return base
+
+
+def _semantic_bucket_key_for_item(item: dict[str, Any]) -> str:
+    """Use a coarse packing key while retaining fine keys in the chunk manifest."""
+
+    key = _semantic_key_for_item(item)
+    identity = semantic_identity_for_item(item)
+    if identity["event_name"] in WEAK_EVENT_NAMES:
+        return key.rsplit(":", 1)[0]
+    return key
 
 
 def _estimated_chunk_input_tokens(items: list[dict[str, Any]]) -> int:
@@ -3180,6 +3216,43 @@ def _claim_groups(model_runs: list[dict[str, Any]], known_refs: set[str]) -> lis
     return groups
 
 
+def _with_claim_group_signals(
+    group: dict[str, Any],
+    *,
+    successful_provider_count: int,
+) -> dict[str, Any]:
+    unsupported = bool(group.get("unsupported"))
+    agreement_signal = (
+        not unsupported
+        and int(group.get("provider_count") or 0) >= 2
+        and int(group.get("support_claim_count") or 0) > 0
+    )
+    disagreement_reasons: list[str] = []
+    if int(group.get("counter_claim_count") or 0) > 0:
+        disagreement_reasons.append("counter_claim")
+    if int(group.get("caveat_claim_count") or 0) > 0:
+        disagreement_reasons.append("caveat_claim")
+    if int(group.get("validation_claim_count") or 0) > 0:
+        disagreement_reasons.append("validation_claim")
+    if group.get("missing_evidence"):
+        disagreement_reasons.append("missing_evidence")
+    if successful_provider_count > 1 and int(group.get("provider_count") or 0) == 1:
+        disagreement_reasons.append("single_provider_detection")
+    disagreement_signal = not unsupported and bool(disagreement_reasons)
+    return {
+        **group,
+        "agreement_signal": agreement_signal,
+        "disagreement_signal": disagreement_signal,
+        "signals": {
+            "schema_version": "claim_group_signals.v1",
+            "relationship": "independent_non_exclusive",
+            "agreement": agreement_signal,
+            "disagreement": disagreement_signal,
+            "disagreement_reasons": disagreement_reasons,
+        },
+    }
+
+
 def _candidate_from_group(group: dict[str, Any], review_mode: str) -> dict[str, Any]:
     title = _target_title(group)
     impact_summary = _target_impact_summary(group, review_mode)
@@ -3194,6 +3267,9 @@ def _candidate_from_group(group: dict[str, Any], review_mode: str) -> dict[str, 
         "provider_count": group["provider_count"],
         "evidence_refs": group["evidence_refs"],
         "missing_evidence": group["missing_evidence"],
+        "agreement_signal": bool(group.get("agreement_signal")),
+        "disagreement_signal": bool(group.get("disagreement_signal")),
+        "claim_group_signals": dict(group.get("signals") or {}),
         "title": title,
         "impact_summary": impact_summary,
         "target_explanation": target_explanation,

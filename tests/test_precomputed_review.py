@@ -26,11 +26,13 @@ from ops_evidence_synthesis.web.precomputed_review import (
     _render_precomputed_graph_page,
     _render_precomputed_markdown_report,
     _render_precomputed_review_detail_page,
+    _rollup_audit_html,
     _workspace_target_detail_html,
     rescore_demo_payload,
     render_rescore_demo_page,
 )
 from scripts.generate_precomputed_review_from_multi_run import (
+    _merge_duplicate_public_target,
     _provider_summary_title,
     _public_review_counts,
     _public_target_class,
@@ -38,8 +40,8 @@ from scripts.generate_precomputed_review_from_multi_run import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_SAMPLE_SHA = "a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f46208"
-PUBLIC_FLAGSHIP_SHA = "3ee1f95fe1567c8b8bdbf3630100a52a24c7a76450d8b22afffc397c6a7df19d"
+PUBLIC_SAMPLE_SHA = "518a25bd716c2c37ba10db0f3a56ab6562eb65e88e7b6b0b1c65c5f34d4ab38e"
+PUBLIC_FLAGSHIP_SHA = "a6af3d3ca5cc7254abbc97b232a430e1be111c8ce66adb28f32b9ee23b47cf75"
 PUBLIC_REAL_API_SHA = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
 REAL_API_QWEN_GLM_SHA = "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb"
 STREAM_V3_DELL_REAL_API_SHA = "ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471"
@@ -67,6 +69,117 @@ def test_provider_summary_title_distinguishes_local_and_real_modes() -> None:
         provider_mode="real_api_private_gcs_cloud_run_job_postgres_ledger",
     ).startswith("Five real providers")
 
+
+def test_rollup_audit_shows_type_votes_provider_votes_and_source_candidates() -> None:
+    html = _rollup_audit_html(
+        {
+            "rollup": {
+                "source_candidate_count": 2,
+                "distinct_target_type_count": 2,
+                "target_type_votes": {"restart_loop": 1, "runtime_exception": 1},
+                "provider_vote_counts": {"provider-a": 1, "provider-b": 1},
+                "target_type_divergence_penalty": 0.03,
+            },
+            "overmerge_review": {
+                "warning": "Different target types were merged into one review unit.",
+            },
+            "source_candidates": [
+                {
+                    "canonical_target_type": "restart_loop",
+                    "provider_ids": ["provider-a"],
+                    "evidence_refs": ["OPS-001"],
+                    "claim": "worker restart loop",
+                },
+                {
+                    "canonical_target_type": "runtime_exception",
+                    "provider_ids": ["provider-b"],
+                    "evidence_refs": ["OPS-002"],
+                    "claim": "uncaught worker exception",
+                },
+            ],
+        }
+    )
+
+    assert "Canonical rollup review required" in html
+    assert "2 source candidate(s), 2 distinct target type(s)" in html
+    assert "restart_loop" in html
+    assert "runtime_exception" in html
+    assert "provider-a" in html
+    assert "OPS-002" in html
+
+
+def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
+    first = {
+        "canonical_review_unit": "runtime_recovery",
+        "source_candidates": [
+            {
+                "source_candidate_id": "candidate-a",
+                "provider_ids": ["provider-a"],
+                "canonical_target_type": "restart_loop",
+                "evidence_refs": ["OPS-001"],
+                "claim": "worker restart loop",
+            }
+        ],
+        "rollup": {
+            "source_candidate_count": 1,
+            "provider_vote_counts": {"provider-a": 1},
+            "target_type_votes": {"restart_loop": 1},
+            "distinct_target_type_count": 1,
+        },
+        "provider_positions": [{"provider_id": "provider-a", "stance": "claimed"}],
+        "agreement": {},
+        "classification": {},
+        "promotion": {},
+        "review_reason": {"factors": []},
+        "raw": {},
+    }
+    second = {
+        **first,
+        "source_candidates": [
+            {
+                "source_candidate_id": "candidate-b",
+                "provider_ids": ["provider-b"],
+                "canonical_target_type": "runtime_exception",
+                "evidence_refs": ["OPS-002"],
+                "claim": "uncaught worker exception",
+            }
+        ],
+        "rollup": {
+            "source_candidate_count": 1,
+            "provider_vote_counts": {"provider-b": 1},
+            "target_type_votes": {"runtime_exception": 1},
+            "distinct_target_type_count": 1,
+        },
+        "provider_positions": [{"provider_id": "provider-b", "stance": "claimed"}],
+    }
+
+    merged = _merge_duplicate_public_target(first, second)
+
+    assert merged["rollup"]["source_candidate_count"] == 2
+    assert merged["rollup"]["target_type_votes"] == {
+        "restart_loop": 1,
+        "runtime_exception": 1,
+    }
+    assert merged["rollup"]["provider_vote_counts"] == {
+        "provider-a": 1,
+        "provider-b": 1,
+    }
+    assert merged["rollup"]["target_type_divergence_penalty"] == 0.03
+    assert merged["overmerge_review"]["required"] is True
+    assert len(merged["source_candidates"]) == 2
+
+
+def test_fast_gcp_provider_mode_uses_current_platform_label() -> None:
+    assert web_precomputed._detail_provider_mode_label(
+        {"generation": {"provider_mode": "fast_gcp_vertex_gemini_flash_lite"}}
+    ) == "Fast GCP / Agent Platform / Gemini 3.1 Flash-Lite"
+    assert web_precomputed._detail_provider_mode_label(
+        {
+            "generation": {
+                "provider_mode": "fast_gcp_vertex_gemini_flash_lite_gemma4_cross_check"
+            }
+        }
+    ) == "Fast GCP / Agent Platform / Gemini 3.1 Flash-Lite + Gemma 4"
 
 def test_public_landing_page_lists_real_api_reviews_only(monkeypatch) -> None:
     monkeypatch.delenv("OES_PRECOMPUTED_REVIEW_DIR", raising=False)

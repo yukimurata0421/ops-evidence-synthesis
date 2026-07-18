@@ -11,10 +11,10 @@ class ProviderChunkRunStore(Protocol):
     def init_schema(self) -> None:
         ...
 
-    def success_record(self, provider_id: str, prompt_sha256: str) -> dict[str, Any] | None:
+    def success_record(self, provider_id: str, execution_contract_sha256: str) -> dict[str, Any] | None:
         ...
 
-    def latest_record(self, provider_id: str, prompt_sha256: str) -> dict[str, Any] | None:
+    def latest_record(self, provider_id: str, execution_contract_sha256: str) -> dict[str, Any] | None:
         ...
 
     def upsert_record(self, record: dict[str, Any]) -> None:
@@ -97,7 +97,7 @@ class PostgresProviderChunkRunStore:
                 cur.execute(POSTGRES_PROVIDER_CHUNK_RUNS_SCHEMA)
             conn.commit()
 
-    def success_record(self, provider_id: str, prompt_sha256: str) -> dict[str, Any] | None:
+    def success_record(self, provider_id: str, execution_contract_sha256: str) -> dict[str, Any] | None:
         psycopg = self._psycopg()
         with psycopg.connect(self.dsn) as conn:
             with conn.cursor() as cur:
@@ -106,12 +106,12 @@ class PostgresProviderChunkRunStore:
                     SELECT record_json
                     FROM provider_chunk_runs
                     WHERE provider_id = %s
-                      AND prompt_sha256 = %s
+                      AND execution_contract_sha256 = %s
                       AND status = 'ok'
                       AND schema_valid IS TRUE
                     LIMIT 1
                     """,
-                    (provider_id, prompt_sha256),
+                    (provider_id, execution_contract_sha256),
                 )
                 row = cur.fetchone()
         if not row:
@@ -119,7 +119,7 @@ class PostgresProviderChunkRunStore:
         record = row[0]
         return dict(record) if isinstance(record, dict) else None
 
-    def latest_record(self, provider_id: str, prompt_sha256: str) -> dict[str, Any] | None:
+    def latest_record(self, provider_id: str, execution_contract_sha256: str) -> dict[str, Any] | None:
         psycopg = self._psycopg()
         with psycopg.connect(self.dsn) as conn:
             with conn.cursor() as cur:
@@ -128,10 +128,10 @@ class PostgresProviderChunkRunStore:
                     SELECT record_json
                     FROM provider_chunk_runs
                     WHERE provider_id = %s
-                      AND prompt_sha256 = %s
+                      AND execution_contract_sha256 = %s
                     LIMIT 1
                     """,
-                    (provider_id, prompt_sha256),
+                    (provider_id, execution_contract_sha256),
                 )
                 row = cur.fetchone()
         if not row:
@@ -211,6 +211,12 @@ def _postgres_record_values(record: dict[str, Any], *, jsonb: Any) -> dict[str, 
         "chunk_type": str(record.get("chunk_type") or ""),
         "prompt_sha256": str(record.get("prompt_sha256") or ""),
         "prompt_cache_key": str(record.get("prompt_cache_key") or ""),
+        "execution_contract_sha256": str(
+            record.get("execution_contract_sha256")
+            or record.get("prompt_cache_key")
+            or record.get("prompt_sha256")
+            or ""
+        ),
         "status": status,
         "provider_status": str(record.get("provider_status") or ""),
         "schema_valid": bool(record.get("schema_valid")),
@@ -257,6 +263,12 @@ def _attempt_json(record: dict[str, Any]) -> dict[str, Any]:
         "chunk_index": int(record.get("chunk_index") or 0),
         "chunk_count": int(record.get("chunk_count") or 0),
         "prompt_sha256": str(record.get("prompt_sha256") or ""),
+        "execution_contract_sha256": str(
+            record.get("execution_contract_sha256")
+            or record.get("prompt_cache_key")
+            or record.get("prompt_sha256")
+            or ""
+        ),
         "status": str(record.get("status") or ""),
         "provider_status": str(record.get("provider_status") or ""),
         "schema_valid": bool(record.get("schema_valid")),
@@ -300,6 +312,7 @@ CREATE TABLE IF NOT EXISTS provider_chunk_runs (
   chunk_type text NOT NULL DEFAULT '',
   prompt_sha256 text NOT NULL,
   prompt_cache_key text NOT NULL DEFAULT '',
+  execution_contract_sha256 text NOT NULL,
   status text NOT NULL,
   provider_status text NOT NULL DEFAULT '',
   schema_valid boolean NOT NULL DEFAULT false,
@@ -334,8 +347,21 @@ CREATE TABLE IF NOT EXISTS provider_chunk_runs (
   finished_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (provider_id, prompt_sha256)
+  UNIQUE (provider_id, execution_contract_sha256)
 );
+
+ALTER TABLE provider_chunk_runs
+  ADD COLUMN IF NOT EXISTS execution_contract_sha256 text NOT NULL DEFAULT '';
+
+UPDATE provider_chunk_runs
+SET execution_contract_sha256 = COALESCE(NULLIF(prompt_cache_key, ''), prompt_sha256)
+WHERE execution_contract_sha256 = '';
+
+ALTER TABLE provider_chunk_runs
+  DROP CONSTRAINT IF EXISTS provider_chunk_runs_provider_id_prompt_sha256_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS provider_chunk_runs_execution_contract
+  ON provider_chunk_runs(provider_id, execution_contract_sha256);
 
 CREATE INDEX IF NOT EXISTS provider_chunk_runs_retry
   ON provider_chunk_runs(provider_id, status, next_retry_at);
@@ -353,6 +379,7 @@ CREATE TABLE IF NOT EXISTS provider_chunk_attempts (
   chunk_index integer NOT NULL DEFAULT 0,
   chunk_count integer NOT NULL DEFAULT 0,
   prompt_sha256 text NOT NULL,
+  execution_contract_sha256 text NOT NULL DEFAULT '',
   attempt_no integer NOT NULL DEFAULT 1,
   status text NOT NULL,
   provider_status text NOT NULL DEFAULT '',
@@ -372,6 +399,9 @@ CREATE TABLE IF NOT EXISTS provider_chunk_attempts (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE provider_chunk_attempts
+  ADD COLUMN IF NOT EXISTS execution_contract_sha256 text NOT NULL DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS provider_chunk_attempts_lookup
   ON provider_chunk_attempts(evidence_sha256, provider_id, chunk_id, created_at);
 """
@@ -388,6 +418,7 @@ INSERT INTO provider_chunk_runs (
   chunk_type,
   prompt_sha256,
   prompt_cache_key,
+  execution_contract_sha256,
   status,
   provider_status,
   schema_valid,
@@ -428,6 +459,7 @@ INSERT INTO provider_chunk_runs (
   %(chunk_type)s,
   %(prompt_sha256)s,
   %(prompt_cache_key)s,
+  %(execution_contract_sha256)s,
   %(status)s,
   %(provider_status)s,
   %(schema_valid)s,
@@ -459,7 +491,7 @@ INSERT INTO provider_chunk_runs (
   %(started_at)s,
   %(finished_at)s
 )
-ON CONFLICT (provider_id, prompt_sha256) DO UPDATE SET
+ON CONFLICT (provider_id, execution_contract_sha256) DO UPDATE SET
   evidence_sha256 = EXCLUDED.evidence_sha256,
   model_name = EXCLUDED.model_name,
   chunk_id = EXCLUDED.chunk_id,
@@ -467,6 +499,7 @@ ON CONFLICT (provider_id, prompt_sha256) DO UPDATE SET
   chunk_count = EXCLUDED.chunk_count,
   chunk_type = EXCLUDED.chunk_type,
   prompt_cache_key = EXCLUDED.prompt_cache_key,
+  prompt_sha256 = EXCLUDED.prompt_sha256,
   status = EXCLUDED.status,
   provider_status = EXCLUDED.provider_status,
   schema_valid = EXCLUDED.schema_valid,
@@ -513,6 +546,7 @@ INSERT INTO provider_chunk_attempts (
   chunk_index,
   chunk_count,
   prompt_sha256,
+  execution_contract_sha256,
   attempt_no,
   status,
   provider_status,
@@ -538,6 +572,7 @@ INSERT INTO provider_chunk_attempts (
   %(chunk_index)s,
   %(chunk_count)s,
   %(prompt_sha256)s,
+  %(execution_contract_sha256)s,
   %(attempt_no)s,
   %(status)s,
   %(provider_status)s,

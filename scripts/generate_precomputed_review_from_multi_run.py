@@ -663,6 +663,8 @@ def _targets(
         public_title = _public_target_title(public_target, canonical_review_unit=canonical_review_unit)
         raw = public_target.get("raw") if isinstance(public_target.get("raw"), dict) else {}
         source_candidate_count = _int(public_target.get("source_candidate_count")) or _int(raw.get("source_candidate_count")) or 1
+        public_rollup = _public_rollup_details(public_target, source_candidate_count=source_candidate_count)
+        source_candidates = _public_source_candidate_summaries(public_target)
         evidence_family_count = len({_evidence_family(ref) for ref in evidence_refs if _evidence_family(ref)})
         target_class, classification = _public_target_class(
             public_target,
@@ -791,6 +793,8 @@ def _targets(
                 "status": str(public_target.get("status") or "pending"),
                 "subsystem": str(public_target.get("subsystem") or "general"),
                 "canonical_review_unit": canonical_review_unit,
+                "canonical_review_family": str(public_target.get("canonical_review_family") or ""),
+                "canonical_key_contract": dict(public_target.get("canonical_key_contract") or {}),
                 "evidence_relationship_supported": bool(public_target.get("evidence_relationship_supported")),
                 "review_priority_score": priority_result["score"],
                 "raw_review_priority_score": round(float(public_target.get("review_priority_score") or 0.0), 4),
@@ -858,6 +862,26 @@ def _targets(
                 "excluded_evidence_refs": excluded_evidence_refs,
                 "missing_evidence": missing_evidence,
                 "source_chunks": _target_source_chunks(public_target),
+                "rollup": public_rollup,
+                "source_candidates": source_candidates,
+                "overmerge_review": {
+                    "required": bool(
+                        public_rollup["distinct_target_type_count"] > 1
+                        or source_candidate_count > 1
+                    ),
+                    "mixed_target_types": public_rollup["distinct_target_type_count"] > 1,
+                    "warning": (
+                        "Multiple target types were rolled into this canonical review unit. "
+                        "Compare the type votes and source candidates before promotion."
+                        if public_rollup["distinct_target_type_count"] > 1
+                        else (
+                            "Multiple source candidates were rolled into this canonical review unit. "
+                            "Confirm that they describe one operational issue."
+                            if source_candidate_count > 1
+                            else ""
+                        )
+                    ),
+                },
                 "caveats": list(target.get("caveats") or []),
                 "raw": {
                     "baseline_support_score": public_target.get("baseline_support_score"),
@@ -865,6 +889,9 @@ def _targets(
                     "rollup_provider_ratio": public_target.get("rollup_provider_ratio"),
                     "source_candidate_count": source_candidate_count,
                     "source_chunk_ids": _target_source_chunks(public_target),
+                    "target_type_votes": public_rollup["target_type_votes"],
+                    "distinct_target_type_count": public_rollup["distinct_target_type_count"],
+                    "provider_vote_counts": public_rollup["provider_vote_counts"],
                 },
             }
         )
@@ -1102,12 +1129,37 @@ def _merge_duplicate_public_target(
     merged["source_chunks"] = source_chunks
     merged["provider_positions"] = provider_positions
     merged["provider_count"] = provider_count
+    merged_source_candidates = _merge_public_source_candidates(winner, duplicate)
+    merged_rollup = _merge_public_rollup_details(
+        winner,
+        duplicate,
+        source_candidates=merged_source_candidates,
+    )
+    merged["source_candidates"] = merged_source_candidates
+    merged["rollup"] = merged_rollup
+    merged["overmerge_review"] = {
+        "required": bool(
+            merged_rollup["source_candidate_count"] > 1
+            or merged_rollup["distinct_target_type_count"] > 1
+        ),
+        "mixed_target_types": merged_rollup["distinct_target_type_count"] > 1,
+        "warning": (
+            "Multiple target types were rolled into this canonical review unit. "
+            "Compare the type votes and source candidates before promotion."
+            if merged_rollup["distinct_target_type_count"] > 1
+            else (
+                "Multiple source candidates were rolled into this canonical review unit. "
+                "Confirm that they describe one operational issue."
+                if merged_rollup["source_candidate_count"] > 1
+                else ""
+            )
+        ),
+    }
     raw = dict(merged.get("raw") or {})
     raw["source_chunk_ids"] = source_chunks
-    raw["source_candidate_count"] = max(
-        _int((winner.get("raw") or {}).get("source_candidate_count")),
-        _int((duplicate.get("raw") or {}).get("source_candidate_count")),
-    )
+    raw["source_candidate_count"] = merged_rollup["source_candidate_count"]
+    raw["target_type_votes"] = merged_rollup["target_type_votes"]
+    raw["provider_vote_counts"] = merged_rollup["provider_vote_counts"]
     merged["raw"] = raw
     agreement = dict(merged.get("agreement") or {})
     if str(merged.get("class") or "") == "monitor_only" and no_finding_count and provider_count == 0:
@@ -1149,6 +1201,107 @@ def _merge_duplicate_public_target(
     review_reason["factors"] = factors
     merged["review_reason"] = review_reason
     return merged
+
+
+def _merge_public_source_candidates(
+    first: dict[str, Any],
+    second: dict[str, Any],
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for candidate in [*(first.get("source_candidates") or []), *(second.get("source_candidates") or [])]:
+        if not isinstance(candidate, dict):
+            continue
+        normalized = _public_source_candidate_summaries({"source_candidates": [candidate]})
+        if not normalized:
+            continue
+        row = normalized[0]
+        key = sha256_json(row)
+        if key in seen:
+            continue
+        seen.add(key)
+        output.append(row)
+    return output[:100]
+
+
+def _merge_public_rollup_details(
+    first: dict[str, Any],
+    second: dict[str, Any],
+    *,
+    source_candidates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    first_rollup = first.get("rollup") if isinstance(first.get("rollup"), dict) else {}
+    second_rollup = second.get("rollup") if isinstance(second.get("rollup"), dict) else {}
+    both_candidate_lists_retained = bool(first.get("source_candidates")) and bool(second.get("source_candidates"))
+    if both_candidate_lists_retained:
+        source_candidate_count = len(source_candidates)
+    else:
+        source_candidate_count = max(
+            len(source_candidates),
+            _int(first_rollup.get("source_candidate_count"))
+            + _int(second_rollup.get("source_candidate_count")),
+            1,
+        )
+
+    if both_candidate_lists_retained:
+        target_type_votes: dict[str, int] = {}
+        provider_vote_counts: dict[str, int] = {}
+        for candidate in source_candidates:
+            target_type = str(candidate.get("canonical_target_type") or "general_review")
+            target_type_votes[target_type] = target_type_votes.get(target_type, 0) + 1
+            for provider_id in {str(value) for value in candidate.get("provider_ids") or [] if str(value)}:
+                provider_vote_counts[provider_id] = provider_vote_counts.get(provider_id, 0) + 1
+    else:
+        target_type_votes = _sum_public_vote_counts(
+            first_rollup.get("target_type_votes"),
+            second_rollup.get("target_type_votes"),
+        )
+        provider_vote_counts = _sum_public_vote_counts(
+            first_rollup.get("provider_vote_counts"),
+            second_rollup.get("provider_vote_counts"),
+        )
+
+    distinct_target_type_count = max(
+        len(target_type_votes),
+        _int(first_rollup.get("distinct_target_type_count")),
+        _int(second_rollup.get("distinct_target_type_count")),
+        1,
+    )
+    independent_provider_count = len(provider_vote_counts)
+    rollup_provider_ratio = 0.0
+    if independent_provider_count >= 2 and source_candidate_count >= 2:
+        rollup_provider_ratio = min(
+            1.0,
+            independent_provider_count / max(source_candidate_count, independent_provider_count, 1),
+        )
+    return {
+        "source_candidate_count": source_candidate_count,
+        "independent_provider_count": independent_provider_count,
+        "provider_vote_counts": dict(sorted(provider_vote_counts.items())),
+        "target_type_votes": dict(sorted(target_type_votes.items())),
+        "distinct_target_type_count": distinct_target_type_count,
+        "target_type_divergence": distinct_target_type_count > 1,
+        "target_type_divergence_penalty": round(
+            min(0.06, max(0, distinct_target_type_count - 1) * 0.03),
+            4,
+        ),
+        "rollup_provider_ratio": round(rollup_provider_ratio, 4),
+        "baseline_support_score": max(
+            float(first_rollup.get("baseline_support_score") or 0.0),
+            float(second_rollup.get("baseline_support_score") or 0.0),
+        ),
+    }
+
+
+def _sum_public_vote_counts(first: Any, second: Any) -> dict[str, int]:
+    output: dict[str, int] = {}
+    for votes in (first, second):
+        if not isinstance(votes, dict):
+            continue
+        for key, value in votes.items():
+            text = str(key)
+            output[text] = output.get(text, 0) + _int(value)
+    return output
 
 
 def _merge_provider_positions(
@@ -1536,6 +1689,14 @@ def _review_reason_summary(
             "not an accepted incident cause."
         ),
     ]
+    rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
+    target_type_votes = rollup.get("target_type_votes") if isinstance(rollup.get("target_type_votes"), dict) else {}
+    if len(target_type_votes) > 1:
+        vote_text = ", ".join(f"{target_type}={count}" for target_type, count in sorted(target_type_votes.items()))
+        factors.insert(
+            3,
+            "Target-type divergence requires explicit operator review before promotion: " + vote_text + ".",
+        )
     return {
         "headline": (
             f"Review target created because provider convergence and cited evidence made `{canonical_unit}` "
@@ -1544,6 +1705,45 @@ def _review_reason_summary(
         "factors": factors,
         "operator_question": _operator_question(target, blocked_reason=blocked_reason),
     }
+
+
+def _public_rollup_details(target: dict[str, Any], *, source_candidate_count: int) -> dict[str, Any]:
+    rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
+    target_type_votes = rollup.get("target_type_votes") if isinstance(rollup.get("target_type_votes"), dict) else {}
+    provider_vote_counts = rollup.get("provider_vote_counts") if isinstance(rollup.get("provider_vote_counts"), dict) else {}
+    distinct_target_type_count = _int(rollup.get("distinct_target_type_count")) or len(target_type_votes) or 1
+    return {
+        "source_candidate_count": source_candidate_count,
+        "independent_provider_count": _int(rollup.get("independent_provider_count")) or len(provider_vote_counts),
+        "provider_vote_counts": {str(key): _int(value) for key, value in sorted(provider_vote_counts.items())},
+        "target_type_votes": {str(key): _int(value) for key, value in sorted(target_type_votes.items())},
+        "distinct_target_type_count": distinct_target_type_count,
+        "target_type_divergence": distinct_target_type_count > 1,
+        "target_type_divergence_penalty": float(rollup.get("target_type_divergence_penalty") or 0.0),
+        "rollup_provider_ratio": float(rollup.get("rollup_provider_ratio") or target.get("rollup_provider_ratio") or 0.0),
+        "baseline_support_score": float(rollup.get("baseline_support_score") or target.get("baseline_support_score") or 0.0),
+    }
+
+
+def _public_source_candidate_summaries(target: dict[str, Any]) -> list[dict[str, Any]]:
+    candidates = target.get("source_candidates") if isinstance(target.get("source_candidates"), list) else []
+    output: list[dict[str, Any]] = []
+    for index, candidate in enumerate(candidates[:100], start=1):
+        if not isinstance(candidate, dict):
+            continue
+        output.append(
+            {
+                "source_candidate_id": str(candidate.get("source_candidate_id") or f"candidate-{index:03d}"),
+                "provider_ids": [str(value) for value in candidate.get("provider_ids") or [] if str(value).strip()][:10],
+                "canonical_target_type": str(candidate.get("canonical_target_type") or "general_review"),
+                "subsystem": str(candidate.get("subsystem") or "general"),
+                "component": str(candidate.get("component") or ""),
+                "evidence_refs": [str(value) for value in candidate.get("evidence_refs") or [] if str(value).strip()][:20],
+                "source_chunk_ids": [str(value) for value in candidate.get("source_chunk_ids") or [] if str(value).strip()][:10],
+                "claim": str(candidate.get("claim") or "")[:500],
+            }
+        )
+    return output
 
 
 def _public_review_counts(targets: list[dict[str, Any]], *, graph_summary: dict[str, Any]) -> dict[str, int]:

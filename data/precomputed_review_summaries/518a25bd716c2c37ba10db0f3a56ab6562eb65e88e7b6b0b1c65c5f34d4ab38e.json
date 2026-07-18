@@ -6,19 +6,19 @@
       "artifact": "adk:tool:freeze_evidence_bundle",
       "output": {
         "artifact": "evidence_bundle",
-        "evidence_sha256": "a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f46208",
+        "evidence_sha256": "518a25bd716c2c37ba10db0f3a56ab6562eb65e88e7b6b0b1c65c5f34d4ab38e",
         "log_count": 20,
         "raw_log_policy": "not_uploaded",
         "status": "completed",
-        "summary": "Evidence Bundle a7da502659d7 fixed 20 sanitized rows; raw_log_policy=not_uploaded."
+        "summary": "Evidence Bundle 518a25bd716c fixed 20 sanitized rows; raw_log_policy=not_uploaded."
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "freeze_evidence_bundle",
-      "summary": "Evidence Bundle a7da502659d7 fixed 20 sanitized rows; raw_log_policy=not_uploaded.",
+      "summary": "Evidence Bundle 518a25bd716c fixed 20 sanitized rows; raw_log_policy=not_uploaded.",
       "title": "Freeze Evidence Bundle",
       "tool": "freeze_evidence_bundle",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -41,7 +41,7 @@
       "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
       "title": "Attach Sanitized Source Context",
       "tool": "attach_sanitized_source_context",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -67,7 +67,7 @@
       "summary": "3/3 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
       "title": "Run Cross-Check Providers",
       "tool": "run_cross_check_providers",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -97,7 +97,7 @@
       "summary": "No full-corpus chunk manifest was attached to this payload.",
       "title": "Chunk And Merge Full Corpus",
       "tool": "chunk_and_merge_full_corpus",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -121,7 +121,7 @@
       "summary": "5 review target(s) directly show 11 unique cited Evidence Item(s); chunk manifests track 11 target evidence association(s); 13 missing-evidence item(s) remain.",
       "title": "Validate Citations",
       "tool": "validate_citations",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -143,7 +143,7 @@
       "summary": "Canonical Review Graph projected 5 target(s), 0 primary candidate(s), and 1 convergence group(s).",
       "title": "Compute Review Targets",
       "tool": "compute_review_targets",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -167,7 +167,7 @@
       "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
       "title": "Arbitrate Human Gate",
       "tool": "arbitrate_review_gate",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -192,7 +192,7 @@
       "summary": "Generated read-only follow-up plan with 4 request type(s) and 13 missing-evidence item(s), grouped for top-N human review.",
       "title": "Request More Evidence",
       "tool": "request_more_evidence",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -273,7 +273,7 @@
       "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
       "title": "Draft System Profile",
       "tool": "draft_system_profile",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -282,19 +282,19 @@
       "artifact": "adk:tool:deliver_read_only_review",
       "output": {
         "artifact": "precomputed_review_summary",
-        "evidence_sha256": "a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f46208",
+        "evidence_sha256": "518a25bd716c2c37ba10db0f3a56ab6562eb65e88e7b6b0b1c65c5f34d4ab38e",
         "provider_mode": "deterministic_local",
         "public_url": "",
         "status": "completed",
-        "summary": "Read-only review payload for a7da502659d7 is served from precomputed JSON; page load does not invoke live model work."
+        "summary": "Read-only review payload for 518a25bd716c is served from precomputed JSON; page load does not invoke live model work."
       },
       "schema_version": "adk_tool_trace.v1",
       "status": "completed",
       "step": "deliver_read_only_review",
-      "summary": "Read-only review payload for a7da502659d7 is served from precomputed JSON; page load does not invoke live model work.",
+      "summary": "Read-only review payload for 518a25bd716c is served from precomputed JSON; page load does not invoke live model work.",
       "title": "Deliver Read-Only Review",
       "tool": "deliver_read_only_review",
-      "trace_sha256": "a3a64c68924c6ef7bc95328459cfaa6ae0e49b7165ecf2b7688cf787f11403ab",
+      "trace_sha256": "1d9c0730db04b0496ae8566a38f8be57e0d754645061393e7a8b67feabdff642",
       "trace_source": "adk_tool_contract"
     }
   ],
@@ -377,10 +377,10 @@
     "summary": "The public repository verifies that the fast UI cache can be regenerated from a deterministic local pipeline.",
     "title": "AI workflow is operated as production software"
   },
-  "evidence_sha256": "a7da502659d7af556b71f341ff098be6460a41b844761c3fff96339d58f46208",
+  "evidence_sha256": "518a25bd716c2c37ba10db0f3a56ab6562eb65e88e7b6b0b1c65c5f34d4ab38e",
   "generation": {
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "feb9077994cfe96afcb2e961900ed01da5277ad411d7d010c189d7983130412d",
+    "payload_sha256": "6a3376e67464cf3988754ea0ae927fa2acdfa8e2154e19fe4aef8be32c4ac3cd",
     "provider_mode": "deterministic_local",
     "raw_log_policy": "not_uploaded",
     "schema_version": "precomputed_review_generation.v1",
@@ -583,13 +583,13 @@
       "incident": false,
       "technical": true
     },
-    "canonical_graph_sha256": "dbbc34f8a84dc68094632d4a7873fdd67dcf22b0adc692105f5a9bd438a6d812",
+    "canonical_graph_sha256": "ede2ee23459600629b2890add3c08d22ba223575eea1745ade66685a706773d9",
     "canonical_graph_status": "pipeline_generated",
     "finding": {
       "impact": "1 target(s) show provider convergence, and 5 validation target(s) remain human-gated.",
       "title": "Multi-AI disagreement requires validation"
     },
-    "input_fingerprint_sha256": "5fc072d4aa8f1bc8fc05b37327709b7f047b27918522449f9a9c5b92d4592108",
+    "input_fingerprint_sha256": "61f69c9bfcdfd56b4a8b41b3a1f33d745bb1e3f840259546ef325698a6bcd85b",
     "log_count": 20,
     "providers": {
       "pipeline_status": "completed",
@@ -616,6 +616,9 @@
         "technical_baseline": "established",
         "verdict": "convergence"
       },
+      "canonical_key_contract": {},
+      "canonical_review_family": "",
+      "canonical_review_unit": "database_connection_pool",
       "claim": "The leading hypothesis is database connection pool saturation. payment-api in prod from 2026-06-12T10:00:00Z to 2026-06-12T10:20:00Z. Deployments in scope: v41, v42",
       "class": "validation_target",
       "evidence_refs": [
@@ -629,6 +632,11 @@
         "Compare deploy, configuration, and rollout changes with the incident window.",
         "Collect representative error or warning samples for the incident window."
       ],
+      "overmerge_review": {
+        "mixed_target_types": false,
+        "required": false,
+        "warning": ""
+      },
       "promotion": {
         "blocked_reason": "incident_baseline_open; user_impact_unverified; causal_direction_unverified",
         "explanation": "2/3 providers converged, so this is technical review support; it remains a validation target until user impact or operational outcome evidence closes the gate.",
@@ -660,6 +668,16 @@
       "recommended_request_type": "deployment_correlation",
       "review_priority_score": 0.6925,
       "review_target_id": "prt-00b9401a0d27a0a7af86",
+      "rollup": {
+        "distinct_target_type_count": 1,
+        "provider_vote_counts": {},
+        "rollup_provider_ratio": 0.0,
+        "source_candidate_count": 1,
+        "target_type_divergence": false,
+        "target_type_divergence_penalty": 0.0,
+        "target_type_votes": {}
+      },
+      "source_candidates": [],
       "subsystem": "database_connection_pool",
       "title": "Deployment correlation needs validation"
     },
@@ -672,6 +690,9 @@
         "technical_baseline": "open",
         "verdict": "rule_or_context"
       },
+      "canonical_key_contract": {},
+      "canonical_review_family": "",
+      "canonical_review_unit": "generic_runtime",
       "claim": "warn_count increased from baseline 1 to 4.",
       "class": "validation_target",
       "evidence_refs": [
@@ -681,6 +702,11 @@
         "Collect representative error or warning samples for the incident window.",
         "Compare deploy, configuration, and rollout changes with the incident window."
       ],
+      "overmerge_review": {
+        "mixed_target_types": false,
+        "required": false,
+        "warning": ""
+      },
       "promotion": {
         "blocked_reason": "no_provider_claim; human_validation_required",
         "explanation": "This target came from deterministic routing or context and needs runtime evidence before promotion.",
@@ -712,6 +738,16 @@
       "recommended_request_type": "error_sample",
       "review_priority_score": 0.6125,
       "review_target_id": "prt-30f75fe1c76934296e5e",
+      "rollup": {
+        "distinct_target_type_count": 1,
+        "provider_vote_counts": {},
+        "rollup_provider_ratio": 0.0,
+        "source_candidate_count": 1,
+        "target_type_divergence": false,
+        "target_type_divergence_penalty": 0.0,
+        "target_type_votes": {}
+      },
+      "source_candidates": [],
       "subsystem": "generic_runtime",
       "title": "Warning spike needs review"
     },
@@ -724,18 +760,24 @@
         "technical_baseline": "open",
         "verdict": "rule_or_context"
       },
-      "claim": "Network or dependency error pattern occurred 1 times.",
+      "canonical_key_contract": {},
+      "canonical_review_family": "",
+      "canonical_review_unit": "runtime_recovery",
+      "claim": "runtime_restart_count increased from baseline 0 to 1.",
       "class": "validation_target",
       "evidence_refs": [
-        "PATTERN-001",
-        "PATTERN-003",
-        "PATTERN-009",
-        "PATTERN-010"
+        "METRIC-003"
       ],
       "missing_evidence": [
-        "Verify external dependency health and status during the incident window.",
-        "Collect representative error or warning samples for the incident window."
+        "Verify process or runtime state during the incident window.",
+        "Compare state transitions with health or liveness signals.",
+        "Compare deploy, configuration, and rollout changes with the incident window."
       ],
+      "overmerge_review": {
+        "mixed_target_types": false,
+        "required": false,
+        "warning": ""
+      },
       "promotion": {
         "blocked_reason": "no_provider_claim; human_validation_required",
         "explanation": "This target came from deterministic routing or context and needs runtime evidence before promotion.",
@@ -764,11 +806,21 @@
           "stance": "silent"
         }
       ],
-      "recommended_request_type": "external_dependency_status",
+      "recommended_request_type": "process_state",
       "review_priority_score": 0.6125,
-      "review_target_id": "prt-42a4d214e537654cbe7b",
-      "subsystem": "downstream_dependency",
-      "title": "External dependency status needs validation"
+      "review_target_id": "prt-c08704b02e8e4905d2f6",
+      "rollup": {
+        "distinct_target_type_count": 1,
+        "provider_vote_counts": {},
+        "rollup_provider_ratio": 0.0,
+        "source_candidate_count": 1,
+        "target_type_divergence": false,
+        "target_type_divergence_penalty": 0.0,
+        "target_type_votes": {}
+      },
+      "source_candidates": [],
+      "subsystem": "runtime_recovery",
+      "title": "Restart loop needs review"
     },
     {
       "agreement": {
@@ -779,6 +831,9 @@
         "technical_baseline": "open",
         "verdict": "rule_or_context"
       },
+      "canonical_key_contract": {},
+      "canonical_review_family": "",
+      "canonical_review_unit": "generic_runtime",
       "claim": "error_count increased from baseline 0 to 9.",
       "class": "validation_target",
       "evidence_refs": [
@@ -789,6 +844,11 @@
         "Compare deploy, configuration, and rollout changes with the incident window.",
         "Verify external dependency health and status during the incident window."
       ],
+      "overmerge_review": {
+        "mixed_target_types": false,
+        "required": false,
+        "warning": ""
+      },
       "promotion": {
         "blocked_reason": "no_provider_claim; human_validation_required",
         "explanation": "This target came from deterministic routing or context and needs runtime evidence before promotion.",
@@ -820,6 +880,16 @@
       "recommended_request_type": "error_sample",
       "review_priority_score": 0.6125,
       "review_target_id": "prt-9995e6282bef3b4fda90",
+      "rollup": {
+        "distinct_target_type_count": 1,
+        "provider_vote_counts": {},
+        "rollup_provider_ratio": 0.0,
+        "source_candidate_count": 1,
+        "target_type_divergence": false,
+        "target_type_divergence_penalty": 0.0,
+        "target_type_votes": {}
+      },
+      "source_candidates": [],
       "subsystem": "generic_runtime",
       "title": "Error spike needs review"
     },
@@ -832,16 +902,26 @@
         "technical_baseline": "open",
         "verdict": "rule_or_context"
       },
-      "claim": "runtime_restart_count increased from baseline 0 to 1.",
+      "canonical_key_contract": {},
+      "canonical_review_family": "",
+      "canonical_review_unit": "downstream_dependency",
+      "claim": "Network or dependency error pattern occurred 1 times.",
       "class": "validation_target",
       "evidence_refs": [
-        "METRIC-003"
+        "PATTERN-001",
+        "PATTERN-003",
+        "PATTERN-009",
+        "PATTERN-010"
       ],
       "missing_evidence": [
-        "Verify process or runtime state during the incident window.",
-        "Compare state transitions with health or liveness signals.",
-        "Compare deploy, configuration, and rollout changes with the incident window."
+        "Verify external dependency health and status during the incident window.",
+        "Collect representative error or warning samples for the incident window."
       ],
+      "overmerge_review": {
+        "mixed_target_types": false,
+        "required": false,
+        "warning": ""
+      },
       "promotion": {
         "blocked_reason": "no_provider_claim; human_validation_required",
         "explanation": "This target came from deterministic routing or context and needs runtime evidence before promotion.",
@@ -870,11 +950,21 @@
           "stance": "silent"
         }
       ],
-      "recommended_request_type": "process_state",
+      "recommended_request_type": "external_dependency_status",
       "review_priority_score": 0.6125,
-      "review_target_id": "prt-f43b22f134ab94e1df18",
-      "subsystem": "runtime_recovery",
-      "title": "Restart loop needs review"
+      "review_target_id": "prt-1079fba869b0aa6c33a9",
+      "rollup": {
+        "distinct_target_type_count": 1,
+        "provider_vote_counts": {},
+        "rollup_provider_ratio": 0.0,
+        "source_candidate_count": 1,
+        "target_type_divergence": false,
+        "target_type_divergence_penalty": 0.0,
+        "target_type_votes": {}
+      },
+      "source_candidates": [],
+      "subsystem": "downstream_dependency",
+      "title": "External dependency status needs validation"
     }
   ],
   "updated_at": "2026-06-12T10:20:00Z"

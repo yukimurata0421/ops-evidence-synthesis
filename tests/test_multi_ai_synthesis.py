@@ -39,6 +39,7 @@ from ops_evidence_synthesis.synthesis.multi_ai import (
     _provider_worker_count,
     _retry_after_seconds_from_text,
     _run_provider_full_corpus,
+    _with_claim_group_signals,
     finding_impact_from_synthesis,
     provider_chunk_plan_summary,
     run_multi_ai,
@@ -48,6 +49,26 @@ from ops_evidence_synthesis.synthesis.validation import validate_claim_result
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_claim_group_agreement_and_disagreement_signals_are_independent() -> None:
+    group = _with_claim_group_signals(
+        {
+            "provider_count": 2,
+            "support_claim_count": 2,
+            "counter_claim_count": 1,
+            "caveat_claim_count": 0,
+            "validation_claim_count": 0,
+            "missing_evidence": ["request trace"],
+            "unsupported": False,
+        },
+        successful_provider_count=3,
+    )
+
+    assert group["agreement_signal"] is True
+    assert group["disagreement_signal"] is True
+    assert group["signals"]["relationship"] == "independent_non_exclusive"
+    assert group["signals"]["disagreement_reasons"] == ["counter_claim", "missing_evidence"]
 
 
 def test_provider_worker_count_can_be_limited_for_real_api_stability(monkeypatch) -> None:
