@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Any
 
+from ops_evidence_synthesis import __version__
 from ops_evidence_synthesis.ai.base import ModelProvider
 from ops_evidence_synthesis.ai.claude import VertexClaudeProvider
 from ops_evidence_synthesis.ai.heuristic import HeuristicProvider
@@ -197,7 +198,7 @@ configure_api_routes(
 
 app = FastAPI(
     title="Ops Evidence Synthesis",
-    version="0.1.0",
+    version=__version__,
     description="Evidence bundle, multi-agent synthesis, and review queue API.",
     lifespan=_lifespan,
 )

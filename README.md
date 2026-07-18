@@ -22,7 +22,7 @@ human reviewer.
 - [ProtoPedia article](https://protopedia.net/prototype/8892)
 - [Live Cloud Run product](https://ops-evidence.yukimurata0421.dev/)
 - [Submission summary](HACKATHON_SUBMISSION.md)
-- [v0.1.0 release](https://github.com/yukimurata0421/ops-evidence-synthesis/releases/tag/v0.1.0)
+- [v0.2.0 release](https://github.com/yukimurata0421/ops-evidence-synthesis/releases/tag/v0.2.0)
 
 ## See the Value in 60 Seconds
 

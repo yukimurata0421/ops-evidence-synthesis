@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-18
+
 ### Added
 
 - Portable semantic classification for Evidence Items using `event_family`, `event_name`, `template_fingerprint`, classification provenance, and optional approved-profile overrides.
@@ -52,3 +54,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Completed real-provider run `stream-v3-runtime-45k-semantic-real-api-20260718-v3` in 8 minutes 38 seconds with 5/5 schema-valid providers and zero final failed chunks.
 - Confirmed retry recovery from four HTTP 429 records, three empty-response provider errors, and one schema-invalid response without abandoning the provider run.
 - Kept semantic chunk boundaries independent of rate-limit handling; shared-quota contention uses retry and backoff without repartitioning evidence chunks.
+
+## [0.1.0] - 2026-07-12
+
+### Added
+
+- Initial public hackathon release with a local-first evidence pipeline, deterministic review paths, a Cloud Run review UI, and a five-provider recorded incident review.
+
+[Unreleased]: https://github.com/yukimurata0421/ops-evidence-synthesis/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/yukimurata0421/ops-evidence-synthesis/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/yukimurata0421/ops-evidence-synthesis/releases/tag/v0.1.0
