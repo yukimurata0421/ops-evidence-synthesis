@@ -65,11 +65,20 @@ Published validation must also state the exact test command and result count. A 
 Implementation validation for this decision:
 
 ```text
-Command: PYTHONPATH=.:src .venv/bin/pytest
-Development checkout: 500 passed, 3 skipped, 1 warning in 38.02s
-Public release checkout: 506 passed, 3 skipped, 1 warning in 46.51s
+Private implementation checkout:
+  Commit: a6a15760bd26c72d6e13c2ab10bb3e2cd0020f25
+  Python: 3.14.4
+  Checkout state: clean main
+  Command: make ci
+  Result: 517 passed, 3 skipped, 1 warning in 49.90s
+Public main checkout:
+  Commit: 86412ee4502d5072ecd68f1bbe1f1baba3d122a9
+  Python: 3.14.4
+  Checkout state: clean main
+  Command: make ci
+  Result: 523 passed, 3 skipped, 1 warning in 59.01s
 Provider API calls: none
-Implementation commit SHA: recorded by validation_provenance.json for each executed build
+Runtime artifact implementation SHA: recorded by validation_provenance.json for each executed build
 ```
 
 The 45,000-row validation remains relevant to chunking and recovery behavior:
