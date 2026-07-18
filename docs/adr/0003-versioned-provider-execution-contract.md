@@ -66,17 +66,17 @@ Implementation validation for this decision:
 
 ```text
 Private implementation checkout:
-  Commit: a6a15760bd26c72d6e13c2ab10bb3e2cd0020f25
+  Commit: b586a5647ca5d3bbed0f2c46c7c7e7ebd3cbf803
   Python: 3.14.4
   Checkout state: clean main
   Command: make ci
-  Result: 517 passed, 3 skipped, 1 warning in 49.90s
+  Result: 518 passed, 3 skipped, 1 warning in 50.96s
 Public main checkout:
-  Commit: 86412ee4502d5072ecd68f1bbe1f1baba3d122a9
+  Commit: 21fbed35c74bd2950213142d57a33d22536a042e
   Python: 3.14.4
   Checkout state: clean main
   Command: make ci
-  Result: 523 passed, 3 skipped, 1 warning in 59.01s
+  Result: 524 passed, 3 skipped, 1 warning in 58.88s
 Provider API calls: none
 Runtime artifact implementation SHA: recorded by validation_provenance.json for each executed build
 ```
