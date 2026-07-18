@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 _PRECOMPUTED_REVIEW_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _RESCORE_DEMO_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
-PUBLIC_PRIMARY_REVIEW_SHA256 = "ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471"
+PUBLIC_PRIMARY_REVIEW_SHA256 = "b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96"
 _PUBLIC_PRECOMPUTED_REVIEW_ALIASES = {
     "64fa79977171fe9bad0664d115ff0ffcf4e248cd12a6a938e62d25cba7b12681": PUBLIC_PRIMARY_REVIEW_SHA256,
     "345430d258752cefef81bfb587b4c210799d02bfc849e0a7ac5dc4c48fddb1d6": PUBLIC_PRIMARY_REVIEW_SHA256,
@@ -3132,6 +3132,10 @@ def _markdown_cell(value: object) -> str:
 def _detail_provider_mode_label(payload: dict[str, Any]) -> str:
     generation = payload.get("generation") if isinstance(payload.get("generation"), dict) else {}
     mode = str(generation.get("provider_mode") or "").strip()
+    if mode == "fast_gcp_vertex_gemini_flash_lite":
+        return "Fast GCP / Agent Platform / Gemini 3.1 Flash-Lite"
+    if mode == "fast_gcp_vertex_gemini_flash_lite_gemma4_cross_check":
+        return "Fast GCP / Agent Platform / Gemini 3.1 Flash-Lite + Gemma 4"
     if "real_api" in mode:
         return "real API"
     if mode:
@@ -3627,6 +3631,56 @@ def _workspace_chip_list(items: list[str], *, limit: int = 6, empty: str = "none
     return f'<div class="workspace-chip-list">{chips}</div>'
 
 
+def _rollup_audit_html(target: dict[str, Any]) -> str:
+    rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
+    overmerge = target.get("overmerge_review") if isinstance(target.get("overmerge_review"), dict) else {}
+    target_type_votes = rollup.get("target_type_votes") if isinstance(rollup.get("target_type_votes"), dict) else {}
+    provider_vote_counts = rollup.get("provider_vote_counts") if isinstance(rollup.get("provider_vote_counts"), dict) else {}
+    source_candidates = [row for row in target.get("source_candidates") or [] if isinstance(row, dict)]
+    source_candidate_count = int(rollup.get("source_candidate_count") or len(source_candidates) or 1)
+    distinct_target_type_count = int(rollup.get("distinct_target_type_count") or len(target_type_votes) or 1)
+    if source_candidate_count <= 1 and distinct_target_type_count <= 1:
+        return ""
+    warning = str(overmerge.get("warning") or "Multiple source candidates share this canonical review unit.")
+    vote_items = "".join(
+        f"<li><b>{_html(str(target_type))}</b>: {_html(str(count))} candidate(s)</li>"
+        for target_type, count in sorted(target_type_votes.items())
+    ) or "<li>Target-type votes were not retained for this artifact.</li>"
+    provider_items = "".join(
+        f"<li><b>{_html(str(provider))}</b>: {_html(str(count))} candidate vote(s)</li>"
+        for provider, count in sorted(provider_vote_counts.items())
+    ) or "<li>Provider vote counts were not retained for this artifact.</li>"
+    candidate_items = []
+    for candidate in source_candidates[:20]:
+        providers = ", ".join(str(value) for value in candidate.get("provider_ids") or []) or "provider unavailable"
+        refs = ", ".join(str(value) for value in candidate.get("evidence_refs") or []) or "no refs retained"
+        claim = str(candidate.get("claim") or "claim summary unavailable")
+        candidate_items.append(
+            "<li>"
+            f"<b>{_html(str(candidate.get('canonical_target_type') or 'general_review'))}</b> "
+            f"/ {_html(providers)} / refs {_html(refs)}<br>"
+            f"{_html(claim)}"
+            "</li>"
+        )
+    candidate_html = "".join(candidate_items) or "<li>Pre-merge candidate details were not retained for this artifact.</li>"
+    return f"""
+      <div class="human-gate rollup-audit">
+        <span class="gate-mark">MX</span>
+        <div>
+          <strong>Canonical rollup review required</strong>
+          <p>{_html(warning)}</p>
+          <p>{source_candidate_count} source candidate(s), {distinct_target_type_count} distinct target type(s).</p>
+          <details{' open' if distinct_target_type_count > 1 else ''}>
+            <summary>Compare type votes, provider votes, and pre-merge candidates</summary>
+            <h4>Target-type votes</h4><ul>{vote_items}</ul>
+            <h4>Provider candidate votes</h4><ul>{provider_items}</ul>
+            <h4>Source candidates</h4><ol>{candidate_html}</ol>
+          </details>
+        </div>
+      </div>
+    """
+
+
 def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
     unit = _target_unit_label(target)
     score = _target_score_value(target)
@@ -3673,6 +3727,7 @@ def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
     refs_html = _workspace_chip_list(evidence_refs, limit=8, empty="No cited evidence refs were persisted.")
     issue_label = _target_issue_label(target)
     boundary_note = _target_review_boundary_note(target)
+    rollup_audit = _rollup_audit_html(target)
     return f"""
       <div class="workspace-detail-inner" id="{_html(_target_anchor_id(target, index=index))}">
         <span class="workspace-sr">What this target means operationally. Provider positions. Promotion gate.</span>
@@ -3693,6 +3748,7 @@ def _workspace_target_detail_html(target: dict[str, Any], *, index: int) -> str:
         </div>
         {provider_cards}
         <p class="workspace-boundary-note">{_html(boundary_note)}</p>
+        {rollup_audit}
         <div class="workspace-three">
           <div><label>{_html(issue_label)}</label><p>{_html(suspected_issue)}</p></div>
           <div><label>Operational mechanism</label><p>{_html(operational_mechanism)}</p></div>
@@ -5862,6 +5918,7 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int, anchor_id: s
         missing_text = f"{missing_text} ({missing_total - 4} more grouped follow-up item(s) not shown)"
     anchor = anchor_id or _target_anchor_id(target, index=index)
     stance_bar = _stance_bar_html(target)
+    rollup_audit = _rollup_audit_html(target)
     return f"""
 <article class="target" id="{_html(anchor)}" data-target-group="{_html(_target_group_key(target))}">
   <div class="target-head">
@@ -5883,6 +5940,7 @@ def _fast_detail_target_card(target: dict[str, Any], *, index: int, anchor_id: s
   <div class="target-grid">
     <div class="field full"><label>What this target means operationally</label>{target_explanation}</div>
     <div class="field full"><label>Why this target is in review</label>{review_reason}</div>
+    <div class="field full"><label>Canonical rollup audit</label>{rollup_audit or '<p>Single source candidate; no rollup warning.</p>'}</div>
     {priority_scoring}
     <div class="field full"><label>Observed claim</label><p>{_html(claim or title)}</p></div>
     <div class="field full"><label>Provider positions</label>{provider_positions}</div>

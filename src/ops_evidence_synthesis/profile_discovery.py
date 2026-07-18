@@ -547,6 +547,11 @@ def approved_profile_from_draft(
         "log_sources": list(profile.get("log_sources") or []),
         "component_map": component_map,
         "metric_semantics": metric_semantics,
+        "event_semantics": [
+            dict(row)
+            for row in profile.get("event_semantics") or []
+            if isinstance(row, dict)
+        ][:80],
         "metrics": _metrics_from_semantics(metric_semantics, component_map),
         "known_benign_noise": list(profile.get("known_benign_noise") or []),
         "action_constraints": [

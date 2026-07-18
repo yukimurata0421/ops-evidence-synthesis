@@ -227,6 +227,8 @@ def _project_targets(
         total_successful = len(successful_runs)
         convergence_score = claimed / total_successful if total_successful else 0.0
         verdict = "convergence" if claimed >= 2 else "single_source" if claimed == 1 else "rule_or_context"
+        rollup = _target_rollup_projection(target)
+        source_candidates = [dict(row) for row in target.get("source_candidates") or [] if isinstance(row, dict)][:100]
         stable_id = "prt-" + sha256_json(
             {
                 "evidence_refs": evidence_refs,
@@ -242,6 +244,9 @@ def _project_targets(
                 "title": str(target.get("title") or f"Review target {index}"),
                 "class": str(target.get("review_mode") or "validation_target"),
                 "subsystem": str(target.get("subsystem") or "general"),
+                "canonical_review_unit": str(target.get("canonical_review_unit") or target.get("subsystem") or "general"),
+                "canonical_review_family": str(target.get("canonical_review_family") or ""),
+                "canonical_key_contract": dict(target.get("canonical_key_contract") or {}),
                 "review_priority_score": round(float(target.get("review_priority_score") or 0.0), 4),
                 "provider_count": claimed,
                 "recommended_request_type": _recommended_request_type(drawer),
@@ -268,9 +273,41 @@ def _project_targets(
                 },
                 "evidence_refs": evidence_refs,
                 "missing_evidence": missing_evidence,
+                "rollup": rollup,
+                "source_candidates": source_candidates,
+                "overmerge_review": {
+                    "required": bool(rollup["source_candidate_count"] > 1 or rollup["distinct_target_type_count"] > 1),
+                    "mixed_target_types": rollup["distinct_target_type_count"] > 1,
+                    "warning": (
+                        "Multiple target types were rolled into this canonical review unit. Compare type votes and source candidates."
+                        if rollup["distinct_target_type_count"] > 1
+                        else (
+                            "Multiple source candidates were rolled into this canonical review unit. Confirm that they describe one issue."
+                            if rollup["source_candidate_count"] > 1
+                            else ""
+                        )
+                    ),
+                },
             }
         )
     return projected
+
+
+def _target_rollup_projection(target: dict[str, Any]) -> dict[str, Any]:
+    rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
+    target_type_votes = rollup.get("target_type_votes") if isinstance(rollup.get("target_type_votes"), dict) else {}
+    provider_vote_counts = rollup.get("provider_vote_counts") if isinstance(rollup.get("provider_vote_counts"), dict) else {}
+    source_candidate_count = int(rollup.get("source_candidate_count") or target.get("source_candidate_count") or 1)
+    distinct_target_type_count = int(rollup.get("distinct_target_type_count") or len(target_type_votes) or 1)
+    return {
+        "source_candidate_count": source_candidate_count,
+        "provider_vote_counts": dict(sorted(provider_vote_counts.items())),
+        "target_type_votes": dict(sorted(target_type_votes.items())),
+        "distinct_target_type_count": distinct_target_type_count,
+        "target_type_divergence": distinct_target_type_count > 1,
+        "target_type_divergence_penalty": float(rollup.get("target_type_divergence_penalty") or 0.0),
+        "rollup_provider_ratio": float(rollup.get("rollup_provider_ratio") or target.get("rollup_provider_ratio") or 0.0),
+    }
 
 
 def _provider_positions(

@@ -118,6 +118,9 @@ class VertexGeminiProvider:
             latency_ms=max(1, elapsed_ms),
             input_tokens=int(usage.get("promptTokenCount") or max(1, len(prompt) // 4)),
             output_tokens=int(usage.get("candidatesTokenCount") or max(1, len(raw_text) // 4)),
+            requested_model_name=self.model_name,
+            resolved_model_name=str(response_payload.get("modelVersion") or ""),
+            provider_response_model_id=str(response_payload.get("modelVersion") or ""),
         )
 
     def _generate_content_url(self) -> str:

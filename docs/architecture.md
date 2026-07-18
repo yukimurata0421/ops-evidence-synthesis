@@ -123,12 +123,53 @@ budget and item limit. The chunk manifest records chunk IDs, chunk type,
 Evidence Item IDs, source row counts, time range, coverage classes, prompt
 hashes, and the provider that received the chunk.
 
+Evidence Item semantics are layered and deterministic. Explicit structured
+fields such as `event_type`, `error_type`, `error_code`, and exception class
+initialize the classification ahead of generic protocol/rule classification
+and a stable sanitized-template fingerprint for otherwise unknown events.
+Approved-profile `event_semantics` rules can then map that product-specific
+identity into an operational family/name while retaining the generic identity
+for audit. The audit semantic key records coverage class,
+subsystem/component, event family, event name, and the template fingerprint for
+weak classifications. Packing uses the same identity without the fingerprint
+so unknown templates remain distinguishable without creating one provider call
+per template.
+
+Approved profiles can extend product-specific or non-English vocabulary with
+ordered rules such as:
+
+```json
+{
+  "event_semantics": [
+    {
+      "id": "transport-tls-certificate",
+      "match": {
+        "component": "sender",
+        "message_contains": "certificate"
+      },
+      "event_family": "network",
+      "event_name": "tls_certificate_failure",
+      "subsystem": "transport_sender",
+      "confidence": 0.97
+    }
+  ]
+}
+```
+
+Unapproved profile rules are not applied. The original `event_type` field is
+retained as a compatibility alias of `event_name`.
+
 Provider execution is tracked as `provider x chunk` jobs. The scheduler can
 claim ready work with PostgreSQL row locks, run chunks in parallel, and resume
 only unfinished work after a crash or quota wait. Successful outputs are stored
 and hashed. Attempts are append-only so rate limits, timeouts, schema failures,
 and provider errors remain observable instead of being overwritten by a later
 success.
+
+Chunk-result reuse is keyed by `provider_execution_contract.v1`, whose SHA
+includes `provider_id`, `model_name`, the provider prompt SHA, and the output
+contract version. Changing only a model generation therefore produces a new
+reuse identity even when the provider ID and model input are unchanged.
 
 Provider result state is kept distinct from review stance:
 
@@ -148,6 +189,25 @@ parallel completion order cannot change the graph. Real provider text is
 recorded and hashed rather than treated as byte-reproducible; byte-level
 reproducibility is reserved for deterministic fixtures and for the merge over
 recorded artifacts.
+
+Agreement and disagreement are independent, non-exclusive signals on a Claim
+Group. Two or more providers can support a group while a counter claim, caveat,
+validation claim, or missing-evidence requirement simultaneously marks that
+same group for disagreement review.
+
+The canonical observation key hashes the Evidence Bundle SHA, the
+`canonical_review_unit`, and the optional `canonical_review_family`. The bundle
+SHA identifies the entire bundle; it is not a hash of the target's Evidence ID
+set. Within one bundle, the practical grouping dimensions are therefore the
+review unit and optional family. This absorbs small Evidence ID shifts but can
+also over-roll distinct target types.
+
+Target-type diversity is treated as divergence, not convergence. More than one
+canonical target type adds `target_type_divergence`, subtracts a bounded
+`target_type_divergence_penalty` from rollup priority, and blocks promotion
+until a human validates the mixed candidates. Public review payloads retain
+target-type votes, provider candidate votes, and bounded pre-merge candidate
+summaries so the UI can show what was combined.
 
 ## Pipeline Progress
 
@@ -183,6 +243,8 @@ selected Evidence Bundle.
 - Score is review priority. It is not truth probability.
 - Provider agreement is a technical support signal. It is not majority-vote
   truth.
+- Provider agreement and disagreement are independent signals and may both be
+  true for the same Claim Group.
 - Provider disagreement is routed to validation targets and evidence requests.
 
 ## Review Priority Scoring

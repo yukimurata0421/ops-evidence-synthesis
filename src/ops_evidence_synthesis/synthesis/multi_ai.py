@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -14,6 +15,13 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from ops_evidence_synthesis.ai.base import ModelProvider, ModelResponse
+from ops_evidence_synthesis.ai.execution_contract import (
+    EXECUTION_CONTRACT_SCHEMA_VERSION,
+    build_provider_execution_contract,
+    execution_contract_allows_cross_run_reuse,
+    provider_execution_contract_sha256,
+    response_model_observation,
+)
 from ops_evidence_synthesis.ai.provider_registry import build_multi_ai_providers, provider_infos
 from ops_evidence_synthesis.ai.runtime import (
     SafetyPreflightResult,
@@ -25,6 +33,7 @@ from ops_evidence_synthesis.ai.runtime import (
     summarize_model_run_costs,
 )
 from ops_evidence_synthesis.canonical import canonical_json, pretty_json, sha256_json, sha256_text
+from ops_evidence_synthesis.event_semantics import WEAK_EVENT_NAMES, semantic_identity_for_item
 from ops_evidence_synthesis.models import ModelRunRecord, ParsedResultRecord
 from ops_evidence_synthesis.pipeline_progress import (
     finish_pipeline_run,
@@ -78,6 +87,17 @@ PROVIDER_CHUNK_MIN_START_INTERVAL_SECONDS = {
 PROVIDER_RATE_LIMIT_COOLDOWN_SECONDS = {
     "mistral-agent-platform": 180.0,
 }
+PROVIDER_MAX_TEXT_CHARS_ENV = {
+    "openai-gpt-oss-on-vertex": "OES_GPT_OSS_MAX_TEXT_CHARS",
+    "mistral-agent-platform": "OES_MISTRAL_MAX_TEXT_CHARS",
+    "qwen-agent-platform": "OES_QWEN_MAX_TEXT_CHARS",
+    "glm-agent-platform": "OES_GLM_MAX_TEXT_CHARS",
+    "gemma-agent-platform": "OES_GEMMA_MAX_TEXT_CHARS",
+    "grok-agent-platform": "OES_GROK_MAX_TEXT_CHARS",
+    "llama-agent-platform": "OES_LLAMA_MAX_TEXT_CHARS",
+    "claude-agent-platform": "OES_CLAUDE_MAX_TEXT_CHARS",
+}
+DEFAULT_PROVIDER_MAX_TEXT_CHARS = 480
 MIN_ADAPTIVE_SUBCHUNK_TOKENS = 8_000
 _EVIDENCE_REF_RE = re.compile(r"\b(?:PATTERN|LOG|EV|EVIDENCE)-\d+\b")
 SUPPORTED_MODEL_STATUSES = {
@@ -101,6 +121,7 @@ CHUNK_FAILURE_STATUSES = {
 }
 PROVIDER_CHUNK_LEDGER_FILENAME = "provider_chunk_runs.jsonl"
 _PROGRESS_LOCK = threading.Lock()
+_EXECUTION_CONTRACT_CACHE_KEY = "_provider_execution_contract_cache"
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,43 +170,75 @@ class _ProviderChunkLedger:
     cache: dict[str, dict[str, Any]]
     path: Path | None = None
     backend: ProviderChunkRunStore | None = None
+    current_execution_contracts: set[str] = field(default_factory=set)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def success_record(self, provider_id: str, prompt_sha256: str, model_name: str = "") -> dict[str, Any] | None:
-        if self.backend is not None:
-            record = self.backend.success_record(provider_id, prompt_sha256)
-            if record is not None and _chunk_record_is_success(record) and _chunk_record_matches_model(record, model_name):
-                self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+    def success_record(
+        self,
+        provider_id: str,
+        execution_contract: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        execution_contract_sha256 = _provider_execution_contract_sha256(execution_contract)
+        allow_cross_run = execution_contract_allows_cross_run_reuse(execution_contract)
+        if self.backend is not None and allow_cross_run:
+            record = self.backend.success_record(provider_id, execution_contract_sha256)
+            if record is not None and _chunk_record_is_success(record) and _chunk_record_matches_contract(
+                record,
+                execution_contract,
+            ):
+                self.cache[execution_contract_sha256] = record
                 return record
-        record = self.cache.get(_chunk_cache_key(provider_id, prompt_sha256, model_name))
+        record = self.cache.get(execution_contract_sha256)
         if not record:
             return None
-        if _chunk_record_is_success(record) and _chunk_record_matches_model(record, model_name):
+        if not allow_cross_run and execution_contract_sha256 not in self.current_execution_contracts:
+            return None
+        if _chunk_record_is_success(record) and _chunk_record_matches_contract(record, execution_contract):
             return record
         return None
 
-    def reusable_record(self, provider_id: str, prompt_sha256: str, model_name: str = "") -> dict[str, Any] | None:
-        success = self.success_record(provider_id, prompt_sha256, model_name)
+    def reusable_record(
+        self,
+        provider_id: str,
+        execution_contract: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        success = self.success_record(provider_id, execution_contract)
         if success is not None:
             return success
         if not _reuse_failed_chunk_records(provider_id):
             return None
-        if self.backend is not None:
-            record = self.backend.latest_record(provider_id, prompt_sha256)
-            if _chunk_record_is_reusable(record) and _chunk_record_matches_model(record, model_name):
-                self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+        execution_contract_sha256 = _provider_execution_contract_sha256(execution_contract)
+        allow_cross_run = execution_contract_allows_cross_run_reuse(execution_contract)
+        if self.backend is not None and allow_cross_run:
+            record = self.backend.latest_record(provider_id, execution_contract_sha256)
+            if _chunk_record_is_reusable(record) and _chunk_record_matches_contract(record, execution_contract):
+                self.cache[execution_contract_sha256] = record
                 return record
-        record = self.cache.get(_chunk_cache_key(provider_id, prompt_sha256, model_name))
-        return record if _chunk_record_is_reusable(record) and _chunk_record_matches_model(record, model_name) else None
+        record = self.cache.get(execution_contract_sha256)
+        if not allow_cross_run and execution_contract_sha256 not in self.current_execution_contracts:
+            return None
+        return record if _chunk_record_is_reusable(record) and _chunk_record_matches_contract(
+            record,
+            execution_contract,
+        ) else None
 
     def append(self, record: dict[str, Any]) -> None:
         with self.lock:
             self.records.append(record)
             provider_id = str(record.get("provider_id") or "")
-            model_name = str(record.get("model_name") or "")
-            prompt_sha256 = str(record.get("prompt_sha256") or "")
-            if provider_id and prompt_sha256:
-                self.cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+            execution_contract_sha256 = str(record.get("execution_contract_sha256") or "")
+            execution_contract = (
+                record.get("execution_contract")
+                if isinstance(record.get("execution_contract"), dict)
+                else {}
+            )
+            if (
+                provider_id
+                and execution_contract_sha256
+                and execution_contract.get("schema_version") == EXECUTION_CONTRACT_SCHEMA_VERSION
+            ):
+                self.cache[execution_contract_sha256] = record
+                self.current_execution_contracts.add(execution_contract_sha256)
             if self.path is not None:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 with self.path.open("a", encoding="utf-8") as handle:
@@ -212,12 +265,23 @@ def _chunk_record_is_reusable(record: dict[str, Any] | None) -> bool:
     return bool(str(record.get("status") or ""))
 
 
-def _chunk_record_matches_model(record: dict[str, Any], model_name: str = "") -> bool:
-    requested = str(model_name or "").strip()
-    if not requested:
-        return True
-    recorded = str(record.get("model_name") or "").strip()
-    return bool(recorded) and recorded == requested
+def _chunk_record_matches_contract(
+    record: dict[str, Any],
+    execution_contract: dict[str, Any],
+) -> bool:
+    recorded_contract = (
+        record.get("execution_contract")
+        if isinstance(record.get("execution_contract"), dict)
+        else {}
+    )
+    if recorded_contract.get("schema_version") != EXECUTION_CONTRACT_SCHEMA_VERSION:
+        return False
+    expected_sha256 = _provider_execution_contract_sha256(execution_contract)
+    recorded_sha256 = str(record.get("execution_contract_sha256") or "")
+    return (
+        recorded_sha256 == expected_sha256
+        and _provider_execution_contract_sha256(recorded_contract) == expected_sha256
+    )
 
 
 def _reuse_failed_chunk_records(provider_id: str = "") -> bool:
@@ -228,8 +292,26 @@ def _reuse_failed_chunk_records(provider_id: str = "") -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
-def _chunk_cache_key(provider_id: str, prompt_sha256: str, model_name: str = "") -> str:
-    return sha256_text(f"{provider_id}:{model_name}:{prompt_sha256}")
+def _provider_execution_contract_sha256(execution_contract: dict[str, Any]) -> str:
+    return provider_execution_contract_sha256(execution_contract)
+
+
+def _provider_execution_contract_for_bundle(
+    provider: ModelProvider,
+    bundle: dict[str, Any],
+) -> dict[str, Any]:
+    cached = (
+        bundle.get(_EXECUTION_CONTRACT_CACHE_KEY)
+        if isinstance(bundle.get(_EXECUTION_CONTRACT_CACHE_KEY), dict)
+        else {}
+    )
+    provider_key = str(id(provider))
+    existing = cached.get(provider_key)
+    if isinstance(existing, dict):
+        return existing
+    execution_contract = build_provider_execution_contract(provider, bundle)
+    bundle[_EXECUTION_CONTRACT_CACHE_KEY] = {**cached, provider_key: execution_contract}
+    return execution_contract
 
 
 def _provider_chunk_ledger_for_output_dir(output_dir: str | Path | None) -> _ProviderChunkLedger:
@@ -248,10 +330,18 @@ def _provider_chunk_ledger_for_output_dir(output_dir: str | Path | None) -> _Pro
                 continue
             records.append(record)
             provider_id = str(record.get("provider_id") or "")
-            model_name = str(record.get("model_name") or "")
-            prompt_sha256 = str(record.get("prompt_sha256") or "")
-            if provider_id and prompt_sha256:
-                cache[_chunk_cache_key(provider_id, prompt_sha256, model_name)] = record
+            execution_contract_sha256 = str(record.get("execution_contract_sha256") or "")
+            execution_contract = (
+                record.get("execution_contract")
+                if isinstance(record.get("execution_contract"), dict)
+                else {}
+            )
+            if (
+                provider_id
+                and execution_contract_sha256
+                and execution_contract.get("schema_version") == EXECUTION_CONTRACT_SCHEMA_VERSION
+            ):
+                cache[execution_contract_sha256] = record
     backend = build_provider_chunk_run_store_from_env()
     if backend is not None:
         backend.init_schema()
@@ -596,6 +686,7 @@ def _progress_enabled() -> bool:
 def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> None:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
+    implementation = _implementation_revision()
     (out / "multi_ai_run.json").write_text(
         pretty_json(_public_multi_ai_run_result(result)) + "\n",
         encoding="utf-8",
@@ -626,6 +717,126 @@ def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> No
         pretty_json(result.get("canonical_graph_snapshot") or {}) + "\n",
         encoding="utf-8",
     )
+    artifact_names = (
+        "multi_ai_run.json",
+        "profile_context.json",
+        "model_runs.jsonl",
+        PROVIDER_CHUNK_LEDGER_FILENAME,
+        "multi_ai_synthesis.json",
+        "review_targets.json",
+        "canonical_review_graph.json",
+        "canonical_review_graph_snapshot.json",
+    )
+    artifact_hashes = {
+        name: sha256_text((out / name).read_text(encoding="utf-8"))
+        for name in artifact_names
+    }
+    provenance = {
+        "schema_version": "multi_ai_validation_provenance.v1",
+        "implementation": implementation,
+        "evidence_bundle_sha256": str(result.get("evidence_sha256") or ""),
+        "providers": _provider_model_provenance(result),
+        "artifacts": {
+            name: {"sha256": digest}
+            for name, digest in artifact_hashes.items()
+        },
+        "public_projection_artifact": {
+            "path": "multi_ai_run.json",
+            "sha256": artifact_hashes["multi_ai_run.json"],
+        },
+        "canonical_graph_artifact": {
+            "path": "canonical_review_graph.json",
+            "sha256": artifact_hashes["canonical_review_graph.json"],
+        },
+    }
+    (out / "validation_provenance.json").write_text(
+        pretty_json(provenance) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _implementation_revision() -> dict[str, Any]:
+    explicit_commit = os.environ.get("OES_IMPLEMENTATION_COMMIT_SHA", "").strip()
+    repo_root = Path(__file__).resolve().parents[3]
+    commit_sha = explicit_commit or _git_output(repo_root, "rev-parse", "HEAD")
+    dirty_output = _git_output(
+        repo_root,
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+        "--",
+        "src",
+        "scripts",
+        "tests",
+        "docs",
+        "pyproject.toml",
+        "CHANGELOG.md",
+    )
+    return {
+        "commit_sha": commit_sha,
+        "source_dirty": bool(dirty_output),
+        "commit_source": "environment" if explicit_commit else ("git" if commit_sha else "unavailable"),
+    }
+
+
+def _git_output(repo_root: Path, *args: str) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repo_root), *args],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return completed.stdout.strip() if completed.returncode == 0 else ""
+
+
+def _provider_model_provenance(result: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = [
+        *(result.get("provider_chunk_runs") or []),
+        *(result.get("model_runs") or []),
+    ]
+    output: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        response_model = row.get("response_model") if isinstance(row.get("response_model"), dict) else {}
+        item = {
+            "provider_id": str(row.get("provider_id") or ""),
+            "requested_model_name": str(
+                row.get("requested_model_name")
+                or response_model.get("requested_model_name")
+                or row.get("model_name")
+                or ""
+            ),
+            "resolved_model_name": str(
+                row.get("resolved_model_name") or response_model.get("resolved_model_name") or ""
+            ),
+            "resolved_model_revision": str(
+                row.get("resolved_model_revision")
+                or response_model.get("resolved_model_revision")
+                or ""
+            ),
+            "provider_response_model_id": str(
+                row.get("provider_response_model_id")
+                or response_model.get("provider_response_model_id")
+                or ""
+            ),
+        }
+        identity = (
+            item["provider_id"],
+            item["requested_model_name"],
+            item["resolved_model_revision"],
+            item["provider_response_model_id"],
+        )
+        if identity in seen:
+            continue
+        seen.add(identity)
+        output.append(item)
+    return output
 
 
 def _public_multi_ai_run_result(result: dict[str, Any]) -> dict[str, Any]:
@@ -725,23 +936,19 @@ def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[s
     provider_execution_status_counts = Counter(_artifact_execution_status(run) for run in model_runs)
     cost_summary = summarize_model_run_costs(model_runs)
     known_refs = _known_evidence_refs(evidence_bundle)
-    claim_groups = _claim_groups(successful, known_refs)
+    claim_groups = [
+        _with_claim_group_signals(group, successful_provider_count=len(successful))
+        for group in _claim_groups(successful, known_refs)
+    ]
     agreement_groups = [
         group
         for group in claim_groups
-        if int(group["provider_count"]) >= 2 and int(group["support_claim_count"]) > 0 and not group["unsupported"]
+        if group["agreement_signal"] is True
     ]
     disagreement_groups = [
         group
         for group in claim_groups
-        if not group["unsupported"]
-        and (
-            int(group["counter_claim_count"]) > 0
-            or int(group["caveat_claim_count"]) > 0
-            or int(group["validation_claim_count"]) > 0
-            or bool(group["missing_evidence"])
-            or (len(successful) > 1 and int(group["provider_count"]) == 1)
-        )
+        if group["disagreement_signal"] is True
     ]
     unsupported_groups = [group for group in claim_groups if group["unsupported"]]
     primary_candidates = [_candidate_from_group(group, "agreement_baseline_signal") for group in agreement_groups]
@@ -788,6 +995,11 @@ def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[s
             "pricing_source": cost_summary["pricing_source"],
         },
         "claim_groups": claim_groups,
+        "claim_group_signal_contract": {
+            "schema_version": "claim_group_signals.v1",
+            "relationship": "independent_non_exclusive",
+            "agreement_and_disagreement_can_both_be_true": True,
+        },
         "agreement_groups": agreement_groups,
         "disagreement_groups": disagreement_groups,
         "disagreement_themes": disagreement_themes,
@@ -1098,22 +1310,45 @@ def _provider_chunk_run_record(
 ) -> dict[str, Any]:
     artifact = envelope.artifact
     chunk = _artifact_chunk_manifest(artifact)
-    prompt_sha256 = str(chunk.get("provider_prompt_sha256") or "")
+    execution_contract = _provider_execution_contract_for_bundle(provider, bundle)
+    execution_contract_sha256 = _provider_execution_contract_sha256(execution_contract)
+    prompt_contract = execution_contract["prompt_contract"]
+    model_contract = execution_contract["model"]
+    model_input = execution_contract["input"]
+    reuse_policy = execution_contract["reuse_policy"]
+    prompt_sha256 = str(prompt_contract.get("rendered_prompt_sha256") or "")
+    response_model = (
+        artifact.get("response_model")
+        if isinstance(artifact.get("response_model"), dict)
+        else {}
+    )
     execution_status = _artifact_execution_status(artifact)
     retry = artifact.get("retry") if isinstance(artifact.get("retry"), dict) else {}
     failure_message = _artifact_failure_message(artifact)
     return {
-        "schema_version": "provider_chunk_run.v1",
+        "schema_version": "provider_chunk_run.v2",
         "run_id": str(artifact.get("run_id") or ""),
         "evidence_sha256": str(bundle.get("evidence_sha256") or artifact.get("evidence_sha256") or ""),
         "provider_id": provider.provider,
         "model_name": provider.model_name,
+        "requested_model_name": str(model_contract.get("requested_model_name") or ""),
+        "resolved_model_name": str(response_model.get("resolved_model_name") or ""),
+        "resolved_model_revision": str(response_model.get("resolved_model_revision") or ""),
+        "provider_response_model_id": str(response_model.get("provider_response_model_id") or ""),
+        "mutable_model_alias": bool(model_contract.get("mutable_alias")),
+        "cache_reuse_policy": str(reuse_policy.get("cross_run") or "disabled"),
         "chunk_id": str(chunk.get("chunk_id") or ""),
         "chunk_index": int(chunk.get("chunk_index") or 0),
         "chunk_count": int(chunk.get("chunk_count") or 0),
         "chunk_type": str(chunk.get("chunk_type") or ""),
         "prompt_sha256": prompt_sha256,
-        "prompt_cache_key": _chunk_cache_key(provider.provider, prompt_sha256, provider.model_name) if prompt_sha256 else "",
+        "legacy_model_projection_sha256": str(chunk.get("provider_prompt_sha256") or ""),
+        "model_input_sha256": str(model_input.get("model_input_sha256") or ""),
+        "prompt_contract_sha256": str(prompt_contract.get("prompt_contract_sha256") or ""),
+        "prompt_cache_key": execution_contract_sha256 if prompt_sha256 else "",
+        "execution_contract_sha256": execution_contract_sha256 if prompt_sha256 else "",
+        "execution_contract_version": EXECUTION_CONTRACT_SCHEMA_VERSION,
+        "execution_contract": execution_contract,
         "status": execution_status,
         "provider_status": str(artifact.get("status") or ""),
         "schema_valid": bool(artifact.get("schema_valid")),
@@ -1286,11 +1521,8 @@ def _cached_provider_chunk_envelope(
 ) -> _ArtifactEnvelope | None:
     if chunk_ledger is None:
         return None
-    chunk = bundle.get("full_corpus_chunk") if isinstance(bundle.get("full_corpus_chunk"), dict) else {}
-    prompt_sha256 = str(chunk.get("provider_prompt_sha256") or "")
-    if not prompt_sha256:
-        return None
-    cached = chunk_ledger.reusable_record(provider.provider, prompt_sha256, provider.model_name)
+    execution_contract = _provider_execution_contract_for_bundle(provider, bundle)
+    cached = chunk_ledger.reusable_record(provider.provider, execution_contract)
     if cached is None:
         return None
     return _envelope_from_chunk_ledger_record(cached)
@@ -1679,7 +1911,7 @@ def _pack_evidence_items_by_semantic_token_budget(
         current: list[dict[str, Any]] = []
         current_tokens = _chunk_prompt_overhead_tokens()
         for item in bucket:
-            item_tokens = _estimated_evidence_item_tokens(item)
+            item_tokens = _estimated_evidence_item_tokens(item, provider_id=provider_id)
             would_exceed_items = len(current) >= max_items
             would_exceed_tokens = bool(current) and current_tokens + item_tokens > token_budget
             if would_exceed_items or would_exceed_tokens:
@@ -1691,7 +1923,12 @@ def _pack_evidence_items_by_semantic_token_budget(
         if current:
             chunks.append(current)
     if _merge_small_semantic_chunks_enabled(provider_id):
-        chunks = _merge_adjacent_chunks_by_token_budget(chunks, max_items=max_items, token_budget=token_budget)
+        chunks = _merge_adjacent_chunks_by_token_budget(
+            chunks,
+            max_items=max_items,
+            token_budget=token_budget,
+            provider_id=provider_id,
+        )
     return chunks or [[]]
 
 
@@ -1721,6 +1958,7 @@ def _merge_adjacent_chunks_by_token_budget(
     *,
     max_items: int,
     token_budget: int,
+    provider_id: str = "",
 ) -> list[list[dict[str, Any]]]:
     if token_budget <= 0 or len(chunks) <= 1:
         return chunks
@@ -1730,7 +1968,10 @@ def _merge_adjacent_chunks_by_token_budget(
     for chunk in chunks:
         if not chunk:
             continue
-        chunk_item_tokens = sum(_estimated_evidence_item_tokens(item) for item in chunk)
+        chunk_item_tokens = sum(
+            _estimated_evidence_item_tokens(item, provider_id=provider_id)
+            for item in chunk
+        )
         would_exceed_items = bool(current) and len(current) + len(chunk) > max_items
         would_exceed_tokens = bool(current) and current_tokens + chunk_item_tokens > token_budget
         if would_exceed_items or would_exceed_tokens:
@@ -1748,7 +1989,7 @@ def _semantic_evidence_buckets(items: list[dict[str, Any]]) -> list[list[dict[st
     order: list[str] = []
     buckets: dict[str, list[dict[str, Any]]] = {}
     for item in items:
-        key = _semantic_key_for_item(item)
+        key = _semantic_bucket_key_for_item(item)
         if key not in buckets:
             order.append(key)
             buckets[key] = []
@@ -1767,31 +2008,58 @@ def _semantic_keys_for_items(items: list[dict[str, Any]]) -> list[str]:
 
 def _semantic_key_for_item(item: dict[str, Any]) -> str:
     coverage_class = str(item.get("coverage_class") or "").strip() or _fallback_coverage_class(item)
+    if coverage_class in {"rare", "singleton"}:
+        coverage_class = "rare_singleton"
     subsystem = (
         str(item.get("subsystem") or "").strip()
         or str(item.get("component") or "").strip()
         or str(item.get("service") or "").strip()
         or "unknown"
     )
-    event_type = (
-        str(item.get("event_type") or "").strip()
-        or str(item.get("type") or "").strip()
-        or "event"
+    identity = semantic_identity_for_item(item)
+    base = f"{coverage_class}:{subsystem}:{identity['event_family']}:{identity['event_name']}"
+    if identity["event_name"] in WEAK_EVENT_NAMES:
+        return f"{base}:{identity['template_fingerprint']}"
+    return base
+
+
+def _semantic_bucket_key_for_item(item: dict[str, Any]) -> str:
+    """Use a coarse packing key while retaining fine keys in the chunk manifest."""
+
+    key = _semantic_key_for_item(item)
+    identity = semantic_identity_for_item(item)
+    if identity["event_name"] in WEAK_EVENT_NAMES:
+        return key.rsplit(":", 1)[0]
+    return key
+
+
+def _estimated_chunk_input_tokens(items: list[dict[str, Any]], provider_id: str = "") -> int:
+    return _chunk_prompt_overhead_tokens() + sum(
+        _estimated_evidence_item_tokens(item, provider_id=provider_id)
+        for item in items
     )
-    if coverage_class in {"pattern", "state_transition", "temporal_bucket"}:
-        return f"{coverage_class}:{subsystem}:{event_type}"
-    if coverage_class in {"rare", "singleton"}:
-        return f"rare_singleton:{subsystem}:{event_type}"
-    return f"{coverage_class}:{subsystem}:{event_type}"
 
 
-def _estimated_chunk_input_tokens(items: list[dict[str, Any]]) -> int:
-    return _chunk_prompt_overhead_tokens() + sum(_estimated_evidence_item_tokens(item) for item in items)
-
-
-def _estimated_evidence_item_tokens(item: dict[str, Any]) -> int:
-    text = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+def _estimated_evidence_item_tokens(item: dict[str, Any], provider_id: str = "") -> int:
+    max_text_chars = _provider_max_text_chars(provider_id)
+    projected = dict(item)
+    for key in ("message_template", "example_sanitized"):
+        value = projected.get(key)
+        if isinstance(value, str) and len(value) > max_text_chars:
+            projected[key] = value[:max_text_chars]
+    text = json.dumps(projected, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return max(1, (len(text) + 1) // 2 + 32)
+
+
+def _provider_max_text_chars(provider_id: str = "") -> int:
+    normalized_provider_id = str(provider_id or "").strip().casefold()
+    env_name = PROVIDER_MAX_TEXT_CHARS_ENV.get(normalized_provider_id, "")
+    raw = os.environ.get(env_name, "").strip() if env_name else ""
+    try:
+        requested = int(raw) if raw else DEFAULT_PROVIDER_MAX_TEXT_CHARS
+    except ValueError:
+        requested = DEFAULT_PROVIDER_MAX_TEXT_CHARS
+    return max(1, requested)
 
 
 def _chunk_prompt_overhead_tokens() -> int:
@@ -1883,7 +2151,7 @@ def _chunk_start_interval_seconds(provider_id: str, items: list[dict[str, Any]])
     tokens_per_minute = _chunk_input_tokens_per_minute(provider_id)
     token_interval = 0.0
     if tokens_per_minute > 0:
-        estimated_tokens = _estimated_chunk_input_tokens(items)
+        estimated_tokens = _estimated_chunk_input_tokens(items, provider_id=provider_id)
         token_interval = max(0.0, (estimated_tokens / tokens_per_minute) * 60.0)
     return max(token_interval, _chunk_min_start_interval_seconds(provider_id))
 
@@ -2088,7 +2356,7 @@ def _chunk_manifest_from_items(
         "semantic_keys": semantic_keys,
         "chunk_size": _evidence_chunk_size(provider_id),
         "token_budget": token_budget,
-        "estimated_input_tokens": _estimated_chunk_input_tokens(evidence_items),
+        "estimated_input_tokens": _estimated_chunk_input_tokens(evidence_items, provider_id=provider_id),
         "packing_strategy": "semantic_bucket_token_budget" if token_budget > 0 else "item_count",
         "provider_id": provider_id,
         "parent_chunk_id": parent_chunk_id,
@@ -2556,7 +2824,11 @@ def _full_corpus_coverage_summary(
         analyzed = total
     omitted = max(0, total - analyzed if chunk else 0)
     chunks = _evidence_item_chunks(bundle, provider_id=provider_id)
-    estimated_tokens = sum(_estimated_chunk_input_tokens(chunk_items) for chunk_items in chunks if chunk_items)
+    estimated_tokens = sum(
+        _estimated_chunk_input_tokens(chunk_items, provider_id=provider_id)
+        for chunk_items in chunks
+        if chunk_items
+    )
     return {
         "schema_version": "multi_ai_full_corpus_coverage.v1",
         "mode": "full_evidence_item_chunking",
@@ -2672,6 +2944,7 @@ def _artifact_from_response(
     schema_repair_rules: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     parsed_json_sha256 = sha256_json(parsed_payload) if parsed_payload else ""
+    response_model = response_model_observation(response)
     repair_rules = [
         *list(getattr(output_parse, "repair_rules", ()) or ()),
         *list(schema_repair_rules),
@@ -2683,6 +2956,8 @@ def _artifact_from_response(
         "provider_id": response.provider,
         "display_name": _display_name(response.provider),
         "model_name": response.model_name,
+        "temperature": response.temperature,
+        "response_model": response_model,
         "status": status if status in SUPPORTED_MODEL_STATUSES else "failed",
         "latency_ms": latency_ms,
         "input_tokens": int(response.input_tokens or 0),
@@ -2872,10 +3147,13 @@ def _persist_artifact(
         run_id=str(artifact["run_id"]),
         evidence_sha256=str(artifact["evidence_sha256"]),
         prompt_sha256=sha256_text(f"{artifact['provider_id']}:{artifact['model_name']}:multi-ai"),
-        model_input_sha256=str(artifact["evidence_sha256"]),
+        model_input_sha256=str(
+            (artifact.get("model_input_context") or {}).get("model_input_sha256")
+            or artifact["evidence_sha256"]
+        ),
         provider=str(artifact["provider_id"]),
         model_name=str(artifact["model_name"]),
-        temperature=0.0,
+        temperature=float(artifact.get("temperature") or 0.0),
         raw_output=raw_output,
         raw_output_sha256=str(artifact["raw_output_sha256"]),
         latency_ms=int(artifact["latency_ms"]),
@@ -3180,6 +3458,43 @@ def _claim_groups(model_runs: list[dict[str, Any]], known_refs: set[str]) -> lis
     return groups
 
 
+def _with_claim_group_signals(
+    group: dict[str, Any],
+    *,
+    successful_provider_count: int,
+) -> dict[str, Any]:
+    unsupported = bool(group.get("unsupported"))
+    agreement_signal = (
+        not unsupported
+        and int(group.get("provider_count") or 0) >= 2
+        and int(group.get("support_claim_count") or 0) > 0
+    )
+    disagreement_reasons: list[str] = []
+    if int(group.get("counter_claim_count") or 0) > 0:
+        disagreement_reasons.append("counter_claim")
+    if int(group.get("caveat_claim_count") or 0) > 0:
+        disagreement_reasons.append("caveat_claim")
+    if int(group.get("validation_claim_count") or 0) > 0:
+        disagreement_reasons.append("validation_claim")
+    if group.get("missing_evidence"):
+        disagreement_reasons.append("missing_evidence")
+    if successful_provider_count > 1 and int(group.get("provider_count") or 0) == 1:
+        disagreement_reasons.append("single_provider_detection")
+    disagreement_signal = not unsupported and bool(disagreement_reasons)
+    return {
+        **group,
+        "agreement_signal": agreement_signal,
+        "disagreement_signal": disagreement_signal,
+        "signals": {
+            "schema_version": "claim_group_signals.v1",
+            "relationship": "independent_non_exclusive",
+            "agreement": agreement_signal,
+            "disagreement": disagreement_signal,
+            "disagreement_reasons": disagreement_reasons,
+        },
+    }
+
+
 def _candidate_from_group(group: dict[str, Any], review_mode: str) -> dict[str, Any]:
     title = _target_title(group)
     impact_summary = _target_impact_summary(group, review_mode)
@@ -3194,6 +3509,9 @@ def _candidate_from_group(group: dict[str, Any], review_mode: str) -> dict[str, 
         "provider_count": group["provider_count"],
         "evidence_refs": group["evidence_refs"],
         "missing_evidence": group["missing_evidence"],
+        "agreement_signal": bool(group.get("agreement_signal")),
+        "disagreement_signal": bool(group.get("disagreement_signal")),
+        "claim_group_signals": dict(group.get("signals") or {}),
         "title": title,
         "impact_summary": impact_summary,
         "target_explanation": target_explanation,

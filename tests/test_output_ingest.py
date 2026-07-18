@@ -7,7 +7,12 @@ from typing import Any
 
 from ops_evidence_synthesis.ai.base import ModelResponse
 from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
-from ops_evidence_synthesis.synthesis.output_ingest import merge_candidate_observations, parse_model_output
+from ops_evidence_synthesis.synthesis.output_ingest import (
+    _rollup_profile,
+    canonical_observation_key,
+    merge_candidate_observations,
+    parse_model_output,
+)
 from ops_evidence_synthesis.synthesis.pipeline import run_model_stage
 from ops_evidence_synthesis.synthesis.output_ingest import _canonical_subject, _canonical_target_type
 from ops_evidence_synthesis.synthesis.review_arbitration import resolve_canonical_review_graph_snapshot
@@ -188,7 +193,67 @@ def test_canonical_observation_groups_roll_up_same_subsystem_even_when_type_diff
     assert set(target["evidence_refs"]) == {"METRIC-010", "OPS-007"}
     assert target["canonical_review_unit"] == "runtime_recovery"
     assert target["rollup"]["source_candidate_count"] == 2
+    assert target["rollup"]["target_type_divergence"] is True
+    assert target["rollup"]["distinct_target_type_count"] == 2
+    assert target["rollup"]["target_type_divergence_penalty"] == 0.03
+    assert len(target["source_candidates"]) == 2
     assert target["baseline_support_score"] > 0.0
+
+
+def test_canonical_key_uses_bundle_sha_not_evidence_id_set() -> None:
+    first = canonical_observation_key(
+        {
+            "core_target_type": "restart_loop",
+            "subsystem": "runtime_recovery",
+            "evidence_refs": ["OPS-001"],
+        },
+        evidence_sha256="bundle-a",
+    )
+    shifted_ref = canonical_observation_key(
+        {
+            "core_target_type": "restart_loop",
+            "subsystem": "runtime_recovery",
+            "evidence_refs": ["OPS-002", "OPS-003"],
+        },
+        evidence_sha256="bundle-a",
+    )
+    other_bundle = canonical_observation_key(
+        {
+            "core_target_type": "restart_loop",
+            "subsystem": "runtime_recovery",
+            "evidence_refs": ["OPS-001"],
+        },
+        evidence_sha256="bundle-b",
+    )
+
+    assert first["canonical_group_key"] == shifted_ref["canonical_group_key"]
+    assert first["canonical_group_key"] != other_bundle["canonical_group_key"]
+    assert first["canonical_key_contract"]["evidence_sha256_scope"] == "entire_evidence_bundle"
+    assert first["canonical_key_contract"]["evidence_id_set_in_key"] is False
+    assert first["canonical_key_contract"]["effective_within_bundle_dimensions"] == [
+        "canonical_review_unit"
+    ]
+
+
+def test_target_type_divergence_reduces_rollup_priority_bonus() -> None:
+    aligned = _rollup_profile(
+        [
+            {"providers": ["provider-a"], "canonical_target_type": "runtime_exception"},
+            {"providers": ["provider-b"], "canonical_target_type": "runtime_exception"},
+        ],
+        evidence_refs=["OPS-001"],
+    )
+    divergent = _rollup_profile(
+        [
+            {"providers": ["provider-a"], "canonical_target_type": "runtime_exception"},
+            {"providers": ["provider-b"], "canonical_target_type": "restart_loop"},
+        ],
+        evidence_refs=["OPS-001"],
+    )
+
+    assert aligned["target_type_divergence_penalty"] == 0.0
+    assert divergent["target_type_divergence_penalty"] == 0.03
+    assert divergent["priority_bonus"] < aligned["priority_bonus"]
 
 
 def test_canonical_observation_groups_roll_up_transport_aliases(tmp_path: Path) -> None:

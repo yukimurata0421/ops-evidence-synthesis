@@ -12,6 +12,7 @@ from typing import Any, Iterable
 
 from ops_evidence_synthesis.canonical import canonical_json, pretty_json, sha256_json, sha256_text
 from ops_evidence_synthesis.evidence_rules import ai_evidence_rules
+from ops_evidence_synthesis.event_semantics import classify_event_semantics, enrich_evidence_item_semantics
 from ops_evidence_synthesis.profiles import available_profile_ids, load_profile
 from ops_evidence_synthesis.profiles.registry import normalize_profile_id
 from ops_evidence_synthesis.timeutils import format_timestamp, parse_timestamp, utc_now
@@ -454,10 +455,18 @@ class ParsedLine:
 @dataclass
 class EvidencePatternStats:
     event_type: str
+    event_family: str
+    event_name: str
     severity_text: str
     message_template: str
     component: str
     source_system: str
+    error_code: str = ""
+    exception_class: str = ""
+    protocol: str = ""
+    classification_source: str = ""
+    classification_confidence: float = 0.0
+    template_fingerprint: str = ""
     count: int = 0
     first_seen: str = ""
     last_seen: str = ""
@@ -469,7 +478,7 @@ class EvidencePatternStats:
 @dataclass
 class BundleEventSummary:
     count: int
-    grouped: dict[tuple[str, str, str, str, str], EvidencePatternStats]
+    grouped: dict[tuple[str, ...], EvidencePatternStats]
     source_counts: Counter[str]
     detected_format_counts: Counter[str]
     profile_supports_inference: bool
@@ -736,6 +745,23 @@ def build_bundle_from_sanitized(
     collection_mode: str = "",
 ) -> dict[str, Any]:
     input_path = Path(sanitized_events_path)
+    input_scan = scan_sanitized_file(input_path, filename=input_path.name)
+    input_findings = list(input_scan.get("findings") or [])
+    if input_findings:
+        finding_types = sorted({str(item.get("type") or "unknown") for item in input_findings})
+        finding_lines = sorted(
+            {
+                int(item.get("line"))
+                for item in input_findings
+                if isinstance(item.get("line"), int)
+            }
+        )[:10]
+        raise ValueError(
+            "sanitized input verification failed before bundle build: "
+            f"finding_count={len(input_findings)} "
+            f"finding_types={','.join(finding_types)} "
+            f"sample_lines={','.join(str(line) for line in finding_lines)}"
+        )
     window_start = format_timestamp(start)
     window_end = format_timestamp(end)
     selected_summary, all_summary = _summarize_sanitized_events(input_path, window_start, window_end)
@@ -752,13 +778,21 @@ def build_bundle_from_sanitized(
         "operational_contract": redact_mapping(profile.get("operational_contract") or {}, profile_redactions),
         "log_sources": redact_mapping(profile.get("log_sources") or [], profile_redactions),
         "metric_semantics": redact_mapping(profile.get("metric_semantics") or profile.get("metrics") or {}, profile_redactions),
+        "event_semantics": redact_mapping(profile.get("event_semantics") or [], profile_redactions),
         "component_map": redact_mapping(profile.get("component_map") or {}, profile_redactions),
         "known_benign_noise": redact_mapping(profile.get("known_benign_noise") or [], profile_redactions),
         "action_constraints": redact_mapping(profile.get("action_constraints") or [], profile_redactions),
         "query_mappings": redact_mapping(profile.get("query_mappings") or {}, profile_redactions),
     }
     source_system = _source_system_for_bundle(summary.source_counts, profile, service)
-    evidence_items = build_evidence_items_from_summary(summary)
+    evidence_items = [
+        enrich_evidence_item_semantics(
+            item,
+            profile_event_semantics=profile_context["event_semantics"],
+            profile_approved=profile_confidence == "explicit",
+        )
+        for item in build_evidence_items_from_summary(summary)
+    ]
     evidence_relationships = build_evidence_relationships_from_summary(summary, evidence_items)
     signals = build_signals(evidence_items)
     redaction_summary = _merge_redaction_summaries(_load_redaction_summary(input_path), profile_redactions.summary())
@@ -803,6 +837,7 @@ def build_bundle_from_sanitized(
         "operational_contract": profile_context["operational_contract"],
         "log_sources": profile_context["log_sources"],
         "metric_semantics": profile_context["metric_semantics"],
+        "event_semantics": profile_context["event_semantics"],
         "component_map": profile_context["component_map"],
         "known_benign_noise": profile_context["known_benign_noise"],
         "action_constraints": profile_context["action_constraints"],
@@ -882,6 +917,8 @@ def _add_event_to_summary(summary: BundleEventSummary, event: dict[str, Any]) ->
         str(event.get("message_template") or ""),
         str(event.get("component") or "unknown"),
         str(event.get("source_system") or "generic"),
+        str(event.get("error_code") or ""),
+        str(event.get("exception_class") or ""),
     )
     event_time = _event_time(event)
     event_id = str(event.get("event_id") or "")
@@ -889,10 +926,18 @@ def _add_event_to_summary(summary: BundleEventSummary, event: dict[str, Any]) ->
     if stats is None:
         stats = EvidencePatternStats(
             event_type=key[0],
+            event_family=str(event.get("event_family") or "general"),
+            event_name=str(event.get("event_name") or key[0]),
             severity_text=key[1],
             message_template=key[2],
             component=key[3],
             source_system=key[4],
+            error_code=key[5],
+            exception_class=key[6],
+            protocol=str(event.get("protocol") or ""),
+            classification_source=str(event.get("classification_source") or ""),
+            classification_confidence=float(event.get("classification_confidence") or 0.0),
+            template_fingerprint=str(event.get("template_fingerprint") or ""),
         )
         summary.grouped[key] = stats
     stats.count += 1
@@ -954,7 +999,7 @@ def _raw_line_timestamp(line: str) -> datetime | None:
 
 
 def build_evidence_items(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    grouped: dict[tuple[str, str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    grouped: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
     for event in events:
         key = (
             str(event.get("event_type") or "unknown"),
@@ -962,6 +1007,8 @@ def build_evidence_items(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
             str(event.get("message_template") or ""),
             str(event.get("component") or "unknown"),
             str(event.get("source_system") or "generic"),
+            str(event.get("error_code") or ""),
+            str(event.get("exception_class") or ""),
         )
         grouped[key].append(event)
     items: list[dict[str, Any]] = []
@@ -969,8 +1016,9 @@ def build_evidence_items(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
         sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0][0], item[0][2], item[0][3], item[0][4])),
         start=1,
     ):
-        event_type, severity_text, template, component, _source = key
+        event_type, severity_text, template, component, _source, error_code, exception_class = key
         sorted_rows = sorted(rows, key=lambda row: (_event_time(row), str(row.get("event_id") or "")))
+        first_row = sorted_rows[0]
         items.append(
             {
                 "evidence_id": f"PATTERN-{index:03d}",
@@ -984,6 +1032,14 @@ def build_evidence_items(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "example_sanitized": str(sorted_rows[0].get("message_sanitized") or ""),
                 "component": component,
                 "source": "sanitized_events",
+                "event_family": str(first_row.get("event_family") or "general"),
+                "event_name": str(first_row.get("event_name") or event_type),
+                "error_code": error_code,
+                "exception_class": exception_class,
+                "protocol": str(first_row.get("protocol") or ""),
+                "classification_source": str(first_row.get("classification_source") or ""),
+                "classification_confidence": float(first_row.get("classification_confidence") or 0.0),
+                "template_fingerprint": str(first_row.get("template_fingerprint") or ""),
             }
         )
     return items
@@ -995,7 +1051,7 @@ def build_evidence_items_from_summary(summary: BundleEventSummary) -> list[dict[
         sorted(summary.grouped.items(), key=lambda item: (-item[1].count, item[0][0], item[0][2], item[0][3], item[0][4])),
         start=1,
     ):
-        event_type, severity_text, template, component, _source = key
+        event_type, severity_text, template, component, _source, _error_code, _exception_class = key
         items.append(
             {
                 "evidence_id": f"PATTERN-{index:03d}",
@@ -1010,6 +1066,14 @@ def build_evidence_items_from_summary(summary: BundleEventSummary) -> list[dict[
                 "component": component,
                 "source": "sanitized_events",
                 "trace_id_count": len(stats.trace_hashes),
+                "event_family": stats.event_family,
+                "event_name": stats.event_name,
+                "error_code": stats.error_code,
+                "exception_class": stats.exception_class,
+                "protocol": stats.protocol,
+                "classification_source": stats.classification_source,
+                "classification_confidence": stats.classification_confidence,
+                "template_fingerprint": stats.template_fingerprint,
             }
         )
     return items
@@ -1350,7 +1414,13 @@ def normalize_parsed_line(parsed: ParsedLine, item: InputLine, report: Redaction
     attributes["detected_format"] = parsed.detected_format
     if parsed.timestamp_inferred:
         attributes["timestamp_inferred"] = True
-    event_type = infer_event_type(message_sanitized, parsed.severity_text, attributes)
+    normalized_template = message_template(message_sanitized)
+    event_semantics = classify_event_semantics(
+        message_sanitized,
+        parsed.severity_text,
+        attributes,
+        template=normalized_template,
+    )
     payload: dict[str, Any] = {
         "timestamp": parsed.timestamp,
         "observed_timestamp": parsed.observed_timestamp,
@@ -1361,8 +1431,9 @@ def normalize_parsed_line(parsed: ParsedLine, item: InputLine, report: Redaction
         "component": redact_text(parsed.component or "unknown", report),
         "severity_text": normalize_severity(parsed.severity_text),
         "severity_number": parsed.severity_number,
-        "event_type": event_type,
-        "message_template": message_template(message_sanitized),
+        "event_type": event_semantics["event_name"],
+        **event_semantics,
+        "message_template": normalized_template,
         "message_sanitized": message_sanitized,
         "attributes": attributes,
         "trace_id": redact_text(parsed.trace_id, report) if parsed.trace_id else None,
@@ -1505,83 +1576,13 @@ def detect_format(line: str) -> str:
 
 
 def infer_event_type(message: str, severity_text: str, attributes: dict[str, Any] | None = None) -> str:
-    message_text = message.casefold()
-    attribute_text = " ".join(
-        _semantic_token_value(value)
-        for _path, key, value in _flatten_semantic_scalars(attributes or {})
-        if key in EVENT_CLASSIFICATION_ATTRIBUTE_KEYS
-        and _semantic_token_value(value).casefold() not in SEMANTIC_EMPTY_VALUES
+    semantics = classify_event_semantics(
+        message,
+        severity_text,
+        attributes or {},
+        template=message_template(message),
     )
-    text = " ".join([message, attribute_text]).casefold()
-    if "no such file or directory" in text:
-        if any(term in text for term in ("can't open file", "execstart", "executable", "command", ".service", ".py", ".sh")):
-            return "missing_command"
-        return "missing_file"
-    if "command not found" in text or "executable file not found" in text:
-        return "missing_command"
-    if "permission denied" in text or "operation not permitted" in text or "access denied" in text:
-        return "permission_denied"
-    if "failed with result 'exit-code'" in text or "failed to start" in text or "main process exited" in text:
-        return "service_start_failure"
-    if "start request repeated too quickly" in text or "restart loop" in text or "crashloop" in text or "back-off restarting" in text:
-        return "restart_loop"
-    if "process exited" in text or "exited with status" in text or "exit status" in text:
-        return "process_exit"
-    if "connection reset by peer" in text or "connection reset" in text:
-        return "connection_reset"
-    if (
-        "http 5" in message_text
-        or re.search(r"\b(?:status|status_code|http_status|response_status)\s*[=:]\s*5\d\d\b", message_text)
-        or _attributes_contain_http_5xx(attributes or {})
-    ):
-        return "http_5xx"
-    if _contains_non_negated_signal(text, ("timed out", "timeout", "deadline exceeded")):
-        return "timeout"
-    if "temporary failure in name resolution" in text or "dns" in text and any(term in text for term in ("failure", "failed", "nxdomain")):
-        return "dns_failure"
-    if any(term in text for term in ("unauthorized", "forbidden", "authentication failed", "authorization failed", "invalid credentials")):
-        return "auth_failure"
-    if any(term in text for term in ("invalid config", "configuration error", "config_error", "bad configuration")):
-        return "config_error"
-    if any(term in text for term in ("connection refused", "unreachable", "no route to host", "upstream unavailable")):
-        return "dependency_unreachable"
-    if _contains_non_negated_signal(text, ("memory cgroup out of memory", "out of memory", "oom")):
-        return "oom"
-    if any(term in text for term in ("state mismatch", "status mismatch", "expected state", "actual state", "contradicts", "healthy but")):
-        return "state_mismatch"
-    if any(
-        term in text
-        for term in (
-            "no logs received",
-            "log gap",
-            "metric missing",
-            "metrics missing",
-            "heartbeat missing",
-            "freshness gap",
-            "stale data",
-            "no samples",
-        )
-    ):
-        return "monitoring_gap"
-    if any(
-        term in text
-        for term in (
-            "instrumentation mismatch",
-            "schema mismatch",
-            "parser failed",
-            "parse failed",
-            "missing label",
-            "missing metric label",
-            "unknown field",
-        )
-    ):
-        return "instrumentation_mismatch"
-    severity = normalize_severity(severity_text)
-    if severity in {"warn", "warning"}:
-        return "warning"
-    if severity in {"info", "notice", "debug"}:
-        return "info"
-    return "unknown"
+    return str(semantics["event_name"])
 
 
 def _contains_non_negated_signal(text: str, terms: tuple[str, ...]) -> bool:

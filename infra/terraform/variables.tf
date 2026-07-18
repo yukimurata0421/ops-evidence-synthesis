@@ -237,7 +237,7 @@ variable "chunked_review_job_name" {
 variable "chunked_review_job_timeout_seconds" {
   type        = number
   description = "Cloud Run Job task timeout seconds."
-  default     = 3600
+  default     = 7200
 }
 
 variable "chunked_review_job_max_retries" {
@@ -273,7 +273,7 @@ variable "chunked_review_job_providers" {
 variable "chunked_review_job_chunk_workers" {
   type        = number
   description = "Maximum per-provider chunk worker count used by the job."
-  default     = 60
+  default     = 4
 }
 
 variable "chunked_review_job_provider_workers" {
@@ -285,7 +285,7 @@ variable "chunked_review_job_provider_workers" {
 variable "chunked_review_job_chunk_retry_attempts" {
   type        = number
   description = "Retry attempts per chunk before status is recorded fail-closed."
-  default     = 2
+  default     = 5
 }
 
 variable "chunked_review_job_env" {

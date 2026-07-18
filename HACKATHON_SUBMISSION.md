@@ -14,9 +14,9 @@ final causal judgement and operational action remain human-gated.
 - ProtoPedia article: https://protopedia.net/prototype/8892
 - Public entry: https://ops-evidence.yukimurata0421.dev/
 - Runtime Code Profile: https://ops-evidence.yukimurata0421.dev/code-profiles/31dd5326f0e9e052697975e7174d9de6ebf7c2fde58625cb96ce41f29faab621/
-- Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471
-- Primary incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471
-- Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471
+- Primary detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96
+- Primary incident report: https://ops-evidence.yukimurata0421.dev/ui/report.md?evidence_sha256=b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96
+- Primary human-readable API view: https://ops-evidence.yukimurata0421.dev/ui/api?evidence_sha256=b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96
 - Guarded amazon-notify detail: https://ops-evidence.yukimurata0421.dev/ui/full-review-page?evidence_sha256=b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec
 - More data rescore demo: https://ops-evidence.yukimurata0421.dev/ui/rescore-demo?id=amazon-notify-more-data-rescore
 - Live Fast GCP Review: https://ops-evidence.yukimurata0421.dev/ui/fast-gcp-review
@@ -26,7 +26,7 @@ final causal judgement and operational action remain human-gated.
 
 | Case | Role in evaluation | Evidence SHA256 | Run notes |
 | --- | --- | --- | --- |
-| stream_v3 Dell runtime | Primary source-approved path with 10 human-gated validation targets and 0 auto-promoted causes | `ab18d62c4e628e190345fa218834ca74276f556191d2f068a969f7922945a471` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
+| stream_v3 Dell runtime | Primary source-approved path with 6 human-gated validation targets and 0 auto-promoted causes | `b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
 | amazon-notify | Guarded-review example: 5/5 providers, 0 auto-promoted causes | `b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec` | [amazon-notify run](docs/real-api-5-provider-run.md) |
 | stream_v3 arena-server monitoring | Separate monitoring-plane validation case | `8d165418fca88f856d8525bbdae804b6b649455450796b2dc44d2134b21abd9a` | [stream_v3 runs](docs/stream-v3-real-api-runs.md) |
 

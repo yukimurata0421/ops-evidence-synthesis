@@ -107,6 +107,9 @@ class VertexOpenAICompatProvider:
             latency_ms=max(1, elapsed_ms),
             input_tokens=int(usage.get("prompt_tokens") or max(1, len(prompt) // 4)),
             output_tokens=int(usage.get("completion_tokens") or max(1, len(raw_text) // 4)),
+            requested_model_name=self.model_name,
+            resolved_model_name=str(response_payload.get("model") or ""),
+            provider_response_model_id=str(response_payload.get("model") or ""),
         )
 
     def _chat_completions_url(self) -> str:
@@ -194,6 +197,9 @@ class VertexMistralProvider:
             latency_ms=max(1, elapsed_ms),
             input_tokens=int(usage.get("prompt_tokens") or max(1, len(prompt) // 4)),
             output_tokens=int(usage.get("completion_tokens") or max(1, len(raw_text) // 4)),
+            requested_model_name=self.model_name,
+            resolved_model_name=str(response_payload.get("model") or ""),
+            provider_response_model_id=str(response_payload.get("model") or ""),
         )
 
     def _raw_predict_url(self) -> str:
@@ -347,6 +353,9 @@ class VertexOpenModelProvider:
             latency_ms=max(1, elapsed_ms),
             input_tokens=int(usage.get("prompt_tokens") or max(1, len(prompt) // 4)),
             output_tokens=int(usage.get("completion_tokens") or max(1, len(raw_text) // 4)),
+            requested_model_name=self.model_name,
+            resolved_model_name=str(response_payload.get("model") or ""),
+            provider_response_model_id=str(response_payload.get("model") or ""),
         )
 
     def _chat_completions_url(self) -> str:
