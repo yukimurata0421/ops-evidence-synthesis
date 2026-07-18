@@ -8,7 +8,7 @@
 
 ADR 0002 prevented reuse across configured model-name changes, but its v1 hash covered only provider ID, model name, prompt SHA-256, and the output contract name. Output may also change when the rendered model input, prompt instructions, response schema, generation settings, provider adapter, tool contract, safety policy, or model revision changes.
 
-Model names may also be mutable aliases such as `latest`, `default`, or `flash`. A Provider can serve a different model implementation behind the same requested name. Provider-returned model identity is often unavailable until after a request, so a response model ID cannot always participate in the pre-request cache lookup key.
+Model names may also be mutable aliases such as `latest`, `default`, `preview`, `experimental`, `beta`, `flash`, or `flash-lite`. A Provider can serve a different model implementation behind the same requested name. Provider-returned model identity is often unavailable until after a request, so a response model ID cannot always participate in the pre-request cache lookup key.
 
 Evidence Bundle SHA identifies the complete input bundle. It does not identify the exact provider-specific, compacted chunk input or the execution behavior applied to that input.
 
@@ -46,7 +46,7 @@ Legacy v1 rows remain available for audit and retry administration, but v2 cache
 
 Within-run reuse remains allowed so retry and duplicate scheduling can use a result created during the current run.
 
-Cross-run reuse is disabled when a requested model is a mutable alias and no immutable revision is resolved before the request. Cross-run reuse becomes eligible when an immutable revision is available or an adapter supplies an explicit audited policy.
+Cross-run reuse is default-deny for every model name when no immutable revision is resolved before the request. Cross-run reuse becomes eligible only when an immutable revision is available or an adapter supplies an explicit audited policy; mutable-alias detection remains audit metadata and an explanatory reason, not the only safety gate. Adapter source identity must also be available.
 
 The post-request record stores any Provider-returned model ID and resolved name. This observation is audit metadata and is not retroactively inserted into the pre-request key.
 
@@ -81,6 +81,8 @@ The 45,000-row validation remains relevant to chunking and recovery behavior:
 - rate-limit handling did not repartition semantic chunks;
 - no cause was automatically promoted.
 
+This real-provider run validates semantic chunking, retry recovery, and deterministic arbitration. It predates the final default-deny cross-run policy and does not independently validate every reuse branch of `provider_execution_contract.v2`.
+
 ## Alternatives Considered
 
 ### Keep the v1 model-aware identity
@@ -103,6 +105,6 @@ Rejected because the requested name does not prove that the served model impleme
 
 - Prompt, schema, generation, adapter, tool, safety, input-projection, and model revisions invalidate stale cache entries.
 - Model input identity and prompt execution identity can be inspected independently.
-- Unresolved mutable aliases are safer but may incur additional Provider requests across independent runs.
+- Models without a pre-resolved immutable revision or explicit audited policy cannot reuse results across independent runs and may incur additional Provider requests.
 - Adapter source changes conservatively invalidate cache entries, including some changes that may not affect output.
 - v1 result rows remain audit history but are not silently treated as v2-compatible.

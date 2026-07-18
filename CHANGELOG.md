@@ -9,8 +9,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - Portable semantic classification for Evidence Items using `event_family`, `event_name`, `template_fingerprint`, classification provenance, and optional approved-profile overrides.
-- Independent `agreement_signal` and `disagreement_signal` fields for mixed provider conclusions.
-- Canonical rollup audit data, including target-type votes, provider votes, source-candidate counts, and distinct target-type counts.
+- Independent agreement, disagreement, and unsupported-validity signals for mixed provider conclusions and invalid citations.
+- Stance-specific provider sets and Evidence references, including participating, supporting, countering, caveat, validation, and insufficient-evidence membership.
+- Canonical rollup audit data with source-candidate type counts, provider candidate-membership counts, supporting-provider counts, source-candidate counts, and distinct target-type counts.
 - Review UI warnings and source-candidate details for canonical groups that may contain multiple failure types.
 - Model-aware provider execution contract hashes for safe PostgreSQL and local-ledger result reuse.
 - Versioned provider execution contract v2 covering exact compacted model input, rendered prompt, response schema, generation settings, adapter source, request protocol, safety/tool policy, and model revision metadata.
@@ -26,7 +27,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Replaced the target-type convergence bonus with a divergence penalty when a canonical group contains conflicting target types.
 - Changed provider result reuse from provider-plus-prompt identity to a hash of provider, model, and prompt.
 - Replaced the limited v1 provider-model-prompt identity with a Canonical v2 request contract; legacy v1 rows are retained for audit but cannot satisfy v2 cache lookups.
-- Disabled cross-run cache reuse for mutable model aliases without a pre-resolved immutable revision while preserving within-run retry reuse.
+- Changed cross-run cache reuse to default-deny unless an immutable model revision is pre-resolved or an explicit audited adapter policy allows reuse; preview, experimental, beta, flash, and flash-lite aliases are marked mutable.
+- Routed one-chunk provider runs through the same versioned execution-contract Ledger/cache path as multi-chunk runs.
+- Required explicit semantic-rule trust and retained complete generic classification plus profile-override audit objects.
+- Changed agreement and rollup convergence scoring to use distinct supporting providers rather than all participating providers.
 - Recorded Provider-returned model identifiers as post-request audit observations rather than incorrectly treating them as pre-request cache inputs.
 - Aligned chunk token estimates with each provider's prompt text boundary, preventing very long sanitized messages from creating false oversized-chunk plans.
 

@@ -645,7 +645,13 @@ def build_agreement_dimensions(synthesis: dict[str, Any], model_runs: list[dict[
     disagreement_types = [str(group.get("core_target_type") or "") for group in disagreement_groups if group.get("core_target_type")]
     target_type_value = _agreement_value(target_types, disagreement_types)
 
-    max_agreement_providers = max((int(group.get("provider_count") or 0) for group in agreement_groups), default=0)
+    max_agreement_providers = max(
+        (
+            int(group.get("support_provider_count") or len(group.get("supporting_providers") or []))
+            for group in agreement_groups
+        ),
+        default=0,
+    )
     evidence_ref_value = "weak"
     if agreement_groups and max_agreement_providers >= max(provider_total, 1) and any(group.get("evidence_refs") for group in agreement_groups):
         evidence_ref_value = "strong"
@@ -735,7 +741,7 @@ def _apply_review_unit_convergence(agreement_dimensions: dict[str, Any], targets
         row
         for row in rows
         if int(row.get("source_candidate_count") or 0) >= 2
-        and int(row.get("independent_provider_count") or 0) >= 2
+        and int(row.get("independent_support_provider_count") or 0) >= 2
         and int(row.get("evidence_ref_count") or 0) >= 2
         and int(row.get("distinct_target_type_count") or 1) <= 1
         and float(row.get("baseline_support_score") or 0.0) >= 0.65
@@ -772,10 +778,20 @@ def _review_unit_convergence_row(target: dict[str, Any]) -> dict[str, Any]:
         "class": str(target.get("class") or ""),
         "source_candidate_count": int(rollup.get("source_candidate_count") or target.get("source_candidate_count") or 1),
         "independent_provider_count": int(rollup.get("independent_provider_count") or target.get("provider_count") or 0),
+        "independent_support_provider_count": int(
+            rollup.get("independent_support_provider_count")
+            or target.get("support_provider_count")
+            or 0
+        ),
         "evidence_ref_count": int(rollup.get("evidence_ref_count") or len(target.get("evidence_refs") or [])),
         "baseline_support_score": float(rollup.get("baseline_support_score") or 0.0),
         "rollup_provider_ratio": float(rollup.get("rollup_provider_ratio") or 0.0),
-        "target_type_votes": dict(rollup.get("target_type_votes") or {}),
+        "source_candidate_type_counts": dict(
+            rollup.get("source_candidate_type_counts") or rollup.get("target_type_votes") or {}
+        ),
+        "target_type_votes": dict(
+            rollup.get("source_candidate_type_counts") or rollup.get("target_type_votes") or {}
+        ),
         "distinct_target_type_count": int(rollup.get("distinct_target_type_count") or 1),
         "target_type_divergence": bool(rollup.get("target_type_divergence")),
         "review_priority_score": float(target.get("review_priority_score") or 0.0),
@@ -1083,6 +1099,7 @@ def _candidate_from_multi_ai(row: dict[str, Any], *, original_class: str) -> dic
         target_id = "mai-" + sha256_json(row)[:16]
     agreement_signal = bool(row.get("agreement_signal"))
     disagreement_signal = bool(row.get("disagreement_signal"))
+    unsupported_signal = bool(row.get("unsupported_signal"))
     effective_original_class = "validation_target" if disagreement_signal else original_class
     return {
         "target_id": target_id,
@@ -1090,6 +1107,7 @@ def _candidate_from_multi_ai(row: dict[str, Any], *, original_class: str) -> dic
         "original_class": effective_original_class,
         "agreement_signal": agreement_signal,
         "disagreement_signal": disagreement_signal,
+        "unsupported_signal": unsupported_signal,
         "claim_group_signals": dict(row.get("claim_group_signals") or {}),
         "title": str(row.get("title") or row.get("core_target_type") or "Review target requires validation"),
         "impact_summary": str(row.get("impact_summary") or ""),
@@ -1098,7 +1116,24 @@ def _candidate_from_multi_ai(row: dict[str, Any], *, original_class: str) -> dic
         "component": str(row.get("component") or ""),
         "providers": _unique(row.get("providers") or []),
         "provider_count": int(row.get("provider_count") or len(row.get("providers") or [])),
+        "participating_providers": _unique(row.get("participating_providers") or row.get("providers") or []),
+        "participating_provider_count": int(
+            row.get("participating_provider_count") or row.get("provider_count") or len(row.get("providers") or [])
+        ),
+        "supporting_providers": _unique(row.get("supporting_providers") or []),
+        "support_provider_count": int(
+            row.get("support_provider_count") or len(row.get("supporting_providers") or [])
+        ),
+        "countering_providers": _unique(row.get("countering_providers") or []),
+        "counter_provider_count": int(
+            row.get("counter_provider_count") or len(row.get("countering_providers") or [])
+        ),
         "evidence_refs": _unique(row.get("evidence_refs") or []),
+        "support_evidence_refs": _unique(row.get("support_evidence_refs") or []),
+        "counter_evidence_refs": _unique(row.get("counter_evidence_refs") or []),
+        "all_referenced_evidence_refs": _unique(
+            row.get("all_referenced_evidence_refs") or row.get("evidence_refs") or []
+        ),
         "missing_evidence": _unique(row.get("missing_evidence") or []),
         "caveats": _unique(row.get("caveats") or []),
         "target_explanation": dict(row.get("target_explanation") or {}),
@@ -1313,7 +1348,7 @@ def _arbitrate_candidate(
     priority_result = score_review_priority(
         prior_score=score_with_convergence,
         promotion_score=promotion_score,
-        claimed_provider_ids=_unique(candidate.get("providers") or []),
+        claimed_provider_ids=_unique(candidate.get("supporting_providers") or []),
         total_provider_count=total_provider_count,
         evidence_ref_count=evidence_diversity,
         evidence_family_count=int(rollup.get("evidence_family_count") or 0),
@@ -1430,6 +1465,12 @@ def _arbitrate_candidate(
         "support_role": support_role,
         "support_role_policy": "Only runtime_evidence with evidence_id can support runtime incident claims.",
         "evidence_refs": refs,
+        "support_evidence_refs": _unique(candidate.get("support_evidence_refs") or []),
+        "counter_evidence_refs": _unique(candidate.get("counter_evidence_refs") or []),
+        "all_referenced_evidence_refs": _unique(
+            candidate.get("all_referenced_evidence_refs") or candidate.get("evidence_refs") or []
+        ),
+        "invalid_evidence_refs": _unique(candidate.get("invalid_evidence_refs") or []),
         "evidence_diversity": evidence_diversity,
         "has_runtime_evidence": runtime,
         "has_user_impact_evidence": has_user_impact,
@@ -1445,6 +1486,22 @@ def _arbitrate_candidate(
         "next_validation_question": str(target_explanation.get("next_validation_question") or ""),
         "providers": _unique(candidate.get("providers") or []),
         "provider_count": int(candidate.get("provider_count") or 0),
+        "participating_providers": _unique(
+            candidate.get("participating_providers") or candidate.get("providers") or []
+        ),
+        "participating_provider_count": int(
+            candidate.get("participating_provider_count")
+            or candidate.get("provider_count")
+            or len(candidate.get("providers") or [])
+        ),
+        "supporting_providers": _unique(candidate.get("supporting_providers") or []),
+        "support_provider_count": int(
+            candidate.get("support_provider_count") or len(candidate.get("supporting_providers") or [])
+        ),
+        "countering_providers": _unique(candidate.get("countering_providers") or []),
+        "counter_provider_count": int(
+            candidate.get("counter_provider_count") or len(candidate.get("countering_providers") or [])
+        ),
         "linked_disagreement_theme": linked_theme,
         "recommended_request_type": request_type,
         "promotion_blocked_reasons": reasons,
@@ -1670,12 +1727,32 @@ def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
         return {
             "source_candidate_count": int(raw.get("source_candidate_count") or candidate.get("source_candidate_count") or 1),
             "independent_provider_count": int(raw.get("independent_provider_count") or len(candidate.get("providers") or [])),
+            "independent_support_provider_count": int(
+                raw.get("independent_support_provider_count")
+                or candidate.get("support_provider_count")
+                or len(candidate.get("supporting_providers") or [])
+            ),
             "provider_vote_counts": dict(raw.get("provider_vote_counts") or {}),
+            "provider_candidate_membership_counts": dict(
+                raw.get("provider_candidate_membership_counts") or raw.get("provider_vote_counts") or {}
+            ),
+            "supporting_provider_counts": dict(raw.get("supporting_provider_counts") or {}),
             "same_provider_duplicate_count": int(raw.get("same_provider_duplicate_count") or 0),
-            "evidence_ref_count": int(raw.get("evidence_ref_count") or len(candidate.get("evidence_refs") or [])),
+            "evidence_ref_count": (
+                int(raw.get("evidence_ref_count") or 0)
+                if "evidence_ref_count" in raw
+                else len(
+                    candidate.get("support_evidence_refs")
+                    if "support_evidence_refs" in candidate
+                    else candidate.get("evidence_refs") or []
+                )
+            ),
             "evidence_family_count": int(raw.get("evidence_family_count") or 0),
             "evidence_family_counts": dict(raw.get("evidence_family_counts") or {}),
             "target_type_votes": dict(raw.get("target_type_votes") or {}),
+            "source_candidate_type_counts": dict(
+                raw.get("source_candidate_type_counts") or raw.get("target_type_votes") or {}
+            ),
             "distinct_target_type_count": int(raw.get("distinct_target_type_count") or 0),
             "target_type_divergence": bool(raw.get("target_type_divergence")),
             "provider_convergence_bonus": float(raw.get("provider_convergence_bonus") or 0.0),
@@ -1688,16 +1765,25 @@ def _rollup_metrics(candidate: dict[str, Any]) -> dict[str, Any]:
             "baseline_support_score": float(raw.get("baseline_support_score") or 0.0),
         }
     providers = _unique(candidate.get("providers") or [])
-    refs = _unique(candidate.get("evidence_refs") or [])
+    supporting_providers = _unique(candidate.get("supporting_providers") or [])
+    refs = _unique(
+        candidate.get("support_evidence_refs")
+        if "support_evidence_refs" in candidate
+        else candidate.get("evidence_refs") or []
+    )
     return {
         "source_candidate_count": int(candidate.get("source_candidate_count") or 1),
         "independent_provider_count": len(providers),
+        "independent_support_provider_count": len(supporting_providers),
         "provider_vote_counts": {provider: 1 for provider in providers},
+        "provider_candidate_membership_counts": {provider: 1 for provider in providers},
+        "supporting_provider_counts": {provider: 1 for provider in supporting_providers},
         "same_provider_duplicate_count": 0,
         "evidence_ref_count": len(refs),
         "evidence_family_count": len({_evidence_family(ref) for ref in refs if _evidence_family(ref)}),
         "evidence_family_counts": {},
         "target_type_votes": {str(candidate.get("core_target_type") or "general_review"): 1},
+        "source_candidate_type_counts": {str(candidate.get("core_target_type") or "general_review"): 1},
         "distinct_target_type_count": 1,
         "target_type_divergence": False,
         "provider_convergence_bonus": 0.0,
@@ -1958,6 +2044,11 @@ def _drawer_for_target(
         "counter_evidence": raw_drawer.get("counter_evidence") or candidate.get("counter_evidence") or [],
         "caveats": _unique([*(candidate.get("caveats") or []), *reasons]),
         "missing_evidence": _unique(missing_evidence or candidate.get("missing_evidence") or []),
+        "support_evidence_refs": _unique(candidate.get("support_evidence_refs") or []),
+        "counter_evidence_refs": _unique(candidate.get("counter_evidence_refs") or []),
+        "all_referenced_evidence_refs": _unique(
+            candidate.get("all_referenced_evidence_refs") or candidate.get("evidence_refs") or []
+        ),
         "target_explanation": target_explanation or {},
         "next_evidence_requests": [
             {
@@ -1979,28 +2070,48 @@ def _drawer_for_target(
 
 def _archived_target_from_synthesis(row: dict[str, Any], bundle: dict[str, Any]) -> dict[str, Any]:
     target_id = str(row.get("group_id") or "archived-" + sha256_json(row)[:12])
+    reason = str(row.get("reason") or "invalid_evidence_reference")
+    invalid_refs = _unique(row.get("invalid_evidence_refs") or [])
+    referenced_refs = _unique(row.get("all_referenced_evidence_refs") or [])
+    support_refs = _unique(row.get("support_evidence_refs") or [])
+    counter_refs = _unique(row.get("counter_evidence_refs") or [])
     return {
         "target_id": target_id,
         "review_target_id": target_id,
         "class": "auto_archived",
         "state": "unsupported",
         "source": "multi_ai_synthesis",
-        "title": "Unsupported model claim archived",
-        "impact_summary": "Support claim did not cite usable Evidence Items with evidence_id.",
+        "title": "Invalid citation or unsupported model claim archived",
+        "impact_summary": (
+            "The claim was excluded from agreement and disagreement scoring because one or more Evidence "
+            "references were missing, invalid, or unusable."
+        ),
         "core_target_type": "unsupported",
         "review_target_type": "unsupported",
         "subsystem": "general",
         "review_priority_score": 0.0,
         "support_role": "model_interpretation",
-        "evidence_refs": [],
+        "evidence_refs": referenced_refs,
+        "support_evidence_refs": support_refs,
+        "counter_evidence_refs": counter_refs,
+        "all_referenced_evidence_refs": referenced_refs,
+        "invalid_evidence_refs": invalid_refs,
+        "unsupported_signal": True,
         "missing_evidence": [],
-        "caveats": [str(row.get("reason") or "unsupported")],
+        "caveats": [reason],
         "providers": _unique(row.get("providers") or []),
         "provider_count": len(row.get("providers") or []),
         "status": "archived",
         "profile": {"profile_id": "canonical_review_graph"},
         "cluster_id": target_id,
-        "drawer": {"evidence_sha256": str(bundle.get("evidence_sha256") or ""), "caveats": [str(row.get("reason") or "unsupported")]},
+        "drawer": {
+            "evidence_sha256": str(bundle.get("evidence_sha256") or ""),
+            "caveats": [reason],
+            "invalid_evidence_refs": invalid_refs,
+            "support_evidence_refs": support_refs,
+            "counter_evidence_refs": counter_refs,
+            "all_referenced_evidence_refs": referenced_refs,
+        },
     }
 
 

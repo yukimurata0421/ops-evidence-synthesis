@@ -197,7 +197,8 @@ def test_canonical_observation_groups_roll_up_same_subsystem_even_when_type_diff
     assert target["rollup"]["distinct_target_type_count"] == 2
     assert target["rollup"]["target_type_divergence_penalty"] == 0.03
     assert len(target["source_candidates"]) == 2
-    assert target["baseline_support_score"] > 0.0
+    assert target["baseline_support_score"] == 0.0
+    assert target["rollup"]["independent_support_provider_count"] == 0
 
 
 def test_canonical_key_uses_bundle_sha_not_evidence_id_set() -> None:
@@ -238,15 +239,35 @@ def test_canonical_key_uses_bundle_sha_not_evidence_id_set() -> None:
 def test_target_type_divergence_reduces_rollup_priority_bonus() -> None:
     aligned = _rollup_profile(
         [
-            {"providers": ["provider-a"], "canonical_target_type": "runtime_exception"},
-            {"providers": ["provider-b"], "canonical_target_type": "runtime_exception"},
+            {
+                "providers": ["provider-a"],
+                "supporting_providers": ["provider-a"],
+                "support_evidence_refs": ["OPS-001"],
+                "canonical_target_type": "runtime_exception",
+            },
+            {
+                "providers": ["provider-b"],
+                "supporting_providers": ["provider-b"],
+                "support_evidence_refs": ["OPS-001"],
+                "canonical_target_type": "runtime_exception",
+            },
         ],
         evidence_refs=["OPS-001"],
     )
     divergent = _rollup_profile(
         [
-            {"providers": ["provider-a"], "canonical_target_type": "runtime_exception"},
-            {"providers": ["provider-b"], "canonical_target_type": "restart_loop"},
+            {
+                "providers": ["provider-a"],
+                "supporting_providers": ["provider-a"],
+                "support_evidence_refs": ["OPS-001"],
+                "canonical_target_type": "runtime_exception",
+            },
+            {
+                "providers": ["provider-b"],
+                "supporting_providers": ["provider-b"],
+                "support_evidence_refs": ["OPS-001"],
+                "canonical_target_type": "restart_loop",
+            },
         ],
         evidence_refs=["OPS-001"],
     )

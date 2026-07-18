@@ -40,8 +40,8 @@ from scripts.generate_precomputed_review_from_multi_run import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_SAMPLE_SHA = "518a25bd716c2c37ba10db0f3a56ab6562eb65e88e7b6b0b1c65c5f34d4ab38e"
-PUBLIC_FLAGSHIP_SHA = "a6af3d3ca5cc7254abbc97b232a430e1be111c8ce66adb28f32b9ee23b47cf75"
+PUBLIC_SAMPLE_SHA = "90df7ce2f75392b1d2e0043f5e45076b223e9001d1eb1fde8bc83beeed0b42af"
+PUBLIC_FLAGSHIP_SHA = "ee52464dffb1daebbfc4b2ac8e030d946367cb6ad54c3d4cb93391c69292d809"
 PUBLIC_REAL_API_SHA = "b99da97cab19f026b5475cdaa6100fdd6ebb6d96466a43e6b62a44b99ac414ec"
 REAL_API_QWEN_GLM_SHA = "7ca07bd8ed4bcb6009b654f17c40576a7b3462c62b2c74011c1623043550ccfb"
 STREAM_V3_DELL_REAL_API_SHA = "b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96"
@@ -70,14 +70,15 @@ def test_provider_summary_title_distinguishes_local_and_real_modes() -> None:
     ).startswith("Five real providers")
 
 
-def test_rollup_audit_shows_type_votes_provider_votes_and_source_candidates() -> None:
+def test_rollup_audit_shows_type_counts_provider_memberships_and_source_candidates() -> None:
     html = _rollup_audit_html(
         {
             "rollup": {
                 "source_candidate_count": 2,
                 "distinct_target_type_count": 2,
-                "target_type_votes": {"restart_loop": 1, "runtime_exception": 1},
-                "provider_vote_counts": {"provider-a": 1, "provider-b": 1},
+                "source_candidate_type_counts": {"restart_loop": 1, "runtime_exception": 1},
+                "provider_candidate_membership_counts": {"provider-a": 1, "provider-b": 1},
+                "supporting_provider_counts": {"provider-a": 1},
                 "target_type_divergence_penalty": 0.03,
             },
             "overmerge_review": {
@@ -105,6 +106,8 @@ def test_rollup_audit_shows_type_votes_provider_votes_and_source_candidates() ->
     assert "restart_loop" in html
     assert "runtime_exception" in html
     assert "provider-a" in html
+    assert "Source-candidate type counts" in html
+    assert "Provider candidate memberships" in html
     assert "OPS-002" in html
 
 
@@ -115,6 +118,7 @@ def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
             {
                 "source_candidate_id": "candidate-a",
                 "provider_ids": ["provider-a"],
+                "supporting_provider_ids": ["provider-a"],
                 "canonical_target_type": "restart_loop",
                 "evidence_refs": ["OPS-001"],
                 "claim": "worker restart loop",
@@ -122,8 +126,9 @@ def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
         ],
         "rollup": {
             "source_candidate_count": 1,
-            "provider_vote_counts": {"provider-a": 1},
-            "target_type_votes": {"restart_loop": 1},
+            "provider_candidate_membership_counts": {"provider-a": 1},
+            "supporting_provider_counts": {"provider-a": 1},
+            "source_candidate_type_counts": {"restart_loop": 1},
             "distinct_target_type_count": 1,
         },
         "provider_positions": [{"provider_id": "provider-a", "stance": "claimed"}],
@@ -139,6 +144,7 @@ def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
             {
                 "source_candidate_id": "candidate-b",
                 "provider_ids": ["provider-b"],
+                "supporting_provider_ids": ["provider-b"],
                 "canonical_target_type": "runtime_exception",
                 "evidence_refs": ["OPS-002"],
                 "claim": "uncaught worker exception",
@@ -146,8 +152,9 @@ def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
         ],
         "rollup": {
             "source_candidate_count": 1,
-            "provider_vote_counts": {"provider-b": 1},
-            "target_type_votes": {"runtime_exception": 1},
+            "provider_candidate_membership_counts": {"provider-b": 1},
+            "supporting_provider_counts": {"provider-b": 1},
+            "source_candidate_type_counts": {"runtime_exception": 1},
             "distinct_target_type_count": 1,
         },
         "provider_positions": [{"provider_id": "provider-b", "stance": "claimed"}],
@@ -156,14 +163,23 @@ def test_public_target_dedupe_preserves_rollup_audit_details() -> None:
     merged = _merge_duplicate_public_target(first, second)
 
     assert merged["rollup"]["source_candidate_count"] == 2
-    assert merged["rollup"]["target_type_votes"] == {
+    assert merged["rollup"]["source_candidate_type_counts"] == {
         "restart_loop": 1,
         "runtime_exception": 1,
     }
-    assert merged["rollup"]["provider_vote_counts"] == {
+    assert merged["rollup"]["provider_candidate_membership_counts"] == {
         "provider-a": 1,
         "provider-b": 1,
     }
+    assert merged["rollup"]["supporting_provider_counts"] == {
+        "provider-a": 1,
+        "provider-b": 1,
+    }
+    assert merged["rollup"]["independent_support_provider_count"] == 2
+    assert merged["rollup"]["target_type_votes"] == merged["rollup"]["source_candidate_type_counts"]
+    assert merged["rollup"]["provider_vote_counts"] == merged["rollup"][
+        "provider_candidate_membership_counts"
+    ]
     assert merged["rollup"]["target_type_divergence_penalty"] == 0.03
     assert merged["overmerge_review"]["required"] is True
     assert len(merged["source_candidates"]) == 2

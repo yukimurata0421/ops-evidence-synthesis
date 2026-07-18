@@ -17,14 +17,18 @@ PROFILE_DIR_ENV = "OES_PROFILE_DIR"
 @lru_cache(maxsize=8)
 def load_profile(profile_id: str) -> dict[str, Any]:
     normalized = normalize_profile_id(profile_id)
-    text = _profile_text(normalized)
+    text, default_semantic_rule_trust = _profile_document(normalized)
     if text is None:
         normalized = GENERIC_PROFILE_ID
-        text = _profile_text(normalized)
+        text, default_semantic_rule_trust = _profile_document(normalized)
     if text is None:
         raise FileNotFoundError("generic profile is missing")
     loaded = dict(_load_profile_mapping(text, normalized))
     loaded["profile_id"] = str(loaded.get("profile_id") or normalized)
+    loaded["semantic_rule_trust"] = _semantic_rule_trust(
+        loaded.get("semantic_rule_trust"),
+        default=default_semantic_rule_trust,
+    )
     return loaded
 
 
@@ -81,6 +85,7 @@ def profile_context_for_bundle(bundle: dict[str, Any] | None) -> dict[str, Any]:
         "log_sources": profile.get("log_sources") or [],
         "metric_semantics": profile.get("metric_semantics") or profile.get("metrics") or {},
         "event_semantics": profile.get("event_semantics") or [],
+        "semantic_rule_trust": str(profile.get("semantic_rule_trust") or "unapproved"),
         "component_map": profile.get("component_map") or {},
         "known_benign_noise": profile.get("known_benign_noise") or [],
         "action_constraints": profile.get("action_constraints") or [],
@@ -204,16 +209,23 @@ def available_profile_ids() -> tuple[str, ...]:
     return tuple(sorted(ids))
 
 
-def _profile_text(normalized_profile_id: str) -> str | None:
+def _profile_document(normalized_profile_id: str) -> tuple[str | None, str]:
     for directory in _local_profile_dirs():
         for suffix in (".yaml", ".json"):
             path = directory / f"{normalized_profile_id}{suffix}"
             if path.is_file():
-                return path.read_text(encoding="utf-8")
+                return path.read_text(encoding="utf-8"), "unapproved"
     package_path = resources.files("ops_evidence_synthesis.profiles").joinpath(f"{normalized_profile_id}.yaml")
     if package_path.is_file():
-        return package_path.read_text(encoding="utf-8")
-    return None
+        return package_path.read_text(encoding="utf-8"), "packaged_allowlist"
+    return None, "unapproved"
+
+
+def _semantic_rule_trust(value: Any, *, default: str) -> str:
+    normalized = str(value or default or "unapproved").strip().casefold()
+    if normalized in {"human_approved", "packaged_allowlist"}:
+        return normalized
+    return "unapproved"
 
 
 def _load_profile_mapping(text: str, profile_id: str) -> dict[str, Any]:

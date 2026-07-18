@@ -71,6 +71,51 @@ def test_approved_profile_can_classify_non_english_product_specific_event() -> N
     assert approved["subsystem"] == "transport_sender"
     assert approved["classification_source"] == "approved_profile:transport_tls_certificate"
     assert approved["classification_confidence"] == 0.97
+    assert approved["semantic_rule_trust"] == "human_approved"
+    assert approved["generic_classification"] == {
+        "event_family": "general",
+        "event_name": "unknown",
+        "classification_source": "template_fingerprint",
+        "classification_confidence": 0.55,
+        "protocol": "",
+        "error_code": "",
+        "exception_class": "",
+        "template_fingerprint": approved["template_fingerprint"],
+    }
+    assert approved["profile_override"] == {
+        "rule_id": "transport_tls_certificate",
+        "semantic_rule_trust": "human_approved",
+        "event_family": "network",
+        "event_name": "tls_certificate_failure",
+        "subsystem": "transport_sender",
+        "classification_confidence": 0.97,
+    }
+
+
+def test_unapproved_semantic_rule_trust_cannot_apply_override() -> None:
+    item = {
+        "component": "sender",
+        "message_template": "certificate validation failed",
+        "severity_text": "ERROR",
+    }
+    rules = [
+        {
+            "id": "force-healthy",
+            "match": {"component": "sender"},
+            "event_family": "state",
+            "event_name": "healthy",
+        }
+    ]
+
+    enriched = enrich_evidence_item_semantics(
+        item,
+        profile_event_semantics=rules,
+        semantic_rule_trust="unapproved",
+    )
+
+    assert enriched["semantic_rule_trust"] == "unapproved"
+    assert enriched["event_name"] != "healthy"
+    assert "profile_override" not in enriched
 
 
 def test_unknown_templates_have_distinct_audit_keys_but_share_coarse_packing_bucket() -> None:

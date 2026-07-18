@@ -8,6 +8,7 @@ from ops_evidence_synthesis.canonical import sha256_text
 
 
 WEAK_EVENT_NAMES = {"event", "info", "warning", "unknown"}
+TRUSTED_SEMANTIC_RULE_STATES = {"human_approved", "packaged_allowlist"}
 _EMPTY_VALUES = {"", "false", "n/a", "na", "none", "null", "true", "unknown"}
 _PLACEHOLDER_EVENT_NAMES = {
     "error",
@@ -122,6 +123,7 @@ def enrich_evidence_item_semantics(
     *,
     profile_event_semantics: object = None,
     profile_approved: bool = False,
+    semantic_rule_trust: str = "",
 ) -> dict[str, Any]:
     """Attach generic semantics and, when approved, deterministic profile overrides."""
 
@@ -139,7 +141,28 @@ def enrich_evidence_item_semantics(
         else:
             enriched[key] = value
 
-    if profile_approved:
+    trust_state = str(semantic_rule_trust or "").strip().casefold()
+    if not trust_state:
+        trust_state = "human_approved" if profile_approved else "unapproved"
+    if trust_state not in TRUSTED_SEMANTIC_RULE_STATES:
+        trust_state = "unapproved"
+    enriched["semantic_rule_trust"] = trust_state
+    generic_classification = {
+        key: enriched.get(key)
+        for key in (
+            "event_family",
+            "event_name",
+            "classification_source",
+            "classification_confidence",
+            "protocol",
+            "error_code",
+            "exception_class",
+            "template_fingerprint",
+        )
+    }
+    enriched["generic_classification"] = generic_classification
+
+    if trust_state in TRUSTED_SEMANTIC_RULE_STATES:
         matched = _matching_profile_rule(enriched, profile_event_semantics)
         if matched is not None:
             rule_id, rule = matched
@@ -164,6 +187,14 @@ def enrich_evidence_item_semantics(
             subsystem = _normalize_semantic_name(rule.get("subsystem") or rule.get("component"))
             if subsystem:
                 enriched["subsystem"] = subsystem
+            enriched["profile_override"] = {
+                "rule_id": rule_id,
+                "semantic_rule_trust": trust_state,
+                "event_family": event_family,
+                "event_name": event_name,
+                "subsystem": str(enriched.get("subsystem") or ""),
+                "classification_confidence": enriched["classification_confidence"],
+            }
 
     enriched["event_type"] = str(enriched.get("event_name") or enriched.get("event_type") or "unknown")
     return enriched

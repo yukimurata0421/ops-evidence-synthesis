@@ -644,6 +644,45 @@ def test_canonical_graph_cards_use_state_specific_baseline_note() -> None:
     assert "Technical support agreement does not promote" not in html
 
 
+def test_canonical_graph_cards_show_support_counter_and_invalid_evidence_ids() -> None:
+    html = _canonical_review_graph_cards(
+        {
+            "schema_version": "canonical_review_graph.v1",
+            "summary": {"primary_count": 0, "validation_count": 1, "auto_archived_count": 1},
+            "agreement_dimensions": {
+                "provider_detection_overlap": {"value": "1/2"},
+                "technical_baseline_agreement": {"established": False},
+                "incident_baseline_agreement": {"established": False},
+            },
+            "primary_targets": [],
+            "validation_targets": [
+                {
+                    "target_id": "target-counter-ref",
+                    "class": "validation_target",
+                    "title": "Runtime recovery requires validation",
+                    "support_evidence_refs": ["LOG-1"],
+                    "counter_evidence_refs": ["METRIC-1"],
+                }
+            ],
+            "auto_archived": [
+                {
+                    "target_id": "target-invalid-ref",
+                    "class": "auto_archived",
+                    "title": "Invalid citation archived",
+                    "invalid_evidence_refs": ["MISSING-9"],
+                }
+            ],
+        }
+    )
+
+    assert "Support Evidence IDs" in html
+    assert "Counter Evidence IDs" in html
+    assert "LOG-1" in html
+    assert "METRIC-1" in html
+    assert "Invalid Evidence IDs" in html
+    assert "MISSING-9" in html
+
+
 def test_canonical_graph_cards_explain_refreshed_snapshot_metadata() -> None:
     html = _canonical_review_graph_cards(
         {

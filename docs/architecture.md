@@ -156,8 +156,12 @@ ordered rules such as:
 }
 ```
 
-Unapproved profile rules are not applied. The original `event_type` field is
-retained as a compatibility alias of `event_name`.
+Profile semantic rules are applied only when `semantic_rule_trust` is
+`human_approved` or `packaged_allowlist`; local profile files default to
+`unapproved`. The complete pre-override result is retained in
+`generic_classification`, the applied rule is retained in `profile_override`,
+and the original `event_type` field remains a compatibility alias of
+`event_name`.
 
 Provider execution is tracked as `provider x chunk` jobs. The scheduler can
 claim ready work with PostgreSQL row locks, run chunks in parallel, and resume
@@ -166,10 +170,14 @@ and hashed. Attempts are append-only so rate limits, timeouts, schema failures,
 and provider errors remain observable instead of being overwritten by a later
 success.
 
-Chunk-result reuse is keyed by `provider_execution_contract.v1`, whose SHA
-includes `provider_id`, `model_name`, the provider prompt SHA, and the output
-contract version. Changing only a model generation therefore produces a new
-reuse identity even when the provider ID and model input are unchanged.
+Every chunk, including a one-chunk run, uses the same Ledger/cache path keyed by
+`provider_execution_contract.v2`. Its SHA covers the exact compacted model
+input, rendered prompt and prompt contract, requested and resolved model
+identity, generation configuration, adapter source, request protocol,
+response schema, and versioned safety, tool, and generation policies.
+Cross-run reuse is default-deny unless an immutable model revision is resolved
+before lookup or the adapter declares an explicit audited reuse policy.
+Within-run reuse remains available for retries and duplicate scheduling.
 
 Provider result state is kept distinct from review stance:
 
@@ -191,9 +199,11 @@ reproducibility is reserved for deterministic fixtures and for the merge over
 recorded artifacts.
 
 Agreement and disagreement are independent, non-exclusive signals on a Claim
-Group. Two or more providers can support a group while a counter claim, caveat,
-validation claim, or missing-evidence requirement simultaneously marks that
-same group for disagreement review.
+Group. Agreement requires at least two distinct supporting providers, not two
+participants. Counter, caveat, validation, insufficient-evidence, and
+missing-evidence signals independently mark disagreement. Invalid or missing
+Evidence references set a separate unsupported validity signal and are excluded
+from both agreement and disagreement scoring.
 
 The canonical observation key hashes the Evidence Bundle SHA, the
 `canonical_review_unit`, and the optional `canonical_review_family`. The bundle

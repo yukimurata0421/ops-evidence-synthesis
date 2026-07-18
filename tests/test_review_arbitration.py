@@ -124,7 +124,10 @@ def _technical_agreement_without_impact_synthesis() -> dict[str, object]:
                 "subsystem": "runtime_recovery",
                 "providers": ["gemini", "gpt-oss", "mistral"],
                 "provider_count": 3,
+                "supporting_providers": ["gemini", "gpt-oss", "mistral"],
+                "support_provider_count": 3,
                 "evidence_refs": ["PATTERN-001", "PATTERN-002", "PATTERN-003"],
+                "support_evidence_refs": ["PATTERN-001", "PATTERN-002", "PATTERN-003"],
                 "impact_summary": "3 providers aligned on missing command and monitoring gap evidence.",
                 "missing_evidence": ["current systemd unit metadata", "dependency latency metrics"],
             }
@@ -148,7 +151,10 @@ def _technical_agreement_without_impact_synthesis() -> dict[str, object]:
                 "subsystem": "runtime_recovery",
                 "providers": ["gemini", "gpt-oss", "mistral"],
                 "provider_count": 3,
+                "supporting_providers": ["gemini", "gpt-oss", "mistral"],
+                "support_provider_count": 3,
                 "evidence_refs": ["PATTERN-001", "PATTERN-002", "PATTERN-003"],
+                "support_evidence_refs": ["PATTERN-001", "PATTERN-002", "PATTERN-003"],
                 "review_priority_score": 0.75,
                 "impact_summary": "3 providers aligned on missing command and monitoring gap evidence.",
                 "missing_evidence": ["current systemd unit metadata", "dependency latency metrics"],
@@ -285,13 +291,14 @@ def test_review_unit_type_divergence_stays_validation_without_baseline_convergen
     assert target["rollup"]["distinct_target_type_count"] == 3
     assert target["rollup"]["target_type_divergence"] is True
     assert target["rollup"]["target_type_divergence_penalty"] == 0.06
-    assert target["score_breakdown"]["convergence_bonus"] == 0.10
-    assert target["review_priority_score"] > target["promotion_score"]
+    assert target["rollup"]["independent_support_provider_count"] == 0
+    assert target["score_breakdown"]["convergence_bonus"] == 0.0
+    assert target["review_priority_score"] < target["promotion_score"]
     assert "user_impact_unverified" in target["promotion_blocked_reasons"]
     assert "target_type_divergence" in target["promotion_blocked_reasons"]
     priority = graph["planner_inputs"]["validation_target_priorities"][0]
     assert priority["canonical_review_unit"] == "runtime_recovery"
-    assert priority["baseline_support_score"] >= 0.65
+    assert priority["baseline_support_score"] == 0.0
 
 
 def test_no_finding_validation_target_routes_to_monitor_only() -> None:
@@ -325,7 +332,10 @@ def test_no_finding_validation_target_routes_to_monitor_only() -> None:
                 "subsystem": "traffic",
                 "providers": ["gemini"],
                 "provider_count": 1,
+                "supporting_providers": ["gemini"],
+                "support_provider_count": 1,
                 "evidence_refs": ["METRIC-1"],
+                "support_evidence_refs": ["METRIC-1"],
                 "target_explanation": {
                     "suspected_issue": "Potential traffic anomaly or instrumentation change.",
                     "why_not_promoted": "The metric increase is not correlated with error logs or service failures.",
@@ -424,7 +434,10 @@ def test_same_provider_duplicates_have_limited_convergence_bonus() -> None:
                 "subsystem": "runtime_recovery",
                 "providers": ["gemini"],
                 "provider_count": 1,
+                "supporting_providers": ["gemini"],
+                "support_provider_count": 1,
                 "evidence_refs": ["METRIC-1"],
+                "support_evidence_refs": ["METRIC-1"],
                 "review_priority_score": 0.62,
             },
             {
@@ -434,7 +447,10 @@ def test_same_provider_duplicates_have_limited_convergence_bonus() -> None:
                 "subsystem": "runtime_recovery",
                 "providers": ["mistral"],
                 "provider_count": 1,
+                "supporting_providers": ["mistral"],
+                "support_provider_count": 1,
                 "evidence_refs": ["LOG-1"],
+                "support_evidence_refs": ["LOG-1"],
                 "review_priority_score": 0.62,
             },
         ],
@@ -444,8 +460,16 @@ def test_same_provider_duplicates_have_limited_convergence_bonus() -> None:
         "provider_count": 1,
         "successful_provider_count": 1,
         "validation_targets": [
-            {**multi_provider["validation_targets"][0], "providers": ["gemini"]},
-            {**multi_provider["validation_targets"][1], "providers": ["gemini"]},
+            {
+                **multi_provider["validation_targets"][0],
+                "providers": ["gemini"],
+                "supporting_providers": ["gemini"],
+            },
+            {
+                **multi_provider["validation_targets"][1],
+                "providers": ["gemini"],
+                "supporting_providers": ["gemini"],
+            },
         ],
     }
 
@@ -551,6 +575,43 @@ def test_support_claim_without_evidence_id_is_auto_archived() -> None:
     )
     assert graph["summary"]["auto_archived_count"] == 1
     assert graph["auto_archived"][0]["support_role"] == "model_interpretation"
+
+
+def test_counter_evidence_refs_reach_canonical_graph_and_drawer() -> None:
+    graph = arbitrate_review_targets(
+        _bundle(),
+        multi_ai_synthesis={
+            "provider_count": 2,
+            "successful_provider_count": 2,
+            "validation_targets": [
+                {
+                    "group_id": "cg-counter-ref",
+                    "title": "Runtime recovery requires validation",
+                    "core_target_type": "runtime_exception",
+                    "subsystem": "runtime_recovery",
+                    "providers": ["provider-a", "provider-b"],
+                    "participating_providers": ["provider-a", "provider-b"],
+                    "supporting_providers": ["provider-a"],
+                    "countering_providers": ["provider-b"],
+                    "support_provider_count": 1,
+                    "counter_provider_count": 1,
+                    "evidence_refs": ["LOG-1", "METRIC-1"],
+                    "support_evidence_refs": ["LOG-1"],
+                    "counter_evidence_refs": ["METRIC-1"],
+                    "all_referenced_evidence_refs": ["LOG-1", "METRIC-1"],
+                    "agreement_signal": False,
+                    "disagreement_signal": True,
+                }
+            ],
+        },
+    )
+
+    target = graph["validation_targets"][0]
+    assert target["support_evidence_refs"] == ["LOG-1"]
+    assert target["counter_evidence_refs"] == ["METRIC-1"]
+    assert target["support_provider_count"] == 1
+    assert target["counter_provider_count"] == 1
+    assert target["drawer"]["counter_evidence_refs"] == ["METRIC-1"]
 
 
 def test_finding_impact_come_from_canonical_graph_for_disagreement() -> None:

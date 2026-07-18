@@ -872,7 +872,7 @@ def _targets(
                     "mixed_target_types": public_rollup["distinct_target_type_count"] > 1,
                     "warning": (
                         "Multiple target types were rolled into this canonical review unit. "
-                        "Compare the type votes and source candidates before promotion."
+                        "Compare the source-candidate type counts and source candidates before promotion."
                         if public_rollup["distinct_target_type_count"] > 1
                         else (
                             "Multiple source candidates were rolled into this canonical review unit. "
@@ -889,8 +889,13 @@ def _targets(
                     "rollup_provider_ratio": public_target.get("rollup_provider_ratio"),
                     "source_candidate_count": source_candidate_count,
                     "source_chunk_ids": _target_source_chunks(public_target),
+                    "source_candidate_type_counts": public_rollup["source_candidate_type_counts"],
                     "target_type_votes": public_rollup["target_type_votes"],
                     "distinct_target_type_count": public_rollup["distinct_target_type_count"],
+                    "provider_candidate_membership_counts": public_rollup[
+                        "provider_candidate_membership_counts"
+                    ],
+                    "supporting_provider_counts": public_rollup["supporting_provider_counts"],
                     "provider_vote_counts": public_rollup["provider_vote_counts"],
                 },
             }
@@ -1145,7 +1150,7 @@ def _merge_duplicate_public_target(
         "mixed_target_types": merged_rollup["distinct_target_type_count"] > 1,
         "warning": (
             "Multiple target types were rolled into this canonical review unit. "
-            "Compare the type votes and source candidates before promotion."
+            "Compare the source-candidate type counts and source candidates before promotion."
             if merged_rollup["distinct_target_type_count"] > 1
             else (
                 "Multiple source candidates were rolled into this canonical review unit. "
@@ -1158,7 +1163,12 @@ def _merge_duplicate_public_target(
     raw = dict(merged.get("raw") or {})
     raw["source_chunk_ids"] = source_chunks
     raw["source_candidate_count"] = merged_rollup["source_candidate_count"]
+    raw["source_candidate_type_counts"] = merged_rollup["source_candidate_type_counts"]
     raw["target_type_votes"] = merged_rollup["target_type_votes"]
+    raw["provider_candidate_membership_counts"] = merged_rollup[
+        "provider_candidate_membership_counts"
+    ]
+    raw["supporting_provider_counts"] = merged_rollup["supporting_provider_counts"]
     raw["provider_vote_counts"] = merged_rollup["provider_vote_counts"]
     merged["raw"] = raw
     agreement = dict(merged.get("agreement") or {})
@@ -1244,41 +1254,70 @@ def _merge_public_rollup_details(
         )
 
     if both_candidate_lists_retained:
-        target_type_votes: dict[str, int] = {}
-        provider_vote_counts: dict[str, int] = {}
+        source_candidate_type_counts: dict[str, int] = {}
+        provider_candidate_membership_counts: dict[str, int] = {}
+        supporting_provider_counts: dict[str, int] = {}
         for candidate in source_candidates:
             target_type = str(candidate.get("canonical_target_type") or "general_review")
-            target_type_votes[target_type] = target_type_votes.get(target_type, 0) + 1
+            source_candidate_type_counts[target_type] = source_candidate_type_counts.get(target_type, 0) + 1
             for provider_id in {str(value) for value in candidate.get("provider_ids") or [] if str(value)}:
-                provider_vote_counts[provider_id] = provider_vote_counts.get(provider_id, 0) + 1
+                provider_candidate_membership_counts[provider_id] = (
+                    provider_candidate_membership_counts.get(provider_id, 0) + 1
+                )
+            for provider_id in {
+                str(value) for value in candidate.get("supporting_provider_ids") or [] if str(value)
+            }:
+                supporting_provider_counts[provider_id] = supporting_provider_counts.get(provider_id, 0) + 1
     else:
-        target_type_votes = _sum_public_vote_counts(
-            first_rollup.get("target_type_votes"),
-            second_rollup.get("target_type_votes"),
+        source_candidate_type_counts = _sum_public_vote_counts(
+            first_rollup.get("source_candidate_type_counts") or first_rollup.get("target_type_votes"),
+            second_rollup.get("source_candidate_type_counts") or second_rollup.get("target_type_votes"),
         )
-        provider_vote_counts = _sum_public_vote_counts(
-            first_rollup.get("provider_vote_counts"),
-            second_rollup.get("provider_vote_counts"),
+        provider_candidate_membership_counts = _sum_public_vote_counts(
+            first_rollup.get("provider_candidate_membership_counts") or first_rollup.get("provider_vote_counts"),
+            second_rollup.get("provider_candidate_membership_counts") or second_rollup.get("provider_vote_counts"),
+        )
+        supporting_provider_counts = _sum_public_vote_counts(
+            first_rollup.get("supporting_provider_counts"),
+            second_rollup.get("supporting_provider_counts"),
         )
 
     distinct_target_type_count = max(
-        len(target_type_votes),
+        len(source_candidate_type_counts),
         _int(first_rollup.get("distinct_target_type_count")),
         _int(second_rollup.get("distinct_target_type_count")),
         1,
     )
-    independent_provider_count = len(provider_vote_counts)
+    independent_provider_count = len(provider_candidate_membership_counts)
+    independent_support_provider_count = len(supporting_provider_counts)
+    support_source_candidate_count = (
+        sum(1 for candidate in source_candidates if candidate.get("supporting_provider_ids"))
+        if both_candidate_lists_retained
+        else max(
+            _int(first_rollup.get("support_source_candidate_count"))
+            + _int(second_rollup.get("support_source_candidate_count")),
+            0,
+        )
+    )
     rollup_provider_ratio = 0.0
-    if independent_provider_count >= 2 and source_candidate_count >= 2:
+    if independent_support_provider_count >= 2 and support_source_candidate_count >= 2:
         rollup_provider_ratio = min(
             1.0,
-            independent_provider_count / max(source_candidate_count, independent_provider_count, 1),
+            independent_support_provider_count
+            / max(support_source_candidate_count, independent_support_provider_count, 1),
         )
     return {
         "source_candidate_count": source_candidate_count,
+        "support_source_candidate_count": support_source_candidate_count,
         "independent_provider_count": independent_provider_count,
-        "provider_vote_counts": dict(sorted(provider_vote_counts.items())),
-        "target_type_votes": dict(sorted(target_type_votes.items())),
+        "independent_support_provider_count": independent_support_provider_count,
+        "provider_candidate_membership_counts": dict(sorted(provider_candidate_membership_counts.items())),
+        "supporting_provider_counts": dict(sorted(supporting_provider_counts.items())),
+        "provider_vote_counts": dict(sorted(provider_candidate_membership_counts.items())),
+        "provider_vote_counts_deprecated_alias_for": "provider_candidate_membership_counts",
+        "source_candidate_type_counts": dict(sorted(source_candidate_type_counts.items())),
+        "target_type_votes": dict(sorted(source_candidate_type_counts.items())),
+        "target_type_votes_deprecated_alias_for": "source_candidate_type_counts",
         "distinct_target_type_count": distinct_target_type_count,
         "target_type_divergence": distinct_target_type_count > 1,
         "target_type_divergence_penalty": round(
@@ -1690,12 +1729,20 @@ def _review_reason_summary(
         ),
     ]
     rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
-    target_type_votes = rollup.get("target_type_votes") if isinstance(rollup.get("target_type_votes"), dict) else {}
-    if len(target_type_votes) > 1:
-        vote_text = ", ".join(f"{target_type}={count}" for target_type, count in sorted(target_type_votes.items()))
+    source_candidate_type_counts = (
+        rollup.get("source_candidate_type_counts")
+        if isinstance(rollup.get("source_candidate_type_counts"), dict)
+        else rollup.get("target_type_votes")
+        if isinstance(rollup.get("target_type_votes"), dict)
+        else {}
+    )
+    if len(source_candidate_type_counts) > 1:
+        count_text = ", ".join(
+            f"{target_type}={count}" for target_type, count in sorted(source_candidate_type_counts.items())
+        )
         factors.insert(
             3,
-            "Target-type divergence requires explicit operator review before promotion: " + vote_text + ".",
+            "Target-type divergence requires explicit operator review before promotion: " + count_text + ".",
         )
     return {
         "headline": (
@@ -1709,14 +1756,52 @@ def _review_reason_summary(
 
 def _public_rollup_details(target: dict[str, Any], *, source_candidate_count: int) -> dict[str, Any]:
     rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
-    target_type_votes = rollup.get("target_type_votes") if isinstance(rollup.get("target_type_votes"), dict) else {}
-    provider_vote_counts = rollup.get("provider_vote_counts") if isinstance(rollup.get("provider_vote_counts"), dict) else {}
-    distinct_target_type_count = _int(rollup.get("distinct_target_type_count")) or len(target_type_votes) or 1
+    source_candidate_type_counts = (
+        rollup.get("source_candidate_type_counts")
+        if isinstance(rollup.get("source_candidate_type_counts"), dict)
+        else rollup.get("target_type_votes")
+        if isinstance(rollup.get("target_type_votes"), dict)
+        else {}
+    )
+    provider_candidate_membership_counts = (
+        rollup.get("provider_candidate_membership_counts")
+        if isinstance(rollup.get("provider_candidate_membership_counts"), dict)
+        else rollup.get("provider_vote_counts")
+        if isinstance(rollup.get("provider_vote_counts"), dict)
+        else {}
+    )
+    supporting_provider_counts = (
+        rollup.get("supporting_provider_counts")
+        if isinstance(rollup.get("supporting_provider_counts"), dict)
+        else {}
+    )
+    distinct_target_type_count = (
+        _int(rollup.get("distinct_target_type_count")) or len(source_candidate_type_counts) or 1
+    )
+    public_type_counts = {
+        str(key): _int(value) for key, value in sorted(source_candidate_type_counts.items())
+    }
+    public_membership_counts = {
+        str(key): _int(value) for key, value in sorted(provider_candidate_membership_counts.items())
+    }
     return {
         "source_candidate_count": source_candidate_count,
-        "independent_provider_count": _int(rollup.get("independent_provider_count")) or len(provider_vote_counts),
-        "provider_vote_counts": {str(key): _int(value) for key, value in sorted(provider_vote_counts.items())},
-        "target_type_votes": {str(key): _int(value) for key, value in sorted(target_type_votes.items())},
+        "support_source_candidate_count": _int(rollup.get("support_source_candidate_count")),
+        "independent_provider_count": (
+            _int(rollup.get("independent_provider_count")) or len(provider_candidate_membership_counts)
+        ),
+        "independent_support_provider_count": (
+            _int(rollup.get("independent_support_provider_count")) or len(supporting_provider_counts)
+        ),
+        "provider_candidate_membership_counts": public_membership_counts,
+        "supporting_provider_counts": {
+            str(key): _int(value) for key, value in sorted(supporting_provider_counts.items())
+        },
+        "provider_vote_counts": public_membership_counts,
+        "provider_vote_counts_deprecated_alias_for": "provider_candidate_membership_counts",
+        "source_candidate_type_counts": public_type_counts,
+        "target_type_votes": public_type_counts,
+        "target_type_votes_deprecated_alias_for": "source_candidate_type_counts",
         "distinct_target_type_count": distinct_target_type_count,
         "target_type_divergence": distinct_target_type_count > 1,
         "target_type_divergence_penalty": float(rollup.get("target_type_divergence_penalty") or 0.0),
@@ -1735,10 +1820,30 @@ def _public_source_candidate_summaries(target: dict[str, Any]) -> list[dict[str,
             {
                 "source_candidate_id": str(candidate.get("source_candidate_id") or f"candidate-{index:03d}"),
                 "provider_ids": [str(value) for value in candidate.get("provider_ids") or [] if str(value).strip()][:10],
+                "supporting_provider_ids": [
+                    str(value)
+                    for value in candidate.get("supporting_provider_ids") or []
+                    if str(value).strip()
+                ][:10],
+                "countering_provider_ids": [
+                    str(value)
+                    for value in candidate.get("countering_provider_ids") or []
+                    if str(value).strip()
+                ][:10],
                 "canonical_target_type": str(candidate.get("canonical_target_type") or "general_review"),
                 "subsystem": str(candidate.get("subsystem") or "general"),
                 "component": str(candidate.get("component") or ""),
                 "evidence_refs": [str(value) for value in candidate.get("evidence_refs") or [] if str(value).strip()][:20],
+                "support_evidence_refs": [
+                    str(value)
+                    for value in candidate.get("support_evidence_refs") or []
+                    if str(value).strip()
+                ][:20],
+                "counter_evidence_refs": [
+                    str(value)
+                    for value in candidate.get("counter_evidence_refs") or []
+                    if str(value).strip()
+                ][:20],
                 "source_chunk_ids": [str(value) for value in candidate.get("source_chunk_ids") or [] if str(value).strip()][:10],
                 "claim": str(candidate.get("claim") or "")[:500],
             }

@@ -18,7 +18,8 @@ The grouping and arbitration path must remain deterministic, portable across sou
    - `event_name` is a concrete event or failure type.
    - `template_fingerprint` separates weak or unknown event names without depending on source-specific identifiers.
    - `classification_source` and `classification_confidence` preserve provenance.
-   - An approved operational profile may override generic semantics while retaining the generic result for audit.
+   - Profile rules apply only with `semantic_rule_trust=human_approved` or `packaged_allowlist`.
+   - An approved operational profile may override generic semantics while retaining the complete pre-override `generic_classification` and applied `profile_override` for audit.
 
 2. Form a canonical review group from:
    - Evidence Bundle SHA,
@@ -28,15 +29,20 @@ The grouping and arbitration path must remain deterministic, portable across sou
    The Evidence Bundle SHA identifies the complete input bundle. It does not compare individual Evidence ID sets. Within one run, semantic review unit and optional family perform the meaningful split, which absorbs small Evidence ID shifts but can also create over-rollup risk.
 
 3. Treat agreement and disagreement as independent signals:
-   - agreement is present when the configured provider-support condition is met;
-   - disagreement is present when counter-claims, caveats, validation claims, unsupported conclusions, or missing evidence are present;
+   - agreement is present when at least two distinct providers have an effective support stance;
+   - support with `finding_status=insufficient_evidence` or `no_finding` does not count as support;
+   - disagreement is present when counter-claims, caveats, validation claims, insufficient-evidence conclusions, or missing evidence are present;
    - both signals may be true for the same group.
 
+   Unsupported is a third independent validity signal. Missing or unknown Evidence references, including `counter_evidence_refs`, do not represent provider disagreement; they are excluded from agreement/disagreement scoring and routed to Auto Archive as invalid citations.
+
 4. Treat distinct target types as divergence:
-   - preserve `target_type_votes` and `distinct_target_type_count`;
+   - preserve `source_candidate_type_counts` and `distinct_target_type_count`;
    - apply a bounded divergence penalty instead of a convergence bonus;
-   - preserve provider votes, source-candidate counts, and pre-rollup candidates;
+   - preserve provider candidate-membership counts, supporting-provider counts, source-candidate counts, and pre-rollup candidates;
    - expose these fields and a visible warning in the human review UI.
+
+   The legacy keys `target_type_votes` and `provider_vote_counts` remain compatibility aliases. They are counts of source-candidate types and provider candidate memberships, not majority votes. Provider convergence bonuses, baseline support scores, and rollup ratios use distinct supporting providers only.
 
 ## Alternatives Considered
 

@@ -57,6 +57,27 @@ def test_profile_context_is_loaded_for_arbitrary_named_system() -> None:
     assert requests[1]["request_id"] == "installed_artifact_query"
 
 
+def test_local_profile_semantic_rules_require_explicit_trust(monkeypatch, tmp_path) -> None:
+    profile_dir = tmp_path / "profiles"
+    profile_dir.mkdir()
+    (profile_dir / "local_unapproved.json").write_text(
+        '{"profile_id":"local_unapproved","event_semantics":[{"id":"rule-1","match":{"component":"worker"},"event_name":"restart_loop"}]}',
+        encoding="utf-8",
+    )
+    (profile_dir / "local_approved.json").write_text(
+        '{"profile_id":"local_approved","semantic_rule_trust":"human_approved","event_semantics":[{"id":"rule-1","match":{"component":"worker"},"event_name":"restart_loop"}]}',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    load_profile.cache_clear()
+
+    unapproved = profile_context_for_bundle({"profile_id": "local_unapproved"})
+    approved = profile_context_for_bundle({"profile_id": "local_approved"})
+
+    assert unapproved["semantic_rule_trust"] == "unapproved"
+    assert approved["semantic_rule_trust"] == "human_approved"
+
+
 def test_stream_v3_monitoring_profile_maps_arena_server_service() -> None:
     profile = profile_for_bundle({"service": "stream_v3_monitoring", "environment": "arena_server"})
     context = profile_context_for_bundle({"service": "stream_v3_monitoring", "environment": "arena_server"})

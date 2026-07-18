@@ -24,7 +24,11 @@ GENERATION_POLICY_VERSION = "provider_generation_policy.v1"
 SAFETY_POLICY_VERSION = "multi_ai_safety_preflight.v1"
 NO_TOOL_CONTRACT = "none"
 
-_MUTABLE_MODEL_ALIAS_RE = re.compile(r"(?:^|[-_/])(latest|default)$", re.IGNORECASE)
+_MUTABLE_MODEL_ALIAS_RE = re.compile(
+    r"(?:^|[-_/])(latest|default|preview|experimental|exp|beta)(?:$|[-_/])",
+    re.IGNORECASE,
+)
+_MUTABLE_FLASH_ALIAS_RE = re.compile(r"(?:^|[-_/])flash(?:-lite)?$", re.IGNORECASE)
 _PROMPT_PROJECTION_FIELDS = (
     "max_evidence_items",
     "max_logs",
@@ -124,9 +128,10 @@ def is_mutable_model_alias(model_name: str) -> bool:
     normalized = str(model_name or "").strip()
     if not normalized:
         return True
-    if normalized.casefold() == "flash":
-        return True
-    return _MUTABLE_MODEL_ALIAS_RE.search(normalized) is not None
+    return bool(
+        _MUTABLE_MODEL_ALIAS_RE.search(normalized)
+        or _MUTABLE_FLASH_ALIAS_RE.search(normalized)
+    )
 
 
 def response_model_observation(response: Any) -> dict[str, str]:
@@ -269,21 +274,25 @@ def _reuse_policy(
     adapter_source_sha256: str,
 ) -> dict[str, str]:
     explicit = str(getattr(provider, "cache_reuse_policy", "") or "").strip().casefold()
-    if explicit in {"allowed", "cross_run", "cross-run"}:
-        cross_run = "allowed"
-        reason = "explicit_provider_policy"
-    elif explicit in {"disabled", "within_run", "within-run", "none"}:
+    if explicit in {"disabled", "within_run", "within-run", "none"}:
         cross_run = "disabled"
         reason = "explicit_provider_policy"
-    elif bool(model.get("mutable_alias")) and not str(model.get("resolved_model_revision") or ""):
-        cross_run = "disabled"
-        reason = "mutable_model_alias_without_resolved_revision"
     elif not adapter_source_sha256:
         cross_run = "disabled"
         reason = "provider_adapter_version_unavailable"
-    else:
+    elif explicit in {"allowed", "cross_run", "cross-run"}:
         cross_run = "allowed"
-        reason = "versioned_request_contract"
+        reason = "explicit_provider_policy"
+    elif str(model.get("resolved_model_revision") or ""):
+        cross_run = "allowed"
+        reason = "resolved_model_revision"
+    else:
+        cross_run = "disabled"
+        reason = (
+            "mutable_model_alias_without_resolved_revision"
+            if bool(model.get("mutable_alias"))
+            else "model_revision_or_audited_policy_required"
+        )
     return {
         "within_run": "allowed",
         "cross_run": cross_run,

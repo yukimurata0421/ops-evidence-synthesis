@@ -3634,22 +3634,34 @@ def _workspace_chip_list(items: list[str], *, limit: int = 6, empty: str = "none
 def _rollup_audit_html(target: dict[str, Any]) -> str:
     rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
     overmerge = target.get("overmerge_review") if isinstance(target.get("overmerge_review"), dict) else {}
-    target_type_votes = rollup.get("target_type_votes") if isinstance(rollup.get("target_type_votes"), dict) else {}
-    provider_vote_counts = rollup.get("provider_vote_counts") if isinstance(rollup.get("provider_vote_counts"), dict) else {}
+    target_type_counts = (
+        rollup.get("source_candidate_type_counts")
+        if isinstance(rollup.get("source_candidate_type_counts"), dict)
+        else rollup.get("target_type_votes")
+        if isinstance(rollup.get("target_type_votes"), dict)
+        else {}
+    )
+    provider_membership_counts = (
+        rollup.get("provider_candidate_membership_counts")
+        if isinstance(rollup.get("provider_candidate_membership_counts"), dict)
+        else rollup.get("provider_vote_counts")
+        if isinstance(rollup.get("provider_vote_counts"), dict)
+        else {}
+    )
     source_candidates = [row for row in target.get("source_candidates") or [] if isinstance(row, dict)]
     source_candidate_count = int(rollup.get("source_candidate_count") or len(source_candidates) or 1)
-    distinct_target_type_count = int(rollup.get("distinct_target_type_count") or len(target_type_votes) or 1)
+    distinct_target_type_count = int(rollup.get("distinct_target_type_count") or len(target_type_counts) or 1)
     if source_candidate_count <= 1 and distinct_target_type_count <= 1:
         return ""
     warning = str(overmerge.get("warning") or "Multiple source candidates share this canonical review unit.")
     vote_items = "".join(
         f"<li><b>{_html(str(target_type))}</b>: {_html(str(count))} candidate(s)</li>"
-        for target_type, count in sorted(target_type_votes.items())
-    ) or "<li>Target-type votes were not retained for this artifact.</li>"
+        for target_type, count in sorted(target_type_counts.items())
+    ) or "<li>Candidate-type counts were not retained for this artifact.</li>"
     provider_items = "".join(
         f"<li><b>{_html(str(provider))}</b>: {_html(str(count))} candidate vote(s)</li>"
-        for provider, count in sorted(provider_vote_counts.items())
-    ) or "<li>Provider vote counts were not retained for this artifact.</li>"
+        for provider, count in sorted(provider_membership_counts.items())
+    ) or "<li>Provider candidate-membership counts were not retained for this artifact.</li>"
     candidate_items = []
     for candidate in source_candidates[:20]:
         providers = ", ".join(str(value) for value in candidate.get("provider_ids") or []) or "provider unavailable"
@@ -3671,9 +3683,9 @@ def _rollup_audit_html(target: dict[str, Any]) -> str:
           <p>{_html(warning)}</p>
           <p>{source_candidate_count} source candidate(s), {distinct_target_type_count} distinct target type(s).</p>
           <details{' open' if distinct_target_type_count > 1 else ''}>
-            <summary>Compare type votes, provider votes, and pre-merge candidates</summary>
-            <h4>Target-type votes</h4><ul>{vote_items}</ul>
-            <h4>Provider candidate votes</h4><ul>{provider_items}</ul>
+            <summary>Compare candidate-type counts, provider memberships, and pre-merge candidates</summary>
+            <h4>Source-candidate type counts</h4><ul>{vote_items}</ul>
+            <h4>Provider candidate memberships</h4><ul>{provider_items}</ul>
             <h4>Source candidates</h4><ol>{candidate_html}</ol>
           </details>
         </div>

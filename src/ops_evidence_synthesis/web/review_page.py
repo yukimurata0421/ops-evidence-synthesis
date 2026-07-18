@@ -3206,6 +3206,10 @@ def _canonical_review_graph_cards(graph: dict[str, Any]) -> str:
     decision_rows = "".join(_promotion_decision_card(row) for row in decisions[:12])
     primary_cards = "".join(_canonical_target_card(row, role_label="Primary target", extra_class="primary-card") for row in primary)
     validation_cards = "".join(_canonical_target_card(row, role_label="Validation target", extra_class="") for row in validation[:20])
+    archived_cards = "".join(
+        _canonical_target_card(row, role_label="Invalid citation", extra_class="")
+        for row in archived[:20]
+    )
     monitor_note = f"<p class='score-note'>Monitor-only: {len(monitor)} / auto archived: {len(archived)}</p>"
     return f"""
 <div class="review-graph canonical-review-graph">
@@ -3255,6 +3259,10 @@ def _canonical_review_graph_cards(graph: dict[str, Any]) -> str:
     {monitor_note}
   </section>
   <section class="graph-group">
+    <p class="graph-label">Invalid or unsupported citations</p>
+    {archived_cards or '<section class="empty">No invalid citations were auto archived.</section>'}
+  </section>
+  <section class="graph-group">
     <p class="graph-label">Promotion decisions</p>
     <div class="cards">{decision_rows or '<section class="empty">No promotion decisions.</section>'}</div>
     {('<article class="card"><h3>Arbitration warnings</h3><ul>' + warning_rows + '</ul></article>') if warning_rows else ''}
@@ -3275,14 +3283,26 @@ def _canonical_target_card(target: dict[str, Any], *, role_label: str, extra_cla
     )
     rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
     source_count = int(target.get("source_candidate_count") or rollup.get("source_candidate_count") or 1)
-    provider_count = int(rollup.get("independent_provider_count") or target.get("provider_count") or 0)
+    participating_provider_count = int(
+        rollup.get("independent_provider_count") or target.get("participating_provider_count") or target.get("provider_count") or 0
+    )
+    support_provider_count = int(
+        rollup.get("independent_support_provider_count") or target.get("support_provider_count") or 0
+    )
     evidence_ref_count = int(rollup.get("evidence_ref_count") or len(target.get("evidence_refs") or []))
     breakdown = target.get("score_breakdown") if isinstance(target.get("score_breakdown"), dict) else {}
     convergence_bonus = float(breakdown.get("convergence_bonus") or rollup.get("priority_bonus") or 0.0)
     promotion_score = float(target.get("promotion_score") or target.get("review_priority_score") or 0.0)
     baseline_support_score = float(target.get("baseline_support_score") or rollup.get("baseline_support_score") or 0.0)
+    support_refs = list(dict.fromkeys(str(item) for item in target.get("support_evidence_refs") or [] if str(item)))
+    counter_refs = list(dict.fromkeys(str(item) for item in target.get("counter_evidence_refs") or [] if str(item)))
+    invalid_refs = list(dict.fromkeys(str(item) for item in target.get("invalid_evidence_refs") or [] if str(item)))
+    support_ref_text = ", ".join(support_refs[:12]) or "none"
+    counter_ref_text = ", ".join(counter_refs[:12]) or "none"
+    invalid_ref_text = ", ".join(invalid_refs[:12]) or "none"
     convergence_text = (
-        f"{source_count} candidates / {provider_count} providers / {evidence_ref_count} evidence refs; "
+        f"{source_count} candidates / {support_provider_count} supporting providers / "
+        f"{participating_provider_count} participating providers / {evidence_ref_count} support evidence refs; "
         f"+{convergence_bonus:.2f} priority; baseline support {baseline_support_score:.2f}"
     )
     return f"""
@@ -3297,7 +3317,8 @@ def _canonical_target_card(target: dict[str, Any], *, role_label: str, extra_cla
         <span class="pill">Theme: {_html(target.get('linked_disagreement_theme') or '')}</span>
         <span class="pill">Unit: {_html(target.get('canonical_review_unit') or '')}</span>
         <span class="pill">Sources: {_html(str(source_count))}</span>
-        <span class="pill">Providers: {_html(str(provider_count))}</span>
+        <span class="pill">Supporting providers: {_html(str(support_provider_count))}</span>
+        <span class="pill">Participating providers: {_html(str(participating_provider_count))}</span>
       </div>
     </div>
     <div class="score">{score:.3f}<span>Review priority</span></div>
@@ -3307,6 +3328,9 @@ def _canonical_target_card(target: dict[str, Any], *, role_label: str, extra_cla
     <div class="field"><label>Promotion gate</label><p>{_html(reasons or 'passed')}</p></div>
     <div class="field"><label>Score caps</label><p>{_html(caps or 'none')}</p></div>
     <div class="field"><label>Convergence</label><p>{_html(convergence_text)}</p></div>
+    <div class="field"><label>Support Evidence IDs</label><p><code>{_html(support_ref_text)}</code></p></div>
+    <div class="field"><label>Counter Evidence IDs</label><p><code>{_html(counter_ref_text)}</code></p></div>
+    {f'<div class="field"><label>Invalid Evidence IDs</label><p><code>{_html(invalid_ref_text)}</code></p></div>' if invalid_refs else ''}
     <div class="field"><label>Promotion score</label><p>{promotion_score:.3f}</p></div>
     <div class="field"><label>Recommended request</label><p><code>{_html(target.get('recommended_request_type') or '')}</code></p></div>
   </div>

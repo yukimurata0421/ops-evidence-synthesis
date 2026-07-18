@@ -7,6 +7,7 @@ import pytest
 from ops_evidence_synthesis.ai.execution_contract import (
     build_provider_execution_contract,
     execution_contract_allows_cross_run_reuse,
+    is_mutable_model_alias,
     provider_execution_contract_sha256,
 )
 from ops_evidence_synthesis.storage.provider_chunk_runs import (
@@ -46,6 +47,7 @@ class ContractProvider:
     prompt_renderer_version: str = "multi_ai_claim_prompt.v1"
     safety_policy_version: str = "multi_ai_safety_preflight.v1"
     generation_policy_version: str = "provider_generation_policy.v1"
+    cache_reuse_policy: str = ""
 
 
 def _contract_bundle() -> dict:
@@ -269,6 +271,39 @@ def test_mutable_model_alias_disables_cross_run_reuse_until_revision_is_resolved
 
     assert execution_contract_allows_cross_run_reuse(unresolved) is False
     assert execution_contract_allows_cross_run_reuse(resolved) is True
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "gemini-3.1-pro-preview",
+        "model-experimental",
+        "model-exp",
+        "model-beta",
+        "gemini-3.1-flash-lite",
+        "model-latest",
+        "model-default",
+    ],
+)
+def test_mutable_model_alias_detection_covers_provider_alias_families(model_name: str) -> None:
+    assert is_mutable_model_alias(model_name) is True
+
+
+def test_cross_run_reuse_is_default_deny_without_revision_or_audited_policy() -> None:
+    bundle = _contract_bundle()
+    unresolved = build_provider_execution_contract(
+        ContractProvider(model_name="mistral-small-2503"),
+        bundle,
+    )
+    explicitly_allowed = build_provider_execution_contract(
+        ContractProvider(model_name="mistral-small-2503", cache_reuse_policy="allowed"),
+        bundle,
+    )
+
+    assert execution_contract_allows_cross_run_reuse(unresolved) is False
+    assert unresolved["reuse_policy"]["reason"] == "model_revision_or_audited_policy_required"
+    assert execution_contract_allows_cross_run_reuse(explicitly_allowed) is True
+    assert explicitly_allowed["reuse_policy"]["reason"] == "explicit_provider_policy"
 
 
 def test_postgres_retryable_claim_contract_uses_skip_locked_and_marks_single_worker_claim() -> None:

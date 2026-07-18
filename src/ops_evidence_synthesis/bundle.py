@@ -186,11 +186,12 @@ class EvidenceBundleBuilder:
             operational_evidence,
         )
         profile_event_semantics = profile_context.get("event_semantics") or []
+        semantic_rule_trust = str(profile_context.get("semantic_rule_trust") or "unapproved")
         evidence_items = [
             enrich_evidence_item_semantics(
                 item,
                 profile_event_semantics=profile_event_semantics,
-                profile_approved=bool(profile_event_semantics),
+                semantic_rule_trust=semantic_rule_trust,
             )
             for item in evidence_items
         ]

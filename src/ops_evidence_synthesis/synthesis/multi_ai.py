@@ -956,9 +956,14 @@ def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[s
     auto_archived = [
         {
             "group_id": group["group_id"],
-            "reason": "unsupported_support_without_evidence_id",
+            "reason": str(group.get("unsupported_reason") or "invalid_evidence_reference"),
             "providers": group["providers"],
             "claim_count": group["claim_count"],
+            "unsupported_signal": True,
+            "invalid_evidence_refs": list(group.get("invalid_evidence_refs") or []),
+            "support_evidence_refs": list(group.get("support_evidence_refs") or []),
+            "counter_evidence_refs": list(group.get("counter_evidence_refs") or []),
+            "all_referenced_evidence_refs": list(group.get("all_referenced_evidence_refs") or []),
         }
         for group in unsupported_groups
     ]
@@ -996,9 +1001,11 @@ def synthesize_multi_ai(evidence_bundle: dict[str, Any], model_runs: list[dict[s
         },
         "claim_groups": claim_groups,
         "claim_group_signal_contract": {
-            "schema_version": "claim_group_signals.v1",
+            "schema_version": "claim_group_signals.v2",
             "relationship": "independent_non_exclusive",
             "agreement_and_disagreement_can_both_be_true": True,
+            "unsupported_is_independent_validity_signal": True,
+            "agreement_minimum_distinct_supporting_providers": 2,
         },
         "agreement_groups": agreement_groups,
         "disagreement_groups": disagreement_groups,
@@ -1399,7 +1406,13 @@ def _run_provider_full_corpus(
         f"workers={_chunk_worker_count(len(chunks), provider.provider)}"
     )
     if len(chunks) <= 1:
-        envelope = _run_single_provider(bundle, provider, preflight)
+        envelope = _run_provider_chunks_parallel(
+            bundle,
+            provider,
+            preflight,
+            chunks,
+            chunk_ledger=chunk_ledger,
+        )[0]
         coverage = _full_corpus_coverage_summary(bundle, chunk_count=1, provider_id=provider.provider)
         envelope.artifact["full_corpus_coverage"] = coverage
         envelope.artifact.setdefault("model_input_context", {})["full_corpus_coverage"] = coverage
@@ -3385,7 +3398,10 @@ def _claim_groups(model_runs: list[dict[str, Any]], known_refs: set[str]) -> lis
         for claim in ((run.get("parsed_result") or {}).get("claims") or []):
             if not isinstance(claim, dict):
                 continue
-            refs = _string_list(claim.get("evidence_refs"))
+            effective_stance = _claim_effective_stance(claim)
+            evidence_refs = _string_list(claim.get("evidence_refs"))
+            counter_evidence_refs = _string_list(claim.get("counter_evidence_refs"))
+            all_referenced_evidence_refs = _unique([*evidence_refs, *counter_evidence_refs])
             core_target_type = _core_target_type(claim)
             subsystem = _subsystem(claim)
             component = str(claim.get("component") or claim.get("source_name") or "")
@@ -3394,35 +3410,101 @@ def _claim_groups(model_runs: list[dict[str, Any]], known_refs: set[str]) -> lis
                     "core_target_type": core_target_type,
                     "subsystem": subsystem,
                     "component": component,
-                    "evidence_refs": sorted(refs),
+                    "evidence_refs": sorted(all_referenced_evidence_refs),
                 }
             )[:16]
-            grouped.setdefault(key, []).append({"provider_id": provider_id, "claim": claim})
+            grouped.setdefault(key, []).append(
+                {
+                    "provider_id": provider_id,
+                    "claim": claim,
+                    "effective_stance": effective_stance,
+                    "evidence_refs": evidence_refs,
+                    "counter_evidence_refs": counter_evidence_refs,
+                    "all_referenced_evidence_refs": all_referenced_evidence_refs,
+                }
+            )
     groups: list[dict[str, Any]] = []
     for key, rows in sorted(grouped.items()):
         claims = [row["claim"] for row in rows]
-        providers = _unique(row["provider_id"] for row in rows)
-        evidence_refs = _unique(ref for claim in claims for ref in _string_list(claim.get("evidence_refs")))
-        unsupported = any(
-            str(claim.get("claim_type") or "support") == "support"
-            and (not _string_list(claim.get("evidence_refs")) or not set(_string_list(claim.get("evidence_refs"))).issubset(known_refs))
-            for claim in claims
+        participating_providers = _unique(row["provider_id"] for row in rows)
+        supporting_providers = _unique(
+            row["provider_id"] for row in rows if row["effective_stance"] == "support"
         )
-        claim_types = [str(claim.get("claim_type") or "support") for claim in claims]
+        countering_providers = _unique(
+            row["provider_id"] for row in rows if row["effective_stance"] == "counter_evidence"
+        )
+        caveat_providers = _unique(
+            row["provider_id"] for row in rows if row["effective_stance"] == "caveat"
+        )
+        validation_providers = _unique(
+            row["provider_id"]
+            for row in rows
+            if row["effective_stance"] in {"validation_target", "next_data_needed"}
+        )
+        insufficient_evidence_providers = _unique(
+            row["provider_id"] for row in rows if row["effective_stance"] == "insufficient_evidence"
+        )
+        support_evidence_refs = _unique(
+            ref
+            for row in rows
+            if row["effective_stance"] == "support"
+            for ref in row["evidence_refs"]
+        )
+        counter_evidence_refs = _unique(
+            ref
+            for row in rows
+            if row["effective_stance"] == "counter_evidence"
+            for ref in [*row["evidence_refs"], *row["counter_evidence_refs"]]
+        )
+        all_referenced_evidence_refs = _unique(
+            ref for row in rows for ref in row["all_referenced_evidence_refs"]
+        )
+        invalid_evidence_refs = sorted(set(all_referenced_evidence_refs) - known_refs)
+        support_without_evidence = any(
+            row["effective_stance"] == "support" and not row["evidence_refs"] for row in rows
+        )
+        unsupported = bool(invalid_evidence_refs or support_without_evidence)
+        unsupported_reason = ""
+        if invalid_evidence_refs:
+            unsupported_reason = "invalid_evidence_reference"
+        elif support_without_evidence:
+            unsupported_reason = "unsupported_support_without_evidence_id"
+        effective_stances = [str(row["effective_stance"]) for row in rows]
         target_explanation = _target_explanation_from_claims(claims, rows, review_mode="")
         group = {
             "group_id": f"cg-{key}",
             "core_target_type": _core_target_type(claims[0]),
             "subsystem": _subsystem(claims[0]),
             "component": str(claims[0].get("component") or claims[0].get("source_name") or ""),
-            "evidence_refs": evidence_refs,
-            "providers": providers,
-            "provider_count": len(providers),
+            "evidence_refs": all_referenced_evidence_refs,
+            "support_evidence_refs": support_evidence_refs,
+            "counter_evidence_refs": counter_evidence_refs,
+            "all_referenced_evidence_refs": all_referenced_evidence_refs,
+            "invalid_evidence_refs": invalid_evidence_refs,
+            "providers": participating_providers,
+            "provider_count": len(participating_providers),
+            "participating_providers": participating_providers,
+            "participating_provider_count": len(participating_providers),
+            "supporting_providers": supporting_providers,
+            "support_provider_count": len(supporting_providers),
+            "countering_providers": countering_providers,
+            "counter_provider_count": len(countering_providers),
+            "caveat_providers": caveat_providers,
+            "caveat_provider_count": len(caveat_providers),
+            "validation_providers": validation_providers,
+            "validation_provider_count": len(validation_providers),
+            "insufficient_evidence_providers": insufficient_evidence_providers,
+            "insufficient_evidence_provider_count": len(insufficient_evidence_providers),
             "claim_count": len(claims),
-            "support_claim_count": sum(1 for item in claim_types if item == "support"),
-            "counter_claim_count": sum(1 for item in claim_types if item == "counter_evidence"),
-            "caveat_claim_count": sum(1 for item in claim_types if item == "caveat"),
-            "validation_claim_count": sum(1 for item in claim_types if item in {"validation_target", "next_data_needed"}),
+            "support_claim_count": sum(1 for item in effective_stances if item == "support"),
+            "counter_claim_count": sum(1 for item in effective_stances if item == "counter_evidence"),
+            "caveat_claim_count": sum(1 for item in effective_stances if item == "caveat"),
+            "validation_claim_count": sum(
+                1 for item in effective_stances if item in {"validation_target", "next_data_needed"}
+            ),
+            "insufficient_evidence_claim_count": sum(
+                1 for item in effective_stances if item == "insufficient_evidence"
+            ),
             "missing_evidence": _unique(
                 item for claim in claims for item in claim.get("missing_evidence") or [] if str(item).strip()
             ),
@@ -3438,6 +3520,8 @@ def _claim_groups(model_runs: list[dict[str, Any]], known_refs: set[str]) -> lis
                 {
                     "provider_id": row["provider_id"],
                     "claim_type": str(row["claim"].get("claim_type") or "support"),
+                    "finding_status": str(row["claim"].get("finding_status") or ""),
+                    "effective_stance": str(row["effective_stance"]),
                     "claim_text": str(row["claim"].get("claim_text") or ""),
                     "suspected_issue": str(row["claim"].get("suspected_issue") or ""),
                     "operational_mechanism": str(row["claim"].get("operational_mechanism") or ""),
@@ -3447,15 +3531,27 @@ def _claim_groups(model_runs: list[dict[str, Any]], known_refs: set[str]) -> lis
                     "why_not_promoted": str(row["claim"].get("why_not_promoted") or ""),
                     "next_validation_question": str(row["claim"].get("next_validation_question") or ""),
                     "evidence_refs": _string_list(row["claim"].get("evidence_refs")),
+                    "counter_evidence_refs": _string_list(row["claim"].get("counter_evidence_refs")),
+                    "all_referenced_evidence_refs": list(row["all_referenced_evidence_refs"]),
                     "missing_evidence": _string_list(row["claim"].get("missing_evidence")),
                 }
                 for row in rows
             ],
             "unsupported": unsupported,
-            "unsupported_reason": "support_claim_without_valid_evidence_id" if unsupported else "",
+            "unsupported_reason": unsupported_reason,
         }
         groups.append(group)
     return groups
+
+
+def _claim_effective_stance(claim: dict[str, Any]) -> str:
+    claim_type = str(claim.get("claim_type") or "support").strip().casefold()
+    finding_status = str(claim.get("finding_status") or "").strip().casefold()
+    if claim_type == "insufficient_evidence" or finding_status in {"insufficient_evidence", "no_finding"}:
+        return "insufficient_evidence"
+    if finding_status == "contradicted" and claim_type == "support":
+        return "counter_evidence"
+    return claim_type
 
 
 def _with_claim_group_signals(
@@ -3464,10 +3560,10 @@ def _with_claim_group_signals(
     successful_provider_count: int,
 ) -> dict[str, Any]:
     unsupported = bool(group.get("unsupported"))
+    support_provider_count = int(group.get("support_provider_count") or 0)
     agreement_signal = (
         not unsupported
-        and int(group.get("provider_count") or 0) >= 2
-        and int(group.get("support_claim_count") or 0) > 0
+        and support_provider_count >= 2
     )
     disagreement_reasons: list[str] = []
     if int(group.get("counter_claim_count") or 0) > 0:
@@ -3476,6 +3572,8 @@ def _with_claim_group_signals(
         disagreement_reasons.append("caveat_claim")
     if int(group.get("validation_claim_count") or 0) > 0:
         disagreement_reasons.append("validation_claim")
+    if int(group.get("insufficient_evidence_claim_count") or 0) > 0:
+        disagreement_reasons.append("insufficient_evidence")
     if group.get("missing_evidence"):
         disagreement_reasons.append("missing_evidence")
     if successful_provider_count > 1 and int(group.get("provider_count") or 0) == 1:
@@ -3485,11 +3583,13 @@ def _with_claim_group_signals(
         **group,
         "agreement_signal": agreement_signal,
         "disagreement_signal": disagreement_signal,
+        "unsupported_signal": unsupported,
         "signals": {
-            "schema_version": "claim_group_signals.v1",
+            "schema_version": "claim_group_signals.v2",
             "relationship": "independent_non_exclusive",
             "agreement": agreement_signal,
             "disagreement": disagreement_signal,
+            "unsupported": unsupported,
             "disagreement_reasons": disagreement_reasons,
         },
     }
@@ -3507,10 +3607,20 @@ def _candidate_from_group(group: dict[str, Any], review_mode: str) -> dict[str, 
         "subsystem": group["subsystem"],
         "providers": group["providers"],
         "provider_count": group["provider_count"],
+        "participating_providers": list(group.get("participating_providers") or group["providers"]),
+        "participating_provider_count": int(group.get("participating_provider_count") or group["provider_count"]),
+        "supporting_providers": list(group.get("supporting_providers") or []),
+        "support_provider_count": int(group.get("support_provider_count") or 0),
+        "countering_providers": list(group.get("countering_providers") or []),
+        "counter_provider_count": int(group.get("counter_provider_count") or 0),
         "evidence_refs": group["evidence_refs"],
+        "support_evidence_refs": list(group.get("support_evidence_refs") or []),
+        "counter_evidence_refs": list(group.get("counter_evidence_refs") or []),
+        "all_referenced_evidence_refs": list(group.get("all_referenced_evidence_refs") or group["evidence_refs"]),
         "missing_evidence": group["missing_evidence"],
         "agreement_signal": bool(group.get("agreement_signal")),
         "disagreement_signal": bool(group.get("disagreement_signal")),
+        "unsupported_signal": bool(group.get("unsupported_signal")),
         "claim_group_signals": dict(group.get("signals") or {}),
         "title": title,
         "impact_summary": impact_summary,
@@ -3563,6 +3673,8 @@ def _target_explanation_from_claims(
             {
                 "provider_id": row["provider_id"],
                 "claim_type": str(claim.get("claim_type") or "support"),
+                "finding_status": str(claim.get("finding_status") or ""),
+                "effective_stance": str(row.get("effective_stance") or _claim_effective_stance(claim)),
                 "claim_text": str(claim.get("claim_text") or ""),
                 "suspected_issue": str(claim.get("suspected_issue") or ""),
                 "operational_mechanism": str(claim.get("operational_mechanism") or ""),
@@ -3570,6 +3682,8 @@ def _target_explanation_from_claims(
                 "why_not_promoted": str(claim.get("why_not_promoted") or ""),
                 "next_validation_question": str(claim.get("next_validation_question") or ""),
                 "evidence_refs": _string_list(claim.get("evidence_refs")),
+                "counter_evidence_refs": _string_list(claim.get("counter_evidence_refs")),
+                "all_referenced_evidence_refs": list(row.get("all_referenced_evidence_refs") or []),
             }
         )
     return {
@@ -3643,9 +3757,13 @@ def _target_title(group: dict[str, Any]) -> str:
 
 def _target_impact_summary(group: dict[str, Any], review_mode: str) -> str:
     refs = len(group.get("evidence_refs") or [])
-    provider_count = int(group.get("provider_count") or 0)
+    participating_provider_count = int(group.get("participating_provider_count") or group.get("provider_count") or 0)
+    support_provider_count = int(group.get("support_provider_count") or 0)
     if review_mode == "agreement_baseline_signal":
-        return f"{provider_count} providers aligned on a review signal with {refs} cited Evidence Items; this is not majority-vote truth."
+        return (
+            f"{support_provider_count} supporting providers out of {participating_provider_count} participants "
+            f"aligned on a review signal with {refs} cited Evidence Items; this is not majority-vote truth."
+        )
     missing = len(group.get("missing_evidence") or [])
     return f"Provider claims diverged and require validation; {missing} missing-evidence prompts remain."
 

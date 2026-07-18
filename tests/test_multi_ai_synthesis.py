@@ -33,6 +33,7 @@ from ops_evidence_synthesis.synthesis.multi_ai import (
     _chunk_start_interval_seconds,
     _chunk_target_tokens,
     _chunk_worker_count,
+    _claim_groups,
     _evidence_chunk_size,
     _evidence_item_chunks,
     _estimated_evidence_item_tokens,
@@ -59,6 +60,7 @@ def test_claim_group_agreement_and_disagreement_signals_are_independent() -> Non
     group = _with_claim_group_signals(
         {
             "provider_count": 2,
+            "support_provider_count": 2,
             "support_claim_count": 2,
             "counter_claim_count": 1,
             "caveat_claim_count": 0,
@@ -73,6 +75,114 @@ def test_claim_group_agreement_and_disagreement_signals_are_independent() -> Non
     assert group["disagreement_signal"] is True
     assert group["signals"]["relationship"] == "independent_non_exclusive"
     assert group["signals"]["disagreement_reasons"] == ["counter_claim", "missing_evidence"]
+
+
+def _claim_run(provider_id: str, claim: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "provider_id": provider_id,
+        "status": "ok",
+        "schema_valid": True,
+        "parsed_result": {"claims": [claim]},
+    }
+
+
+def _review_claim(claim_type: str, *, finding_status: str = "supported") -> dict[str, Any]:
+    return {
+        "claim_type": claim_type,
+        "finding_status": finding_status,
+        "claim_text": f"{claim_type} review",
+        "core_target_type": "runtime_exception",
+        "subsystem": "runtime_recovery",
+        "component": "worker",
+        "evidence_refs": ["EVIDENCE-001"],
+        "counter_evidence_refs": [],
+        "missing_evidence": [],
+    }
+
+
+def test_one_support_and_one_counter_is_not_agreement() -> None:
+    support = _review_claim("support")
+    counter = _review_claim("counter_evidence")
+    counter["evidence_refs"] = []
+    counter["counter_evidence_refs"] = ["EVIDENCE-001"]
+
+    groups = _claim_groups(
+        [_claim_run("provider-a", support), _claim_run("provider-b", counter)],
+        {"EVIDENCE-001"},
+    )
+    group = _with_claim_group_signals(groups[0], successful_provider_count=2)
+
+    assert group["agreement_signal"] is False
+    assert group["disagreement_signal"] is True
+    assert group["participating_provider_count"] == 2
+    assert group["support_provider_count"] == 1
+    assert group["counter_evidence_refs"] == ["EVIDENCE-001"]
+
+
+def test_two_supports_and_one_counter_can_signal_agreement_and_disagreement() -> None:
+    support_a = _review_claim("support")
+    support_b = _review_claim("support")
+    counter = _review_claim("counter_evidence")
+    counter["evidence_refs"] = []
+    counter["counter_evidence_refs"] = ["EVIDENCE-001"]
+
+    groups = _claim_groups(
+        [
+            _claim_run("provider-a", support_a),
+            _claim_run("provider-b", support_b),
+            _claim_run("provider-c", counter),
+        ],
+        {"EVIDENCE-001"},
+    )
+    group = _with_claim_group_signals(groups[0], successful_provider_count=3)
+
+    assert group["agreement_signal"] is True
+    assert group["disagreement_signal"] is True
+    assert group["support_provider_count"] == 2
+    assert group["participating_provider_count"] == 3
+
+
+def test_caveats_and_insufficient_findings_do_not_contribute_support() -> None:
+    caveat_a = _review_claim("caveat")
+    caveat_b = _review_claim("caveat")
+    insufficient = _review_claim("support", finding_status="insufficient_evidence")
+
+    caveat_group = _with_claim_group_signals(
+        _claim_groups(
+            [_claim_run("provider-a", caveat_a), _claim_run("provider-b", caveat_b)],
+            {"EVIDENCE-001"},
+        )[0],
+        successful_provider_count=2,
+    )
+    insufficient_group = _with_claim_group_signals(
+        _claim_groups([_claim_run("provider-c", insufficient)], {"EVIDENCE-001"})[0],
+        successful_provider_count=2,
+    )
+
+    assert caveat_group["agreement_signal"] is False
+    assert caveat_group["disagreement_signal"] is True
+    assert insufficient_group["support_claim_count"] == 0
+    assert insufficient_group["insufficient_evidence_claim_count"] == 1
+    assert insufficient_group["agreement_signal"] is False
+    assert insufficient_group["disagreement_signal"] is True
+
+
+def test_unknown_counter_reference_is_a_validity_failure_and_is_retained() -> None:
+    counter = _review_claim("counter_evidence")
+    counter["evidence_refs"] = []
+    counter["counter_evidence_refs"] = ["EVIDENCE-UNKNOWN"]
+
+    group = _with_claim_group_signals(
+        _claim_groups([_claim_run("provider-a", counter)], {"EVIDENCE-001"})[0],
+        successful_provider_count=1,
+    )
+
+    assert group["unsupported_signal"] is True
+    assert group["unsupported_reason"] == "invalid_evidence_reference"
+    assert group["invalid_evidence_refs"] == ["EVIDENCE-UNKNOWN"]
+    assert group["counter_evidence_refs"] == ["EVIDENCE-UNKNOWN"]
+    assert group["agreement_signal"] is False
+    assert group["disagreement_signal"] is False
 
 
 def test_provider_worker_count_can_be_limited_for_real_api_stability(monkeypatch) -> None:
@@ -930,6 +1040,7 @@ class CountingChunkProvider:
     model_name: str = "counting-chunk-model"
     prompt_name: str = "root-cause"
     temperature: float = 0.0
+    cache_reuse_policy: str = ""
     calls: list[int] | None = None
     lock: Any | None = None
 
@@ -1334,7 +1445,11 @@ def test_provider_chunk_ledger_reuses_successful_chunks(monkeypatch, tmp_path: P
 
     first = _run_provider_full_corpus(
         bundle,
-        CountingChunkProvider(calls=first_calls, lock=threading.Lock()),
+        CountingChunkProvider(
+            calls=first_calls,
+            lock=threading.Lock(),
+            cache_reuse_policy="allowed",
+        ),
         SafetyPreflightResult(True, (), "", 0),
         chunk_ledger=ledger,
     )
@@ -1351,7 +1466,11 @@ def test_provider_chunk_ledger_reuses_successful_chunks(monkeypatch, tmp_path: P
     second_calls: list[int] = []
     second = _run_provider_full_corpus(
         bundle,
-        CountingChunkProvider(calls=second_calls, lock=threading.Lock()),
+        CountingChunkProvider(
+            calls=second_calls,
+            lock=threading.Lock(),
+            cache_reuse_policy="allowed",
+        ),
         SafetyPreflightResult(True, (), "", 0),
         chunk_ledger=reloaded_ledger,
     )
@@ -1362,10 +1481,42 @@ def test_provider_chunk_ledger_reuses_successful_chunks(monkeypatch, tmp_path: P
     assert len((tmp_path / PROVIDER_CHUNK_LEDGER_FILENAME).read_text().splitlines()) == 2
 
 
+def test_single_chunk_uses_the_same_execution_contract_ledger_path(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("OES_MULTI_AI_EVIDENCE_CHUNK_SIZE", "20")
+    bundle = _chunk_contract_bundle(1)
+    ledger = _provider_chunk_ledger_for_output_dir(tmp_path)
+    first_calls: list[int] = []
+
+    first = _run_provider_full_corpus(
+        bundle,
+        CountingChunkProvider(calls=first_calls, cache_reuse_policy="allowed"),
+        SafetyPreflightResult(True, (), "", 0),
+        chunk_ledger=ledger,
+    )
+
+    assert first.artifact["status"] == "ok"
+    assert first_calls == [1]
+    assert len((tmp_path / PROVIDER_CHUNK_LEDGER_FILENAME).read_text().splitlines()) == 1
+
+    reloaded = _provider_chunk_ledger_for_output_dir(tmp_path)
+    second_calls: list[int] = []
+    second = _run_provider_full_corpus(
+        bundle,
+        CountingChunkProvider(calls=second_calls, cache_reuse_policy="allowed"),
+        SafetyPreflightResult(True, (), "", 0),
+        chunk_ledger=reloaded,
+    )
+
+    assert second.artifact["status"] == "ok"
+    assert second_calls == []
+    assert len((tmp_path / PROVIDER_CHUNK_LEDGER_FILENAME).read_text().splitlines()) == 1
+
+
 def test_provider_chunk_ledger_reuses_failed_chunks_only_when_enabled(monkeypatch) -> None:
     provider = CountingChunkProvider(
         provider="mistral-agent-platform",
         model_name="mistral-small-2503",
+        cache_reuse_policy="allowed",
     )
     bundle = _bundle_for_evidence_chunk(
         _chunk_contract_bundle(1),
@@ -1404,6 +1555,7 @@ def test_provider_chunk_ledger_reuses_failed_chunks_only_when_enabled(monkeypatc
     llama_provider = CountingChunkProvider(
         provider="llama-agent-platform",
         model_name="llama-4-maverick-17b-128e-instruct-maas",
+        cache_reuse_policy="allowed",
     )
     llama_contract = build_provider_execution_contract(llama_provider, bundle)
     llama_contract_sha256 = provider_execution_contract_sha256(llama_contract)

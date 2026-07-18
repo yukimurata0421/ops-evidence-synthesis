@@ -279,7 +279,7 @@ def _project_targets(
                     "required": bool(rollup["source_candidate_count"] > 1 or rollup["distinct_target_type_count"] > 1),
                     "mixed_target_types": rollup["distinct_target_type_count"] > 1,
                     "warning": (
-                        "Multiple target types were rolled into this canonical review unit. Compare type votes and source candidates."
+                        "Multiple target types were rolled into this canonical review unit. Compare candidate-type counts and source candidates."
                         if rollup["distinct_target_type_count"] > 1
                         else (
                             "Multiple source candidates were rolled into this canonical review unit. Confirm that they describe one issue."
@@ -295,14 +295,41 @@ def _project_targets(
 
 def _target_rollup_projection(target: dict[str, Any]) -> dict[str, Any]:
     rollup = target.get("rollup") if isinstance(target.get("rollup"), dict) else {}
-    target_type_votes = rollup.get("target_type_votes") if isinstance(rollup.get("target_type_votes"), dict) else {}
-    provider_vote_counts = rollup.get("provider_vote_counts") if isinstance(rollup.get("provider_vote_counts"), dict) else {}
+    source_candidate_type_counts = (
+        rollup.get("source_candidate_type_counts")
+        if isinstance(rollup.get("source_candidate_type_counts"), dict)
+        else rollup.get("target_type_votes")
+        if isinstance(rollup.get("target_type_votes"), dict)
+        else {}
+    )
+    provider_candidate_membership_counts = (
+        rollup.get("provider_candidate_membership_counts")
+        if isinstance(rollup.get("provider_candidate_membership_counts"), dict)
+        else rollup.get("provider_vote_counts")
+        if isinstance(rollup.get("provider_vote_counts"), dict)
+        else {}
+    )
+    supporting_provider_counts = (
+        rollup.get("supporting_provider_counts")
+        if isinstance(rollup.get("supporting_provider_counts"), dict)
+        else {}
+    )
     source_candidate_count = int(rollup.get("source_candidate_count") or target.get("source_candidate_count") or 1)
-    distinct_target_type_count = int(rollup.get("distinct_target_type_count") or len(target_type_votes) or 1)
+    distinct_target_type_count = int(
+        rollup.get("distinct_target_type_count") or len(source_candidate_type_counts) or 1
+    )
     return {
         "source_candidate_count": source_candidate_count,
-        "provider_vote_counts": dict(sorted(provider_vote_counts.items())),
-        "target_type_votes": dict(sorted(target_type_votes.items())),
+        "support_source_candidate_count": int(rollup.get("support_source_candidate_count") or 0),
+        "independent_provider_count": int(rollup.get("independent_provider_count") or 0),
+        "independent_support_provider_count": int(
+            rollup.get("independent_support_provider_count") or target.get("support_provider_count") or 0
+        ),
+        "provider_candidate_membership_counts": dict(sorted(provider_candidate_membership_counts.items())),
+        "supporting_provider_counts": dict(sorted(supporting_provider_counts.items())),
+        "source_candidate_type_counts": dict(sorted(source_candidate_type_counts.items())),
+        "provider_vote_counts": dict(sorted(provider_candidate_membership_counts.items())),
+        "target_type_votes": dict(sorted(source_candidate_type_counts.items())),
         "distinct_target_type_count": distinct_target_type_count,
         "target_type_divergence": distinct_target_type_count > 1,
         "target_type_divergence_penalty": float(rollup.get("target_type_divergence_penalty") or 0.0),

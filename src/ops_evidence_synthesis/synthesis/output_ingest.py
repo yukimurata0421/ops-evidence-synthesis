@@ -579,7 +579,19 @@ def _merge_observation_group(
     )[0]
     source_target_ids = _unique_str(row.get("target_id") for row in rows)
     providers = _unique_str(provider for row in rows for provider in row.get("providers") or [])
+    supporting_providers = _unique_str(
+        provider for row in rows for provider in row.get("supporting_providers") or []
+    )
+    countering_providers = _unique_str(
+        provider for row in rows for provider in row.get("countering_providers") or []
+    )
     evidence_refs = _unique_str(ref for row in rows for ref in row.get("evidence_refs") or [])
+    support_evidence_refs = _unique_str(
+        ref for row in rows for ref in row.get("support_evidence_refs") or []
+    )
+    counter_evidence_refs = _unique_str(
+        ref for row in rows for ref in row.get("counter_evidence_refs") or []
+    )
     support_evidence = _merge_jsonish(row.get("support_evidence") for row in rows)
     counter_evidence = _merge_jsonish(row.get("counter_evidence") for row in rows)
     missing = _unique_str(item for row in rows for item in row.get("missing_evidence") or [])
@@ -606,7 +618,19 @@ def _merge_observation_group(
         "original_class": original_class,
         "providers": providers,
         "provider_count": max(len(providers), max((int(row.get("provider_count") or 0) for row in rows), default=0)),
+        "participating_providers": providers,
+        "participating_provider_count": max(
+            len(providers),
+            max((int(row.get("participating_provider_count") or 0) for row in rows), default=0),
+        ),
+        "supporting_providers": supporting_providers,
+        "support_provider_count": len(supporting_providers),
+        "countering_providers": countering_providers,
+        "counter_provider_count": len(countering_providers),
         "evidence_refs": evidence_refs,
+        "support_evidence_refs": support_evidence_refs,
+        "counter_evidence_refs": counter_evidence_refs,
+        "all_referenced_evidence_refs": evidence_refs,
         "support_evidence": support_evidence,
         "counter_evidence": counter_evidence,
         "missing_evidence": missing,
@@ -657,7 +681,16 @@ def _merge_observation_group(
         "source_candidates": source_candidates,
         "providers": providers,
         "provider_count": int(merged["provider_count"]),
+        "participating_providers": providers,
+        "participating_provider_count": int(merged["participating_provider_count"]),
+        "supporting_providers": supporting_providers,
+        "support_provider_count": len(supporting_providers),
+        "countering_providers": countering_providers,
+        "counter_provider_count": len(countering_providers),
         "evidence_refs": evidence_refs,
+        "support_evidence_refs": support_evidence_refs,
+        "counter_evidence_refs": counter_evidence_refs,
+        "all_referenced_evidence_refs": evidence_refs,
         "missing_evidence": missing,
         "caveats": caveats,
         "target_explanation": target_explanation,
@@ -679,6 +712,12 @@ def _source_candidate_summaries(rows: list[dict[str, Any]]) -> list[dict[str, An
         raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
         explanation = row.get("target_explanation") if isinstance(row.get("target_explanation"), dict) else {}
         providers = _unique_str(row.get("providers") or raw.get("providers") or [])
+        supporting_providers = _unique_str(
+            row.get("supporting_providers") or raw.get("supporting_providers") or []
+        )
+        countering_providers = _unique_str(
+            row.get("countering_providers") or raw.get("countering_providers") or []
+        )
         source_chunks = _unique_str(
             [
                 row.get("source_chunk_id"),
@@ -691,6 +730,8 @@ def _source_candidate_summaries(rows: list[dict[str, Any]]) -> list[dict[str, An
             {
                 "source_candidate_id": str(row.get("target_id") or row.get("group_id") or f"candidate-{index:03d}"),
                 "provider_ids": providers,
+                "supporting_provider_ids": supporting_providers,
+                "countering_provider_ids": countering_providers,
                 "canonical_target_type": str(
                     row.get("canonical_target_type")
                     or row.get("core_target_type")
@@ -700,6 +741,12 @@ def _source_candidate_summaries(rows: list[dict[str, Any]]) -> list[dict[str, An
                 "subsystem": str(row.get("subsystem") or raw.get("subsystem") or "general"),
                 "component": str(row.get("component") or raw.get("component") or ""),
                 "evidence_refs": _unique_str(row.get("evidence_refs") or raw.get("evidence_refs") or [])[:20],
+                "support_evidence_refs": _unique_str(
+                    row.get("support_evidence_refs") or raw.get("support_evidence_refs") or []
+                )[:20],
+                "counter_evidence_refs": _unique_str(
+                    row.get("counter_evidence_refs") or raw.get("counter_evidence_refs") or []
+                )[:20],
                 "source_chunk_ids": source_chunks,
                 "claim": str(
                     row.get("suspected_issue")
@@ -805,30 +852,51 @@ def _consensus_class(target: dict[str, Any]) -> str:
 
 
 def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> dict[str, Any]:
-    provider_votes: list[str] = []
+    provider_candidate_memberships: list[str] = []
+    supporting_provider_memberships: list[str] = []
     for row in rows:
         providers = _unique_str(row.get("providers") or [])
         if providers:
-            provider_votes.extend(providers)
-    provider_vote_counts = Counter(provider_votes)
-    target_type_votes = Counter(
+            provider_candidate_memberships.extend(providers)
+        supporting_providers = _unique_str(row.get("supporting_providers") or [])
+        if supporting_providers:
+            supporting_provider_memberships.extend(supporting_providers)
+    provider_candidate_membership_counts = Counter(provider_candidate_memberships)
+    supporting_provider_counts = Counter(supporting_provider_memberships)
+    source_candidate_type_counts = Counter(
         _normalize_token(str(row.get("canonical_target_type") or row.get("core_target_type") or "general_review"))
         for row in rows
     )
-    family_counts = Counter(_evidence_family(ref) for ref in evidence_refs)
+    support_evidence_refs = _unique_str(
+        ref for row in rows for ref in row.get("support_evidence_refs") or []
+    )
+    family_counts = Counter(_evidence_family(ref) for ref in support_evidence_refs)
     family_counts.pop("", None)
     source_candidate_count = len(rows)
-    independent_provider_count = len(provider_vote_counts)
-    repeated_provider_votes = sum(max(0, count - 1) for count in provider_vote_counts.values())
+    support_source_candidate_count = sum(
+        1 for row in rows if _unique_str(row.get("supporting_providers") or [])
+    )
+    independent_provider_count = len(provider_candidate_membership_counts)
+    independent_support_provider_count = len(supporting_provider_counts)
+    repeated_provider_memberships = sum(
+        max(0, count - 1) for count in provider_candidate_membership_counts.values()
+    )
+    repeated_support_memberships = sum(
+        max(0, count - 1) for count in supporting_provider_counts.values()
+    )
     provider_bonus = 0.0
-    if independent_provider_count >= 3:
+    if independent_support_provider_count >= 3:
         provider_bonus = 0.10
-    elif independent_provider_count == 2:
+    elif independent_support_provider_count == 2:
         provider_bonus = 0.06
-    evidence_bonus = min(0.06, max(0, len(family_counts) - 1) * 0.03 + max(0, len(evidence_refs) - 1) * 0.005)
-    type_divergence_penalty = min(0.06, max(0, len(target_type_votes) - 1) * 0.03)
-    repeated_independent_bonus = min(0.04, max(0, source_candidate_count - 1) * 0.01)
-    same_provider_duplicate_bonus = min(0.02, repeated_provider_votes * 0.005)
+    evidence_bonus = min(
+        0.06,
+        max(0, len(family_counts) - 1) * 0.03
+        + max(0, len(support_evidence_refs) - 1) * 0.005,
+    )
+    type_divergence_penalty = min(0.06, max(0, len(source_candidate_type_counts) - 1) * 0.03)
+    repeated_independent_bonus = min(0.04, max(0, support_source_candidate_count - 1) * 0.01)
+    same_provider_duplicate_bonus = min(0.02, repeated_support_memberships * 0.005)
     priority_bonus = max(
         0.0,
         min(
@@ -840,39 +908,52 @@ def _rollup_profile(rows: list[dict[str, Any]], *, evidence_refs: list[str]) -> 
             - type_divergence_penalty,
         ),
     )
-    baseline_support_score = min(
-        1.0,
-        0.25
-        + min(independent_provider_count, 3) * 0.15
-        + min(len(family_counts), 3) * 0.10
-        + min(source_candidate_count, 4) * 0.05
-        + min(len(evidence_refs), 6) * 0.025,
-    )
+    baseline_support_score = 0.0
+    if independent_support_provider_count:
+        baseline_support_score = min(
+            1.0,
+            0.25
+            + min(independent_support_provider_count, 3) * 0.15
+            + min(len(family_counts), 3) * 0.10
+            + min(support_source_candidate_count, 4) * 0.05
+            + min(len(support_evidence_refs), 6) * 0.025,
+        )
     rollup_provider_ratio = 0.0
-    if independent_provider_count >= 2 and source_candidate_count >= 2:
+    if independent_support_provider_count >= 2 and support_source_candidate_count >= 2:
         rollup_provider_ratio = min(
             1.0,
-            independent_provider_count / max(source_candidate_count, independent_provider_count, 1),
+            independent_support_provider_count
+            / max(support_source_candidate_count, independent_support_provider_count, 1),
         )
     return {
         "source_candidate_count": source_candidate_count,
+        "support_source_candidate_count": support_source_candidate_count,
         "independent_provider_count": independent_provider_count,
-        "provider_vote_counts": dict(sorted(provider_vote_counts.items())),
-        "same_provider_duplicate_count": repeated_provider_votes,
-        "evidence_ref_count": len(evidence_refs),
+        "independent_support_provider_count": independent_support_provider_count,
+        "provider_candidate_membership_counts": dict(sorted(provider_candidate_membership_counts.items())),
+        "supporting_provider_counts": dict(sorted(supporting_provider_counts.items())),
+        "provider_vote_counts": dict(sorted(provider_candidate_membership_counts.items())),
+        "provider_vote_counts_deprecated_alias_for": "provider_candidate_membership_counts",
+        "same_provider_duplicate_count": repeated_provider_memberships,
+        "evidence_ref_count": len(support_evidence_refs),
+        "all_referenced_evidence_ref_count": len(evidence_refs),
         "evidence_family_count": len(family_counts),
         "evidence_family_counts": dict(sorted(family_counts.items())),
-        "target_type_votes": dict(sorted(target_type_votes.items())),
-        "distinct_target_type_count": len(target_type_votes),
+        "source_candidate_type_counts": dict(sorted(source_candidate_type_counts.items())),
+        "target_type_votes": dict(sorted(source_candidate_type_counts.items())),
+        "target_type_votes_deprecated_alias_for": "source_candidate_type_counts",
+        "distinct_target_type_count": len(source_candidate_type_counts),
         "provider_convergence_bonus": round(provider_bonus, 4),
         "evidence_diversity_bonus": round(evidence_bonus, 4),
-        "target_type_divergence": len(target_type_votes) > 1,
+        "target_type_divergence": len(source_candidate_type_counts) > 1,
         "target_type_divergence_penalty": round(type_divergence_penalty, 4),
         "repeated_independent_claim_bonus": round(repeated_independent_bonus, 4),
         "same_provider_duplicate_bonus": round(same_provider_duplicate_bonus, 4),
         "priority_bonus": round(priority_bonus, 4),
         "rollup_provider_ratio": round(rollup_provider_ratio, 4),
-        "rollup_provider_ratio_definition": "independent providers / source candidates; single-source targets are 0.0",
+        "rollup_provider_ratio_definition": (
+            "independent supporting providers / supporting source candidates; fewer than two supporting sources is 0.0"
+        ),
         "baseline_support_score": round(baseline_support_score, 4),
     }
 

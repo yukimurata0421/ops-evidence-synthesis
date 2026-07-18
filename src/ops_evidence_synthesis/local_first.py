@@ -789,7 +789,9 @@ def build_bundle_from_sanitized(
         enrich_evidence_item_semantics(
             item,
             profile_event_semantics=profile_context["event_semantics"],
-            profile_approved=profile_confidence == "explicit",
+            semantic_rule_trust=(
+                "human_approved" if profile_confidence == "explicit" else "unapproved"
+            ),
         )
         for item in build_evidence_items_from_summary(summary)
     ]
