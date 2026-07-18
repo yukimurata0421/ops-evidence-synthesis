@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from ops_evidence_synthesis.ai.prompts import compact_bundle_for_model, root_cause_prompt
 from ops_evidence_synthesis.evidence_rules import ai_evidence_rules
 from ops_evidence_synthesis.local_first import (
@@ -24,6 +26,36 @@ from ops_evidence_synthesis.local_first import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_build_bundle_rejects_unsafe_content_in_claimed_sanitized_input(tmp_path: Path) -> None:
+    events_path = tmp_path / "sanitized_events.jsonl"
+    events_path.write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-06-18T09:54:00Z",
+                "service": "sample",
+                "environment": "prod",
+                "severity_text": "INFO",
+                "message_sanitized": "event",
+                "message_template": "event",
+                "labels_json": {"source_path": "/home/example/private/runtime.jsonl"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="sanitized input verification failed before bundle build"):
+        build_bundle_from_sanitized(
+            events_path,
+            service="sample",
+            environment="prod",
+            start="2026-06-18T09:00:00Z",
+            end="2026-06-18T10:00:00Z",
+            profile_name="generic",
+            out_path=tmp_path / "bundle.json",
+        )
 
 
 def test_event_type_does_not_treat_source_line_numbers_as_http_5xx() -> None:

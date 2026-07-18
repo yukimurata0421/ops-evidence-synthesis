@@ -79,6 +79,17 @@ PROVIDER_CHUNK_MIN_START_INTERVAL_SECONDS = {
 PROVIDER_RATE_LIMIT_COOLDOWN_SECONDS = {
     "mistral-agent-platform": 180.0,
 }
+PROVIDER_MAX_TEXT_CHARS_ENV = {
+    "openai-gpt-oss-on-vertex": "OES_GPT_OSS_MAX_TEXT_CHARS",
+    "mistral-agent-platform": "OES_MISTRAL_MAX_TEXT_CHARS",
+    "qwen-agent-platform": "OES_QWEN_MAX_TEXT_CHARS",
+    "glm-agent-platform": "OES_GLM_MAX_TEXT_CHARS",
+    "gemma-agent-platform": "OES_GEMMA_MAX_TEXT_CHARS",
+    "grok-agent-platform": "OES_GROK_MAX_TEXT_CHARS",
+    "llama-agent-platform": "OES_LLAMA_MAX_TEXT_CHARS",
+    "claude-agent-platform": "OES_CLAUDE_MAX_TEXT_CHARS",
+}
+DEFAULT_PROVIDER_MAX_TEXT_CHARS = 480
 MIN_ADAPTIVE_SUBCHUNK_TOKENS = 8_000
 _EVIDENCE_REF_RE = re.compile(r"\b(?:PATTERN|LOG|EV|EVIDENCE)-\d+\b")
 SUPPORTED_MODEL_STATUSES = {
@@ -1708,7 +1719,7 @@ def _pack_evidence_items_by_semantic_token_budget(
         current: list[dict[str, Any]] = []
         current_tokens = _chunk_prompt_overhead_tokens()
         for item in bucket:
-            item_tokens = _estimated_evidence_item_tokens(item)
+            item_tokens = _estimated_evidence_item_tokens(item, provider_id=provider_id)
             would_exceed_items = len(current) >= max_items
             would_exceed_tokens = bool(current) and current_tokens + item_tokens > token_budget
             if would_exceed_items or would_exceed_tokens:
@@ -1720,7 +1731,12 @@ def _pack_evidence_items_by_semantic_token_budget(
         if current:
             chunks.append(current)
     if _merge_small_semantic_chunks_enabled(provider_id):
-        chunks = _merge_adjacent_chunks_by_token_budget(chunks, max_items=max_items, token_budget=token_budget)
+        chunks = _merge_adjacent_chunks_by_token_budget(
+            chunks,
+            max_items=max_items,
+            token_budget=token_budget,
+            provider_id=provider_id,
+        )
     return chunks or [[]]
 
 
@@ -1750,6 +1766,7 @@ def _merge_adjacent_chunks_by_token_budget(
     *,
     max_items: int,
     token_budget: int,
+    provider_id: str = "",
 ) -> list[list[dict[str, Any]]]:
     if token_budget <= 0 or len(chunks) <= 1:
         return chunks
@@ -1759,7 +1776,10 @@ def _merge_adjacent_chunks_by_token_budget(
     for chunk in chunks:
         if not chunk:
             continue
-        chunk_item_tokens = sum(_estimated_evidence_item_tokens(item) for item in chunk)
+        chunk_item_tokens = sum(
+            _estimated_evidence_item_tokens(item, provider_id=provider_id)
+            for item in chunk
+        )
         would_exceed_items = bool(current) and len(current) + len(chunk) > max_items
         would_exceed_tokens = bool(current) and current_tokens + chunk_item_tokens > token_budget
         if would_exceed_items or would_exceed_tokens:
@@ -1821,13 +1841,33 @@ def _semantic_bucket_key_for_item(item: dict[str, Any]) -> str:
     return key
 
 
-def _estimated_chunk_input_tokens(items: list[dict[str, Any]]) -> int:
-    return _chunk_prompt_overhead_tokens() + sum(_estimated_evidence_item_tokens(item) for item in items)
+def _estimated_chunk_input_tokens(items: list[dict[str, Any]], provider_id: str = "") -> int:
+    return _chunk_prompt_overhead_tokens() + sum(
+        _estimated_evidence_item_tokens(item, provider_id=provider_id)
+        for item in items
+    )
 
 
-def _estimated_evidence_item_tokens(item: dict[str, Any]) -> int:
-    text = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+def _estimated_evidence_item_tokens(item: dict[str, Any], provider_id: str = "") -> int:
+    max_text_chars = _provider_max_text_chars(provider_id)
+    projected = dict(item)
+    for key in ("message_template", "example_sanitized"):
+        value = projected.get(key)
+        if isinstance(value, str) and len(value) > max_text_chars:
+            projected[key] = value[:max_text_chars]
+    text = json.dumps(projected, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return max(1, (len(text) + 1) // 2 + 32)
+
+
+def _provider_max_text_chars(provider_id: str = "") -> int:
+    normalized_provider_id = str(provider_id or "").strip().casefold()
+    env_name = PROVIDER_MAX_TEXT_CHARS_ENV.get(normalized_provider_id, "")
+    raw = os.environ.get(env_name, "").strip() if env_name else ""
+    try:
+        requested = int(raw) if raw else DEFAULT_PROVIDER_MAX_TEXT_CHARS
+    except ValueError:
+        requested = DEFAULT_PROVIDER_MAX_TEXT_CHARS
+    return max(1, requested)
 
 
 def _chunk_prompt_overhead_tokens() -> int:
@@ -1919,7 +1959,7 @@ def _chunk_start_interval_seconds(provider_id: str, items: list[dict[str, Any]])
     tokens_per_minute = _chunk_input_tokens_per_minute(provider_id)
     token_interval = 0.0
     if tokens_per_minute > 0:
-        estimated_tokens = _estimated_chunk_input_tokens(items)
+        estimated_tokens = _estimated_chunk_input_tokens(items, provider_id=provider_id)
         token_interval = max(0.0, (estimated_tokens / tokens_per_minute) * 60.0)
     return max(token_interval, _chunk_min_start_interval_seconds(provider_id))
 
@@ -2124,7 +2164,7 @@ def _chunk_manifest_from_items(
         "semantic_keys": semantic_keys,
         "chunk_size": _evidence_chunk_size(provider_id),
         "token_budget": token_budget,
-        "estimated_input_tokens": _estimated_chunk_input_tokens(evidence_items),
+        "estimated_input_tokens": _estimated_chunk_input_tokens(evidence_items, provider_id=provider_id),
         "packing_strategy": "semantic_bucket_token_budget" if token_budget > 0 else "item_count",
         "provider_id": provider_id,
         "parent_chunk_id": parent_chunk_id,
@@ -2592,7 +2632,11 @@ def _full_corpus_coverage_summary(
         analyzed = total
     omitted = max(0, total - analyzed if chunk else 0)
     chunks = _evidence_item_chunks(bundle, provider_id=provider_id)
-    estimated_tokens = sum(_estimated_chunk_input_tokens(chunk_items) for chunk_items in chunks if chunk_items)
+    estimated_tokens = sum(
+        _estimated_chunk_input_tokens(chunk_items, provider_id=provider_id)
+        for chunk_items in chunks
+        if chunk_items
+    )
     return {
         "schema_version": "multi_ai_full_corpus_coverage.v1",
         "mode": "full_evidence_item_chunking",

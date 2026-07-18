@@ -745,6 +745,23 @@ def build_bundle_from_sanitized(
     collection_mode: str = "",
 ) -> dict[str, Any]:
     input_path = Path(sanitized_events_path)
+    input_scan = scan_sanitized_file(input_path, filename=input_path.name)
+    input_findings = list(input_scan.get("findings") or [])
+    if input_findings:
+        finding_types = sorted({str(item.get("type") or "unknown") for item in input_findings})
+        finding_lines = sorted(
+            {
+                int(item.get("line"))
+                for item in input_findings
+                if isinstance(item.get("line"), int)
+            }
+        )[:10]
+        raise ValueError(
+            "sanitized input verification failed before bundle build: "
+            f"finding_count={len(input_findings)} "
+            f"finding_types={','.join(finding_types)} "
+            f"sample_lines={','.join(str(line) for line in finding_lines)}"
+        )
     window_start = format_timestamp(start)
     window_end = format_timestamp(end)
     selected_summary, all_summary = _summarize_sanitized_events(input_path, window_start, window_end)

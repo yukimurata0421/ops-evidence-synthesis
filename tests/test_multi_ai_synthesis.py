@@ -32,6 +32,7 @@ from ops_evidence_synthesis.synthesis.multi_ai import (
     _chunk_worker_count,
     _evidence_chunk_size,
     _evidence_item_chunks,
+    _estimated_evidence_item_tokens,
     _merge_chunk_claim_payloads,
     _normalize_claim_result_payload,
     _provider_chunk_ledger_for_output_dir,
@@ -253,6 +254,30 @@ def test_evidence_chunks_use_provider_token_budget_and_semantic_buckets(monkeypa
         {str(item["coverage_class"]) for item in chunk} in ({"pattern"}, {"singleton"})
         for chunk in token_budget_chunks
     )
+
+
+def test_chunk_estimate_applies_the_provider_prompt_text_boundary(monkeypatch) -> None:
+    monkeypatch.setenv("OES_GPT_OSS_MAX_TEXT_CHARS", "480")
+    item = {
+        "evidence_id": "PATTERN-001",
+        "coverage_class": "singleton",
+        "component": "worker",
+        "event_type": "runtime_state",
+        "message_template": "x" * 200_000,
+        "example_sanitized": "y" * 200_000,
+        "count": 1,
+    }
+
+    estimated = _estimated_evidence_item_tokens(
+        item,
+        provider_id="openai-gpt-oss-on-vertex",
+    )
+
+    assert estimated < 2_000
+    assert len(_evidence_item_chunks(
+        {"evidence_items": [item]},
+        provider_id="openai-gpt-oss-on-vertex",
+    )) == 1
 
 
 def test_chunk_claim_merge_sorts_by_manifest_chunk_index_not_input_order() -> None:
