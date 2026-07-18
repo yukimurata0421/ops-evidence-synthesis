@@ -68,6 +68,13 @@ def test_provider_summary_title_distinguishes_local_and_real_modes() -> None:
         service="amazon-notify",
         provider_mode="real_api_private_gcs_cloud_run_job_postgres_ledger",
     ).startswith("Five real providers")
+    assert _provider_summary_title(
+        valid_provider_count=5,
+        provider_count=5,
+        log_count=45000,
+        service="stream_v3_runtime",
+        provider_mode="recorded_real_api_deterministic_resynthesis",
+    ).startswith("Five real providers")
 
 
 def test_runtime_release_provenance_overlays_publication_and_image_roles(monkeypatch) -> None:
@@ -917,16 +924,17 @@ def test_stream_v3_real_api_precomputed_payloads_are_renderable() -> None:
         assert payload["analysis_context"]["provider_full_corpus_coverage_ratio"] == 1.0
         assert payload["analysis_context"]["db_corpus_coverage_ratio"] == 1.0
         assert payload["analysis_context"]["db_corpus_direct_prompt_row_count"] == 0
-        assert payload["generation"]["payload_sha256"] == sha256_json(
-            {
-                "evidence_sha256": payload["evidence_sha256"],
-                "summary": payload["summary"],
-                "provider_statuses": payload["provider_statuses"],
-                "review_graph_summary": payload["review_graph_summary"],
-                "profile_context": payload["profile_context"],
-                "targets": payload["targets"],
-            }
-        )
+        hashed_payload = {
+            "evidence_sha256": payload["evidence_sha256"],
+            "summary": payload["summary"],
+            "provider_statuses": payload["provider_statuses"],
+            "review_graph_summary": payload["review_graph_summary"],
+            "profile_context": payload["profile_context"],
+            "targets": payload["targets"],
+        }
+        if payload.get("provenance"):
+            hashed_payload["provenance"] = payload["provenance"]
+        assert payload["generation"]["payload_sha256"] == sha256_json(hashed_payload)
         assert payload["profile_draft_generation"]["llm_status"] == case["profile_generation_status"]
         assert payload["profile_context"]["profile_id"]
         assert payload["profile_context"]["schema_version"] == "profile_context_summary.v2"

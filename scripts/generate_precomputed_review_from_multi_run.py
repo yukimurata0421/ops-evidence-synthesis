@@ -487,6 +487,7 @@ def build_payload(
             "provider_statuses": payload["provider_statuses"],
             "review_graph_summary": payload["review_graph_summary"],
             "profile_context": payload["profile_context"],
+            "provenance": payload["provenance"],
             "targets": payload["targets"],
         }
     )
@@ -3173,6 +3174,8 @@ def _provider_summary_title(
 
 def _local_provider_mode(provider_mode: str) -> bool:
     normalized = str(provider_mode or "").casefold()
+    if "real_api" in normalized or "recorded_real" in normalized:
+        return False
     return any(token in normalized for token in ("local", "deterministic", "fake"))
 
 

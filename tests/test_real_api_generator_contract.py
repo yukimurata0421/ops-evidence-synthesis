@@ -687,6 +687,13 @@ def test_derivation_provenance_hashes_provider_and_chunk_outputs() -> None:
     assert provenance["derived_with_commit_sha"] == "1" * 40
 
 
+def test_public_payload_hash_covers_derivation_provenance() -> None:
+    module = _generator_module()
+    source = (ROOT / "scripts" / "generate_precomputed_review_from_multi_run.py").read_text(encoding="utf-8")
+
+    assert '"provenance": payload["provenance"]' in source
+
+
 def test_absence_only_audio_energy_target_stays_validation_not_primary_candidate() -> None:
     module = _generator_module()
 
