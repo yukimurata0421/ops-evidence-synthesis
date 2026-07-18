@@ -427,7 +427,7 @@ def test_public_targets_keep_provider_error_out_of_silent_and_convergence_denomi
     assert len(targets) == 1
     target = targets[0]
     positions = {row["provider_id"]: row for row in target["provider_positions"]}
-    assert positions["gemini-enterprise-agent-platform"]["stance"] == "claimed"
+    assert positions["gemini-enterprise-agent-platform"]["stance"] == "support"
     assert positions["mistral-agent-platform"]["stance"] == "provider_error"
     assert "Excluded from convergence denominator" in positions["mistral-agent-platform"]["one_line"]
     assert positions["qwen-agent-platform"]["stance"] == "silent"
@@ -511,8 +511,8 @@ def test_provider_failure_statuses_are_not_silent_and_do_not_expand_denominator(
     assert len(targets) == 1
     target = targets[0]
     positions = {row["provider_id"]: row for row in target["provider_positions"]}
-    assert positions["gemini-enterprise-agent-platform"]["stance"] == "claimed"
-    assert positions["openai-gpt-oss-on-vertex"]["stance"] == "claimed"
+    assert positions["gemini-enterprise-agent-platform"]["stance"] == "support"
+    assert positions["openai-gpt-oss-on-vertex"]["stance"] == "support"
     assert positions["qwen-agent-platform"]["stance"] == "silent"
     assert positions["mistral-agent-platform"]["stance"] == "provider_error"
     assert positions["gemma-agent-platform"]["stance"] == "provider_error"
@@ -604,10 +604,87 @@ def test_canonical_public_target_merge_is_order_independent_and_aggregates_chunk
     assert target["agreement"]["convergence_score"] == 1.0
     positions = {row["provider_id"]: row["stance"] for row in target["provider_positions"]}
     assert positions == {
-        "gemini-enterprise-agent-platform": "claimed",
-        "qwen-agent-platform": "claimed",
-        "gemma-agent-platform": "claimed",
+        "gemini-enterprise-agent-platform": "support",
+        "qwen-agent-platform": "support",
+        "gemma-agent-platform": "support",
     }
+
+
+def test_public_agreement_counts_support_not_participation_and_keeps_counter_signal() -> None:
+    module = _generator_module()
+
+    targets = module._targets(
+        {
+            "review_targets": [
+                {
+                    "target_id": "mixed-stances",
+                    "class": "validation_target",
+                    "canonical_review_unit": "runtime_recovery",
+                    "subsystem": "runtime_recovery",
+                    "providers": ["provider-a", "provider-b", "provider-c"],
+                    "participating_providers": ["provider-a", "provider-b", "provider-c"],
+                    "supporting_providers": ["provider-a"],
+                    "support_provider_count": 1,
+                    "countering_providers": ["provider-b"],
+                    "counter_provider_count": 1,
+                    "evidence_refs": ["PATTERN-001"],
+                }
+            ]
+        },
+        provider_statuses=[
+            {"provider_id": provider, "status": "ok", "schema_valid": True}
+            for provider in ("provider-a", "provider-b", "provider-c")
+        ],
+        log_count=100,
+        evidence_lookup={"PATTERN-001": {"message_template": "restart failure"}},
+        window_start="2026-06-01T00:00:00Z",
+        window_end="2026-06-02T00:00:00Z",
+    )
+
+    target = targets[0]
+    assert target["support_provider_count"] == 1
+    assert target["counter_provider_count"] == 1
+    assert target["participating_provider_count"] == 3
+    assert target["agreement"]["convergence_score"] == 0.3333333333
+    assert target["agreement"]["verdict"] == "single_source"
+    assert {row["provider_id"]: row["stance"] for row in target["provider_positions"]} == {
+        "provider-a": "support",
+        "provider-b": "counter",
+        "provider-c": "caveat_or_validation",
+    }
+
+
+def test_derivation_provenance_hashes_provider_and_chunk_outputs() -> None:
+    module = _generator_module()
+
+    provenance = module._derivation_provenance(
+        {
+            "model_runs": [
+                {
+                    "provider_id": "provider-a",
+                    "model_name": "model-a",
+                    "raw_output_sha256": "a" * 64,
+                    "parsed_json_sha256": "b" * 64,
+                    "chunk_results": [
+                        {"raw_output_sha256": "c" * 64},
+                        {"raw_output_sha256": "d" * 64},
+                    ],
+                }
+            ]
+        },
+        source_artifact_sha256="e" * 64,
+        source_artifact_uri="gs://private/run/multi_ai_run.json",
+        tested_implementation_commit_sha="f" * 40,
+        artifact_generation_commit_sha="1" * 40,
+    )
+
+    assert provenance["derivation_mode"] == "deterministic_resynthesis_without_provider_api_calls"
+    assert provenance["source_artifact_sha256"] == "e" * 64
+    assert provenance["provider_output_sha256s"] == {"provider-a": "a" * 64}
+    assert provenance["provider_chunk_output_sha256s"]["provider-a"] == ["c" * 64, "d" * 64]
+    assert provenance["tested_implementation_commit_sha"] == "f" * 40
+    assert provenance["artifact_generation_commit_sha"] == "1" * 40
+    assert provenance["derived_with_commit_sha"] == "1" * 40
 
 
 def test_absence_only_audio_energy_target_stays_validation_not_primary_candidate() -> None:

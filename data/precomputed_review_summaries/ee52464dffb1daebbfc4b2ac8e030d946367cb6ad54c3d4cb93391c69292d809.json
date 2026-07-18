@@ -377,11 +377,11 @@
   "evidence_sha256": "ee52464dffb1daebbfc4b2ac8e030d946367cb6ad54c3d4cb93391c69292d809",
   "generation": {
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "939f7ce19b3b02100f99eaa3c78ec52789ad6d2cc486b11c9e8ba7888dfbd061",
+    "payload_sha256": "4ae4b3239ebbab424dae44aafe2b0bf4777b27df9924f17214799cc8df33004a",
     "provider_mode": "deterministic_local",
     "raw_log_policy": "not_uploaded",
     "schema_version": "precomputed_review_generation.v1",
-    "score_definition": "claimed successful providers / all successful providers",
+    "score_definition": "supporting schema-valid providers / all schema-valid providers",
     "source_note": "generated from committed public-safe amazon-notify fixture with deterministic local providers and sanitized source profile context"
   },
   "profile_context": {
@@ -568,7 +568,7 @@
     "provider_detection_overlap": "2/3",
     "review_unit_convergence": "partial",
     "rule_or_context_count": 0,
-    "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
+    "score_definition": "Convergence score = supporting schema-valid providers / all schema-valid providers. Counter, caveat, validation-only, and silent positions do not count as support.",
     "single_source_count": 0,
     "summary": "1 converged target(s), 0 single-source target(s), and 0 rule/context target(s). Incident promotion remains human-gated.",
     "targets_total": 1,
@@ -580,13 +580,13 @@
       "incident": false,
       "technical": true
     },
-    "canonical_graph_sha256": "66e96f7e9e1b54ab3dd214ec672ad4745f70ea4bb74d8cf985207d7a4d929a82",
+    "canonical_graph_sha256": "567089033067480a990ea582e061ba50423a195eb29d3534b3b92b562c0b27ca",
     "canonical_graph_status": "pipeline_generated",
     "finding": {
       "impact": "1 target(s) show provider convergence, and 1 validation target(s) remain human-gated.",
       "title": "Multi-AI disagreement requires validation"
     },
-    "input_fingerprint_sha256": "e8793c4bd8efcc8bb8c5e45ce9a13f883cda10a239fd8f3d5054e41a5b5702e2",
+    "input_fingerprint_sha256": "e494bd22792333f94589a8eaa34a125615b4975bde231fea2796e0b8d67cf906",
     "log_count": 6506,
     "providers": {
       "pipeline_status": "completed",
@@ -608,8 +608,8 @@
       "agreement": {
         "convergence_score": 0.6666666667,
         "incident_baseline": "open",
-        "score_definition": "claimed successful providers / all successful providers",
-        "summary": "2/3 successful providers projected this review unit; incident promotion remains human-gated.",
+        "score_definition": "supporting schema-valid providers / all schema-valid providers",
+        "summary": "2/3 schema-valid providers supported this review unit; incident promotion remains human-gated.",
         "technical_baseline": "established",
         "verdict": "convergence"
       },
@@ -618,6 +618,7 @@
       "canonical_review_unit": "runtime_recovery",
       "claim": "The leading hypothesis is runtime restart loop. amazon-notify in prod from 2026-06-26T22:30:00Z to 2026-06-26T23:32:21Z",
       "class": "validation_target",
+      "counter_provider_count": 0,
       "evidence_refs": [
         "PATTERN-001",
         "PATTERN-002",
@@ -635,9 +636,10 @@
         "required": false,
         "warning": ""
       },
+      "participating_provider_count": 3,
       "promotion": {
         "blocked_reason": "incident_baseline_open; user_impact_unverified; causal_direction_unverified",
-        "explanation": "2/3 providers converged, so this is technical review support; it remains a validation target until user impact or operational outcome evidence closes the gate.",
+        "explanation": "2/3 providers supplied support, so this is technical review support; it remains a validation target until user impact or operational outcome evidence closes the gate.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
         "state": "validation"
@@ -646,21 +648,27 @@
       "provider_positions": [
         {
           "model_run_hash": "902f2395e162",
-          "one_line": "Projected Service start failure needs verification as evidence-backed review work.",
+          "one_line": "Supported Service start failure needs verification as evidence-backed review work.",
           "provider_id": "local-gemini",
-          "stance": "claimed"
+          "signals_disagreement": false,
+          "stance": "support",
+          "supports_agreement": true
         },
         {
           "model_run_hash": "902f2395e162",
-          "one_line": "Projected Service start failure needs verification as evidence-backed review work.",
+          "one_line": "Supported Service start failure needs verification as evidence-backed review work.",
           "provider_id": "local-gpt-oss",
-          "stance": "claimed"
+          "signals_disagreement": false,
+          "stance": "support",
+          "supports_agreement": true
         },
         {
           "model_run_hash": "091c87678609",
-          "one_line": "Did not surface this normalized review target.",
+          "one_line": "Participated with a caveat or validation request, but did not support the claim.",
           "provider_id": "local-mistral",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "caveat_or_validation",
+          "supports_agreement": false
         }
       ],
       "recommended_request_type": "process_state",
@@ -684,6 +692,7 @@
       },
       "source_candidates": [],
       "subsystem": "runtime_recovery",
+      "support_provider_count": 2,
       "title": "Service start failure needs verification"
     }
   ],

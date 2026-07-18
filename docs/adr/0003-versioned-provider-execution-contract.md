@@ -54,13 +54,26 @@ The post-request record stores any Provider-returned model ID and resolved name.
 
 Every written multi-provider output directory includes `validation_provenance.json` with:
 
-- implementation commit SHA and whether relevant source changes were present;
+- `tested_implementation_commit_sha`: the clean implementation revision covered by the recorded test result;
+- `artifact_generation_commit_sha`: the revision whose deterministic synthesis and projection code produced the artifact;
+- `published_repository_head_sha`: the repository head published for the release;
+- `deployed_image_digest`: the immutable image digest serving the release;
+- implementation commit SHA and whether relevant source changes were present, retained for backward compatibility;
 - Evidence Bundle SHA-256;
 - requested, resolved, and Provider-returned model identities;
 - SHA-256 for `multi_ai_run.json`, `canonical_review_graph.json`, and the other review artifacts;
 - explicit public-projection and canonical-graph artifact references.
 
 Published validation must also state the exact test command and result count. A clean implementation commit and the provenance manifest together identify the input, code, execution contract, and resulting review artifacts.
+
+These four revision roles are intentionally distinct. A Provider run can be tested at one implementation revision, re-synthesized at another revision without new Provider calls, committed as part of a later publication head, and served by an image whose digest cannot be known until after the image is built. Static artifacts therefore record the tested and artifact-generation revisions. The serving process overlays the publication head and deployed image digest from deployment-time environment variables; this avoids a self-referential repository or image hash.
+
+Public artifacts derived from an immutable recorded run also include:
+
+- `source_artifact_sha256` for the exact recorded multi-run JSON;
+- `provider_output_sha256s` and per-chunk output hashes;
+- `derived_with_commit_sha`, an alias of `artifact_generation_commit_sha` for direct lineage inspection;
+- `derivation_mode=deterministic_resynthesis_without_provider_api_calls`.
 
 Implementation validation for this decision:
 

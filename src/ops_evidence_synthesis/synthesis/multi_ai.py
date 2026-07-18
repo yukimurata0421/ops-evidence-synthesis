@@ -731,9 +731,12 @@ def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> No
         name: sha256_text((out / name).read_text(encoding="utf-8"))
         for name in artifact_names
     }
+    revision_roles = _provenance_revision_roles(implementation)
     provenance = {
-        "schema_version": "multi_ai_validation_provenance.v1",
+        "schema_version": "multi_ai_validation_provenance.v2",
         "implementation": implementation,
+        **revision_roles,
+        "revision_roles": revision_roles,
         "evidence_bundle_sha256": str(result.get("evidence_sha256") or ""),
         "providers": _provider_model_provenance(result),
         "artifacts": {
@@ -753,6 +756,25 @@ def write_multi_ai_outputs(result: dict[str, Any], output_dir: str | Path) -> No
         pretty_json(provenance) + "\n",
         encoding="utf-8",
     )
+
+
+def _provenance_revision_roles(implementation: dict[str, Any]) -> dict[str, str]:
+    implementation_commit = str(implementation.get("commit_sha") or "")
+    artifact_generation_commit = (
+        os.environ.get("OES_ARTIFACT_GENERATION_COMMIT_SHA", "").strip()
+        or implementation_commit
+    )
+    return {
+        "tested_implementation_commit_sha": (
+            os.environ.get("OES_TESTED_IMPLEMENTATION_COMMIT_SHA", "").strip()
+            or implementation_commit
+        ),
+        "published_repository_head_sha": os.environ.get(
+            "OES_PUBLISHED_REPOSITORY_HEAD_SHA", ""
+        ).strip(),
+        "deployed_image_digest": os.environ.get("OES_DEPLOYED_IMAGE_DIGEST", "").strip(),
+        "artifact_generation_commit_sha": artifact_generation_commit,
+    }
 
 
 def _implementation_revision() -> dict[str, Any]:

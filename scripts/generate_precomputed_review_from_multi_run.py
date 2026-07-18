@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +19,7 @@ from ops_evidence_synthesis.precomputed_review import SCORE_DEFINITION, stable_p
 from ops_evidence_synthesis.profile_gate import build_profile_context_summary
 from ops_evidence_synthesis.synthesis.priority_scoring import score_review_priority
 from ops_evidence_synthesis.synthesis.review_arbitration import arbitrate_review_targets
+from ops_evidence_synthesis.synthesis.multi_ai import synthesize_multi_ai
 from ops_evidence_synthesis.synthesis.evidence_reconciliation import (
     filter_contradicted_absence_claims,
     reconcile_missing_evidence,
@@ -67,6 +71,21 @@ def main() -> int:
     parser.add_argument("--profile-draft", default="", help="Optional profile_draft.json generated from sanitized discovery.")
     parser.add_argument("--approved-profile", default="", help="Optional approved explicit profile JSON/YAML.")
     parser.add_argument("--api-revision", default="", help="API revision that produced the multi-run response.")
+    parser.add_argument(
+        "--tested-implementation-commit-sha",
+        default="",
+        help="Clean implementation revision whose tests validate this derivation logic.",
+    )
+    parser.add_argument(
+        "--artifact-generation-commit-sha",
+        default="",
+        help="Clean repository revision used to generate this derived artifact (defaults to git HEAD).",
+    )
+    parser.add_argument(
+        "--source-artifact-uri",
+        default="",
+        help="Audit URI for the immutable recorded multi-run input.",
+    )
     parser.add_argument("--profile-id", default="", help="Approved profile id used for the run.")
     parser.add_argument("--updated-at", default="", help="Timestamp to store in the public payload.")
     parser.add_argument("--output-dir", default="data/precomputed_review_summaries")
@@ -98,6 +117,15 @@ def main() -> int:
     source_analysis = _load_json(args.source_analysis) if args.source_analysis else {}
     profile_draft = _load_json(args.profile_draft) if args.profile_draft else {}
     approved_profile = _load_profile(args.approved_profile) if args.approved_profile else {}
+    generation_commit_sha = args.artifact_generation_commit_sha or _git_commit_sha()
+    tested_commit_sha = args.tested_implementation_commit_sha or generation_commit_sha
+    derivation_provenance = _derivation_provenance(
+        api_response,
+        source_artifact_sha256=_sha256_file(Path(args.multi_run_json)),
+        source_artifact_uri=args.source_artifact_uri,
+        tested_implementation_commit_sha=tested_commit_sha,
+        artifact_generation_commit_sha=generation_commit_sha,
+    )
 
     payload = build_payload(
         api_response,
@@ -114,6 +142,7 @@ def main() -> int:
         model_projection_policy=args.model_projection_policy,
         log_observations=args.log_observation,
         min_window_hours=args.min_window_hours,
+        derivation_provenance=derivation_provenance,
     )
     output_path = Path(args.output_dir) / f"{payload['evidence_sha256']}.json"
     generated = stable_precomputed_review_json(payload)
@@ -150,6 +179,7 @@ def build_payload(
     model_projection_policy: str,
     log_observations: list[str],
     min_window_hours: int = DEFAULT_MIN_ANALYSIS_WINDOW_HOURS,
+    derivation_provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     evidence_sha256 = str(api_response.get("evidence_sha256") or bundle.get("evidence_sha256") or "")
     if not evidence_sha256:
@@ -168,10 +198,11 @@ def build_payload(
         min_hours=min_window_hours,
         context=f"public real-provider payload {evidence_sha256}",
     )
-    synthesis = api_response.get("multi_ai_synthesis") if isinstance(api_response.get("multi_ai_synthesis"), dict) else {}
+    model_runs = [row for row in api_response.get("model_runs") or [] if isinstance(row, dict)]
+    synthesis = synthesize_multi_ai(bundle, model_runs)
     canonical_graph = arbitrate_review_targets(
         bundle,
-        model_runs=[row for row in api_response.get("model_runs") or [] if isinstance(row, dict)],
+        model_runs=model_runs,
         multi_ai_synthesis=synthesis,
         approved_profile=approved_profile,
         source_context=source_context,
@@ -277,7 +308,10 @@ def build_payload(
             "api_revision": api_revision,
             "pipeline_run_id": str(api_response.get("pipeline_run_id") or ""),
             "min_analysis_window_hours": min_window_hours,
+            "agreement_contract": "stance_aware_support.v2",
+            "synthesis_mode": "derived_from_recorded_provider_outputs",
         },
+        "provenance": dict(derivation_provenance or {}),
         "summary": {
             "schema_version": "ui_summary.v1",
             "status": "ok",
@@ -491,9 +525,11 @@ def _provider_position_for_target(
     provider_id: str,
     provider_status: dict[str, Any],
     *,
-    claimed: bool,
+    supporting: bool,
+    countering: bool,
+    participating: bool,
     model_run_hash: str,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     if provider_status and (
         str(provider_status.get("status") or "") != "ok" or not bool(provider_status.get("schema_valid"))
     ):
@@ -505,16 +541,31 @@ def _provider_position_for_target(
             "stance": "provider_error",
             "model_run_hash": model_run_hash,
             "one_line": f"{failure} Excluded from convergence denominator.",
+            "supports_agreement": False,
+            "signals_disagreement": False,
         }
+    if supporting and countering:
+        stance = "support_and_counter"
+        one_line = "Supplied both support and a counter-signal for this canonical review unit."
+    elif supporting:
+        stance = "support"
+        one_line = "Supplied support evidence for this canonical review unit."
+    elif countering:
+        stance = "counter"
+        one_line = "Supplied counter-evidence for this canonical review unit."
+    elif participating:
+        stance = "caveat_or_validation"
+        one_line = "Participated with a caveat or validation request, but did not support the claim."
+    else:
+        stance = "silent"
+        one_line = "Did not surface this normalized review target."
     return {
         "provider_id": provider_id,
-        "stance": "claimed" if claimed else "silent",
+        "stance": stance,
         "model_run_hash": model_run_hash,
-        "one_line": (
-            "Projected this canonical review unit from the real API run."
-            if claimed
-            else "Did not surface this normalized review target."
-        ),
+        "one_line": one_line,
+        "supports_agreement": supporting,
+        "signals_disagreement": countering,
     }
 
 
@@ -529,8 +580,9 @@ def _provider_positions_for_target_class(
     rows: list[dict[str, Any]] = []
     for row in provider_positions:
         output = dict(row)
-        if str(output.get("stance") or "") == "claimed":
+        if _position_supports_agreement(output):
             output["stance"] = NO_FINDING_STANCE
+            output["supports_agreement"] = False
             output["one_line"] = (
                 "Reported a source/deployment caveat rather than an incident claim."
                 if adjustment == STRUCTURAL_CAVEAT_REASON
@@ -609,17 +661,42 @@ def _targets(
     for target in api_response.get("review_targets") or []:
         if not isinstance(target, dict):
             continue
-        claimed = {str(provider) for provider in target.get("providers") or []}
+        participating = {
+            str(provider)
+            for provider in target.get("participating_providers") or target.get("providers") or []
+        }
+        stance_aware = any(
+            key in target
+            for key in ("supporting_providers", "support_provider_count", "countering_providers")
+        )
+        supporting = {
+            str(provider)
+            for provider in (
+                target.get("supporting_providers")
+                if stance_aware
+                else target.get("providers")
+            )
+            or []
+        }
+        countering = {str(provider) for provider in target.get("countering_providers") or []}
         provider_positions = [
             _provider_position_for_target(
                 provider_id,
                 provider_status_by_id.get(provider_id, {}),
-                claimed=provider_id in claimed,
+                supporting=provider_id in supporting,
+                countering=provider_id in countering,
+                participating=provider_id in participating,
                 model_run_hash=run_hashes.get(provider_id, ""),
             )
             for provider_id in provider_ids
         ]
-        provider_count = sum(1 for row in provider_positions if row["stance"] == "claimed")
+        provider_count = sum(1 for row in provider_positions if _position_supports_agreement(row))
+        counter_provider_count = sum(1 for row in provider_positions if _position_signals_disagreement(row))
+        participating_provider_count = sum(
+            1
+            for row in provider_positions
+            if str(row.get("stance") or "") not in {"silent", "provider_error"}
+        )
         verdict = "convergence" if provider_count >= 2 else "single_source" if provider_count == 1 else "rule_or_context"
         source_evidence_refs = list(target.get("evidence_refs") or [])
         evidence_refs, excluded_evidence_refs = _filter_window_evidence_refs(
@@ -686,7 +763,13 @@ def _targets(
             provider_positions,
             classification=classification,
         )
-        provider_count = sum(1 for row in provider_positions if row["stance"] == "claimed")
+        provider_count = sum(1 for row in provider_positions if _position_supports_agreement(row))
+        counter_provider_count = sum(1 for row in provider_positions if _position_signals_disagreement(row))
+        participating_provider_count = sum(
+            1
+            for row in provider_positions
+            if str(row.get("stance") or "") not in {"silent", "provider_error"}
+        )
         if normal_observation:
             verdict = "normal_observation"
         elif structural_caveat:
@@ -800,6 +883,9 @@ def _targets(
                 "raw_review_priority_score": round(float(public_target.get("review_priority_score") or 0.0), 4),
                 "score_breakdown": priority_result["breakdown"],
                 "provider_count": provider_count,
+                "support_provider_count": provider_count,
+                "counter_provider_count": counter_provider_count,
+                "participating_provider_count": participating_provider_count,
                 "recommended_request_type": str(public_target.get("recommended_request_type") or ""),
                 "claim": _target_claim(
                     public_target,
@@ -837,8 +923,9 @@ def _targets(
                         if normal_observation
                         else (
                             f"{provider_count}/{valid_count} schema-valid "
-                            f"{'provider' if valid_count == 1 else 'providers'} projected this review unit "
+                            f"{'provider' if valid_count == 1 else 'providers'} supported this review unit "
                             f"from the {log_count:,}-row corpus; "
+                            f"{counter_provider_count} provider counter-signal(s) were retained; "
                             "incident promotion remains human-gated."
                         )
                     ),
@@ -1121,7 +1208,13 @@ def _merge_duplicate_public_target(
         list(winner.get("provider_positions") or []),
         list(duplicate.get("provider_positions") or []),
     )
-    provider_count = sum(1 for row in provider_positions if str(row.get("stance") or "") == "claimed")
+    provider_count = sum(1 for row in provider_positions if _position_supports_agreement(row))
+    counter_provider_count = sum(1 for row in provider_positions if _position_signals_disagreement(row))
+    participating_provider_count = sum(
+        1
+        for row in provider_positions
+        if str(row.get("stance") or "") not in {"silent", "provider_error"}
+    )
     no_finding_count = sum(1 for row in provider_positions if str(row.get("stance") or "") == NO_FINDING_STANCE)
     denominator = max(1, sum(1 for row in provider_positions if str(row.get("stance") or "") != "provider_error"))
 
@@ -1135,6 +1228,9 @@ def _merge_duplicate_public_target(
     merged["source_chunks"] = source_chunks
     merged["provider_positions"] = provider_positions
     merged["provider_count"] = provider_count
+    merged["support_provider_count"] = provider_count
+    merged["counter_provider_count"] = counter_provider_count
+    merged["participating_provider_count"] = participating_provider_count
     merged_source_candidates = _merge_public_source_candidates(winner, duplicate)
     merged_rollup = _merge_public_rollup_details(
         winner,
@@ -1373,23 +1469,44 @@ def _merge_provider_positions(
         if current is None:
             merged[provider_id] = dict(position)
             continue
-        merged[provider_id] = _choose_provider_position(current, position)
+        merged[provider_id] = _merge_provider_position(current, position)
     return [merged[provider_id] for provider_id in order]
 
 
-def _choose_provider_position(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
-    first_rank = _provider_position_rank(first)
-    second_rank = _provider_position_rank(second)
-    if second_rank > first_rank:
+def _merge_provider_position(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
+    first_error = str(first.get("stance") or "") == "provider_error"
+    second_error = str(second.get("stance") or "") == "provider_error"
+    if first_error and not second_error:
         return dict(second)
-    return dict(first)
+    if second_error and not first_error:
+        return dict(first)
+    supports = _position_supports_agreement(first) or _position_supports_agreement(second)
+    counters = _position_signals_disagreement(first) or _position_signals_disagreement(second)
+    if supports or counters:
+        output = dict(first if _provider_position_rank(first) >= _provider_position_rank(second) else second)
+        output["supports_agreement"] = supports
+        output["signals_disagreement"] = counters
+        output["stance"] = "support_and_counter" if supports and counters else "support" if supports else "counter"
+        output["one_line"] = (
+            "Supplied both support and a counter-signal across rolled-up source candidates."
+            if supports and counters
+            else "Supplied support evidence across rolled-up source candidates."
+            if supports
+            else "Supplied counter-evidence across rolled-up source candidates."
+        )
+        return output
+    return dict(first if _provider_position_rank(first) >= _provider_position_rank(second) else second)
 
 
 def _provider_position_rank(position: dict[str, Any]) -> int:
     stance = str(position.get("stance") or "")
-    if stance == "claimed":
-        return 4
+    if _position_supports_agreement(position):
+        return 6
+    if _position_signals_disagreement(position):
+        return 5
     if stance == "provider_error":
+        return 4
+    if stance == "caveat_or_validation":
         return 3
     if stance == NO_FINDING_STANCE:
         return 2
@@ -1398,10 +1515,30 @@ def _provider_position_rank(position: dict[str, Any]) -> int:
     return 0
 
 
+def _position_supports_agreement(position: dict[str, Any]) -> bool:
+    if "supports_agreement" in position:
+        return bool(position.get("supports_agreement"))
+    return str(position.get("stance") or "").casefold() in {
+        "support",
+        "support_and_counter",
+        "claimed",
+    }
+
+
+def _position_signals_disagreement(position: dict[str, Any]) -> bool:
+    if "signals_disagreement" in position:
+        return bool(position.get("signals_disagreement"))
+    return str(position.get("stance") or "").casefold() in {
+        "counter",
+        "support_and_counter",
+        "contradicted",
+    }
+
+
 def _replace_provider_fraction(summary: str, *, provider_count: int, denominator: int) -> str:
     prefix = f"{provider_count}/{denominator} schema-valid {'provider' if denominator == 1 else 'providers'}"
     if not summary:
-        return f"{prefix} projected this review unit; incident promotion remains human-gated."
+        return f"{prefix} supported this review unit; incident promotion remains human-gated."
     return re.sub(r"^\d+/\d+ schema-valid providers?", prefix, summary, count=1)
 
 
@@ -2423,7 +2560,7 @@ def _review_graph_summary(
         1
         for target in targets
         for position in target.get("provider_positions") or []
-        if isinstance(position, dict) and str(position.get("stance") or "") == "contradicted"
+        if isinstance(position, dict) and _position_signals_disagreement(position)
     )
     incident_established = _incident_baseline_established(canonical_graph)
     return {
@@ -2444,7 +2581,10 @@ def _review_graph_summary(
         "target_promotion_policy": _target_promotion_policy(targets),
         "provider_detection_overlap": str((agreement.get("provider_detection_overlap") or {}).get("value") or ""),
         "review_unit_convergence": str((agreement.get("review_unit_convergence") or {}).get("value") or ""),
-        "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
+        "score_definition": (
+            "Convergence score = supporting schema-valid providers / all schema-valid providers. "
+            "Counter, caveat, validation-only, and silent positions do not count as support."
+        ),
         "note": (
             "Provider convergence is technical support only; causal and impact judgement remains human-gated. "
             "Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent; "
@@ -2454,7 +2594,7 @@ def _review_graph_summary(
             f"The e2e API analyzed a {log_count:,}-row sanitized log corpus with "
             f"{provider_count} schema-valid real provider {'output' if provider_count == 1 else 'outputs'}; "
             f"{convergence_count} {'review unit' if convergence_count == 1 else 'review units'} "
-            "had at least two provider positions while impact remains human-gated."
+            "had support from at least two providers while impact remains human-gated."
         ),
     }
 
@@ -3116,6 +3256,90 @@ def _source_context_sha(api_response: dict[str, Any], source_context: dict[str, 
 def _source_analysis_sha(api_response: dict[str, Any], source_analysis: dict[str, Any]) -> str:
     context_inputs = api_response.get("context_inputs") if isinstance(api_response.get("context_inputs"), dict) else {}
     return str(source_analysis.get("analysis_sha256") or context_inputs.get("source_analysis_sha256") or "")
+
+
+def _derivation_provenance(
+    api_response: dict[str, Any],
+    *,
+    source_artifact_sha256: str,
+    source_artifact_uri: str,
+    tested_implementation_commit_sha: str,
+    artifact_generation_commit_sha: str,
+) -> dict[str, Any]:
+    provider_outputs: list[dict[str, Any]] = []
+    provider_output_sha256s: dict[str, str] = {}
+    provider_chunk_output_sha256s: dict[str, list[str]] = {}
+    for run in sorted(
+        (row for row in api_response.get("model_runs") or [] if isinstance(row, dict)),
+        key=lambda row: str(row.get("provider_id") or ""),
+    ):
+        provider_id = str(run.get("provider_id") or "").strip()
+        if not provider_id:
+            continue
+        output_sha = str(run.get("raw_output_sha256") or "").strip()
+        chunk_hashes = _unique_strings(
+            [
+                row.get("raw_output_sha256")
+                for row in run.get("chunk_results") or []
+                if isinstance(row, dict)
+            ]
+        )
+        if output_sha:
+            provider_output_sha256s[provider_id] = output_sha
+        if chunk_hashes:
+            provider_chunk_output_sha256s[provider_id] = chunk_hashes
+        provider_outputs.append(
+            {
+                "provider_id": provider_id,
+                "model_name": str(run.get("model_name") or ""),
+                "raw_output_sha256": output_sha,
+                "parsed_json_sha256": str(run.get("parsed_json_sha256") or ""),
+                "chunk_output_sha256s": chunk_hashes,
+            }
+        )
+    return {
+        "schema_version": "public_review_derivation_provenance.v1",
+        "derivation_mode": "deterministic_resynthesis_without_provider_api_calls",
+        "source_artifact_sha256": source_artifact_sha256,
+        "source_artifact_uri": str(source_artifact_uri or ""),
+        "provider_output_sha256s": provider_output_sha256s,
+        "provider_chunk_output_sha256s": provider_chunk_output_sha256s,
+        "provider_outputs": provider_outputs,
+        "tested_implementation_commit_sha": str(tested_implementation_commit_sha or ""),
+        "published_repository_head_sha": "",
+        "deployed_image_digest": "",
+        "artifact_generation_commit_sha": str(artifact_generation_commit_sha or ""),
+        "derived_with_commit_sha": str(artifact_generation_commit_sha or ""),
+        "runtime_overlay_fields": [
+            "published_repository_head_sha",
+            "deployed_image_digest",
+        ],
+    }
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _git_commit_sha() -> str:
+    explicit = os.environ.get("OES_ARTIFACT_GENERATION_COMMIT_SHA", "").strip()
+    if explicit:
+        return explicit
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return completed.stdout.strip() if completed.returncode == 0 else ""
 
 
 def _int(value: Any) -> int:

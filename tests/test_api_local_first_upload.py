@@ -135,7 +135,7 @@ def test_fast_review_shell_embeds_precomputed_summary(
                     "provider_detection_overlap": "1/2",
                     "auto_archived_count": 0,
                     "summary": "1 visible validation target: 0 converged / 0 conflicting / 1 single-source.",
-                    "score_definition": "Convergence score = claimed successful providers / all successful providers.",
+                    "score_definition": "Convergence score = supporting schema-valid providers / all schema-valid providers.",
                 },
                 "devops_loop": {
                     "title": "AI workflow is operated as production software",
@@ -158,7 +158,8 @@ def test_fast_review_shell_embeds_precomputed_summary(
                         "provider_positions": [
                             {
                                 "provider_id": "provider-a",
-                                "stance": "claimed",
+                                "stance": "support",
+                                "supports_agreement": True,
                                 "model_run_hash": "run-a",
                                 "one_line": "Flagged scheduler drift.",
                             },
@@ -172,10 +173,10 @@ def test_fast_review_shell_embeds_precomputed_summary(
                         "agreement": {
                             "verdict": "single_source",
                             "convergence_score": 0.5,
-                            "score_definition": "claimed successful providers / all successful providers",
+                            "score_definition": "supporting schema-valid providers / all schema-valid providers",
                             "technical_baseline": "open",
                             "incident_baseline": "open",
-                            "summary": "Only one provider claimed the target.",
+                            "summary": "Only one provider supported the target.",
                         },
                         "promotion": {
                             "state": "validation",
@@ -216,8 +217,8 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert "0 converged / 0 conflicting / 1 single-source" in page.text
     assert "DevOps Improvement Loop" in page.text
     assert "single_source" in page.text
-    assert "claimed 1 / silent 1" in page.text
-    assert "Convergence score = claimed successful providers / all successful providers." in page.text
+    assert "support 1 / silent 1" in page.text
+    assert "Convergence score = supporting schema-valid providers / all schema-valid providers." in page.text
     assert "Configuration mismatch requires review" in page.text
     assert "Loading saved result" not in page.text
     assert "Detailed review state is loading" not in page.text
@@ -233,7 +234,7 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert "provider-b" in detail.text
     assert "Promotion gate" in detail.text
     assert "user_impact_unverified" in detail.text
-    assert "Definition: claimed successful providers / all successful providers" in detail.text
+    assert "Definition: supporting schema-valid providers / all schema-valid providers" in detail.text
     assert static_detail.status_code == 200
     assert "Saved finding" in static_detail.text
     assert "Configuration mismatch requires review" in static_detail.text

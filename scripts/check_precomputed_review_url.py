@@ -51,7 +51,7 @@ REPORT_NEEDLES = [
 
 REVIEW_TARGET_NEEDLES = [
     "precomputed_review_summary",
-    "claimed",
+    "support",
     "provider_positions",
 ]
 
@@ -277,7 +277,7 @@ def _check_missing(name: str, url: str, *, timeout_seconds: float) -> None:
     _require(status == 404, f"{name} returned HTTP {status}, expected 404")
     _require("Multi-AI disagreement requires validation" not in body, f"{name} returned stale review content")
     _require("Provider positions were not projected" not in body, f"{name} returned stale detail content")
-    _require("claimed 1" not in body, f"{name} returned stale provider stance")
+    _require("support 1" not in body, f"{name} returned stale provider stance")
     _require("canonical_review_graph" not in body, f"{name} returned stale review graph")
     print(f"{name}: http={status} elapsed={elapsed:.3f}s stale_text=absent")
 

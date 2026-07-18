@@ -554,7 +554,12 @@ def test_run_multi_ai_cli_generates_artifacts_with_local_providers(tmp_path: Pat
     assert review_targets
     assert canonical_graph["schema_version"] == "canonical_review_graph.v1"
     assert "agreement_dimensions" in canonical_graph
-    assert provenance["schema_version"] == "multi_ai_validation_provenance.v1"
+    assert provenance["schema_version"] == "multi_ai_validation_provenance.v2"
+    assert provenance["tested_implementation_commit_sha"]
+    assert provenance["artifact_generation_commit_sha"]
+    assert provenance["revision_roles"]["tested_implementation_commit_sha"]
+    assert "published_repository_head_sha" in provenance
+    assert "deployed_image_digest" in provenance
     assert provenance["implementation"]["commit_sha"]
     assert len(provenance["artifacts"]["multi_ai_run.json"]["sha256"]) == 64
     assert provenance["public_projection_artifact"]["sha256"] == provenance["artifacts"]["multi_ai_run.json"][

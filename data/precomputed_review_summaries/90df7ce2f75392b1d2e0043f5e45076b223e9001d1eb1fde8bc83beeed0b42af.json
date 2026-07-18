@@ -18,7 +18,7 @@
       "summary": "Evidence Bundle 90df7ce2f753 fixed 20 sanitized rows; raw_log_policy=not_uploaded.",
       "title": "Freeze Evidence Bundle",
       "tool": "freeze_evidence_bundle",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -41,7 +41,7 @@
       "summary": "Sanitized Source Context and Source Analysis are available as non-evidence interpretation context.",
       "title": "Attach Sanitized Source Context",
       "tool": "attach_sanitized_source_context",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -67,7 +67,7 @@
       "summary": "3/3 provider outputs were schema-valid; Gemini reference/arbiter present=True. A silent provider position is preserved as evidence for review, not treated as failure.",
       "title": "Run Cross-Check Providers",
       "tool": "run_cross_check_providers",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -97,7 +97,7 @@
       "summary": "No full-corpus chunk manifest was attached to this payload.",
       "title": "Chunk And Merge Full Corpus",
       "tool": "chunk_and_merge_full_corpus",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -121,7 +121,7 @@
       "summary": "5 review target(s) directly show 11 unique cited Evidence Item(s); chunk manifests track 11 target evidence association(s); 13 missing-evidence item(s) remain.",
       "title": "Validate Citations",
       "tool": "validate_citations",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -143,7 +143,7 @@
       "summary": "Canonical Review Graph projected 5 target(s), 0 primary candidate(s), and 1 convergence group(s).",
       "title": "Compute Review Targets",
       "tool": "compute_review_targets",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -154,7 +154,7 @@
         "artifact": "review_arbitration",
         "blocked_reasons": [
           "incident_baseline_open; user_impact_unverified; causal_direction_unverified",
-          "no_provider_claim; human_validation_required"
+          "no_provider_support; human_validation_required"
         ],
         "incident_baseline": "open",
         "requires_human_review": true,
@@ -167,7 +167,7 @@
       "summary": "Final incident causality remains human-gated; the agent stops with review targets.",
       "title": "Arbitrate Human Gate",
       "tool": "arbitrate_review_gate",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -192,7 +192,7 @@
       "summary": "Generated read-only follow-up plan with 4 request type(s) and 13 missing-evidence item(s), grouped for top-N human review.",
       "title": "Request More Evidence",
       "tool": "request_more_evidence",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -273,7 +273,7 @@
       "summary": "Approved profile context is attached before review; it remains interpretation context and runtime claims still require Evidence Item IDs.",
       "title": "Draft System Profile",
       "tool": "draft_system_profile",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     },
     {
@@ -294,7 +294,7 @@
       "summary": "Read-only review payload for 90df7ce2f753 is served from precomputed JSON; page load does not invoke live model work.",
       "title": "Deliver Read-Only Review",
       "tool": "deliver_read_only_review",
-      "trace_sha256": "507ed14f2a0555370056502d1ca2408a1b7a3feedb10dad9a5aa9e1f5de38d00",
+      "trace_sha256": "214f328e639282685b5ddef7a25acc4c9a82dfcc5d1e7bc5c15e7137e11a5293",
       "trace_source": "adk_tool_contract"
     }
   ],
@@ -380,11 +380,11 @@
   "evidence_sha256": "90df7ce2f75392b1d2e0043f5e45076b223e9001d1eb1fde8bc83beeed0b42af",
   "generation": {
     "generator": "ops_evidence_synthesis.precomputed_review",
-    "payload_sha256": "a1818c0205cb5d27659f35296051f45d42b294a0bc9df355104aaac412b0c081",
+    "payload_sha256": "141ba59c8c65091605309338fe720efefb3934e38f4e93f6be5a74ef8bec41f8",
     "provider_mode": "deterministic_local",
     "raw_log_policy": "not_uploaded",
     "schema_version": "precomputed_review_generation.v1",
-    "score_definition": "claimed successful providers / all successful providers",
+    "score_definition": "supporting schema-valid providers / all schema-valid providers",
     "source_note": "generated from public sample fixture with deterministic local providers and sanitized source profile context"
   },
   "profile_context": {
@@ -571,7 +571,7 @@
     "provider_detection_overlap": "2/3",
     "review_unit_convergence": "partial",
     "rule_or_context_count": 4,
-    "score_definition": "Convergence score = claimed successful providers / all successful providers. Silent providers count against convergence.",
+    "score_definition": "Convergence score = supporting schema-valid providers / all schema-valid providers. Counter, caveat, validation-only, and silent positions do not count as support.",
     "single_source_count": 0,
     "summary": "1 converged target(s), 0 single-source target(s), and 4 rule/context target(s). Incident promotion remains human-gated.",
     "targets_total": 5,
@@ -583,13 +583,13 @@
       "incident": false,
       "technical": true
     },
-    "canonical_graph_sha256": "e3b8d9bd90ca0a444e114b02260ac9e55dccad156a69b02e8237266c81fe186a",
+    "canonical_graph_sha256": "5307c10e1a86f9714d3336516b54e47aca82a9539d37ca6e1f60cdd7eb59c44e",
     "canonical_graph_status": "pipeline_generated",
     "finding": {
       "impact": "1 target(s) show provider convergence, and 5 validation target(s) remain human-gated.",
       "title": "Multi-AI disagreement requires validation"
     },
-    "input_fingerprint_sha256": "5aaaa780a5c6f07a08cf09693b15193bf32813c682b1d25c2646b26e4cd3b1b3",
+    "input_fingerprint_sha256": "ccc4822f7319b9bfecb1d7718a09504f6829290a661a8f18e5e94295490de429",
     "log_count": 20,
     "providers": {
       "pipeline_status": "completed",
@@ -611,8 +611,8 @@
       "agreement": {
         "convergence_score": 0.6666666667,
         "incident_baseline": "open",
-        "score_definition": "claimed successful providers / all successful providers",
-        "summary": "2/3 successful providers projected this review unit; incident promotion remains human-gated.",
+        "score_definition": "supporting schema-valid providers / all schema-valid providers",
+        "summary": "2/3 schema-valid providers supported this review unit; incident promotion remains human-gated.",
         "technical_baseline": "established",
         "verdict": "convergence"
       },
@@ -621,6 +621,7 @@
       "canonical_review_unit": "database_connection_pool",
       "claim": "The leading hypothesis is database connection pool saturation. payment-api in prod from 2026-06-12T10:00:00Z to 2026-06-12T10:20:00Z. Deployments in scope: v41, v42",
       "class": "validation_target",
+      "counter_provider_count": 0,
       "evidence_refs": [
         "LOG-001",
         "LOG-002",
@@ -637,9 +638,10 @@
         "required": false,
         "warning": ""
       },
+      "participating_provider_count": 2,
       "promotion": {
         "blocked_reason": "incident_baseline_open; user_impact_unverified; causal_direction_unverified",
-        "explanation": "2/3 providers converged, so this is technical review support; it remains a validation target until user impact or operational outcome evidence closes the gate.",
+        "explanation": "2/3 providers supplied support, so this is technical review support; it remains a validation target until user impact or operational outcome evidence closes the gate.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
         "state": "validation"
@@ -648,21 +650,27 @@
       "provider_positions": [
         {
           "model_run_hash": "ffe7fb3357a9",
-          "one_line": "Projected Deployment correlation needs validation as evidence-backed review work.",
+          "one_line": "Supported Deployment correlation needs validation as evidence-backed review work.",
           "provider_id": "local-gemini",
-          "stance": "claimed"
+          "signals_disagreement": false,
+          "stance": "support",
+          "supports_agreement": true
         },
         {
           "model_run_hash": "ffe7fb3357a9",
-          "one_line": "Projected Deployment correlation needs validation as evidence-backed review work.",
+          "one_line": "Supported Deployment correlation needs validation as evidence-backed review work.",
           "provider_id": "local-gpt-oss",
-          "stance": "claimed"
+          "signals_disagreement": false,
+          "stance": "support",
+          "supports_agreement": true
         },
         {
           "model_run_hash": "fe451079fb49",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-mistral",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         }
       ],
       "recommended_request_type": "deployment_correlation",
@@ -686,13 +694,14 @@
       },
       "source_candidates": [],
       "subsystem": "database_connection_pool",
+      "support_provider_count": 2,
       "title": "Deployment correlation needs validation"
     },
     {
       "agreement": {
         "convergence_score": 0.0,
         "incident_baseline": "open",
-        "score_definition": "claimed successful providers / all successful providers",
+        "score_definition": "supporting schema-valid providers / all schema-valid providers",
         "summary": "This target is rule/context-driven and remains validation-only until provider evidence or human evidence closes the gate.",
         "technical_baseline": "open",
         "verdict": "rule_or_context"
@@ -702,6 +711,7 @@
       "canonical_review_unit": "generic_runtime",
       "claim": "warn_count increased from baseline 1 to 4.",
       "class": "validation_target",
+      "counter_provider_count": 0,
       "evidence_refs": [
         "METRIC-002"
       ],
@@ -714,8 +724,9 @@
         "required": false,
         "warning": ""
       },
+      "participating_provider_count": 0,
       "promotion": {
-        "blocked_reason": "no_provider_claim; human_validation_required",
+        "blocked_reason": "no_provider_support; human_validation_required",
         "explanation": "This target came from deterministic routing or context and needs runtime evidence before promotion.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
@@ -727,19 +738,25 @@
           "model_run_hash": "ffe7fb3357a9",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-gemini",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         },
         {
           "model_run_hash": "ffe7fb3357a9",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-gpt-oss",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         },
         {
           "model_run_hash": "fe451079fb49",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-mistral",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         }
       ],
       "recommended_request_type": "error_sample",
@@ -763,13 +780,14 @@
       },
       "source_candidates": [],
       "subsystem": "generic_runtime",
+      "support_provider_count": 0,
       "title": "Warning spike needs review"
     },
     {
       "agreement": {
         "convergence_score": 0.0,
         "incident_baseline": "open",
-        "score_definition": "claimed successful providers / all successful providers",
+        "score_definition": "supporting schema-valid providers / all schema-valid providers",
         "summary": "This target is rule/context-driven and remains validation-only until provider evidence or human evidence closes the gate.",
         "technical_baseline": "open",
         "verdict": "rule_or_context"
@@ -779,6 +797,7 @@
       "canonical_review_unit": "runtime_recovery",
       "claim": "runtime_restart_count increased from baseline 0 to 1.",
       "class": "validation_target",
+      "counter_provider_count": 0,
       "evidence_refs": [
         "METRIC-003"
       ],
@@ -792,8 +811,9 @@
         "required": false,
         "warning": ""
       },
+      "participating_provider_count": 0,
       "promotion": {
-        "blocked_reason": "no_provider_claim; human_validation_required",
+        "blocked_reason": "no_provider_support; human_validation_required",
         "explanation": "This target came from deterministic routing or context and needs runtime evidence before promotion.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
@@ -805,19 +825,25 @@
           "model_run_hash": "ffe7fb3357a9",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-gemini",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         },
         {
           "model_run_hash": "ffe7fb3357a9",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-gpt-oss",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         },
         {
           "model_run_hash": "fe451079fb49",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-mistral",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         }
       ],
       "recommended_request_type": "process_state",
@@ -841,13 +867,14 @@
       },
       "source_candidates": [],
       "subsystem": "runtime_recovery",
+      "support_provider_count": 0,
       "title": "Restart loop needs review"
     },
     {
       "agreement": {
         "convergence_score": 0.0,
         "incident_baseline": "open",
-        "score_definition": "claimed successful providers / all successful providers",
+        "score_definition": "supporting schema-valid providers / all schema-valid providers",
         "summary": "This target is rule/context-driven and remains validation-only until provider evidence or human evidence closes the gate.",
         "technical_baseline": "open",
         "verdict": "rule_or_context"
@@ -857,6 +884,7 @@
       "canonical_review_unit": "downstream_dependency",
       "claim": "Network or dependency error pattern occurred 1 times.",
       "class": "validation_target",
+      "counter_provider_count": 0,
       "evidence_refs": [
         "PATTERN-001",
         "PATTERN-003",
@@ -872,8 +900,9 @@
         "required": false,
         "warning": ""
       },
+      "participating_provider_count": 0,
       "promotion": {
-        "blocked_reason": "no_provider_claim; human_validation_required",
+        "blocked_reason": "no_provider_support; human_validation_required",
         "explanation": "This target came from deterministic routing or context and needs runtime evidence before promotion.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
@@ -885,19 +914,25 @@
           "model_run_hash": "ffe7fb3357a9",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-gemini",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         },
         {
           "model_run_hash": "ffe7fb3357a9",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-gpt-oss",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         },
         {
           "model_run_hash": "fe451079fb49",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-mistral",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         }
       ],
       "recommended_request_type": "external_dependency_status",
@@ -921,13 +956,14 @@
       },
       "source_candidates": [],
       "subsystem": "downstream_dependency",
+      "support_provider_count": 0,
       "title": "External dependency status needs validation"
     },
     {
       "agreement": {
         "convergence_score": 0.0,
         "incident_baseline": "open",
-        "score_definition": "claimed successful providers / all successful providers",
+        "score_definition": "supporting schema-valid providers / all schema-valid providers",
         "summary": "This target is rule/context-driven and remains validation-only until provider evidence or human evidence closes the gate.",
         "technical_baseline": "open",
         "verdict": "rule_or_context"
@@ -937,6 +973,7 @@
       "canonical_review_unit": "generic_runtime",
       "claim": "error_count increased from baseline 0 to 9.",
       "class": "validation_target",
+      "counter_provider_count": 0,
       "evidence_refs": [
         "METRIC-001"
       ],
@@ -950,8 +987,9 @@
         "required": false,
         "warning": ""
       },
+      "participating_provider_count": 0,
       "promotion": {
-        "blocked_reason": "no_provider_claim; human_validation_required",
+        "blocked_reason": "no_provider_support; human_validation_required",
         "explanation": "This target came from deterministic routing or context and needs runtime evidence before promotion.",
         "score_cap_applied": false,
         "score_note": "Priority is review urgency, not truth probability.",
@@ -963,19 +1001,25 @@
           "model_run_hash": "ffe7fb3357a9",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-gemini",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         },
         {
           "model_run_hash": "ffe7fb3357a9",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-gpt-oss",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         },
         {
           "model_run_hash": "fe451079fb49",
           "one_line": "Did not surface this normalized review target.",
           "provider_id": "local-mistral",
-          "stance": "silent"
+          "signals_disagreement": false,
+          "stance": "silent",
+          "supports_agreement": false
         }
       ],
       "recommended_request_type": "error_sample",
@@ -999,6 +1043,7 @@
       },
       "source_candidates": [],
       "subsystem": "generic_runtime",
+      "support_provider_count": 0,
       "title": "Error spike needs review"
     }
   ],

@@ -16,6 +16,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Model-aware provider execution contract hashes for safe PostgreSQL and local-ledger result reuse.
 - Versioned provider execution contract v2 covering exact compacted model input, rendered prompt, response schema, generation settings, adapter source, request protocol, safety/tool policy, and model revision metadata.
 - `validation_provenance.json` with implementation revision, source state, Provider model identities, and SHA-256 values for generated review artifacts.
+- Derived public-artifact lineage with source multi-run, Provider output, and per-chunk output SHA-256 values.
+- Separate tested-implementation, artifact-generation, published-repository, and deployed-image revision roles in validation provenance.
 - PostgreSQL audit columns for the execution contract JSON/version, input and prompt-contract hashes, requested/resolved model identities, mutable aliases, and cache reuse policy.
 - Regression coverage for generic semantic classification, non-exclusive group signals, rollup divergence, review UI audit fields, execution reuse, and prompt-bounded chunk estimates.
 - Architecture decisions for semantic review arbitration, model-aware reuse history, and the versioned provider execution contract under `docs/adr/`.
@@ -31,6 +33,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Routed one-chunk provider runs through the same versioned execution-contract Ledger/cache path as multi-chunk runs.
 - Required explicit semantic-rule trust and retained complete generic classification plus profile-override audit objects.
 - Changed agreement and rollup convergence scoring to use distinct supporting providers rather than all participating providers.
+- Re-synthesize immutable recorded Provider outputs before public projection so the Flagship applies the current stance-aware Agreement contract without new Provider API calls.
 - Recorded Provider-returned model identifiers as post-request audit observations rather than incorrectly treating them as pre-request cache inputs.
 - Aligned chunk token estimates with each provider's prompt text boundary, preventing very long sanitized messages from creating false oversized-chunk plans.
 

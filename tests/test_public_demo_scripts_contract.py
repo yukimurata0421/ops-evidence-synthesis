@@ -94,6 +94,9 @@ def test_deploy_public_demo_keeps_ci_secret_scan_digest_and_smoke_gates() -> Non
     assert 'if [[ -z "${DIGEST_IMAGE_URI}" ]]; then' in script
     assert 'if [[ "${DEPLOYED_IMAGE}" != "${DIGEST_IMAGE_URI}" ]]; then' in script
     assert 'if [[ "${TRAFFIC_REVISION}" != "${READY_REVISION}" || "${TRAFFIC_PERCENT}" != "100" ]]; then' in script
+    assert "deployment requires a clean repository" in script
+    assert "OES_PUBLISHED_REPOSITORY_HEAD_SHA=${PUBLISHED_REPOSITORY_HEAD_SHA}" in script
+    assert "OES_DEPLOYED_IMAGE_DIGEST=${DEPLOYED_IMAGE_DIGEST}" in script
     assert 'make PYTHON="${PYTHON_BIN}" PUBLIC_BASE_URL="${PUBLIC_BASE_URL}" smoke-public' in script
 
 
@@ -168,7 +171,7 @@ def test_generate_precomputed_review_script_records_public_review_safety_terms()
     assert "requires enough runtime evidence" in script
     assert "incident promotion is not auto-accepted" in script
     assert "Incident gate signal is a graph-level support signal" in script
-    assert "Convergence score = claimed successful providers / all successful providers" in script
+    assert "Convergence score = supporting schema-valid providers / all schema-valid providers" in script
 
 
 def test_cloudflare_waf_script_uses_http_ratelimit_ruleset_contract() -> None:

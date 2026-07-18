@@ -12,7 +12,7 @@ from ops_evidence_synthesis.storage.sqlite_store import SQLiteStore
 from ops_evidence_synthesis.timeutils import utc_now
 
 
-SCORE_DEFINITION = "claimed successful providers / all successful providers"
+SCORE_DEFINITION = "supporting schema-valid providers / all schema-valid providers"
 PUBLIC_DEMO_PROVIDERS = ("local-gemini", "local-gpt-oss", "local-mistral")
 
 
@@ -223,10 +223,12 @@ def _project_targets(
         evidence_refs = _evidence_refs(target, drawer)
         missing_evidence = _missing_evidence(target, drawer)
         provider_positions = _provider_positions(target, drawer, successful_runs=successful_runs)
-        claimed = sum(1 for row in provider_positions if row["stance"] == "claimed")
+        supporting = sum(1 for row in provider_positions if row.get("supports_agreement") is True)
+        countering = sum(1 for row in provider_positions if row.get("signals_disagreement") is True)
+        participating = sum(1 for row in provider_positions if row["stance"] != "silent")
         total_successful = len(successful_runs)
-        convergence_score = claimed / total_successful if total_successful else 0.0
-        verdict = "convergence" if claimed >= 2 else "single_source" if claimed == 1 else "rule_or_context"
+        convergence_score = supporting / total_successful if total_successful else 0.0
+        verdict = "convergence" if supporting >= 2 else "single_source" if supporting == 1 else "rule_or_context"
         rollup = _target_rollup_projection(target)
         source_candidates = [dict(row) for row in target.get("source_candidates") or [] if isinstance(row, dict)][:100]
         stable_id = "prt-" + sha256_json(
@@ -248,7 +250,10 @@ def _project_targets(
                 "canonical_review_family": str(target.get("canonical_review_family") or ""),
                 "canonical_key_contract": dict(target.get("canonical_key_contract") or {}),
                 "review_priority_score": round(float(target.get("review_priority_score") or 0.0), 4),
-                "provider_count": claimed,
+                "provider_count": supporting,
+                "support_provider_count": supporting,
+                "counter_provider_count": countering,
+                "participating_provider_count": participating,
                 "recommended_request_type": _recommended_request_type(drawer),
                 "claim": _observed_claim(target),
                 "provider_positions": provider_positions,
@@ -256,16 +261,16 @@ def _project_targets(
                     "verdict": verdict,
                     "convergence_score": round(convergence_score, 10),
                     "score_definition": SCORE_DEFINITION,
-                    "technical_baseline": "established" if claimed >= 2 else "open",
+                    "technical_baseline": "established" if supporting >= 2 else "open",
                     "incident_baseline": "open",
-                    "summary": _agreement_summary(claimed, total_successful, verdict),
+                    "summary": _agreement_summary(supporting, total_successful, verdict),
                 },
                 "promotion": {
                     "state": "validation",
-                    "blocked_reason": _blocked_reason(claimed),
+                    "blocked_reason": _blocked_reason(supporting),
                     "explanation": _promotion_explanation(
                         state="validation",
-                        claimed=claimed,
+                        claimed=supporting,
                         total_successful=total_successful,
                     ),
                     "score_cap_applied": False,
@@ -349,44 +354,85 @@ def _provider_positions(
     *,
     successful_runs: list[ModelRunRecord],
 ) -> list[dict[str, Any]]:
-    claimed_providers = _claimed_providers(target, drawer)
+    supporting_providers, countering_providers, participating_providers = _provider_sets(target, drawer)
     rows = []
     for run in sorted(successful_runs, key=lambda item: item.provider):
-        stance = "claimed" if run.provider in claimed_providers else "silent"
+        supporting = run.provider in supporting_providers
+        countering = run.provider in countering_providers
+        participating = run.provider in participating_providers
+        stance = (
+            "support_and_counter"
+            if supporting and countering
+            else "support"
+            if supporting
+            else "counter"
+            if countering
+            else "caveat_or_validation"
+            if participating
+            else "silent"
+        )
         rows.append(
             {
                 "provider_id": run.provider,
                 "stance": stance,
                 "model_run_hash": run.raw_output_sha256[:12],
                 "one_line": _provider_one_line(target, run.provider, stance),
+                "supports_agreement": supporting,
+                "signals_disagreement": countering,
             }
         )
     return rows
 
 
-def _claimed_providers(target: dict[str, Any], drawer: dict[str, Any]) -> set[str]:
-    providers: set[str] = set()
+def _provider_sets(target: dict[str, Any], drawer: dict[str, Any]) -> tuple[set[str], set[str], set[str]]:
+    explicit_supporting = target.get("supporting_providers")
+    if isinstance(explicit_supporting, list):
+        supporting = {str(provider) for provider in explicit_supporting if str(provider).strip()}
+        countering = {
+            str(provider) for provider in target.get("countering_providers") or [] if str(provider).strip()
+        }
+        participating = {
+            str(provider)
+            for provider in target.get("participating_providers") or target.get("providers") or []
+            if str(provider).strip()
+        }
+        return supporting, countering, participating | supporting | countering
+
+    supporting: set[str] = set()
+    countering: set[str] = set()
+    participating: set[str] = set()
     claim_rows = [claim for claim in drawer.get("claims") or [] if isinstance(claim, dict)]
     for claim in claim_rows:
         if not isinstance(claim, dict):
             continue
         provider = str(claim.get("provider") or "").strip()
         claim_type = str(claim.get("claim_type") or "").casefold()
-        if provider and provider != "rule-engine" and claim_type not in {"caveat", "counter_evidence", "context"}:
-            providers.add(provider)
-    if providers or claim_rows:
-        return providers
+        if not provider or provider == "rule-engine":
+            continue
+        participating.add(provider)
+        if claim_type == "counter_evidence":
+            countering.add(provider)
+        elif claim_type not in {"caveat", "context", "validation_target", "next_data_needed"}:
+            supporting.add(provider)
+    if claim_rows:
+        return supporting, countering, participating
     raw_providers = target.get("providers")
     if isinstance(raw_providers, list):
-        providers.update(str(provider) for provider in raw_providers if str(provider).strip())
-    return providers
+        supporting.update(str(provider) for provider in raw_providers if str(provider).strip())
+    return supporting, countering, set(supporting)
 
 
 def _provider_one_line(target: dict[str, Any], provider: str, stance: str) -> str:
     if stance == "silent":
         return "Did not surface this normalized review target."
+    if stance == "counter":
+        return "Supplied counter-evidence for this normalized review target."
+    if stance == "support_and_counter":
+        return "Supplied both support and counter-evidence for this normalized review target."
+    if stance == "caveat_or_validation":
+        return "Participated with a caveat or validation request, but did not support the claim."
     title = str(target.get("title") or "review target")
-    return f"Projected {title} as evidence-backed review work."
+    return f"Supported {title} as evidence-backed review work."
 
 
 def _observed_claim(target: dict[str, Any]) -> str:
@@ -434,7 +480,10 @@ def _review_graph_summary(
     single_source_count = sum(1 for target in targets if (target.get("agreement") or {}).get("verdict") == "single_source")
     rule_count = sum(1 for target in targets if (target.get("agreement") or {}).get("verdict") == "rule_or_context")
     total_successful = len(successful_runs)
-    max_claimed = max((int(target.get("provider_count") or 0) for target in targets), default=0)
+    max_supporting = max(
+        (int(target.get("support_provider_count") or target.get("provider_count") or 0) for target in targets),
+        default=0,
+    )
     partial_overlap_count = sum(
         1 for target in targets if 1 < int(target.get("provider_count") or 0) < max(total_successful, 1)
     )
@@ -442,7 +491,11 @@ def _review_graph_summary(
         1
         for target in targets
         for position in target.get("provider_positions") or []
-        if isinstance(position, dict) and str(position.get("stance") or "") == "contradicted"
+        if isinstance(position, dict)
+        and (
+            position.get("signals_disagreement") is True
+            or str(position.get("stance") or "") in {"counter", "support_and_counter", "contradicted"}
+        )
     )
     summary = (
         f"{convergence_count} converged target(s), {single_source_count} single-source target(s), "
@@ -457,7 +510,7 @@ def _review_graph_summary(
         "rule_or_context_count": rule_count,
         "incident_baseline_established_count": 0,
         "primary_promoted_count": 0,
-        "provider_detection_overlap": f"{max_claimed}/{max(total_successful, 1)}",
+        "provider_detection_overlap": f"{max_supporting}/{max(total_successful, 1)}",
         "technical_baseline": "partial" if convergence_count else "open",
         "incident_baseline": "open",
         "review_unit_convergence": "partial" if convergence_count else "none",
@@ -470,8 +523,8 @@ def _review_graph_summary(
             "it is not additive with converged/single-source target counts."
         ),
         "score_definition": (
-            "Convergence score = claimed successful providers / all successful providers. "
-            "Silent providers count against convergence."
+            "Convergence score = supporting schema-valid providers / all schema-valid providers. "
+            "Counter, caveat, validation-only, and silent positions do not count as support."
         ),
     }
 
@@ -540,9 +593,9 @@ def _recommended_request_type(drawer: dict[str, Any]) -> str:
 
 def _agreement_summary(claimed: int, total: int, verdict: str) -> str:
     if verdict == "convergence":
-        return f"{claimed}/{total} successful providers projected this review unit; incident promotion remains human-gated."
+        return f"{claimed}/{total} schema-valid providers supported this review unit; incident promotion remains human-gated."
     if verdict == "single_source":
-        return f"{claimed}/{total} successful providers projected this review unit, so it stays validation-only."
+        return f"{claimed}/{total} schema-valid providers supported this review unit, so it stays validation-only."
     return "This target is rule/context-driven and remains validation-only until provider evidence or human evidence closes the gate."
 
 
@@ -551,7 +604,7 @@ def _blocked_reason(claimed: int) -> str:
         return "incident_baseline_open; user_impact_unverified; causal_direction_unverified"
     if claimed == 1:
         return "single_provider_only; user_impact_unverified"
-    return "no_provider_claim; human_validation_required"
+    return "no_provider_support; human_validation_required"
 
 
 def _promotion_explanation(*, state: str, claimed: int, total_successful: int) -> str:
@@ -562,7 +615,7 @@ def _promotion_explanation(*, state: str, claimed: int, total_successful: int) -
         )
     if claimed >= 2:
         return (
-            f"{claimed}/{max(total_successful, 1)} providers converged, so this is technical review support; "
+            f"{claimed}/{max(total_successful, 1)} providers supplied support, so this is technical review support; "
             "it remains a validation target until user impact or operational outcome evidence closes the gate."
         )
     if claimed == 1:

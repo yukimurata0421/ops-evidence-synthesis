@@ -70,6 +70,25 @@ def test_provider_summary_title_distinguishes_local_and_real_modes() -> None:
     ).startswith("Five real providers")
 
 
+def test_runtime_release_provenance_overlays_publication_and_image_roles(monkeypatch) -> None:
+    monkeypatch.setenv("OES_PUBLISHED_REPOSITORY_HEAD_SHA", "a" * 40)
+    monkeypatch.setenv("OES_DEPLOYED_IMAGE_DIGEST", "sha256:" + "b" * 64)
+
+    payload = web_precomputed._with_runtime_release_provenance(
+        {
+            "provenance": {
+                "tested_implementation_commit_sha": "c" * 40,
+                "artifact_generation_commit_sha": "d" * 40,
+            }
+        }
+    )
+
+    assert payload["provenance"]["tested_implementation_commit_sha"] == "c" * 40
+    assert payload["provenance"]["artifact_generation_commit_sha"] == "d" * 40
+    assert payload["provenance"]["published_repository_head_sha"] == "a" * 40
+    assert payload["provenance"]["deployed_image_digest"] == "sha256:" + "b" * 64
+
+
 def test_rollup_audit_shows_type_counts_provider_memberships_and_source_candidates() -> None:
     html = _rollup_audit_html(
         {
@@ -418,12 +437,12 @@ def test_detail_target_cards_keep_provider_summary_and_provider_list_in_sync() -
     card_html = _fast_detail_target_card(target, index=1)
     workspace_html = _workspace_target_detail_html(target, index=1)
 
-    assert "Provider stance: claimed 1 / silent 1 / provider_error 1" in card_html
+    assert "Provider stance: support 1 / silent 1 / provider_error 1" in card_html
     assert card_html.count('class="position-row"') == 3
     assert "gemini-enterprise-agent-platform" in card_html
     assert "qwen-agent-platform" in card_html
     assert "mistral-agent-platform" in card_html
-    assert "1 claimed / 1 silent / 1 provider error / 0.50" in workspace_html
+    assert "1 support / 1 silent / 1 provider error / 0.50" in workspace_html
     assert workspace_html.count("workspace-provider-card") == 3
     assert "provider_error" in workspace_html
 
@@ -459,8 +478,8 @@ def test_public_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_path
     assert payload["analysis_context"]["source_analysis_sha256"]
     first_target = payload["targets"][0]
     assert first_target["agreement"]["convergence_score"] == 0.6666666667
-    assert first_target["agreement"]["score_definition"] == "claimed successful providers / all successful providers"
-    assert [row["stance"] for row in first_target["provider_positions"]] == ["claimed", "claimed", "silent"]
+    assert first_target["agreement"]["score_definition"] == "supporting schema-valid providers / all schema-valid providers"
+    assert [row["stance"] for row in first_target["provider_positions"]] == ["support", "support", "silent"]
 
     expected = (
         ROOT
@@ -1087,7 +1106,7 @@ def test_observation_validation_target_is_not_labeled_as_suspected_issue() -> No
     no_finding_detail = _workspace_target_detail_html(no_finding_target, index=2)
     no_finding_queue = web_precomputed._workspace_queue_item_html(no_finding_target, index=2)
 
-    assert "0 claimed / 0 silent / 1 no finding / 0.00" in no_finding_detail
+    assert "0 support / 0 silent / 1 no finding / 0.00" in no_finding_detail
     assert "1/1 no finding" in no_finding_queue
 
     anomaly_target = {
@@ -1492,8 +1511,12 @@ def test_flagship_precomputed_review_fixture_is_regenerated_from_pipeline(tmp_pa
     target = payload["targets"][0]
     assert target["agreement"]["verdict"] == "convergence"
     assert target["agreement"]["convergence_score"] == 0.6666666667
-    assert target["agreement"]["score_definition"] == "claimed successful providers / all successful providers"
-    assert [row["stance"] for row in target["provider_positions"]] == ["claimed", "claimed", "silent"]
+    assert target["agreement"]["score_definition"] == "supporting schema-valid providers / all schema-valid providers"
+    assert [row["stance"] for row in target["provider_positions"]] == [
+        "support",
+        "support",
+        "caveat_or_validation",
+    ]
 
     expected = (
         ROOT

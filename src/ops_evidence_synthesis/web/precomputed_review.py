@@ -137,6 +137,7 @@ def _load_precomputed_review_from_dirs(evidence_id: str, *, ttl: int) -> dict[st
             continue
         if not _payload_matches_precomputed_id(payload, evidence_id):
             continue
+        payload = _with_runtime_release_provenance(payload)
         if ttl > 0:
             _PRECOMPUTED_REVIEW_CACHE[evidence_id] = (time.monotonic(), deepcopy(payload))
         return payload
@@ -153,10 +154,25 @@ def _load_precomputed_review_from_gcs(evidence_id: str, *, ttl: int) -> dict[str
             continue
         if not _payload_matches_precomputed_id(payload, evidence_id):
             continue
+        payload = _with_runtime_release_provenance(payload)
         if ttl > 0:
             _PRECOMPUTED_REVIEW_CACHE[evidence_id] = (time.monotonic(), deepcopy(payload))
         return payload
     return None
+
+
+def _with_runtime_release_provenance(payload: dict[str, Any]) -> dict[str, Any]:
+    output = deepcopy(payload)
+    provenance = dict(output.get("provenance") or {})
+    published_head = os.environ.get("OES_PUBLISHED_REPOSITORY_HEAD_SHA", "").strip()
+    image_digest = os.environ.get("OES_DEPLOYED_IMAGE_DIGEST", "").strip()
+    if published_head:
+        provenance["published_repository_head_sha"] = published_head
+    if image_digest:
+        provenance["deployed_image_digest"] = image_digest
+    if provenance:
+        output["provenance"] = provenance
+    return output
 
 
 def _remember_precomputed_review_payload(payload: dict[str, Any]) -> None:
@@ -1287,6 +1303,7 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
     graph_summary = payload.get("review_graph_summary") if isinstance(payload.get("review_graph_summary"), dict) else {}
     analysis_context = payload.get("analysis_context") if isinstance(payload.get("analysis_context"), dict) else {}
     profile_context = payload.get("profile_context") if isinstance(payload.get("profile_context"), dict) else {}
+    provenance = payload.get("provenance") if isinstance(payload.get("provenance"), dict) else {}
     target_set = _precomputed_review_target_set(payload, evidence_sha256=evidence_sha256, limit=0, pending_only=False)
     targets = list(target_set.get("targets") or [])
     primary_targets = [row for row in targets if str(row.get("class") or "") == "primary_candidate"]
@@ -1327,6 +1344,7 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
         "review_graph_summary": graph_summary,
         "analysis_context": analysis_context,
         "profile_context": profile_context,
+        "provenance": provenance,
         "nodes": graph_model["nodes"],
         "edges": graph_model["edges"],
         "primary_targets": primary_targets,
@@ -1352,6 +1370,7 @@ def _precomputed_review_graph_response(payload: dict[str, Any], *, evidence_sha2
         "graph": graph_model,
         "analysis_context": analysis_context,
         "profile_context": profile_context,
+        "provenance": provenance,
         "canonical_review_graph": graph,
         "snapshot": {
             "evidence_sha256": evidence_sha256,
@@ -2612,7 +2631,7 @@ def _review_graph_target_model(target: dict[str, Any], *, index: int, provider_i
                 "one_line": str(row.get("one_line") or ""),
             }
         )
-    claimed = sum(1 for row in provider_rows if row["stance"].casefold() == "claimed")
+    claimed = sum(1 for row in provider_rows if _provider_position_supports_agreement(row))
     silent = sum(1 for row in provider_rows if row["stance"].casefold() == "silent")
     evidence_refs = [str(item) for item in target.get("evidence_refs") or [] if str(item).strip()]
     evidence_ref_total = _target_evidence_ref_total_count(target, evidence_refs)
@@ -2716,7 +2735,7 @@ def _review_graph_canvas_html(model: dict[str, Any], *, provider_ids: list[str],
     provider_edges = []
     for index, row in enumerate(model["provider_rows"]):
         y = provider_start + provider_gap * index
-        claimed = str(row["stance"]).casefold() == "claimed"
+        claimed = _provider_position_supports_agreement(row)
         stroke = "#12836b" if claimed else "#a2aebf"
         width = "2.5" if claimed else "1.5"
         dash = "" if claimed else "4 3"
@@ -2762,7 +2781,7 @@ def _review_graph_canvas_html(model: dict[str, Any], *, provider_ids: list[str],
         )
         evidence_edges.append('<path d="M 394,215 C 438,215 438,215 486,215" fill="none" stroke="#2a6fdb" stroke-width="1.4" stroke-opacity=".2"></path>')
     caption = (
-        f"{int(model['claimed'])} of {int(model['claimed']) + int(model['silent'])} providers claimed a position, "
+        f"{int(model['claimed'])} of {int(model['claimed']) + int(model['silent'])} providers supplied support, "
         f"{int(model['silent'])} stayed silent, and it cites {int(model['evidence_ref_total'])} Evidence Item association(s)."
     )
     return f"""
@@ -2787,7 +2806,7 @@ def _review_graph_canvas_html(model: dict[str, Any], *, provider_ids: list[str],
           </div>
         </div>
         <div class="legend">
-          <span><i class="legend-line"></i>claimed a position on this target</span>
+          <span><i class="legend-line"></i>supplied support for this target</span>
           <span><i class="legend-line silent"></i>stayed silent and remains validation signal</span>
           <span><i class="legend-dot"></i>cited Evidence Item</span>
         </div>
@@ -2805,7 +2824,7 @@ def _review_graph_selected_summary_html(model: dict[str, Any], *, selected_key: 
             <span class="{_review_graph_tag_class(model)}">{_html(str(model["classification"]))}</span>
             <code>{_html(key)}</code>
           </div>
-          <span class="selected-meta">{int(model["claimed"])} claimed / {int(model["silent"])} silent</span>
+          <span class="selected-meta">{int(model["claimed"])} support / {int(model["silent"])} silent</span>
         </div>
         <p>{_html(str(model["suspected"]))}</p>
         <div class="next-check"><b>next check -&gt;</b><span>{_html(str(model["next_question"]))}</span></div>
@@ -3342,7 +3361,7 @@ def _target_unit_label(target: dict[str, Any]) -> str:
 
 def _workspace_provider_counts(target: dict[str, Any]) -> tuple[int, int, int]:
     counts = _provider_position_counts(target)
-    claimed = counts.get("claimed", 0)
+    claimed = counts.get("support", 0) + counts.get("support_and_counter", 0)
     silent = counts.get("silent", 0)
     total = sum(counts.values()) or int(target.get("provider_count") or 0)
     return claimed, silent, total
@@ -3353,7 +3372,14 @@ def _workspace_provider_error_count(target: dict[str, Any]) -> int:
     return sum(
         count
         for stance, count in counts.items()
-        if stance not in {"claimed", "contradicted", "silent", "no_finding"}
+        if stance not in {
+            "support",
+            "support_and_counter",
+            "counter",
+            "caveat_or_validation",
+            "silent",
+            "no_finding",
+        }
     )
 
 
@@ -3365,7 +3391,7 @@ def _workspace_convergence_label(
     provider_error_count: int,
     score: float,
 ) -> str:
-    parts = [f"{claimed} claimed", f"{silent} silent"]
+    parts = [f"{claimed} support", f"{silent} silent"]
     if no_finding:
         parts.append(f"{no_finding} no finding")
     if provider_error_count:
@@ -3381,7 +3407,7 @@ def _workspace_queue_claim_label(target: dict[str, Any]) -> str:
     if no_finding and claimed == 0:
         label = f"{no_finding}/{max(total, 1)} no finding"
     else:
-        label = f"{claimed}/{max(total, 1)} claimed"
+        label = f"{claimed}/{max(total, 1)} support"
     if error_count:
         label += f" + {error_count} error"
     return label
@@ -4407,7 +4433,10 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       color: var(--ink-3);
       font-size: 12px;
     }}
-    .workspace-provider-card.claimed b {{ color: var(--claimed); }}
+    .workspace-provider-card.claimed b,
+    .workspace-provider-card.support b,
+    .workspace-provider-card.support_and_counter b {{ color: var(--claimed); }}
+    .workspace-provider-card.counter b {{ color: var(--danger); }}
     .workspace-provider-card.no_finding b {{ color: var(--ink-3); }}
     .workspace-provider-card.provider_error b {{ color: var(--danger); }}
     .provider-dot {{
@@ -4416,8 +4445,11 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       border-radius: 50%;
       background: var(--silent);
     }}
-    .workspace-provider-card.claimed .provider-dot {{ background: var(--claimed); }}
-    .workspace-provider-card.contradicted .provider-dot {{ background: var(--danger); }}
+    .workspace-provider-card.claimed .provider-dot,
+    .workspace-provider-card.support .provider-dot {{ background: var(--claimed); }}
+    .workspace-provider-card.support_and_counter .provider-dot {{ background: linear-gradient(90deg, var(--claimed) 50%, var(--danger) 50%); }}
+    .workspace-provider-card.contradicted .provider-dot,
+    .workspace-provider-card.counter .provider-dot {{ background: var(--danger); }}
     .workspace-provider-card.no_finding .provider-dot {{ background: var(--muted); }}
     .workspace-provider-card.provider_error .provider-dot {{ background: var(--danger); }}
     .workspace-three, .workspace-evidence-row, .workspace-chip-list {{
@@ -4747,8 +4779,12 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       border-radius: 999px;
       background: var(--border);
     }}
-    .stance-fill.claimed {{ background: var(--claimed); }}
-    .stance-fill.contradicted {{ background: var(--danger); }}
+    .stance-fill.claimed,
+    .stance-fill.support {{ background: var(--claimed); }}
+    .stance-fill.support_and_counter {{ background: linear-gradient(90deg, var(--claimed) 50%, var(--danger) 50%); }}
+    .stance-fill.contradicted,
+    .stance-fill.counter {{ background: var(--danger); }}
+    .stance-fill.caveat_or_validation {{ background: var(--amber); }}
     .stance-fill.silent {{ background: var(--silent); }}
     .stance-fill.provider_error {{ background: var(--danger); }}
     .human-gate {{
@@ -5356,6 +5392,7 @@ def _precomputed_provider_panel(payload: dict[str, Any], providers_summary: dict
         if any("gemini" in str(row.get("provider_id") or "") for row in providers)
         else ""
     )
+    provenance_html = _release_provenance_html(payload)
     return f"""
     <section class="panel">
       <label>Provider Frontier</label>
@@ -5364,7 +5401,38 @@ def _precomputed_provider_panel(payload: dict[str, Any], providers_summary: dict
       <p>Provider disagreement is preserved as validation work, not collapsed into majority truth.</p>
       {gemini_note}
       <div class="provider-grid">{rows}</div>
+      {provenance_html}
     </section>"""
+
+
+def _release_provenance_html(payload: dict[str, Any]) -> str:
+    provenance = payload.get("provenance") if isinstance(payload.get("provenance"), dict) else {}
+    if not provenance:
+        return ""
+    fields = (
+        ("tested implementation", "tested_implementation_commit_sha"),
+        ("published repository head", "published_repository_head_sha"),
+        ("deployed image digest", "deployed_image_digest"),
+        ("artifact generation", "artifact_generation_commit_sha"),
+        ("source artifact", "source_artifact_sha256"),
+    )
+    rows = "".join(
+        f"<li><b>{_html(label)}</b>: <code>{_html(str(provenance.get(key) or 'not recorded'))}</code></li>"
+        for label, key in fields
+    )
+    provider_hashes = (
+        provenance.get("provider_output_sha256s")
+        if isinstance(provenance.get("provider_output_sha256s"), dict)
+        else {}
+    )
+    return f"""
+      <details class="detail-drawer">
+        <summary>Release and artifact provenance</summary>
+        <p>Testing, publication, deployment, and artifact generation are separate revision roles.</p>
+        <ul>{rows}</ul>
+        <p>{len(provider_hashes)} immutable provider-output hash(es) retained for deterministic re-synthesis.</p>
+      </details>
+    """
 
 
 def _precomputed_analysis_context_panel(payload: dict[str, Any]) -> str:
@@ -5601,7 +5669,9 @@ def _precomputed_review_graph_summary_panel(payload: dict[str, Any]) -> str:
     incident_gate = _incident_gate_signal_text(summary.get("incident_gate_signal") or summary.get("incident_baseline"))
     summary_text = str(summary.get("summary") or "Provider agreement was evaluated before promotion.")
     policy_text = promotion_policy or "Each target promotion remains human-gated until impact and operational outcome evidence are attached."
-    score_text = score_definition or "Convergence score = claimed successful providers / all successful providers."
+    score_text = score_definition or (
+        "Convergence score = supporting schema-valid providers / all schema-valid providers."
+    )
     note_text = note or "Partial overlap is an overlay count for converged targets where at least one schema-valid provider was silent."
     is_observation_gap = _detail_is_observation_gap(payload)
     section_heading = (
@@ -5702,25 +5772,40 @@ def _provider_position_counts(target: dict[str, Any]) -> dict[str, int]:
     for row in positions:
         if not isinstance(row, dict):
             continue
-        stance = str(row.get("stance") or "silent").strip() or "silent"
+        stance = _canonical_provider_stance(row)
         counts[stance] = counts.get(stance, 0) + 1
     return counts
+
+
+def _canonical_provider_stance(position: dict[str, Any]) -> str:
+    stance = str(position.get("stance") or "silent").strip().casefold() or "silent"
+    if stance == "claimed":
+        return "support"
+    if stance == "contradicted":
+        return "counter"
+    return stance
+
+
+def _provider_position_supports_agreement(position: dict[str, Any]) -> bool:
+    if "supports_agreement" in position:
+        return bool(position.get("supports_agreement"))
+    return _canonical_provider_stance(position) in {"support", "support_and_counter"}
 
 
 def _provider_position_summary(target: dict[str, Any]) -> str:
     counts = _provider_position_counts(target)
     if not counts:
         provider_count = int(target.get("provider_count") or 0)
-        return f"claimed {provider_count}" if provider_count else "not projected"
+        return f"support {provider_count}" if provider_count else "not projected"
     ordered = [
         f"{name} {counts[name]}"
-        for name in ("claimed", "contradicted", "silent")
+        for name in ("support", "support_and_counter", "counter", "caveat_or_validation", "silent")
         if counts.get(name)
     ]
     remaining = [
         f"{name} {value}"
         for name, value in sorted(counts.items())
-        if name not in {"claimed", "contradicted", "silent"}
+        if name not in {"support", "support_and_counter", "counter", "caveat_or_validation", "silent"}
     ]
     return " / ".join(ordered + remaining)
 
@@ -5732,8 +5817,10 @@ def _stance_bar_html(target: dict[str, Any]) -> str:
         return '<div class="stance-meter" aria-hidden="true"></div>'
     segments = []
     for stance, css_class in (
-        ("claimed", "claimed"),
-        ("contradicted", "contradicted"),
+        ("support", "support"),
+        ("support_and_counter", "support_and_counter"),
+        ("counter", "counter"),
+        ("caveat_or_validation", "caveat_or_validation"),
         ("silent", "silent"),
     ):
         count = counts.get(stance, 0)
@@ -5744,7 +5831,7 @@ def _stance_bar_html(target: dict[str, Any]) -> str:
             f'<span class="stance-fill {css_class}" style="width:{width:.1f}%" title="{_html(stance)} {count}"></span>'
         )
     for stance, count in sorted(counts.items()):
-        if stance in {"claimed", "contradicted", "silent"} or count <= 0:
+        if stance in {"support", "support_and_counter", "counter", "caveat_or_validation", "silent"} or count <= 0:
             continue
         width = (count / total) * 100
         css_class = "provider_error" if stance == "provider_error" else "silent"
@@ -6006,7 +6093,7 @@ def _priority_scoring_html(target: dict[str, Any]) -> str:
     penalties = model.get("penalties") if isinstance(model.get("penalties"), dict) else {}
     rows = [
         ("Weighted provider support", model.get("weighted_provider_support")),
-        ("Gemini claimed", "yes" if model.get("gemini_claimed") else "no"),
+        ("Gemini support", "yes" if model.get("gemini_claimed") else "no"),
         ("Evidence volume", model.get("evidence_volume_signal")),
         ("Evidence diversity", model.get("evidence_diversity_signal")),
         ("Source breadth", model.get("source_candidate_signal")),
@@ -7067,11 +7154,11 @@ def _rescore_ledger_row_html(field: str, before: str, after: str) -> str:
 
 def _rescore_provider_stance_label(positions: object) -> str:
     rows = [row for row in positions if isinstance(row, dict)] if isinstance(positions, list) else []
-    claimed = sum(1 for row in rows if str(row.get("stance") or "").casefold() == "claimed")
+    claimed = sum(1 for row in rows if _provider_position_supports_agreement(row))
     silent = sum(1 for row in rows if str(row.get("stance") or "").casefold() == "silent")
     if not rows:
         return "not recorded"
-    return f"{claimed} claimed - {silent} silent"
+    return f"{claimed} support - {silent} silent"
 
 
 def _rescore_provider_short_name(provider_id: str) -> str:
@@ -7096,8 +7183,8 @@ def _rescore_provider_positions_html(positions: object) -> str:
         if not isinstance(row, dict):
             continue
         provider_id = str(row.get("provider_id") or "")
-        stance = str(row.get("stance") or "")
-        stance_class = "claimed" if stance.casefold() == "claimed" else "silent"
+        stance = _canonical_provider_stance(row)
+        stance_class = "claimed" if _provider_position_supports_agreement(row) else "silent"
         cells.append(
             f"<article class='position {stance_class}' title='{_html(provider_id)}'>"
             "<span class='marker'></span>"
