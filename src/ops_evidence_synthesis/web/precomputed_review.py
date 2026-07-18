@@ -46,7 +46,7 @@ def _public_demo_script_url() -> str:
     configured = os.environ.get("OES_PUBLIC_DEMO_SCRIPT_URL", "").strip()
     if configured:
         return configured
-    return f"{_public_repo_url()}/blob/main/hackathon/02-narration-ja.md"
+    return f"{_public_repo_url()}/blob/main/docs/demo-video-script.md"
 
 
 def _public_demo_video_url() -> str:

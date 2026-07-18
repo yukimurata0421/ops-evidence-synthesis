@@ -114,7 +114,7 @@ def test_demo_video_smoke_keeps_submission_path_contract() -> None:
     assert 'scripts/check_demo_video_path.py --base-url $(PUBLIC_BASE_URL)' in makefile
 
 
-def test_public_docs_exclude_working_drafts_and_keep_current_demo_material() -> None:
+def test_public_docs_exclude_working_drafts_and_keep_current_demo_links() -> None:
     obsolete = (
         "docs/demo-video-script-3min-ja.md",
         "docs/development-failure-log-2026-06-27-ja.md",
@@ -147,16 +147,15 @@ def test_public_docs_exclude_working_drafts_and_keep_current_demo_material() -> 
     for relative_path in obsolete:
         assert not (ROOT / relative_path).exists(), relative_path
 
-    video = (ROOT / "hackathon" / "02-narration-ja.md").read_text(encoding="utf-8")
-    claims = (ROOT / "hackathon" / "claims-and-sources.md").read_text(encoding="utf-8")
-    compatibility_link = (ROOT / "docs" / "demo-video-script.md").read_text(encoding="utf-8")
+    assert not (ROOT / "hackathon").exists()
+
+    demo_links = (ROOT / "docs" / "demo-video-script.md").read_text(encoding="utf-8")
     architecture = (ROOT / "docs" / "assets" / "architecture-devops-ai-agent.svg").read_text(encoding="utf-8")
 
-    assert "# 改訂版3分台本" in video
-    assert "45,000 sanitized events" in video
-    assert "amazon-notifyの最初の判断" in video
-    assert "source-approved-evidence-v2" in claims
-    assert "../hackathon/02-narration-ja.md" in compatibility_link
+    assert "https://www.youtube.com/watch?v=hgSiKY0z3Vs" in demo_links
+    assert "../HACKATHON_SUBMISSION.md" in demo_links
+    assert "b7d56da85abe109ab044e05d4fc7b40462615e5b230db2b570f717c83762ab96" in demo_links
+    assert "Internal video-production notes" in demo_links
     assert "Gemini system reading" in architecture
     assert "5 real AI APIs" in architecture
     assert "Mistral chunks" not in architecture

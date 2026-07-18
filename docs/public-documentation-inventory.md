@@ -16,14 +16,10 @@ operator history or raw incident material.
 | `docs/review-modes-runbook.md` | Mode naming, measured public replay results, and guidance that replay timing is not a live AI benchmark. | Keep |
 | `docs/evidence_bundle.md` | Sanitized Evidence Bundle contract and evidence/context boundary. | Keep |
 | `docs/current-vs-architecture-gap.md` | Public implementation status and product hardening roadmap. | Keep |
-| `docs/demo-video-script.md` | Stable compatibility link to the current demo narration. | Keep |
+| `docs/demo-video-script.md` | Public video link and current reviewer-facing records. | Keep |
 | `docs/assets/architecture-devops-ai-agent.svg` | Reviewer-ready system architecture image. | Keep |
 | `docs/real-api-5-provider-run.md` | Source-aware five-provider real API run record for the amazon-notify public payload. | Keep |
 | `docs/stream-v3-real-api-runs.md` | Source-aware real API run record for Dell runtime and arena-server stream_v3 payloads. | Keep |
-| `hackathon/README.md` | Entry point for the reproducible demo-video asset pack. | Keep |
-| `hackathon/02-narration-ja.md` | Current three-minute narration used by the public demo. | Keep |
-| `hackathon/claims-and-sources.md` | Bounded claims and source URLs behind the demo. | Keep |
-| `hackathon/assets/` | Public screenshots, overlays, and editable SVG sources used by the demo video. | Keep |
 | `architecture.txt` | Plain-text architecture reference for tools or readers that prefer text output. | Keep |
 | `src/ops_evidence_synthesis/routes/` and `src/ops_evidence_synthesis/web/` | Implementation split for API routing and reviewer-facing page rendering. | Keep |
 | `infra/terraform/README.md` | Cloud baseline summary and Terraform wrapper usage. | Keep |
@@ -49,11 +45,12 @@ private-log ingestion extensions.
 ## Intentionally Not Published
 
 The private development tree also contains submission drafts, checklists,
-date-stamped implementation records, failure logs, live-operations notes, and
-project-specific monitoring writeups. Those documents are intentionally
-excluded from the public copy because they can contain private chronology,
-local paths, deployment details, incident-specific evidence hashes, or noisy
-work-in-progress context.
+video-production notes, staged capture instructions, editable overlays,
+historical screenshots, date-stamped implementation records, failure logs,
+live-operations notes, and project-specific monitoring writeups. Those
+documents are intentionally excluded from the public copy because they can
+contain private chronology, local paths, deployment details,
+incident-specific evidence hashes, or noisy work-in-progress context.
 
 Public documentation should stay stable and reviewer-oriented:
 

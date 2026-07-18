@@ -41,6 +41,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Added a fail-closed sanitized-input verification gate before local Evidence Bundle construction.
 
+### Removed
+
+- Removed internal demo-production notes, staged capture instructions, editable overlays, and historical screenshots from the public `main` tree while retaining the final video and current reviewer-facing records.
+
 ### Verification
 
 - Re-sanitized all 45,000 `stream_v3_runtime` rows with the current rules; the model-input safety preflight reported zero secret, IP, home-path, and internal-URL findings.
