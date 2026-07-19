@@ -27,6 +27,56 @@ class FakeJsonb:
         self.value = value
 
 
+class FakeCursor:
+    def __init__(self, *, fetchone=None, fetchall=None) -> None:
+        self.fetchone_result = fetchone
+        self.fetchall_result = list(fetchall or [])
+        self.executions: list[tuple[str, object | None]] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+    def execute(self, sql: str, params=None) -> None:
+        self.executions.append((sql, params))
+
+    def fetchone(self):
+        return self.fetchone_result
+
+    def fetchall(self):
+        return self.fetchall_result
+
+
+class FakeConnection:
+    def __init__(self, cursor: FakeCursor) -> None:
+        self.fake_cursor = cursor
+        self.commit_count = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+    def cursor(self) -> FakeCursor:
+        return self.fake_cursor
+
+    def commit(self) -> None:
+        self.commit_count += 1
+
+
+class FakePsycopg:
+    def __init__(self, *connections: FakeConnection) -> None:
+        self.connections = list(connections)
+        self.connected_dsns: list[str] = []
+
+    def connect(self, dsn: str) -> FakeConnection:
+        self.connected_dsns.append(dsn)
+        return self.connections.pop(0)
+
+
 @dataclass(frozen=True, slots=True)
 class ContractProvider:
     provider: str = "provider-a"
@@ -187,6 +237,134 @@ def test_postgres_record_values_persist_v2_execution_audit_fields() -> None:
     assert values["prompt_contract_sha256"] == contract["prompt_contract"]["prompt_contract_sha256"]
     assert values["provider_response_model_id"] == "provider/model-v1@20260718"
     assert values["cache_reuse_policy"] == "allowed"
+
+
+def test_postgres_store_initializes_schema_and_commits(monkeypatch) -> None:
+    cursor = FakeCursor()
+    connection = FakeConnection(cursor)
+    driver = FakePsycopg(connection)
+    store = PostgresProviderChunkRunStore("postgresql://database/oes")
+    monkeypatch.setattr(store, "_psycopg", lambda: driver)
+
+    store.init_schema()
+
+    assert driver.connected_dsns == ["postgresql://database/oes"]
+    assert cursor.executions == [(POSTGRES_PROVIDER_CHUNK_RUNS_SCHEMA, None)]
+    assert connection.commit_count == 1
+
+
+@pytest.mark.parametrize(
+    ("method_name", "record", "expected_status"),
+    [
+        ("success_record", {"status": "ok"}, "ok"),
+        ("latest_record", {"status": "rate_limited"}, "rate_limited"),
+    ],
+)
+def test_postgres_store_reads_records_by_execution_contract(
+    monkeypatch,
+    method_name: str,
+    record: dict,
+    expected_status: str,
+) -> None:
+    cursor = FakeCursor(fetchone=(record,))
+    driver = FakePsycopg(FakeConnection(cursor))
+    store = PostgresProviderChunkRunStore("postgresql://database/oes")
+    monkeypatch.setattr(store, "_psycopg", lambda: driver)
+
+    result = getattr(store, method_name)("provider-a", "contract-sha")
+
+    assert result == {"status": expected_status}
+    sql, params = cursor.executions[0]
+    assert "execution_contract_sha256 = %s" in sql
+    assert params == ("provider-a", "contract-sha")
+    if method_name == "success_record":
+        assert "status = 'ok'" in sql
+        assert "schema_valid IS TRUE" in sql
+    else:
+        assert "status = 'ok'" not in sql
+
+
+@pytest.mark.parametrize("row", [None, ("not-a-json-object",)])
+def test_postgres_store_rejects_missing_or_non_object_records(monkeypatch, row) -> None:
+    success_cursor = FakeCursor(fetchone=row)
+    latest_cursor = FakeCursor(fetchone=row)
+    driver = FakePsycopg(
+        FakeConnection(success_cursor),
+        FakeConnection(latest_cursor),
+    )
+    store = PostgresProviderChunkRunStore("postgresql://database/oes")
+    monkeypatch.setattr(store, "_psycopg", lambda: driver)
+
+    assert store.success_record("provider-a", "contract-sha") is None
+    assert store.latest_record("provider-a", "contract-sha") is None
+
+
+def test_postgres_store_upserts_current_record_and_appends_attempt(monkeypatch) -> None:
+    cursor = FakeCursor()
+    connection = FakeConnection(cursor)
+    driver = FakePsycopg(connection)
+    store = PostgresProviderChunkRunStore("postgresql://database/oes")
+    monkeypatch.setattr(store, "_psycopg", lambda: driver)
+    monkeypatch.setattr(store, "_jsonb_adapter", lambda: FakeJsonb)
+    record = {
+        "run_id": "run-1",
+        "evidence_sha256": "bundle-sha",
+        "provider_id": "provider-a",
+        "model_name": "model-v1",
+        "chunk_id": "chunk-001",
+        "prompt_sha256": "prompt-sha",
+        "execution_contract_sha256": "contract-sha",
+        "status": "ok",
+        "schema_valid": True,
+        "attempt_count": 1,
+        "artifact": {"status": "ok"},
+    }
+
+    store.upsert_record(record)
+
+    assert [execution[0] for execution in cursor.executions] == [
+        POSTGRES_PROVIDER_CHUNK_RUNS_UPSERT,
+        POSTGRES_PROVIDER_CHUNK_ATTEMPTS_INSERT,
+    ]
+    upsert_values = cursor.executions[0][1]
+    attempt_values = cursor.executions[1][1]
+    assert upsert_values is attempt_values
+    assert upsert_values["execution_contract_sha256"] == "contract-sha"
+    assert upsert_values["record_json"].value == record
+    assert upsert_values["attempt_json"].value["run_id"] == "run-1"
+    assert connection.commit_count == 1
+
+
+def test_postgres_store_claims_retryable_records_with_bounded_batch(monkeypatch) -> None:
+    cursor = FakeCursor(
+        fetchall=[
+            ({"run_id": "run-1", "status": "rate_limited"},),
+            ("not-a-json-object",),
+            ({"run_id": "run-2", "status": "failed"},),
+        ]
+    )
+    connection = FakeConnection(cursor)
+    driver = FakePsycopg(connection)
+    store = PostgresProviderChunkRunStore("postgresql://database/oes")
+    monkeypatch.setattr(store, "_psycopg", lambda: driver)
+
+    records = store.claim_retryable_records(
+        worker_id="",
+        provider_id="provider-a",
+        limit=999,
+    )
+
+    assert records == [
+        {"run_id": "run-1", "status": "rate_limited"},
+        {"run_id": "run-2", "status": "failed"},
+    ]
+    assert cursor.executions == [
+        (
+            POSTGRES_PROVIDER_CHUNK_RUNS_CLAIM_RETRYABLE,
+            {"provider_id": "provider-a", "worker_id": "worker", "limit": 500},
+        )
+    ]
+    assert connection.commit_count == 1
 
 
 def test_postgres_schema_upsert_and_queue_are_resume_safe() -> None:

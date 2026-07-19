@@ -251,51 +251,66 @@ def _public_rescore_demo_ids_for_evidence(evidence_sha256: str) -> list[str]:
     return ids
 
 
-def _public_action_links_html(evidence_sha256: str, *, include_detail: bool = True) -> str:
-    evidence = _url_quote(evidence_sha256)
-    links: list[tuple[str, str, str]] = [
-        ("Summary", f"/?evidence_sha256={evidence}", "read-only overview"),
-    ]
-    if include_detail:
-        links.append(("Detail", f"/ui/full-review-page?evidence_sha256={evidence}", "full review targets"))
-    links.extend(
-        [
-            ("API View", f"/ui/api?evidence_sha256={evidence}", "human-readable JSON"),
-            ("Review Graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions"),
-            ("Incident Report", f"/ui/report.md?evidence_sha256={evidence}", "human-readable Markdown report"),
-        ]
+def _public_action_link_html(label: str, url: str, title: str) -> str:
+    external = url.startswith(("https://", "http://"))
+    external_attrs = ' target="_blank" rel="noopener noreferrer"' if external else ""
+    external_mark = " ↗" if external else ""
+    return (
+        f'<a class="button" href="{_html(url)}" title="{_html(title)}"{external_attrs}>'
+        f"{_html(label + external_mark)}</a>"
     )
-    for demo_id in _public_rescore_demo_ids_for_evidence(evidence_sha256):
-        links.append(("More Data Loop", f"/ui/rescore-demo?id={quote(demo_id)}", demo_id))
+
+
+def _public_action_links_html(
+    evidence_sha256: str,
+    *,
+    include_detail: bool = True,
+    current_view: str = "",
+) -> str:
+    evidence = _url_quote(evidence_sha256)
+    links: list[tuple[str, str, str]] = []
+    if current_view != "summary":
+        links.append(("Summary", f"/?evidence_sha256={evidence}", "read-only overview"))
+    if include_detail and current_view != "detail":
+        links.append(
+            ("Detailed Review", f"/ui/full-review-page?evidence_sha256={evidence}", "full review targets")
+        )
+    if current_view != "api":
+        links.append(("API View", f"/ui/api?evidence_sha256={evidence}", "human-readable JSON"))
+    if current_view != "graph":
+        links.append(
+            ("Review Graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions")
+        )
+    if current_view != "report":
+        links.append(
+            ("Markdown Report", f"/ui/report.md?evidence_sha256={evidence}", "human-readable Markdown report")
+        )
+    if current_view != "rescore":
+        for demo_id in _public_rescore_demo_ids_for_evidence(evidence_sha256):
+            links.append(("More Data Loop", f"/ui/rescore-demo?id={quote(demo_id)}", demo_id))
     links.extend(
         [
             ("GitHub", _public_repo_url(), "repository"),
             ("Architecture", _public_architecture_url(), "system diagram"),
-            ("Demo Script", _public_demo_script_url(), "3 minute walkthrough"),
+            ("Demo Guide", _public_demo_script_url(), "video and reviewer links"),
         ]
     )
     video_url = _public_demo_video_url()
     if video_url:
         links.append(("Demo Video", video_url, "recorded walkthrough"))
-    return "".join(
-        f'<a class="button" href="{_html(url)}" title="{_html(title)}">{_html(label)}</a>'
-        for label, url, title in links
-    )
+    return "".join(_public_action_link_html(label, url, title) for label, url, title in links)
 
 
 def _public_global_action_links_html() -> str:
     links: list[tuple[str, str, str]] = [
         ("GitHub", _public_repo_url(), "repository"),
         ("Architecture", _public_architecture_url(), "system diagram"),
-        ("Demo Script", _public_demo_script_url(), "3 minute walkthrough"),
+        ("Demo Guide", _public_demo_script_url(), "video and reviewer links"),
     ]
     video_url = _public_demo_video_url()
     if video_url:
         links.append(("Demo Video", video_url, "recorded walkthrough"))
-    return "".join(
-        f'<a class="button" href="{_html(url)}" title="{_html(title)}">{_html(label)}</a>'
-        for label, url, title in links
-    )
+    return "".join(_public_action_link_html(label, url, title) for label, url, title in links)
 
 
 def _precomputed_summary(payload: dict[str, Any] | None, evidence_sha256: str) -> dict[str, Any] | None:
@@ -1139,7 +1154,7 @@ def _public_precomputed_landing_page() -> str:
               <a href="#review-set">Review Set</a>
               <a href="#judging-map">Judging Map</a>
               <a href="#improvement-loop">Improvement Loop</a>
-              <a href="{_html(_public_repo_url())}">GitHub</a>
+              <a href="{_html(_public_repo_url())}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
               <span class="live-pill"><span class="live-dot"></span>Cloud Run live</span>
             </nav>
           </div>
@@ -1555,9 +1570,10 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
     action_links = "".join(
         f'<a class="button" href="{_html(url)}">{_html(label)}</a>'
         for label, url in (
-            ("Full review", f"/ui/full-review-page?evidence_sha256={evidence}"),
-            ("Review graph", f"/ui/review-graph?evidence_sha256={evidence}"),
-            ("Markdown report", f"/ui/report.md?evidence_sha256={evidence}"),
+            ("Summary", f"/?evidence_sha256={evidence}"),
+            ("Detailed Review", f"/ui/full-review-page?evidence_sha256={evidence}"),
+            ("Review Graph", f"/ui/review-graph?evidence_sha256={evidence}"),
+            ("Markdown Report", f"/ui/report.md?evidence_sha256={evidence}"),
         )
     )
     provider_rows = "\n".join(
@@ -1977,7 +1993,7 @@ def _render_precomputed_api_page(evidence_sha256: str, payload: dict[str, Any]) 
       </div>
       <div class="status-row">
         <span class="evidence-chip">evidence {_html(_short_sha(evidence_sha256))}</span>
-        <a class="top-link" href="{_html(_public_repo_url())}">GitHub</a>
+        <a class="top-link" href="{_html(_public_repo_url())}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
         <span class="status-chip live"><span class="status-dot"></span>Cloud Run live</span>
       </div>
     </header>
@@ -2194,7 +2210,7 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
         """
         for value, label in gate_stats
     )
-    action_links = _public_action_links_html(evidence_sha256)
+    action_links = _public_action_links_html(evidence_sha256, current_view="graph")
     graph_sha = str(summary.get("canonical_graph_sha256") or "")
     service_label = _review_graph_service_label(payload)
     return f"""<!doctype html>
@@ -2477,7 +2493,7 @@ def _render_precomputed_graph_page(evidence_sha256: str, payload: dict[str, Any]
 <body>
   <main class="shell">
     <nav class="topbar" aria-label="Primary">
-      <a class="brand" href="/">
+      <a class="brand" href="/?evidence_sha256={_url_quote(evidence_sha256)}">
         <span class="brand-mark">OE</span>
         <span class="crumb">Reviews / {_html(service_label)} / <b>Canonical Review Graph</b></span>
       </a>
@@ -3283,23 +3299,20 @@ def _detail_summary_cells_html(
 def _detail_action_links_html(evidence_sha256: str) -> str:
     evidence = _url_quote(evidence_sha256)
     links = [
-        ("API view", f"/ui/api?evidence_sha256={evidence}", "human-readable JSON"),
-        ("Review graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions"),
-        ("Markdown report", f"/ui/report.md?evidence_sha256={evidence}", "human-readable Markdown report"),
+        ("Summary", f"/?evidence_sha256={evidence}", "read-only overview"),
+        ("API View", f"/ui/api?evidence_sha256={evidence}", "human-readable JSON"),
+        ("Review Graph", f"/ui/review-graph?evidence_sha256={evidence}", "nodes and provider positions"),
+        ("Markdown Report", f"/ui/report.md?evidence_sha256={evidence}", "human-readable Markdown report"),
     ]
     for demo_id in _public_rescore_demo_ids_for_evidence(evidence_sha256):
         links.append(("More Data Loop", f"/ui/rescore-demo?id={quote(demo_id)}", demo_id))
     links.extend(
         [
-            ("GitHub", _public_repo_url(), "repository"),
             ("Architecture", _public_architecture_url(), "system diagram"),
-            ("Demo Script", _public_demo_script_url(), "3 minute walkthrough"),
+            ("Demo Guide", _public_demo_script_url(), "video and reviewer links"),
         ]
     )
-    return "".join(
-        f'<a class="button" href="{_html(url)}" title="{_html(title)}">{_html(label)}</a>'
-        for label, url, title in links
-    )
+    return "".join(_public_action_link_html(label, url, title) for label, url, title in links)
 
 
 def _target_anchor_id(target: dict[str, Any], *, index: int) -> str:
@@ -5246,7 +5259,7 @@ def _render_precomputed_review_detail_page(evidence_sha256: str, payload: dict[s
       </div>
       <div class="status-row">
         <span class="evidence-chip">evidence {_html(_short_sha(evidence_sha256))}</span>
-        <a class="top-link" href="{_html(_public_repo_url())}">GitHub</a>
+        <a class="top-link" href="{_html(_public_repo_url())}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
         <span class="status-chip live"><span class="status-dot"></span>Cloud Run live</span>
       </div>
     </header>
@@ -6187,7 +6200,11 @@ def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | No
     devops_loop_panel = _precomputed_devops_loop_panel(precomputed or {})
     short_sha = _short_sha(evidence_sha256)
     full_url = f"/ui/full-review-page?evidence_sha256={_url_quote(evidence_sha256)}"
-    action_links = _public_action_links_html(evidence_sha256)
+    action_links = _public_action_links_html(
+        evidence_sha256,
+        include_detail=False,
+        current_view="summary",
+    )
     finding_title = str(finding.get("title") or "No persisted finding yet")
     finding_impact = str(finding.get("impact") or "Run analysis to create a persisted review result.")
     provider_text = (
@@ -6293,6 +6310,84 @@ def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | No
       padding: 10px;
       min-width: 0;
     }}
+    .section-block {{
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 18px;
+    }}
+    .section-heading {{ display: grid; gap: 6px; }}
+    .section-heading h2 {{ margin: 0; font-size: clamp(24px, 3vw, 32px); line-height: 1.15; }}
+    .eyebrow {{
+      color: var(--accent-2);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }}
+    .graph-arbitration, .trace-section {{ min-width: 0; }}
+    .review-arbitration-grid {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(280px, 1.3fr);
+      gap: 10px;
+      align-items: stretch;
+    }}
+    .arbitration-stat, .arbitration-gate {{
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 14px;
+    }}
+    .arbitration-stat strong {{ font-size: 24px; }}
+    .arbitration-stat.primary strong {{ color: var(--accent-2); }}
+    .arbitration-stat.safe strong {{ color: var(--accent); }}
+    .arbitration-stat span {{
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }}
+    .arbitration-gate {{
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      border-color: #cbd8ef;
+      background: #edf3fc;
+    }}
+    .arbitration-gate strong {{ font-size: 14px; }}
+    .arbitration-gate p {{ font-size: 13px; }}
+    .gate-mark {{
+      display: grid;
+      width: 34px;
+      height: 34px;
+      flex: none;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--warn);
+      font-size: 12px;
+      font-weight: 900;
+    }}
+    .inline-details {{ margin-top: 8px; }}
+    .inline-details summary {{ color: var(--accent-2); cursor: pointer; font-size: 12px; font-weight: 800; }}
+    .pill-row {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }}
+    .pill {{
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: 11px;
+      line-height: 1.2;
+    }}
+    .section-note {{ color: var(--muted); font-size: 13px; line-height: 1.5; }}
     .result-cell strong {{ font-size: 18px; }}
     .result-cell p {{ font-size: 13px; }}
     label {{
@@ -6359,6 +6454,7 @@ def _fast_review_shell(evidence_sha256: str, *, precomputed: dict[str, Any] | No
       header {{ display: grid; align-items: start; }}
       .meta {{ text-align: left; }}
       .summary-grid, .trace-grid, .target-preview-grid, .graph-summary-grid {{ grid-template-columns: 1fr; }}
+      .review-arbitration-grid {{ grid-template-columns: 1fr; }}
       .result-grid {{ grid-template-columns: 1fr 1fr; }}
       .result-cell:first-child {{ grid-column: 1 / -1; }}
       main {{ padding: 14px; }}
@@ -6489,7 +6585,11 @@ def _render_rescore_demo_page(demo_id: str) -> str:
     before_stance = _rescore_provider_stance_label(before.get("provider_positions"))
     after_stance = _rescore_provider_stance_label(after.get("provider_positions"))
     source_evidence_sha = str(payload.get("source_evidence_sha256") or "")
-    action_links = _public_action_links_html(source_evidence_sha) if source_evidence_sha else ""
+    action_links = (
+        _public_action_links_html(source_evidence_sha, current_view="rescore")
+        if source_evidence_sha
+        else ""
+    )
     source_trace_html = _rescore_source_trace_html(payload)
     source_review_url = str(payload.get("source_review_url") or "#")
     before_score = float(before.get("promotion_score") or 0)

@@ -220,6 +220,11 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert "support 1 / silent 1" in page.text
     assert "Convergence score = supporting schema-valid providers / all schema-valid providers." in page.text
     assert "Configuration mismatch requires review" in page.text
+    assert ".review-arbitration-grid {" in page.text
+    assert ".arbitration-stat, .arbitration-gate {" in page.text
+    assert ".pill-row {" in page.text
+    assert page.text.count(f'href="/ui/full-review-page?evidence_sha256={evidence_sha}"') == 1
+    assert f'href="/?evidence_sha256={evidence_sha}" title="read-only overview"' not in page.text
     assert "Loading saved result" not in page.text
     assert "Detailed review state is loading" not in page.text
     assert "Open full page directly" not in page.text
@@ -235,6 +240,10 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert "Promotion gate" in detail.text
     assert "user_impact_unverified" in detail.text
     assert "Definition: supporting schema-valid providers / all schema-valid providers" in detail.text
+    assert f'href="/?evidence_sha256={evidence_sha}"' in detail.text
+    assert detail.text.count("GitHub ↗") == 1
+    assert "Demo Guide ↗" in detail.text
+    assert 'target="_blank" rel="noopener noreferrer"' in detail.text
     assert static_detail.status_code == 200
     assert "Saved finding" in static_detail.text
     assert "Configuration mismatch requires review" in static_detail.text
@@ -246,6 +255,8 @@ def test_fast_review_shell_embeds_precomputed_summary(
     assert graph_view.status_code == 200
     assert "Review Graph" in graph_view.text
     assert "Nodes and edges" in graph_view.text
+    assert f'<a class="brand" href="/?evidence_sha256={evidence_sha}">' in graph_view.text
+    assert f'href="/ui/review-graph?evidence_sha256={evidence_sha}" title="nodes and provider positions"' not in graph_view.text
     assert report_view.status_code == 200
     assert "Incident Review Report" in report_view.text
     assert "This report is review material, not an accepted incident cause." in report_view.text

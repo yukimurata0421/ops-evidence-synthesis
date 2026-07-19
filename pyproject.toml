@@ -59,6 +59,6 @@ branch = true
 source = ["ops_evidence_synthesis"]
 
 [tool.coverage.report]
-fail_under = 75
+fail_under = 78
 precision = 1
 skip_covered = true
